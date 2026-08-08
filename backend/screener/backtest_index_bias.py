@@ -44,10 +44,17 @@ def load_all_snapshots(index_name):
     Load and concatenate every daily Index Tracker log for one index,
     sorted chronologically by real datetime (combining each file's date
     -- from the filename -- with each row's Time column).
+
+    Checks both layouts: the old flat one (signal_logs/index_tracker_*.xlsx,
+    from before daily subfolders existed) and the new one (signal_logs/
+    YYYY-MM-DD/index_tracker_*.xlsx), so nothing from before the folder
+    reorg drops out of the backtest.
     """
-    pattern = os.path.join(LOG_DIR, f"index_tracker_{index_name}_*.xlsx")
+    flat_pattern = os.path.join(LOG_DIR, f"index_tracker_{index_name}_*.xlsx")
+    nested_pattern = os.path.join(LOG_DIR, "*", f"index_tracker_{index_name}_*.xlsx")
+    all_paths = sorted(set(glob.glob(flat_pattern) + glob.glob(nested_pattern)))
     all_rows = []
-    for path in sorted(glob.glob(pattern)):
+    for path in all_paths:
         if "pre-update" in os.path.basename(path):
             continue  # archived schema-migration files, not part of the real series
         prefix = f"index_tracker_{index_name}_"
@@ -124,6 +131,110 @@ def backtest(index_name, horizon_minutes):
         results[b]["hit_rate"] = round(100 * results[b]["correct"] / t, 1) if t else None
 
     return results, len(rows)
+
+
+def backtest_by_day(index_name, horizon_minutes):
+    """
+    Same method as backtest() -- including the non-overlapping-sample
+    rule explained there -- but broken out day by day instead of
+    collapsed into one aggregate number across all history. Lets you
+    see whether a given day was actually a good one for the Bias
+    reading, rather than an overall average that can hide a lot of
+    day-to-day variation.
+
+    Returns {date_str: {bias_label: {'correct', 'total', 'hit_rate'}}},
+    newest day first.
+    """
+    rows = load_all_snapshots(index_name)
+    by_day = {}
+    next_eligible_time = None
+
+    for i, row in enumerate(rows):
+        bias = row.get("Bias")
+        if bias not in DIRECTIONAL_BIASES:
+            continue
+        if next_eligible_time is not None and row["_datetime"] < next_eligible_time:
+            continue
+        spot_now = row.get("Spot")
+        if spot_now is None:
+            continue
+
+        target_time = row["_datetime"] + timedelta(minutes=horizon_minutes)
+        future_row = next((r for r in rows[i + 1:] if r["_datetime"] >= target_time), None)
+        if future_row is None:
+            continue
+        spot_future = future_row.get("Spot")
+        if spot_future is None:
+            continue
+
+        day_str = row["_datetime"].strftime("%Y-%m-%d")
+        if day_str not in by_day:
+            by_day[day_str] = {b: {"correct": 0, "total": 0} for b in DIRECTIONAL_BIASES}
+
+        predicted_up = bias.startswith("Bullish")
+        actual_up = spot_future > spot_now
+        by_day[day_str][bias]["total"] += 1
+        if predicted_up == actual_up:
+            by_day[day_str][bias]["correct"] += 1
+        next_eligible_time = target_time
+
+    for day_str, results in by_day.items():
+        for b in results:
+            t = results[b]["total"]
+            results[b]["hit_rate"] = round(100 * results[b]["correct"] / t, 1) if t else None
+
+    return dict(sorted(by_day.items(), reverse=True))
+
+
+def write_backtest_report(index_name, horizons=(15, 30, 60)):
+    """
+    Builds a day-wise backtest Excel report for one index, one row per
+    (date, bias) combination, columns for each horizon -- and saves it
+    to signal_logs/backtest_reports/backtest_<INDEX>_<today>.xlsx
+    (regenerated fresh each time this is called, not appended to, since
+    it's a computed report rather than a log of events). Returns the
+    path.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    by_day_per_horizon = {h: backtest_by_day(index_name, h) for h in horizons}
+    all_days = sorted({d for h in horizons for d in by_day_per_horizon[h]}, reverse=True)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Backtest"
+
+    headers = ["Date", "Bias"]
+    for h in horizons:
+        headers += [f"{h}min Hit%", f"{h}min Samples"]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill("solid", fgColor="DDDDDD")
+
+    for day in all_days:
+        for bias in DIRECTIONAL_BIASES:
+            row = [day, bias]
+            has_any_sample = False
+            for h in horizons:
+                r = by_day_per_horizon[h].get(day, {}).get(bias, {"correct": 0, "total": 0, "hit_rate": None})
+                if r["total"] > 0:
+                    has_any_sample = True
+                row += [r["hit_rate"] if r["hit_rate"] is not None else "—", r["total"]]
+            if has_any_sample:
+                ws.append(row)
+
+    for col in ws.columns:
+        max_len = max(len(str(c.value)) for c in col)
+        ws.column_dimensions[col[0].column_letter].width = max(max_len + 2, 10)
+
+    out_dir = os.path.join(LOG_DIR, "backtest_reports")
+    os.makedirs(out_dir, exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    path = os.path.join(out_dir, f"backtest_{index_name}_{today}.xlsx")
+    wb.save(path)
+    return path
 
 
 def print_report(index_name, horizons=(15, 30, 60)):
