@@ -70,8 +70,9 @@ _current_date = None
 
 def _today_path():
     today = datetime.now().strftime("%Y-%m-%d")
-    os.makedirs(LOG_DIR, exist_ok=True)
-    return os.path.join(LOG_DIR, f"signals_{today}.xlsx"), today
+    day_dir = os.path.join(LOG_DIR, today)
+    os.makedirs(day_dir, exist_ok=True)
+    return os.path.join(day_dir, f"signals_{today}.xlsx"), today
 
 
 def _get_workbook(path):
@@ -379,3 +380,39 @@ def get_today_log_path():
     if it doesn't exist yet (no signals logged today)."""
     path, _ = _today_path()
     return path if os.path.exists(path) else None
+
+
+def list_available_dates():
+    """Every date that has a signals log, newest first. Checks both the
+    new nested layout (signal_logs/YYYY-MM-DD/signals_YYYY-MM-DD.xlsx)
+    and the old flat one (signal_logs/signals_YYYY-MM-DD.xlsx, from
+    before the folder reorg), so dates from before that change still
+    show up alongside newer ones."""
+    import glob
+    import re
+    dates = set()
+    date_pattern = re.compile(r'signals_(\d{4}-\d{2}-\d{2})\.xlsx$')
+
+    for path in glob.glob(os.path.join(LOG_DIR, "signals_*.xlsx")):
+        m = date_pattern.search(os.path.basename(path))
+        if m:
+            dates.add(m.group(1))
+    for path in glob.glob(os.path.join(LOG_DIR, "*", "signals_*.xlsx")):
+        m = date_pattern.search(os.path.basename(path))
+        if m:
+            dates.add(m.group(1))
+
+    return sorted(dates, reverse=True)
+
+
+def get_log_path_for_date(date_str):
+    """Path to a specific past day's log file (YYYY-MM-DD), for the
+    export-by-date endpoint. Checks the nested layout first, falls back
+    to the old flat one. Returns None if that date has no log."""
+    nested = os.path.join(LOG_DIR, date_str, f"signals_{date_str}.xlsx")
+    if os.path.exists(nested):
+        return nested
+    flat = os.path.join(LOG_DIR, f"signals_{date_str}.xlsx")
+    if os.path.exists(flat):
+        return flat
+    return None
