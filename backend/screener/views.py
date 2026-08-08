@@ -728,7 +728,22 @@ def _build_all():
     # seeing the current snapshot.
     try:
         from .excel_logger import sync_active_signals, check_outcomes
-        sync_active_signals(quality_signals)
+        newly_logged = sync_active_signals(quality_signals)
+        if newly_logged:
+            try:
+                from trading.telegram_bot import TelegramBot
+                bot = TelegramBot()
+                for s in newly_logged:
+                    bot.send_signal_alert(
+                        symbol=s.get("symbol"),
+                        signal_type=s.get("action"),
+                        entry=s.get("entry"),
+                        sl=s.get("sl"),
+                        target=s.get("target1"),
+                        grade=s.get("grade", "A"),
+                    )
+            except Exception as e:
+                print(f"[Telegram] Failed to send new-signal alert: {e}")
         if is_authenticated():
             check_outcomes(get_quotes)
     except Exception as e:
