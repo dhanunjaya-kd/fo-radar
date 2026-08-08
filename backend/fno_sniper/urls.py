@@ -5,7 +5,9 @@ from screener.views import (
     SniperOnlyView, StockDetailView, NewsView,
     MarketSummaryOldView, FoStockListOldView,
     FyersStatusView, OptionAnalyticsView, FyersBrowserTokenView,
-    SignalExcelExportView, IndexTrackerView, IndexTrackerExportView
+    SignalExcelExportView, IndexTrackerView, IndexTrackerExportView,
+    SignalExportDatesView, SignalExcelExportByDateView,
+    IndexBacktestView, IndexBacktestExportView
 )
 
 urlpatterns = [
@@ -24,8 +26,12 @@ urlpatterns = [
     path('api/fyers-browser-token/', FyersBrowserTokenView.as_view(), name='fyers_browser_token'),
     path('api/option-analytics/<str:symbol>/', OptionAnalyticsView.as_view(), name='option_analytics'),
     path('api/signals/export/', SignalExcelExportView.as_view(), name='signals_export'),
+    path('api/signals/export/dates/', SignalExportDatesView.as_view(), name='signals_export_dates'),
+    path('api/signals/export/<str:date_str>/', SignalExcelExportByDateView.as_view(), name='signals_export_by_date'),
     path('api/index-tracker/<str:index_name>/', IndexTrackerView.as_view(), name='index_tracker'),
     path('api/index-tracker/<str:index_name>/export/', IndexTrackerExportView.as_view(), name='index_tracker_export'),
+    path('api/index-backtest/<str:index_name>/', IndexBacktestView.as_view(), name='index_backtest'),
+    path('api/index-backtest/<str:index_name>/export/', IndexBacktestExportView.as_view(), name='index_backtest_export'),
 
     # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
