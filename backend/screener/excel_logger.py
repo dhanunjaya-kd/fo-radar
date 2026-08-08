@@ -194,12 +194,19 @@ def log_new_signal(signal):
          existing row (clear "Exited At") instead of creating a
          duplicate -- this is what stops a threshold-hovering stock from
          spamming a dozen near-identical rows a few minutes apart.
+
+    Returns True only for case 1/2 (a genuinely fresh row was created).
+    Reactivations, already-active no-ops, and write failures all return
+    False. Callers use this to know when a signal is worth alerting on
+    elsewhere (e.g. Telegram) without re-implementing the same
+    new-vs-reactivation distinction -- a reactivated threshold-hoverer
+    shouldn't re-alert any more than it should re-log.
     """
     if not OPENPYXL_AVAILABLE:
-        return
+        return False
     key = (signal.get("symbol"), signal.get("action"))
     if not key[0]:
-        return
+        return False
 
     with _lock:
         path, today = _today_path()
@@ -207,7 +214,7 @@ def log_new_signal(signal):
 
         existing = _row_index.get(key)
         if existing and existing["exited_at"] is None:
-            return  # already active and logged, nothing to do
+            return False  # already active and logged, nothing to do
 
         try:
             wb = _get_workbook(path)
@@ -221,15 +228,17 @@ def log_new_signal(signal):
                     ws.cell(row=existing["row"], column=exited_col).value = ""
                     wb.save(path)
                     existing["exited_at"] = None
-                    return
+                    return False
 
             # Fresh row -- either never seen today, or the gap since it
             # last exited was long enough to count as a new setup.
             row_num = _write_new_row(ws, signal)
             wb.save(path)
             _row_index[key] = {"row": row_num, "exited_at": None}
+            return True
         except Exception as e:
             print(f"[ExcelLog] Failed to log {key}: {e}")
+            return False
 
 
 def mark_exited(symbol, action):
@@ -266,9 +275,14 @@ def sync_active_signals(current_signals):
     out what's newly appeared (logs/reactivates it) and what dropped out
     since last cycle (marks it exited) -- this is the only function
     _build_all() needs to call.
+
+    Returns the list of signal dicts that were genuinely new this cycle
+    (fresh rows only, not reactivations) -- callers use this to trigger
+    something like a Telegram alert without duplicating the new-vs-
+    reactivation logic already handled here.
     """
     if not OPENPYXL_AVAILABLE:
-        return
+        return []
     current_keys = {(s.get("symbol"), s.get("action")) for s in current_signals if s.get("symbol")}
 
     with _lock:
@@ -277,14 +291,18 @@ def sync_active_signals(current_signals):
         previously_active = {k for k, v in _row_index.items() if v["exited_at"] is None}
 
     # New signals this cycle (not currently marked active in memory)
+    newly_logged = []
     for s in current_signals:
         key = (s.get("symbol"), s.get("action"))
         if key[0] and key not in previously_active:
-            log_new_signal(s)
+            if log_new_signal(s):
+                newly_logged.append(s)
 
     # Signals that dropped out since last cycle
     for key in previously_active - current_keys:
         mark_exited(key[0], key[1])
+
+    return newly_logged
 
 
 def check_outcomes(get_quotes_fn):
