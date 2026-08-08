@@ -63,20 +63,17 @@ def send_daily_summary():
 
     today = timezone.now().date()
     try:
-        overview = MarketOverview.objects.filter(date=today).latest('timestamp')
+        overview = MarketOverview.objects.filter(timestamp__date=today).latest('timestamp')
         bot = TelegramBot()
         bot.send_market_summary({
             'nifty_spot': overview.nifty_spot,
             'nifty_change': overview.nifty_change,
             'banknifty_spot': overview.banknifty_spot,
             'banknifty_change': overview.banknifty_change,
+            'total_pcr': overview.total_pcr,
             'total_signals': overview.total_signals,
             'buy_signals': overview.buy_signals,
             'sell_signals': overview.sell_signals,
-            'avg_score': overview.avg_score,
-            'avg_confidence': overview.avg_confidence,
-            'pcr_nifty': overview.pcr_nifty,
-            'pcr_banknifty': overview.pcr_banknifty,
         })
     except Exception as e:
         logger.error(f"Daily summary error: {e}")
