@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+// Relative on purpose -- see the same note in SignalList.jsx. Routes
+// through Vite's dev-server proxy so this works from any host the page
+// was loaded from (localhost, home wifi, Tailscale) with no changes.
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const BIAS_STYLE = {
   'Bullish (Strong)': 'text-emerald-400 bg-emerald-500/15',
