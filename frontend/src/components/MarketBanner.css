@@ -1,0 +1,46 @@
+.market-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.6rem 1.5rem;
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  overflow-x: auto;
+}
+
+.banner-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.banner-item .label {
+  font-size: 0.65rem;
+  color: #64748b;
+  letter-spacing: 0.05em;
+}
+
+.banner-item .value {
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.banner-item .value.high { color: #ef4444; }
+.banner-item .value.low { color: #10b981; }
+.banner-item .value.status.open { color: #10b981; }
+.banner-item .value.status.closed { color: #ef4444; }
+
+.banner-divider {
+  width: 1px;
+  height: 24px;
+  background: #334155;
+}
+
+.banner-time {
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 0.75rem;
+}

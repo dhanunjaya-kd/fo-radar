@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-sniper-bg text-sniper-text antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0a0f0a; }
+  ::-webkit-scrollbar-thumb { background: #1a2a1a; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2a4a2a; }
+}
+
+@layer components {
+  .signal-row {
+    @apply grid items-center px-3 py-2.5 rounded-lg border transition-all duration-200 cursor-pointer;
+    grid-template-columns: 50px 100px 70px 110px 80px 50px 50px 60px 60px 60px 80px;
+    gap: 8px;
+  }
+  .signal-row:hover {
+    @apply border-sniper-borderHover;
+    transform: translateY(-1px);
+  }
+  .badge-grade-a { @apply px-2 py-0.5 rounded text-[11px] font-semibold bg-green-900/30 text-green-400 border border-green-800; }
+  .badge-grade-b { @apply px-2 py-0.5 rounded text-[11px] font-semibold bg-yellow-900/30 text-yellow-400 border border-yellow-800; }
+  .badge-grade-c { @apply px-2 py-0.5 rounded text-[11px] font-semibold bg-red-900/30 text-red-400 border border-red-800; }
+  .btn-buy { @apply px-3 py-1 rounded text-[10px] font-bold bg-green-900/40 text-green-400 border border-green-700 hover:bg-green-800/50 transition-colors; }
+  .btn-sell { @apply px-3 py-1 rounded text-[10px] font-bold bg-red-900/40 text-red-400 border border-red-700 hover:bg-red-800/50 transition-colors; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.animate-pulse-dot { animation: pulse-dot 1.5s infinite; }
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 60s linear infinite;
+}

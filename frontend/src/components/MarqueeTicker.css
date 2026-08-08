@@ -1,0 +1,51 @@
+.marquee-wrapper {
+  width: 100%;
+  background: #0b0f19;
+  border-bottom: 1px solid #1f2937;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  height: 42px;
+  display: flex;
+  align-items: center;
+}
+
+.marquee-track {
+  display: inline-flex;
+  gap: 3rem;
+  animation: scroll-left 80s linear infinite;
+  will-change: transform;
+}
+
+@keyframes scroll-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-33.333%); }
+}
+
+.ticker-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+}
+
+.ticker-symbol {
+  color: #e2e8f0;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ticker-price { color: #cbd5e1; }
+.ticker-change.up { color: #10b981; }
+.ticker-change.down { color: #ef4444; }
+.ticker-signal {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.ticker-signal.sniper { background: #dc2626; color: #fff; }
+.ticker-signal.watchlist { background: #f59e0b; color: #000; }
+.ticker-signal.hold { background: #3b82f6; color: #fff; }

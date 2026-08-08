@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: fno-sniper-backend
+    runtime: python
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py migrate
+      python manage.py shell < seed_stocks.py
+    startCommand: |
+      celery -A fno_sniper worker -l info &
+      celery -A fno_sniper beat -l info &
+      gunicorn -k uvicorn.workers.UvicornWorker fno_sniper.asgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DJANGO_SETTINGS_MODULE
+        value: fno_sniper.settings
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fno-sniper-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: fno-sniper-redis
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: fno-sniper-redis
+          property: connectionString
+      - key: FYERS_APP_ID
+        sync: false
+      - key: FYERS_APP_SECRET
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: NEWSAPI_KEY
+        sync: false
+
+databases:
+  - name: fno-sniper-db
+    databaseName: fno_sniper
+    user: fno_sniper
+
+redis:
+  - name: fno-sniper-redis
+    plan: free
+    ipAllowList: []

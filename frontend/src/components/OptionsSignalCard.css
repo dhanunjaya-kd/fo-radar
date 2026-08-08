@@ -1,0 +1,34 @@
+.os-card { font-family: -apple-system, BlinkMacSystemFont, sans-serif; max-width: 420px; color: #e8e8e8; padding: 16px; border-radius: 16px; background: linear-gradient(180deg, #1a1a2e, #16213e); border: 1px solid rgba(255,255,255,0.06); }
+.os-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.os-name { font-size: 22px; font-weight: 700; color: #fff; }
+.os-price { font-size: 18px; font-weight: 600; color: #e0e0e0; margin-left: 6px; }
+.os-grade { width: 52px; height: 52px; border-radius: 50%; background: rgba(255,255,255,0.08); border: 2px solid rgba(255,255,255,0.15); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.g-num { font-size: 20px; font-weight: 700; color: #a0a0b0; }
+.g-label { font-size: 9px; font-weight: 500; color: #707080; }
+.g-sub { font-size: 9px; font-weight: 500; color: #707080; }
+.os-tags { display: flex; gap: 8px; margin-bottom: 12px; }
+.tag-red { padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #ff6b6b; border: 1px solid rgba(255,107,107,0.4); background: rgba(255,107,107,0.08); }
+.tag-gray { padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 500; color: #a0a0b0; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04); }
+.os-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #f0c040; border: 1.5px solid rgba(240,192,64,0.5); background: rgba(240,192,64,0.08); margin-bottom: 14px; }
+.os-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.box { background: rgba(0,0,0,0.25); border-radius: 10px; padding: 10px 6px; text-align: center; border: 1px solid rgba(255,255,255,0.04); }
+.lbl { font-size: 11px; font-weight: 500; color: #808090; text-transform: uppercase; margin-bottom: 4px; }
+.val { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+.sub { font-size: 11px; font-weight: 500; margin-bottom: 2px; }
+.note { font-size: 11px; color: #606070; }
+.red { color: #ff6b6b; }
+.green { color: #4ade80; }
+.blue { color: #60a5fa; }
+.orange { color: #fb923c; }
+.os-levels { display: flex; gap: 10px; margin-bottom: 12px; }
+.pill-red { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #ff6b6b; background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.25); }
+.pill-green { padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; color: #4ade80; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.25); }
+.os-chips { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.chip { display: inline-block; padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 500; color: #a0a0b0; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.06); width: fit-content; }
+.os-trade { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 14px; border: 1px solid rgba(255,255,255,0.05); }
+.tsignal { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 24px; font-size: 14px; font-weight: 700; color: #ff6b6b; border: 1.5px solid rgba(255,107,107,0.5); background: rgba(255,107,107,0.08); margin-bottom: 14px; }
+.trow { display: flex; justify-content: space-around; margin-bottom: 12px; }
+.tlbl { font-size: 11px; font-weight: 500; color: #808090; text-transform: uppercase; text-align: center; margin-bottom: 4px; }
+.tval { font-size: 20px; font-weight: 700; text-align: center; }
+.tfoot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; font-size: 12px; color: #a0a0b0; }
+.rr { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; color: #4ade80; background: rgba(74,222,128,0.12); border: 1px solid rgba(74,222,128,0.25); }
