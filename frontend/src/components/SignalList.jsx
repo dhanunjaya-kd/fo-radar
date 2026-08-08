@@ -58,6 +58,12 @@ export default function LiveSignals() {
   const [alertsEnabled, setAlertsEnabled] = useState(
     typeof Notification !== 'undefined' && Notification.permission === 'granted'
   );
+  // Past-day export picker -- '' means "today" (the original single
+  // download button's behavior, unchanged). Populated once from
+  // /api/signals/export/dates/, which lists every date that actually
+  // has a log, newest first.
+  const [availableDates, setAvailableDates] = useState([]);
+  const [selectedDate, setSelectedDate] = useState('');
   // null = first load -- don't alert for signals that were already active
   // when the page opened, only for ones that appear AFTER that.
   const knownKeysRef = useRef(null);
@@ -70,6 +76,13 @@ export default function LiveSignals() {
     const perm = await Notification.requestPermission();
     setAlertsEnabled(perm === 'granted');
   };
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/signals/export/dates/`)
+      .then(res => res.ok ? res.json() : { dates: [] })
+      .then(data => setAvailableDates(data.dates || []))
+      .catch(() => setAvailableDates([])); // date picker just won't show -- not worth surfacing an error for
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -203,10 +216,25 @@ export default function LiveSignals() {
           </h2>
           <div className="flex items-center gap-2">
             {renderAlertToggle(true)}
+            {availableDates.length > 0 && (
+              <select
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                title="Pick a date to download that day's log instead of today's"
+                className="h-9 text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 text-slate-300 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="">Today</option>
+                {availableDates.map(d => (
+                  <option key={d} value={d}>
+                    {new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </option>
+                ))}
+              </select>
+            )}
             <a
-              href={`${API_BASE}/api/signals/export/`}
-              title="Download today's log (Excel)"
-              aria-label="Download today's log (Excel)"
+              href={selectedDate ? `${API_BASE}/api/signals/export/${selectedDate}/` : `${API_BASE}/api/signals/export/`}
+              title={selectedDate ? `Download ${selectedDate}'s log (Excel)` : "Download today's log (Excel)"}
+              aria-label={selectedDate ? `Download ${selectedDate}'s log (Excel)` : "Download today's log (Excel)"}
               className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
               download
             >
