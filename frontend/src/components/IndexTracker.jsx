@@ -155,6 +155,98 @@ function HistoryTable({ rows }) {
   );
 }
 
+// Day-wise Bias-accuracy backtest -- does the Bias reading (Bullish/
+// Bearish) actually predict where price goes next, broken out by day.
+// Loaded lazily (only once the section is first expanded) since it's a
+// real computation over every historical snapshot file, not a cheap
+// cache read like the rest of this tab. Shows the 30-minute horizon
+// inline for a quick read; the download has 15/30/60min side by side.
+function BacktestSection({ indexName }) {
+  const [show, setShow] = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!show || data || loading) return;
+    setLoading(true);
+    fetch(`${API_BASE}/api/index-backtest/${indexName}/`)
+      .then(r => r.json())
+      .then(d => { setData(d); setError(null); })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [show, indexName, data, loading]);
+
+  const days = data ? Object.keys(data.horizons?.[30] || {}) : [];
+  const rows = [];
+  if (data) {
+    for (const day of days) {
+      for (const [bias, r] of Object.entries(data.horizons[30][day])) {
+        if (r.total > 0) rows.push({ day, bias, ...r });
+      }
+    }
+  }
+
+  return (
+    <div className="mt-3 border-t border-slate-800/60 pt-3">
+      <div className="flex items-center justify-between mb-2 gap-2">
+        <button
+          onClick={() => setShow(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          {show ? '▲ Hide' : '▼ Show'} Bias backtest (does it predict price?)
+        </button>
+        <a
+          href={`${API_BASE}/api/index-backtest/${indexName}/export/`}
+          className="text-[11px] font-medium text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 px-2.5 py-1 rounded-lg hover:bg-indigo-500/20 transition-colors shrink-0"
+          download
+        >
+          📥 Export
+        </a>
+      </div>
+
+      {show && (
+        <>
+          {loading && <div className="py-4 text-center text-slate-500 text-xs">Crunching the numbers...</div>}
+          {error && <div className="py-2 text-center text-rose-400 text-xs">⚠ {error}</div>}
+          {data && rows.length === 0 && (
+            <div className="py-4 text-center text-slate-500 text-xs">
+              Not enough history yet — needs a directional Bias reading followed by a later snapshot to test against. More days logged = more here.
+            </div>
+          )}
+          {rows.length > 0 && (
+            <div className="overflow-x-auto rounded-lg border border-slate-800">
+              <p className="text-[10px] text-slate-500 px-3 pt-2">30-minute look-ahead shown here — the download has 15/30/60min side by side.</p>
+              <table className="w-full text-xs mt-1">
+                <thead>
+                  <tr className="bg-slate-800/60 text-slate-500 text-[10px] uppercase">
+                    <th className="text-left px-3 py-2">Date</th>
+                    <th className="text-left px-3 py-2">Bias</th>
+                    <th className="text-right px-3 py-2">Hit %</th>
+                    <th className="text-right px-3 py-2">Samples</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={`${r.day}-${r.bias}`} className="border-t border-slate-800/60">
+                      <td className="px-3 py-1.5 text-slate-300 whitespace-nowrap">{r.day}</td>
+                      <td className="px-3 py-1.5">
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] whitespace-nowrap ${BIAS_STYLE[r.bias] || 'text-slate-400'}`}>{r.bias}</span>
+                      </td>
+                      <td className={`px-3 py-1.5 text-right font-semibold ${r.hit_rate >= 50 ? 'text-emerald-400' : 'text-rose-400'}`}>{r.hit_rate}%</td>
+                      <td className="px-3 py-1.5 text-right text-slate-500">{r.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function IndexSection({ indexName }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -217,6 +309,7 @@ function IndexSection({ indexName }) {
                 <HistoryTable rows={rows} />
               </div>
             )}
+            <BacktestSection indexName={indexName} />
           </>
         )}
       </div>
