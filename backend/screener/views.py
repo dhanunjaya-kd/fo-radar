@@ -774,7 +774,22 @@ class MarketSummaryOldView(APIView):
             vix = _index_cache.get("india_vix")
             pcr = _index_cache.get("pcr", {"value": None, "sentiment": "N/A"})
             warming = len(_stock_cache) == 0
-        
+
+        # MarketBanner (this endpoint) is the one thing mounted on every
+        # tab, polling every 30s regardless of which tab is active --
+        # unlike the sniper-only endpoint, which only checks outcomes
+        # while specifically on the Live Signals tab. Piggybacking the
+        # same check here means SL/Target hits get caught as long as the
+        # app is open at all, not just while that one tab is in view.
+        # check_outcomes() is safe to call repeatedly (see excel_logger.py
+        # module docstring) so there's no conflict with the existing call.
+        try:
+            if is_authenticated():
+                from .excel_logger import check_outcomes
+                check_outcomes(get_quotes)
+        except Exception as e:
+            print(f"[ExcelLog] outcome check (market-summary) failed: {e}")
+
         return Response({
             "nifty50": nifty or {"price": 0, "change": 0, "change_percent": 0},
             "banknifty": bank or {"price": 0, "change": 0, "change_percent": 0},
@@ -898,6 +913,28 @@ class SignalExcelExportView(APIView):
         return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
 
 
+class SignalExportDatesView(APIView):
+    """Every date that has a signal log available, newest first --
+    powers the date picker next to the download button so past days
+    are reachable, not just today. GET /api/signals/export/dates/"""
+    def get(self, request):
+        from .excel_logger import list_available_dates
+        return Response({"dates": list_available_dates()})
+
+
+class SignalExcelExportByDateView(APIView):
+    """Same file the regular export gives you for today, but for any
+    past date that has one. GET /api/signals/export/<YYYY-MM-DD>/"""
+    def get(self, request, date_str):
+        from django.http import FileResponse, JsonResponse
+        from .excel_logger import get_log_path_for_date
+        path = get_log_path_for_date(date_str)
+        if not path:
+            return JsonResponse({"error": f"No signals logged for {date_str}."}, status=404)
+        filename = os.path.basename(path)
+        return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
+
+
 class IndexTrackerView(APIView):
     """Today's NIFTY/BANKNIFTY intraday OI snapshot history, most recent
     first. GET /api/index-tracker/<NIFTY|BANKNIFTY>/"""
@@ -908,6 +945,39 @@ class IndexTrackerView(APIView):
             return Response({"error": "index_name must be NIFTY or BANKNIFTY"}, status=400)
         rows = get_today_snapshots(name)
         return Response(clean_json({"index": name, "snapshots": rows}))
+
+
+class IndexBacktestView(APIView):
+    """Day-wise Bias-accuracy backtest for one index, across 15/30/60
+    minute look-ahead horizons -- does the Bias reading actually predict
+    where price goes next, broken out per day rather than one aggregate
+    number. GET /api/backtest/<NIFTY|BANKNIFTY>/"""
+    def get(self, request, index_name):
+        from .backtest_index_bias import backtest_by_day
+        name = index_name.upper()
+        if name not in ("NIFTY", "BANKNIFTY"):
+            return Response({"error": "index_name must be NIFTY or BANKNIFTY"}, status=400)
+        horizons = (15, 30, 60)
+        by_horizon = {h: backtest_by_day(name, h) for h in horizons}
+        return Response(clean_json({"index": name, "horizons": by_horizon}))
+
+
+class IndexBacktestExportView(APIView):
+    """Download the day-wise backtest as an Excel file, one row per
+    date+bias with a Hit% and sample count column per horizon.
+    GET /api/backtest/<NIFTY|BANKNIFTY>/export/"""
+    def get(self, request, index_name):
+        from django.http import FileResponse, JsonResponse
+        from .backtest_index_bias import write_backtest_report
+        name = index_name.upper()
+        if name not in ("NIFTY", "BANKNIFTY"):
+            return JsonResponse({"error": "index_name must be NIFTY or BANKNIFTY"}, status=400)
+        try:
+            path = write_backtest_report(name)
+        except Exception as e:
+            return JsonResponse({"error": f"Couldn't generate backtest report: {e}"}, status=500)
+        filename = os.path.basename(path)
+        return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
 
 
 class IndexTrackerExportView(APIView):
