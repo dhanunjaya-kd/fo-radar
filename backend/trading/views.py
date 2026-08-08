@@ -65,5 +65,5 @@ def today_pnl(request):
 @api_view(['POST'])
 def test_telegram(request):
     bot = TelegramAlertBot()
-    success = asyncio.run(bot.send_alert("🧪 <b>Test Alert</b>\nF&O Sniper Telegram bot is working!"))
-    return Response({"sent": success})
+    result = bot.send_message("🧪 <b>Test Alert</b>\nF&O Radar Telegram bot is working!")
+    return Response({"sent": result is not None})
