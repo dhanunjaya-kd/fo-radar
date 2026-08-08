@@ -85,3 +85,6 @@ GET  /api/news/                     → News feed
 
 ## Environment Variables
 See `backend/.env.example` for all required variables.
+
+
+dhanu
