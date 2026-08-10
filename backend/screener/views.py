@@ -766,13 +766,23 @@ def _build_all():
 
 
 def _background_worker():
+    from .market_hours import is_market_hours
     while True:
         try:
-            _build_all()
-            print(f"[{datetime.now()}] Background refresh complete. Stocks: {len(_stock_cache)}, Signals: {len(_signal_cache)}")
+            if is_market_hours():
+                _build_all()
+                print(f"[{datetime.now()}] Background refresh complete. Stocks: {len(_stock_cache)}, Signals: {len(_signal_cache)}")
+                time.sleep(90)
+            else:
+                # Market closed -- no point re-checking every 90s or
+                # burning Fyers API calls on stale data. Check every 5
+                # min instead until it's open, so an overnight/weekend
+                # run doesn't spam identical log lines for no reason.
+                print(f"[{datetime.now()}] Market closed -- waiting.")
+                time.sleep(300)
         except Exception as e:
             print(f"[{datetime.now()}] Background error: {e}")
-        time.sleep(90)
+            time.sleep(90)
 
 _worker_thread = threading.Thread(target=_background_worker, daemon=True)
 _worker_thread.start()

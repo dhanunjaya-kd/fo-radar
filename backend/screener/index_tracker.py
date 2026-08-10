@@ -86,8 +86,9 @@ _last_snapshot = {}  # {index_name: {'ce_oi': int, 'pe_oi': int}}
 
 def _today_path(index_name):
     today = datetime.now().strftime("%Y-%m-%d")
-    os.makedirs(LOG_DIR, exist_ok=True)
-    return os.path.join(LOG_DIR, f"index_tracker_{index_name}_{today}.xlsx")
+    day_dir = os.path.join(LOG_DIR, today)
+    os.makedirs(day_dir, exist_ok=True)
+    return os.path.join(day_dir, f"index_tracker_{index_name}_{today}.xlsx")
 
 
 def _get_workbook(path):
@@ -200,6 +201,10 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     vix: India VIX, same reasoning -- already fetched elsewhere per cycle.
     """
     if not OPENPYXL_AVAILABLE or index_name not in INDEX_SYMBOLS:
+        return None
+
+    from .market_hours import is_market_hours
+    if not is_market_hours():
         return None
 
     from .fyers_client import get_option_analytics, get_quotes
