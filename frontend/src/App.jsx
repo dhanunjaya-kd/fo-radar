@@ -7,10 +7,33 @@ import Watchlist from './components/Watchlist';
 import Analytics from './components/Analytics';
 import IndexTracker from './components/IndexTracker';
 
+// The 4 valid tab ids -- used to validate whatever's in localStorage
+// so a stale/unrecognized value (e.g. from an older version of the
+// app) can't leave activeTab pointing at nothing and rendering blank.
+const VALID_TABS = ['signals', 'watchlist', 'oi', 'index'];
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState('signals');
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const stored = localStorage.getItem('fo-radar-active-tab');
+      return VALID_TABS.includes(stored) ? stored : 'signals';
+    } catch {
+      return 'signals'; // localStorage unavailable (private browsing etc.) -- just use the default
+    }
+  });
   const [signalCount, setSignalCount] = useState(null);
   const [watchlistCount, setWatchlistCount] = useState(null);
+
+  // Remember whichever tab is active so a page reload stays put instead
+  // of always resetting to Live Signals -- the tab itself was never
+  // persisted anywhere before this, only held in memory.
+  useEffect(() => {
+    try {
+      localStorage.setItem('fo-radar-active-tab', activeTab);
+    } catch {
+      // private browsing or similar -- not worth failing over, just skip persisting
+    }
+  }, [activeTab]);
 
   const tabs = [
     { id: 'signals', label: 'Live Signals', count: signalCount },
