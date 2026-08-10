@@ -12,6 +12,30 @@ class TelegramBot:
         self.chat_id = chat_id or os.environ.get('TELEGRAM_CHAT_ID', '')
         self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
 
+    def send_document(self, file_path, caption=None):
+        """
+        Send a file as a Telegram document (multipart upload, different
+        from send_message's plain JSON POST). Used for the weekly
+        report -- the file itself, not just a text summary.
+        """
+        if not self.bot_token or not self.chat_id:
+            print("[TelegramBot] Token or Chat ID not configured. Skipping send.")
+            return None
+
+        url = f"{self.base_url}/sendDocument"
+        try:
+            with open(file_path, 'rb') as f:
+                files = {'document': (os.path.basename(file_path), f)}
+                data = {'chat_id': self.chat_id}
+                if caption:
+                    data['caption'] = caption
+                    data['parse_mode'] = 'HTML'
+                response = requests.post(url, data=data, files=files, timeout=30)
+                return response.json()
+        except Exception as e:
+            print(f"[TelegramBot] Failed to send document: {e}")
+            return None
+
     def send_message(self, message, parse_mode='HTML'):
         """Send a text message to Telegram."""
         if not self.bot_token or not self.chat_id:
