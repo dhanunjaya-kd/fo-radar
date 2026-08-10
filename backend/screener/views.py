@@ -749,20 +749,12 @@ def _build_all():
     except Exception as e:
         print(f"[ExcelLog] sync failed: {e}")
 
-    # NIFTY/BANKNIFTY index-level OI snapshot -- separate from the stock
-    # signal log, only these two indices per explicit request.
-    if is_authenticated():
-        try:
-            from .index_tracker import snapshot_all
-            snapshot_all(
-                change_percents={
-                    "NIFTY": nifty.get("change_percent"),
-                    "BANKNIFTY": bank.get("change_percent"),
-                },
-                vix=vix.get("price"),
-            )
-        except Exception as e:
-            print(f"[IndexTracker] snapshot failed: {e}")
+    # NIFTY/BANKNIFTY index snapshotting used to happen right here, but
+    # that tied it to this function's own ~2.5-3min real cycle time (the
+    # 90s sleep below plus however long the 200-stock scan above it
+    # actually takes). Moved to its own faster, independent worker below
+    # -- see _index_snapshot_worker -- so index snapshots can run on a
+    # ~60s cadence without needing the whole stock scan to also speed up.
 
 
 def _background_worker():
@@ -786,6 +778,49 @@ def _background_worker():
 
 _worker_thread = threading.Thread(target=_background_worker, daemon=True)
 _worker_thread.start()
+
+
+def _index_snapshot_worker():
+    """
+    Separate, faster loop just for NIFTY/BANKNIFTY snapshots -- was
+    previously done inside _build_all() above, which tied index
+    snapshots to that function's real cycle time (its own 90s sleep
+    plus however long the 200-stock scan actually takes on top of
+    that -- around 2.5-3 min in practice, not 90s). A 2-index quote
+    fetch is cheap enough to run on its own much faster ~60s cadence
+    without meaningfully adding to Fyers API load the way re-running
+    the whole stock scan that often would. Calls _fetch_index directly
+    each cycle for genuinely fresh data, not a stale cached value --
+    the tradeoff is a small amount of duplicate quote-fetching between
+    this and _build_all() (both still fetch NIFTY/BANKNIFTY/VIX
+    independently, since _build_all() also needs them for the top
+    banner), but that's lightweight quote calls, not full option
+    chains, so it's a reasonable price for decoupling the two cadences.
+    """
+    from .market_hours import is_market_hours
+    from .index_tracker import snapshot_all
+    while True:
+        try:
+            if is_market_hours():
+                nifty = _fetch_index("NIFTY 50", ["^NSEI", "NSEI.NS", "^NSEI.NS"])
+                bank = _fetch_index("BANKNIFTY", ["^NSEBANK", "NSEBANK.NS", "NIFTY_BANK.NS", "^NSEBANK.NS"])
+                vix = _fetch_index("INDIA VIX", ["^INDIAVIX", "INDIAVIX.NS", "^INDIAVIX.NS"])
+                snapshot_all(
+                    change_percents={
+                        "NIFTY": nifty.get("change_percent"),
+                        "BANKNIFTY": bank.get("change_percent"),
+                    },
+                    vix=vix.get("price"),
+                )
+                time.sleep(60)
+            else:
+                time.sleep(300)
+        except Exception as e:
+            print(f"[{datetime.now()}] Index snapshot worker error: {e}")
+            time.sleep(60)
+
+_index_snapshot_thread = threading.Thread(target=_index_snapshot_worker, daemon=True)
+_index_snapshot_thread.start()
 
 # ============================================================
 # VIEWS — READ FROM CACHE ONLY, NO BLOCKING
