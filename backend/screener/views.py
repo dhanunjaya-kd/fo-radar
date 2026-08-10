@@ -1118,6 +1118,32 @@ R:R {signal.get('risk_reward', 2)}
 # JSON CLEANER
 # ============================================================
 
+class WeeklyReportView(APIView):
+    """
+    Download the weekly signals + index report on demand. Same content
+    the Friday-scheduled command generates. GET /api/weekly-report/
+    Add ?telegram=1 to also send it to Telegram right away, same as
+    the scheduled command does automatically.
+    """
+    def get(self, request):
+        from django.http import FileResponse, JsonResponse
+        from .weekly_report import generate_weekly_report
+        path = generate_weekly_report()
+        if not path:
+            return JsonResponse({"error": "Report generation failed."}, status=500)
+
+        if request.GET.get('telegram'):
+            try:
+                from trading.telegram_bot import TelegramBot
+                bot = TelegramBot()
+                bot.send_document(path, caption=f"📊 <b>F&O Radar — Weekly Report</b>\n{os.path.basename(path)}")
+            except Exception as e:
+                print(f"[Telegram] Failed to send weekly report: {e}")
+
+        filename = os.path.basename(path)
+        return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
+
+
 def clean_json(data):
     """Replace NaN, Inf, -Inf with None so JSON serializes properly"""
     if isinstance(data, dict):
