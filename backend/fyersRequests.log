@@ -92896,3 +92896,5 @@
 {"level":"DEBUG","location":"[get_call:164] fyersModel","message":{"Status Code":200,"API":"/options-chain-v3"},"timestamp":"2026-08-10 12:11:38,220+0530","service":"FyersAPIRequest"}
 {"level":"DEBUG","location":"[get_call:164] fyersModel","message":{"Status Code":200,"API":"/quotes"},"timestamp":"2026-08-10 12:11:38,824+0530","service":"FyersAPIRequest"}
 {"level":"DEBUG","location":"[get_call:164] fyersModel","message":{"Status Code":200,"API":"/quotes"},"timestamp":"2026-08-10 12:11:38,830+0530","service":"FyersAPIRequest"}
+{"level":"DEBUG","location":"[get_call:164] fyersModel","message":{"Status Code":200,"API":"/profile"},"timestamp":"2026-08-10 12:12:02,591+0530","service":"FyersAPIRequest"}
+{"level":"DEBUG","location":"[get_call:164] fyersModel","message":{"Status Code":200,"API":"/quotes"},"timestamp":"2026-08-10 12:12:03,145+0530","service":"FyersAPIRequest"}
