@@ -406,7 +406,7 @@ def _build_all():
     pcr_proxy, pcr_sentiment = None, "N/A"
     if is_authenticated():
         try:
-            nifty_oi = get_option_analytics("NSE:NIFTY50-INDEX", strikecount=6)
+            nifty_oi = get_option_analytics("NSE:NIFTY50-INDEX", strikecount=10)
             if nifty_oi and nifty_oi.get('pcr') is not None:
                 pcr_proxy = nifty_oi['pcr']
                 pcr_sentiment = "Bearish" if pcr_proxy < 0.7 else "Bullish" if pcr_proxy > 1.3 else "Neutral"
@@ -715,7 +715,11 @@ def _build_all():
     # Fyers option chain backing it), this cuts noise from both ends:
     # weaker technical setups are excluded, AND setups that technically
     # qualify but have no confirmed tradeable option are gone entirely.
-    quality_signals = [s for s in signals if int(s['confidence'].replace('%', '')) >= 65][:15]
+    quality_signals = [
+        s for s in signals
+        if int(s['confidence'].replace('%', '')) >= 85
+        and s.get('oi_confirmation') == 'CONFIRMED'
+    ][:15]
 
     with _cache_lock:
         _signal_cache = quality_signals
