@@ -131,32 +131,36 @@ def _get_workbook(path):
 
 def _derive_bias(pcr, oi_buildup):
     """
-    PCR-primary, using conventional trading bands rather than the
-    earlier narrow ones (0.95-1.05 was the 'Neutral' zone, which is far
-    too tight -- PCR drifts through that whole range constantly during
-    ordinary trading, so Bias was flipping Bullish/Bearish every few
-    minutes on completely normal PCR noise, not a real regime change.
-    Standard reading: PCR > 1.3 = puts building up (bullish), < 0.7 =
-    calls building up (bearish), 0.7-1.3 is the ordinary/neutral range
-    most of a session actually sits in.
+    Reverted to the original tight Neutral zone (0.95-1.05) on request,
+    after a real instance where a genuine ~150-point, hours-long NIFTY
+    slide still read Neutral because PCR (0.81-0.86) sat comfortably
+    inside the wider 0.7-1.3 band that had replaced this. That wider
+    band was adopted specifically because the tight one caused Bias to
+    flip Bullish/Bearish constantly on ordinary PCR noise, not real
+    regime changes -- reverting trades that stability back for
+    sensitivity, deliberately, with that tradeoff understood.
 
-    Also dropped the earlier requirement that oi_buildup ALSO agree --
-    that's a short-term, cycle-to-cycle OI-change comparison, and
-    requiring two volatile signals to align at once only compounded the
-    flip-flopping. PCR alone, with wide bands, is both more standard and
-    more stable. oi_buildup is still shown elsewhere in the table
-    (Put/Call OI change columns) -- nothing lost, just not double-gating
-    Bias on it.
+    Only the Neutral zone itself is restored to its documented original
+    value. The Strong-tier cutoffs (1.6 / 0.5) are left exactly as they
+    were in the wide-band version -- there's no record of those ever
+    being different, so this doesn't guess at numbers nobody wrote
+    down; it only changes what's actually documented.
+
+    The "Neutral but falling/rising" flag added alongside the wide
+    bands (see _price_confirms_bias) stays in place -- it's still
+    useful for the narrower window where PCR sits exactly in 0.95-1.05
+    while price moves, just triggers less often now that Bias itself
+    is more sensitive.
     """
     if pcr is None:
         return "Neutral"
     if pcr > 1.6:
         return "Bullish (Strong)"
-    if pcr > 1.3:
+    if pcr > 1.05:
         return "Bullish"
     if pcr < 0.5:
         return "Bearish (Strong)"
-    if pcr < 0.7:
+    if pcr < 0.95:
         return "Bearish"
     return "Neutral"
 
@@ -174,7 +178,19 @@ def _price_confirms_bias(change_percent, bias):
     signals (Round 3), applied here: does the index's actual price move
     agree with what the OI positioning implies? This is the extra
     confirmation layer -- OI can say 'Bullish' while price is actually
-    falling (a real warning sign, not a contradiction to ignore)."""
+    falling (a real warning sign, not a contradiction to ignore).
+
+    Also flags the Neutral case specifically: PCR sitting in the wide
+    middle band (0.7-1.3) doesn't mean price itself is standing still --
+    a real, sustained move can happen while OI positioning just hasn't
+    caught up yet. Uses a wider +-0.3% threshold than the +-0.05% used
+    for Bullish/Bearish confirmation above, on purpose -- this is meant
+    to catch a genuinely notable divergence (a sustained slide/rally),
+    not flag on every few-minute wobble while Bias sits Neutral, which
+    would fire constantly and stop being useful. 0.3% is a judgment
+    call, not a rigorously derived number -- adjust it if it fires too
+    often or too rarely once it's been watched in practice.
+    """
     if change_percent is None or bias is None:
         return "—"
     if change_percent > 0.05 and bias.startswith("Bullish"):
@@ -185,6 +201,10 @@ def _price_confirms_bias(change_percent, bias):
         return "⚠ Conflict"
     if change_percent < -0.05 and bias.startswith("Bullish"):
         return "⚠ Conflict"
+    if bias == "Neutral" and change_percent <= -0.3:
+        return "⚠ Neutral but falling"
+    if bias == "Neutral" and change_percent >= 0.3:
+        return "⚠ Neutral but rising"
     return "—"
 
 
@@ -211,7 +231,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     fyers_symbol = INDEX_SYMBOLS[index_name]
 
     try:
-        oi = get_option_analytics(fyers_symbol, strikecount=6)
+        oi = get_option_analytics(fyers_symbol, strikecount=10)
     except Exception as e:
         print(f"[IndexTracker] {index_name} fetch failed: {e}")
         return None
