@@ -544,6 +544,10 @@ export default function CrudeOilTracker() {
       </div>
 
       <OptionsChainSection contractId={contractId} contractLabel={contractLabel} />
+
+      <div className="text-center text-[11px] text-slate-600 pt-1 pb-2">
+        MCX trading hours: ~9:00 AM – 11:30 PM IST, Monday–Friday (approximate — doesn't account for MCX-specific holidays)
+      </div>
     </div>
   );
 }
