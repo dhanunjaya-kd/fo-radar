@@ -1100,8 +1100,12 @@ class OptionAnalyticsView(APIView):
     """
     Real option-chain analytics for one symbol: PCR, Max Pain, OI buildup,
     support/resistance, IV, and per-strike Greeks. Backs the 'OI Analytics'
-    tab, which previously generated every number with Math.random() in the
-    browser and never called this backend at all.
+    tab (individual stocks) AND the Crude Oil tab's options section --
+    same underlying analytics either way, just resolved to a different
+    Fyers symbol depending on what's asked for. Previously hardcoded every
+    symbol to NSE:{sym}-EQ, which is wrong for commodities -- their option
+    chain's underlying is the rolling front-month FUTURES contract, not an
+    NSE equity symbol (confirmed via check_crude_oil_options.py).
     """
     def get(self, request, symbol):
         sym = symbol.upper().replace(".NS", "")
@@ -1110,8 +1114,15 @@ class OptionAnalyticsView(APIView):
                 "symbol": sym, "live": False,
                 "error": "Fyers not authenticated. Run get_fyers_token.py to log in, then retry.",
             })
+
+        from .index_tracker import COMMODITY_BASES, _front_month_commodity_symbol
+        if sym in COMMODITY_BASES:
+            fyers_symbol = _front_month_commodity_symbol(COMMODITY_BASES[sym])
+        else:
+            fyers_symbol = f"NSE:{sym}-EQ"
+
         try:
-            oi = get_option_analytics(f"NSE:{sym}-EQ", strikecount=10)
+            oi = get_option_analytics(fyers_symbol, strikecount=10)
         except Exception as e:
             return Response({"symbol": sym, "live": False, "error": str(e)})
         if not oi:
