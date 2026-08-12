@@ -409,7 +409,7 @@ def _build_all():
             nifty_oi = get_option_analytics("NSE:NIFTY50-INDEX", strikecount=10)
             if nifty_oi and nifty_oi.get('pcr') is not None:
                 pcr_proxy = nifty_oi['pcr']
-                pcr_sentiment = "Bearish" if pcr_proxy < 0.7 else "Bullish" if pcr_proxy > 1.3 else "Neutral"
+                pcr_sentiment = "Bearish" if pcr_proxy < 0.95 else "Bullish" if pcr_proxy > 1.05 else "Neutral"
         except Exception as e:
             print(f"[PCR] NIFTY option chain fetch failed: {e}")
     
