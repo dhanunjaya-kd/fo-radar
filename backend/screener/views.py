@@ -1022,15 +1022,16 @@ class IndexTrackerView(APIView):
 
 
 class IndexBacktestView(APIView):
-    """Day-wise Bias-accuracy backtest for one index, across 15/30/60
-    minute look-ahead horizons -- does the Bias reading actually predict
-    where price goes next, broken out per day rather than one aggregate
-    number. GET /api/backtest/<NIFTY|BANKNIFTY>/"""
+    """Day-wise Bias-accuracy backtest for one index or commodity, across
+    15/30/60 minute look-ahead horizons -- does the Bias reading actually
+    predict where price goes next, broken out per day rather than one
+    aggregate number. GET /api/backtest/<NIFTY|BANKNIFTY|CRUDEOIL|CRUDEOILM>/"""
     def get(self, request, index_name):
         from .backtest_index_bias import backtest_by_day
+        from .index_tracker import TRACKABLE_NAMES
         name = index_name.upper()
-        if name not in ("NIFTY", "BANKNIFTY"):
-            return Response({"error": "index_name must be NIFTY or BANKNIFTY"}, status=400)
+        if name not in TRACKABLE_NAMES:
+            return Response({"error": f"index_name must be one of {TRACKABLE_NAMES}"}, status=400)
         horizons = (15, 30, 60)
         by_horizon = {h: backtest_by_day(name, h) for h in horizons}
         return Response(clean_json({"index": name, "horizons": by_horizon}))
@@ -1039,13 +1040,14 @@ class IndexBacktestView(APIView):
 class IndexBacktestExportView(APIView):
     """Download the day-wise backtest as an Excel file, one row per
     date+bias with a Hit% and sample count column per horizon.
-    GET /api/backtest/<NIFTY|BANKNIFTY>/export/"""
+    GET /api/backtest/<NIFTY|BANKNIFTY|CRUDEOIL|CRUDEOILM>/export/"""
     def get(self, request, index_name):
         from django.http import FileResponse, JsonResponse
         from .backtest_index_bias import write_backtest_report
+        from .index_tracker import TRACKABLE_NAMES
         name = index_name.upper()
-        if name not in ("NIFTY", "BANKNIFTY"):
-            return JsonResponse({"error": "index_name must be NIFTY or BANKNIFTY"}, status=400)
+        if name not in TRACKABLE_NAMES:
+            return JsonResponse({"error": f"index_name must be one of {TRACKABLE_NAMES}"}, status=400)
         try:
             path = write_backtest_report(name)
         except Exception as e:
