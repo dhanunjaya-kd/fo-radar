@@ -952,14 +952,18 @@ class StockDetailView(APIView):
 
 
 class NewsView(APIView):
+    """
+    Real F&O-relevant news, pulled from ET's public RSS feeds (Markets,
+    Stocks, Company) and filtered to headlines mentioning an F&O ticker
+    directly. Previously returned 5 hardcoded headlines that never
+    changed regardless of actual market conditions -- same pattern as
+    the old fake PCR. Known limitation: only catches headlines that
+    mention the bare ticker, not full company names -- see news.py.
+    """
     def get(self, request):
-        return Response({"news": [
-            {"title": "Nifty scales new highs amid global rally", "source": "Moneycontrol", "time": "2h ago", "sentiment": "Positive"},
-            {"title": "RBI keeps repo rate unchanged at 6.5%", "source": "ET Markets", "time": "4h ago", "sentiment": "Neutral"},
-            {"title": "FII inflows cross ₹10,000 Cr this month", "source": "Business Standard", "time": "6h ago", "sentiment": "Positive"},
-            {"title": "Crude oil volatility impacts ONGC, OIL", "source": "CNBC-TV18", "time": "8h ago", "sentiment": "Negative"},
-            {"title": "IT stocks rally on strong US jobs data", "source": "Reuters", "time": "10h ago", "sentiment": "Positive"},
-        ]})
+        from .news import get_fno_news
+        news = get_fno_news(FNO_STOCKS, limit=20)
+        return Response({"news": news})
 
 
 class FyersStatusView(APIView):
