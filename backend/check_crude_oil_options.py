@@ -12,7 +12,12 @@ Tries several candidate underlying symbols (bare commodity name, and
 the confirmed-working futures contract symbols) and reports which one
 (if any) returns a real option chain.
 
-Run from backend/ with venv active, same as the other diagnostics.
+Talks to Fyers directly (same pattern as check_futures_oi_via_depth.py)
+rather than importing the Django app's fyers_client.py -- that file
+lives in backend/screener/, not backend/ itself, and has its own
+relative imports that don't resolve when run standalone.
+
+Run from backend/ with venv active, same folder as fyers_auth.json.
 Best run during MCX hours (roughly 9 AM - 11:30 PM) for a meaningful
 test.
 
@@ -20,7 +25,17 @@ Paste the full printed output back for review.
 """
 
 import json
-from fyers_client import get_option_chain
+from fyers_apiv3 import fyersModel
+
+with open("fyers_auth.json", "r") as f:
+    auth = json.load(f)
+
+fyers = fyersModel.FyersModel(
+    client_id=auth["app_id"],
+    is_async=False,
+    token=auth["access_token"],
+    log_path=""
+)
 
 candidates = [
     "MCX:CRUDEOIL",
@@ -34,10 +49,7 @@ for symbol in candidates:
     print(f"Testing option chain for: {symbol}")
     print("=" * 70)
     try:
-        resp = get_option_chain(symbol, strikecount=10)
-        if resp is None:
-            print(">>> get_option_chain returned None (exception was printed above, if any)")
-            continue
+        resp = fyers.optionchain(data={"symbol": symbol, "strikecount": 10, "timestamp": ""})
         print(json.dumps(resp, indent=2)[:3000])  # first 3000 chars -- option chains are long
         if resp.get("s") == "ok":
             print(f"\n>>> SUCCESS -- {symbol} returned a real option chain")
