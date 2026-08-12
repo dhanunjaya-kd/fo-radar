@@ -278,15 +278,14 @@ export default function IndexTracker() {
   return (
     <div className="space-y-4">
       <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300">
-        NIFTY, BANKNIFTY, and crude oil (standard + mini), snapshotted every scan cycle. "Fut" is the
-        real front-month futures price; "Fut OI" and "Fut OI Chg%" (day-over-day) are now tracked too,
-        via Fyers' Market Depth API. Crude oil has no separate spot/cash index the way NIFTY does, and
-        no VIX equivalent either — both left blank rather than faked.
+        NIFTY and BANKNIFTY only, snapshotted every scan cycle. "Fut" is the real front-month futures
+        price; "Fut OI" and "Fut OI Chg%" (day-over-day) are now tracked too, via Fyers' Market Depth
+        API. Crude oil moved to its own dedicated tab, since it works differently enough (no spot/cash
+        index, its own MCX hours, its own options chain) to deserve a separate home rather than being
+        squeezed in here.
       </div>
       <IndexSection indexName="NIFTY" />
       <IndexSection indexName="BANKNIFTY" />
-      <IndexSection indexName="CRUDEOIL" showBacktest={false} />
-      <IndexSection indexName="CRUDEOILM" showBacktest={false} />
     </div>
   );
 }
