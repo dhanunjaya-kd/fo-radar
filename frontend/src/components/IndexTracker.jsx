@@ -49,6 +49,8 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
             <th className="text-right px-2.5 py-2 font-medium">Spot</th>
             <th className="text-right px-2.5 py-2 font-medium">Chg%</th>
             <th className="text-right px-2.5 py-2 font-medium">Futures</th>
+            <th className="text-right px-2.5 py-2 font-medium">Fut OI</th>
+            <th className="text-right px-2.5 py-2 font-medium">Fut OI Chg%</th>
             <th className="text-right px-2.5 py-2 font-medium">VIX</th>
             <th className="text-right px-2.5 py-2 font-medium">IV%</th>
             <th className="text-right px-2.5 py-2 font-medium">PCR</th>
@@ -74,6 +76,8 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                 <td className="px-2.5 py-2 text-right text-white font-semibold whitespace-nowrap">{fmt(r.Spot)}</td>
                 <td className={`px-2.5 py-2 text-right whitespace-nowrap ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Change %'])}</td>
                 <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmt(r.Fut)}</td>
+                <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmtOi(r['Fut OI'])}</td>
+                <td className={`px-2.5 py-2 text-right whitespace-nowrap ${(r['Fut OI Chg %'] || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Fut OI Chg %'])}</td>
                 <td className="px-2.5 py-2 text-right text-orange-400 whitespace-nowrap">{r.VIX != null ? r.VIX.toFixed(2) : '—'}</td>
                 <td className="px-2.5 py-2 text-right text-amber-400 whitespace-nowrap">{r['IV %'] != null ? `${r['IV %'].toFixed(1)}%` : '—'}</td>
                 <td className="px-2.5 py-2 text-right text-indigo-400 whitespace-nowrap">{r.PCR != null ? r.PCR.toFixed(2) : '—'}</td>
@@ -204,7 +208,14 @@ function BacktestSection({ indexName }) {
   );
 }
 
-function IndexSection({ indexName }) {
+const DISPLAY_NAME = {
+  NIFTY: 'NIFTY',
+  BANKNIFTY: 'BANKNIFTY',
+  CRUDEOIL: 'CRUDE OIL',
+  CRUDEOILM: 'CRUDE OIL MINI',
+};
+
+function IndexSection({ indexName, showBacktest = true }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -231,7 +242,7 @@ function IndexSection({ indexName }) {
   return (
     <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-        <h3 className="text-sm font-bold text-white">{indexName}</h3>
+        <h3 className="text-sm font-bold text-white">{DISPLAY_NAME[indexName] || indexName}</h3>
         <a
           href={`${API_BASE}/api/index-tracker/${indexName}/export/`}
           className="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-lg hover:bg-emerald-500/20 transition-colors"
@@ -243,7 +254,7 @@ function IndexSection({ indexName }) {
 
       <div className="p-4">
         {loading && rows.length === 0 && (
-          <div className="py-8 text-center text-slate-500 text-sm">Loading {indexName} snapshots...</div>
+          <div className="py-8 text-center text-slate-500 text-sm">Loading {DISPLAY_NAME[indexName] || indexName} snapshots...</div>
         )}
         {!loading && rows.length === 0 && !error && (
           <div className="py-8 text-center text-slate-500 text-sm">
@@ -255,7 +266,7 @@ function IndexSection({ indexName }) {
         {rows.length > 0 && (
           <>
             <SnapshotTable rows={rows} showAll={showHistory} onToggleShowAll={() => setShowHistory(v => !v)} />
-            <BacktestSection indexName={indexName} />
+            {showBacktest && <BacktestSection indexName={indexName} />}
           </>
         )}
       </div>
@@ -267,12 +278,15 @@ export default function IndexTracker() {
   return (
     <div className="space-y-4">
       <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300">
-        NIFTY and BANKNIFTY only, snapshotted every scan cycle. "Fut" is the real front-month futures
-        price. "Fut OI Chg" (futures open interest specifically) still isn't tracked — that data wasn't
-        exposed in the same quote that gives the futures price — left out rather than faked.
+        NIFTY, BANKNIFTY, and crude oil (standard + mini), snapshotted every scan cycle. "Fut" is the
+        real front-month futures price; "Fut OI" and "Fut OI Chg%" (day-over-day) are now tracked too,
+        via Fyers' Market Depth API. Crude oil has no separate spot/cash index the way NIFTY does, and
+        no VIX equivalent either — both left blank rather than faked.
       </div>
       <IndexSection indexName="NIFTY" />
       <IndexSection indexName="BANKNIFTY" />
+      <IndexSection indexName="CRUDEOIL" showBacktest={false} />
+      <IndexSection indexName="CRUDEOILM" showBacktest={false} />
     </div>
   );
 }
