@@ -11,15 +11,26 @@ it as a new row to a daily Excel file -- same "auto-log, one file per
 day" pattern as excel_logger.py, so you get a running intraday history
 instead of only the current snapshot.
 
-FUTURES PRICE: added once the symbol format was empirically confirmed
-via find_futures_symbol.py against a live session (NSE:{INDEX}{YY}{MON}FUT,
-e.g. NSE:NIFTY26AUGFUT) -- not guessed.
+FUTURES PRICE + OI: symbol format empirically confirmed via
+find_futures_symbol.py against a live session (NSE:{INDEX}{YY}{MON}FUT,
+e.g. NSE:NIFTY26AUGFUT) -- not guessed. Price used to come from a
+separate quotes() call; Open Interest genuinely isn't exposed there
+(confirmed live, matches Fyers' own docs) -- so "Fut OI Chg" was left
+out rather than faked, until now.
 
-NOT YET BUILT: "Fut OI Chg" (futures open interest). The futures PRICE
-quote is now confirmed and wired in, but that same quote's payload
-didn't expose an OI field when checked live (came back "n/a") -- so
-futures OI specifically still isn't available through this path. Left
-out rather than faked.
+Both are now sourced from ONE get_market_depth() call instead: Fyers'
+Market Depth API returns ltp (price), oi (current), pdoi (previous
+day's OI), and oipercent (day-over-day OI change %) together -- so this
+also replaces the old separate price-only quotes() call, one FEWER API
+call per snapshot rather than one more. Confirmed live via
+check_futures_oi_via_depth.py before wiring in.
+
+Fut OI Chg uses Fyers' own oipercent (vs previous day's close) rather
+than an intraday snapshot-to-snapshot delta -- deliberately different
+from Put OI Chg / Call OI Chg below, which ARE intraday deltas (that's
+the only baseline the option-chain endpoint gives for those). Day-over-
+day is the more standard "OI Chg" reading and what reference platforms
+actually show.
 """
 import os
 import threading
@@ -67,7 +78,7 @@ def _front_month_futures_symbol(index_name):
 
 
 COLUMNS = [
-    "Time", "Spot", "Change %", "Fut", "PCR", "ATM Strike",
+    "Time", "Spot", "Change %", "Fut", "Fut OI", "Fut OI Chg %", "PCR", "ATM Strike",
     "Put OI (ATM)", "Put OI Chg", "Put Status",
     "Call OI (ATM)", "Call OI Chg", "Call Status",
     "Total Put OI", "Total Call OI",
@@ -227,7 +238,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     if not is_market_hours():
         return None
 
-    from .fyers_client import get_option_analytics, get_quotes
+    from .fyers_client import get_option_analytics, get_market_depth
     fyers_symbol = INDEX_SYMBOLS[index_name]
 
     try:
@@ -238,18 +249,23 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     if not oi:
         return None
 
-    # Futures price -- confirmed symbol format, separate quote call.
-    # Failure here shouldn't kill the whole snapshot, just leaves Fut blank.
+    # Futures price + OI -- ONE depth() call gives both (confirmed live:
+    # ltp for price, oi/pdoi/oipercent for OI), replacing what used to be
+    # a separate quotes() call for price alone. Failure here shouldn't
+    # kill the whole snapshot, just leaves these fields blank.
     fut_price = None
+    fut_oi = None
+    fut_oi_chg_pct = None
     try:
         fut_symbol = _front_month_futures_symbol(index_name)
-        fut_resp = get_quotes([fut_symbol])
-        if fut_resp and fut_resp.get("s") == "ok":
-            for item in fut_resp.get("d", []):
-                if item.get("s") == "ok":
-                    fut_price = (item.get("v", {}) or {}).get("lp")
+        depth_resp = get_market_depth(fut_symbol)
+        if depth_resp and depth_resp.get("s") == "ok":
+            fut_data = (depth_resp.get("d", {}) or {}).get(fut_symbol, {})
+            fut_price = fut_data.get("ltp")
+            fut_oi = fut_data.get("oi")
+            fut_oi_chg_pct = fut_data.get("oipercent")
     except Exception as e:
-        print(f"[IndexTracker] {index_name} futures price fetch failed: {e}")
+        print(f"[IndexTracker] {index_name} futures price/OI fetch failed: {e}")
 
     atm_strike = oi.get("atm_strike")
     rows = oi.get("rows", [])
@@ -281,6 +297,8 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "Time": datetime.now().strftime("%H:%M:%S"),
         "Spot": oi.get("spot"),
         "Fut": fut_price,
+        "Fut OI": fut_oi,
+        "Fut OI Chg %": fut_oi_chg_pct,
         "Change %": change_percent,
         "PCR": oi.get("pcr"),
         "ATM Strike": atm_strike,
