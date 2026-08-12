@@ -800,12 +800,23 @@ def _index_snapshot_worker():
     independently, since _build_all() also needs them for the top
     banner), but that's lightweight quote calls, not full option
     chains, so it's a reasonable price for decoupling the two cadences.
+
+    Also snapshots commodities (crude oil) every cycle now --
+    snapshot_all_commodities() gates itself internally via
+    index_tracker.is_mcx_hours(), completely independent of the NSE-only
+    is_market_hours() check below, since MCX runs a longer session.
+    That's why this call sits outside the `if is_market_hours()` branch:
+    it needs to keep running (and simply no-op once genuinely outside
+    MCX hours too) even after NSE closes for the day. The sleep interval
+    reflects that too -- stays on the fast 60s cadence as long as EITHER
+    market is open, only drops to the slow 300s check once both are shut.
     """
     from .market_hours import is_market_hours
-    from .index_tracker import snapshot_all
+    from .index_tracker import snapshot_all, snapshot_all_commodities, is_mcx_hours
     while True:
         try:
-            if is_market_hours():
+            nse_open = is_market_hours()
+            if nse_open:
                 nifty = _fetch_index("NIFTY 50", ["^NSEI", "NSEI.NS", "^NSEI.NS"])
                 bank = _fetch_index("BANKNIFTY", ["^NSEBANK", "NSEBANK.NS", "NIFTY_BANK.NS", "^NSEBANK.NS"])
                 vix = _fetch_index("INDIA VIX", ["^INDIAVIX", "INDIAVIX.NS", "^INDIAVIX.NS"])
@@ -816,9 +827,8 @@ def _index_snapshot_worker():
                     },
                     vix=vix.get("price"),
                 )
-                time.sleep(60)
-            else:
-                time.sleep(300)
+            snapshot_all_commodities()
+            time.sleep(60 if (nse_open or is_mcx_hours()) else 300)
         except Exception as e:
             print(f"[{datetime.now()}] Index snapshot worker error: {e}")
             time.sleep(60)
@@ -1000,13 +1010,13 @@ class SignalExcelExportByDateView(APIView):
 
 
 class IndexTrackerView(APIView):
-    """Today's NIFTY/BANKNIFTY intraday OI snapshot history, most recent
-    first. GET /api/index-tracker/<NIFTY|BANKNIFTY>/"""
+    """Today's NIFTY/BANKNIFTY/crude-oil intraday OI snapshot history,
+    most recent first. GET /api/index-tracker/<NIFTY|BANKNIFTY|CRUDEOIL|CRUDEOILM>/"""
     def get(self, request, index_name):
-        from .index_tracker import get_today_snapshots
+        from .index_tracker import get_today_snapshots, TRACKABLE_NAMES
         name = index_name.upper()
-        if name not in ("NIFTY", "BANKNIFTY"):
-            return Response({"error": "index_name must be NIFTY or BANKNIFTY"}, status=400)
+        if name not in TRACKABLE_NAMES:
+            return Response({"error": f"index_name must be one of {TRACKABLE_NAMES}"}, status=400)
         rows = get_today_snapshots(name)
         return Response(clean_json({"index": name, "snapshots": rows}))
 
@@ -1045,13 +1055,13 @@ class IndexBacktestExportView(APIView):
 
 
 class IndexTrackerExportView(APIView):
-    """Download today's NIFTY/BANKNIFTY tracker Excel file."""
+    """Download today's NIFTY/BANKNIFTY/crude-oil tracker Excel file."""
     def get(self, request, index_name):
         from django.http import FileResponse, JsonResponse
-        from .index_tracker import get_today_log_path
+        from .index_tracker import get_today_log_path, TRACKABLE_NAMES
         name = index_name.upper()
-        if name not in ("NIFTY", "BANKNIFTY"):
-            return JsonResponse({"error": "index_name must be NIFTY or BANKNIFTY"}, status=400)
+        if name not in TRACKABLE_NAMES:
+            return JsonResponse({"error": f"index_name must be one of {TRACKABLE_NAMES}"}, status=400)
         path = get_today_log_path(name)
         if not path:
             return JsonResponse({"error": f"No {name} snapshots logged yet today."}, status=404)
