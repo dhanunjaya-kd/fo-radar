@@ -8,6 +8,13 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 export default function MarketBanner() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Separate, independent fetch from the Index Tracker endpoint that's
+  // already confirmed working -- NOT wired into /api/market-summary/
+  // (that endpoint's cache is populated by the NSE-hours-gated worker
+  // only, so it has no crude oil data at all). Deliberately doesn't
+  // gate the whole banner's loading state -- if this one's slow or
+  // fails, NIFTY/BANKNIFTY/VIX/PCR still render normally.
+  const [crudeRow, setCrudeRow] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -25,6 +32,25 @@ export default function MarketBanner() {
     };
     fetchData();
     const interval = setInterval(fetchData, 30000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchCrude = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/index-tracker/CRUDEOIL/`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        // get_today_snapshots() already returns most-recent-first, so [0]
+        // is the latest row -- null if nothing logged yet today.
+        if (mounted) setCrudeRow((json.snapshots || [])[0] || null);
+      } catch (err) {
+        console.error('Crude oil fetch error:', err);
+      }
+    };
+    fetchCrude();
+    const interval = setInterval(fetchCrude, 30000);
     return () => { mounted = false; clearInterval(interval); };
   }, []);
 
@@ -80,9 +106,12 @@ export default function MarketBanner() {
   const bank = data.banknifty || {};
   const vix = data.india_vix || {};
   const pcr = data.pcr || {};
+  const crudePrice = crudeRow?.Fut;
+  const crudeChangePct = crudeRow?.['Change %'];
+  const crudeIsPos = (crudeChangePct || 0) >= 0;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+    <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
       <Card label="NIFTY 50" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" />
       <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" />
       
@@ -109,6 +138,25 @@ export default function MarketBanner() {
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">PCR</p>
           <p className="text-lg font-bold text-white tabular-nums">{pcr.value ? pcr.value.toFixed(2) : 'N/A'}</p>
           <p className="text-xs font-medium text-purple-400">{pcr.sentiment || 'N/A'}</p>
+        </div>
+      </div>
+
+      {/* Crude Oil -- separate source (Index Tracker's endpoint, not
+          market-summary), so no fyersSymbol chart link here: the real
+          Fyers symbol rolls to a new contract every month
+          (MCX:CRUDEOIL26AUGFUT today, a different one next month), and
+          nothing currently exposes that live contract symbol to this
+          component -- hardcoding today's would just go quietly stale
+          in a few weeks. Price + Change% only, same as what the Index
+          Tracker table itself shows for this row. */}
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+        <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+        <div>
+          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">CRUDE OIL</p>
+          <p className="text-lg font-bold text-white tabular-nums">{fmt(crudePrice)}</p>
+          <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}
+          </p>
         </div>
       </div>
 
