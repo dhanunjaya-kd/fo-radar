@@ -11,6 +11,20 @@ it as a new row to a daily Excel file -- same "auto-log, one file per
 day" pattern as excel_logger.py, so you get a running intraday history
 instead of only the current snapshot.
 
+Now also tracks crude oil (CRUDEOIL standard + CRUDEOILM mini, on MCX)
+the same way, via snapshot_commodity()/snapshot_all_commodities() below
+-- structurally different from the index path above, since commodities
+have no separate spot/cash index: the front-month FUTURES contract
+itself is both the option chain's underlying AND the OI/price source,
+one symbol doing both jobs (confirmed via check_crude_oil_options.py --
+bare "MCX:CRUDEOIL" fails, the actual futures contract symbol works).
+Spot and VIX are left blank for commodities rather than faked. Also
+runs on its own longer MCX session (roughly 9 AM-11:30 PM) via
+is_mcx_hours() below, independent of market_hours.py's NSE-only
+is_market_hours() -- deliberately a separate, local check rather than
+modifying that shared file, since several other things already depend
+on its exact NSE-only behavior.
+
 FUTURES PRICE + OI: symbol format empirically confirmed via
 find_futures_symbol.py against a live session (NSE:{INDEX}{YY}{MON}FUT,
 e.g. NSE:NIFTY26AUGFUT) -- not guessed. Price used to come from a
@@ -50,6 +64,23 @@ INDEX_SYMBOLS = {
     "BANKNIFTY": "NSE:NIFTYBANK-INDEX",
 }
 
+# Commodities (MCX) work differently from the indices above -- there's
+# no separate spot/cash index symbol to give an option chain; the
+# front-month FUTURES contract IS the underlying. So this is just the
+# base name to build that rolling symbol from (see
+# _front_month_commodity_symbol below), not a static Fyers symbol like
+# INDEX_SYMBOLS holds.
+COMMODITY_BASES = {
+    "CRUDEOIL": "CRUDEOIL",
+    "CRUDEOILM": "CRUDEOILM",
+}
+
+# Every name the frontend/views.py is allowed to ask this module about --
+# single source of truth so a new commodity/index added here doesn't
+# also require hunting down every hardcoded ("NIFTY", "BANKNIFTY") tuple
+# elsewhere in the project.
+TRACKABLE_NAMES = tuple(INDEX_SYMBOLS) + tuple(COMMODITY_BASES)
+
 
 def _last_thursday(year, month):
     """Last Thursday of the month -- NSE's monthly F&O expiry day."""
@@ -75,6 +106,45 @@ def _front_month_futures_symbol(index_name):
     yy = str(y)[2:]
     mon = datetime(y, m, 1).strftime("%b").upper()
     return f"NSE:{index_name}{yy}{mon}FUT"
+
+
+def _front_month_commodity_symbol(base):
+    """Approximate rollover for MCX commodities -- unlike NSE indices
+    (always the last Thursday of the month, a fixed rule), MCX contract
+    expiry days vary by commodity and follow the underlying's
+    international contract calendar (crude oil specifically expires
+    ~19th-20th most months, a few working days ahead of the NYMEX WTI
+    contract it tracks). A fixed day-of-month is not a real MCX
+    holiday-aware expiry calendar, but it's safe in the sense that it
+    rolls AFTER crude oil's contract has actually expired, not before --
+    confirmed against this month's real expiry (17-Aug-2026 per the live
+    option chain). Re-verify if a different commodity is ever added
+    here, since gold/silver/etc. don't share crude oil's expiry timing."""
+    today = datetime.now()
+    if today.day > 20:
+        y, m = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+    else:
+        y, m = today.year, today.month
+    yy = str(y)[2:]
+    mon = datetime(y, m, 1).strftime("%b").upper()
+    return f"MCX:{base}{yy}{mon}FUT"
+
+
+def is_mcx_hours():
+    """MCX commodities trade well past NSE's close -- roughly 9 AM to
+    11:30 PM, vs NSE F&O's 9:15 AM-3:30 PM. Deliberately a separate,
+    local check rather than modifying market_hours.py's is_market_hours()
+    -- several other things already depend on that function's exact
+    NSE-only behavior, and this doesn't need to touch it. Same
+    approximation spirit as is_market_hours() (doesn't know MCX-specific
+    holidays, only weekends) -- good enough to avoid an out-of-hours
+    snapshot being logged as if real, not a full trading calendar."""
+    now = datetime.now()
+    if now.weekday() >= 5:  # Saturday/Sunday
+        return False
+    start = now.replace(hour=9, minute=0, second=0, microsecond=0)
+    end = now.replace(hour=23, minute=30, second=0, microsecond=0)
+    return start <= now <= end
 
 
 COLUMNS = [
@@ -356,10 +426,129 @@ def snapshot_all(change_percents=None, vix=None):
     return results
 
 
+def snapshot_commodity(name, base):
+    """
+    Fetch one live snapshot for a commodity (crude oil, etc.) and append
+    it as a new row to today's tracker file. Structurally different from
+    snapshot_index() above: there's no separate spot/cash index, so the
+    front-month FUTURES contract is both the option chain's underlying
+    AND the OI/price source -- one symbol doing both jobs, one depth()
+    call giving price + OI + this instrument's own day change% together
+    (chp), rather than change% being passed in externally the way
+    NIFTY/BANKNIFTY get theirs from a separate index quote. Spot and VIX
+    are left blank rather than faked -- neither concept applies here.
+
+    Gates on is_mcx_hours() (not market_hours.py's NSE-only check) since
+    MCX runs a longer session than NSE F&O.
+    """
+    if not OPENPYXL_AVAILABLE:
+        return None
+    if not is_mcx_hours():
+        return None
+
+    from .fyers_client import get_option_analytics, get_market_depth
+    fut_symbol = _front_month_commodity_symbol(base)
+
+    fut_price = None
+    fut_oi = None
+    fut_oi_chg_pct = None
+    change_percent = None
+    try:
+        depth_resp = get_market_depth(fut_symbol)
+        if depth_resp and depth_resp.get("s") == "ok":
+            fut_data = (depth_resp.get("d", {}) or {}).get(fut_symbol, {})
+            fut_price = fut_data.get("ltp")
+            fut_oi = fut_data.get("oi")
+            fut_oi_chg_pct = fut_data.get("oipercent")
+            change_percent = fut_data.get("chp")
+    except Exception as e:
+        print(f"[IndexTracker] {name} futures price/OI fetch failed: {e}")
+
+    try:
+        oi = get_option_analytics(fut_symbol, strikecount=10)
+    except Exception as e:
+        print(f"[IndexTracker] {name} option chain fetch failed: {e}")
+        return None
+    if not oi:
+        return None
+
+    atm_strike = oi.get("atm_strike")
+    rows = oi.get("rows", [])
+    atm_row = next((r for r in rows if r["strike"] == atm_strike), None)
+    pe_oi = (atm_row or {}).get("pe", {}).get("oi") if atm_row else None
+    ce_oi = (atm_row or {}).get("ce", {}).get("oi") if atm_row else None
+
+    highest_put_strike = oi.get("support")
+    highest_call_strike = oi.get("resistance")
+    put_wall_row = next((r for r in rows if r["strike"] == highest_put_strike), None)
+    call_wall_row = next((r for r in rows if r["strike"] == highest_call_strike), None)
+    highest_put_value = (put_wall_row or {}).get("pe", {}).get("oi") if put_wall_row else None
+    highest_call_value = (call_wall_row or {}).get("ce", {}).get("oi") if call_wall_row else None
+
+    with _lock:
+        prev = _last_snapshot.get(name, {})
+        pe_chg = (pe_oi - prev["pe_oi"]) if (pe_oi is not None and "pe_oi" in prev) else None
+        ce_chg = (ce_oi - prev["ce_oi"]) if (ce_oi is not None and "ce_oi" in prev) else None
+        _last_snapshot[name] = {"pe_oi": pe_oi, "ce_oi": ce_oi}
+
+    bias = _derive_bias(oi.get("pcr"), oi.get("oi_buildup"))
+    confirms = _price_confirms_bias(change_percent, bias)
+
+    row = {
+        "Time": datetime.now().strftime("%H:%M:%S"),
+        "Spot": None,  # no separate spot/cash index for a commodity -- left blank, not faked
+        "Fut": fut_price,
+        "Fut OI": fut_oi,
+        "Fut OI Chg %": fut_oi_chg_pct,
+        "Change %": change_percent,
+        "PCR": oi.get("pcr"),
+        "ATM Strike": atm_strike,
+        "Put OI (ATM)": pe_oi, "Put OI Chg": pe_chg, "Put Status": _status_label(pe_chg),
+        "Call OI (ATM)": ce_oi, "Call OI Chg": ce_chg, "Call Status": _status_label(ce_chg),
+        "Total Put OI": oi.get("pe_oi"), "Total Call OI": oi.get("ce_oi"),
+        "Highest Put OI Strike": highest_put_strike, "Highest Put OI Value": highest_put_value,
+        "Highest Call OI Strike": highest_call_strike, "Highest Call OI Value": highest_call_value,
+        "IV %": oi.get("iv"), "VIX": None,  # India VIX is an equity-index concept, not applicable here
+        "Support": oi.get("support"), "Resistance": oi.get("resistance"),
+        "Max Pain": oi.get("max_pain"), "Max Pain Dist %": oi.get("max_pain_dist_pct"),
+        "Bias": bias, "Price Confirms Bias": confirms,
+    }
+
+    try:
+        path = _today_path(name)
+        wb = _get_workbook(path)
+        ws = wb["Snapshots"]
+        ws.append([row[c] for c in COLUMNS])
+        wb.save(path)
+    except Exception as e:
+        print(f"[IndexTracker] Failed to log {name} snapshot: {e}")
+
+    return row
+
+
+def snapshot_all_commodities():
+    """Same threaded pattern as snapshot_all() above, for commodities.
+    No change_percents/vix params needed -- snapshot_commodity() sources
+    both itself from the single depth() call. Returns {'CRUDEOIL':
+    row_or_None, 'CRUDEOILM': row_or_None}."""
+    from concurrent.futures import ThreadPoolExecutor
+    results = {}
+    with ThreadPoolExecutor(max_workers=len(COMMODITY_BASES)) as ex:
+        futures = {ex.submit(snapshot_commodity, name, base): name for name, base in COMMODITY_BASES.items()}
+        for fut in futures:
+            name = futures[fut]
+            try:
+                results[name] = fut.result()
+            except Exception as e:
+                print(f"[IndexTracker] {name} snapshot thread failed: {e}")
+                results[name] = None
+    return results
+
+
 def get_today_snapshots(index_name, limit=100):
     """Read today's logged rows for the frontend table (most recent
     first). Returns [] if nothing logged yet today."""
-    if not OPENPYXL_AVAILABLE or index_name not in INDEX_SYMBOLS:
+    if not OPENPYXL_AVAILABLE or index_name not in TRACKABLE_NAMES:
         return []
     path = _today_path(index_name)
     if not os.path.exists(path):
