@@ -6,20 +6,29 @@ never returns Futures OI (matches Fyers' own docs — it's simply not there,
 under any field name). This script tests the separate MARKET DEPTH API
 instead (fyers.depth()), which Fyers' docs say IS where OI lives.
 
+Also tests MCX crude oil (both the mini CRUDEOILM and standard CRUDEOIL
+contracts) alongside NIFTY/BANKNIFTY, since the same open question — does
+depth() actually return OI — applies to the crude oil dashboard too. If
+your Fyers account doesn't have the commodity segment activated, the MCX
+symbols below will fail here with an auth/permission-style error in their
+own section of the output — that's your confirmation to go check your
+Fyers account settings, no separate manual check needed first.
+
 Run from backend/ with venv active — same folder as fyers_auth.json
 (the file get_fyers_token.py writes daily).
 
 Two steps:
-  1. Validate which NIFTY/BANKNIFTY futures symbol string Fyers actually
-     recognizes right now (tries a few likely formats via the cheap
-     quotes() call, rather than guessing and risking "invalid symbol").
+  1. Validate which futures symbol strings Fyers actually recognizes right
+     now (tries a few likely formats per instrument via the cheap quotes()
+     call, rather than guessing and risking "invalid symbol").
   2. Call depth() on whatever validates, dump the FULL raw response, and
      recursively flag any field with "oi" in its name so nothing is missed
      even if it's nested or named differently than expected.
 
-Best run during market hours (9:15 AM - 3:30 PM) for a meaningful test —
-depth data outside market hours may be stale or empty regardless of
-whether the field itself exists.
+Best run during market hours for a meaningful test — NSE F&O is 9:15 AM -
+3:30 PM; MCX commodities run later into the evening (roughly 9 AM - 11:30
+PM), so a crude oil result checked after 3:30 PM is still valid even
+though the NIFTY/BANKNIFTY ones by then won't be live.
 
 Paste the full printed output back for review.
 """
@@ -43,9 +52,9 @@ fyers = fyersModel.FyersModel(
 )
 
 
-def month_candidates(base, months_ahead=0):
+def month_candidates(base, exchange="NSE", months_ahead=0):
     """Build both plausible symbol orderings (YY+MMM and MMM+YY) for a
-    given index base, N months ahead of today — covers current-month and
+    given base symbol, N months ahead of today — covers current-month and
     next-month contracts without assuming exact expiry-rollover timing."""
     today = datetime.date.today()
     target = today.replace(day=1)
@@ -54,20 +63,29 @@ def month_candidates(base, months_ahead=0):
     yy = target.strftime("%y")
     mmm = target.strftime("%b").upper()
     return [
-        f"NSE:{base}{yy}{mmm}FUT",   # e.g. NSE:NIFTY26AUGFUT
-        f"NSE:{base}{mmm}{yy}FUT",   # e.g. NSE:NIFTYAUG26FUT (fallback ordering)
+        f"{exchange}:{base}{yy}{mmm}FUT",   # e.g. NSE:NIFTY26AUGFUT
+        f"{exchange}:{base}{mmm}{yy}FUT",   # e.g. NSE:NIFTYAUG26FUT (fallback ordering)
     ]
 
 
 candidates = []
 for base in ["NIFTY", "BANKNIFTY"]:
-    candidates += month_candidates(base, months_ahead=0)
-    candidates += month_candidates(base, months_ahead=1)  # in case current month already rolled
+    candidates += month_candidates(base, "NSE", months_ahead=0)
+    candidates += month_candidates(base, "NSE", months_ahead=1)  # in case current month already rolled
+
+# Crude oil on MCX — testing both the mini contract (CRUDEOILM, smaller
+# lot size) and the standard contract (CRUDEOIL), since it's not yet
+# decided which one the dashboard should actually track and checking
+# both here costs nothing extra.
+for base in ["CRUDEOILM", "CRUDEOIL"]:
+    candidates += month_candidates(base, "MCX", months_ahead=0)
+    candidates += month_candidates(base, "MCX", months_ahead=1)
 
 candidates = list(dict.fromkeys(candidates))  # de-dupe, preserve order
 
 print("=" * 70)
 print("STEP 1: Validating which candidate symbols Fyers actually recognizes")
+print("(NIFTY/BANKNIFTY on NSE, crude oil on MCX)")
 print("=" * 70)
 print("Candidates:", candidates)
 
