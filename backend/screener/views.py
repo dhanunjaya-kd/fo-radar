@@ -836,6 +836,30 @@ def _index_snapshot_worker():
 _index_snapshot_thread = threading.Thread(target=_index_snapshot_worker, daemon=True)
 _index_snapshot_thread.start()
 
+
+def _news_alert_worker():
+    """
+    Separate loop checking for new F&O news and sending any to Telegram
+    via news.send_new_news_alerts(). Deliberately NOT gated by NSE or
+    MCX market hours -- news itself (and the real-world events it
+    reports on) isn't restricted to trading hours the way live quotes
+    are, so this keeps checking around the clock. Runs on a 5-min
+    cadence, matching news.py's own RSS cache TTL -- checking more
+    often than that wouldn't find anything newer anyway.
+    """
+    from .news import send_new_news_alerts
+    while True:
+        try:
+            sent = send_new_news_alerts(FNO_STOCKS)
+            if sent:
+                print(f"[{datetime.now()}] Sent {sent} new news alert(s) to Telegram.")
+        except Exception as e:
+            print(f"[{datetime.now()}] News alert worker error: {e}")
+        time.sleep(300)
+
+_news_alert_thread = threading.Thread(target=_news_alert_worker, daemon=True)
+_news_alert_thread.start()
+
 # ============================================================
 # VIEWS — READ FROM CACHE ONLY, NO BLOCKING
 # ============================================================
