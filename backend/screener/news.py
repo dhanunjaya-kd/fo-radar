@@ -25,6 +25,14 @@ boundary matching is used to avoid the worst substring false positives
 (so "BEL" doesn't match inside "LABEL"), but short 2-3 letter tickers
 (LT, PFC, IEX, BSE...) can still rarely collide with ordinary word usage
 in a large enough headline corpus -- a real, not-fully-eliminated risk.
+
+Also sends new headlines to Telegram via send_new_news_alerts() below,
+reusing the existing TelegramBot.send_message() (trading/telegram_bot.py)
+-- same bot that already sends signal/trade/weekly-report alerts, no new
+integration built. First call after a restart SEEDS the already-known
+headlines without alerting on them, rather than dumping the whole
+current list to Telegram as if it all just happened -- same class of
+restart-burst bug already caught once in excel_logger.py.
 """
 import re
 import time
@@ -124,3 +132,54 @@ def get_fno_news(fno_tickers, limit=20):
     _cache["data"] = items
     _cache["fetched_at"] = now
     return items[:limit]
+
+
+_sent_links = set()
+_seeded = False
+
+
+def send_new_news_alerts(fno_tickers):
+    """
+    Check for F&O news items not yet sent to Telegram, send each as a
+    message via the existing bot, and remember them so they don't get
+    resent next cycle.
+
+    The FIRST call after a server restart is a SEED, not an alert batch
+    -- every headline present at that point gets recorded as already-
+    seen without sending anything. Otherwise every restart would dump
+    the entire current news list to Telegram as if it all just
+    happened, the same class of restart-burst bug excel_logger.py's
+    _ensure_fresh() already had to fix once for signal logging. Only
+    genuinely new headlines from the second call onward trigger a
+    message.
+
+    Returns how many were newly sent (always 0 on the seeding call).
+    """
+    global _seeded
+    from trading.telegram_bot import TelegramBot
+
+    items = get_fno_news(fno_tickers, limit=20)
+
+    if not _seeded:
+        _sent_links.update(item["link"] for item in items)
+        _seeded = True
+        return 0
+
+    new_items = [i for i in items if i["link"] not in _sent_links]
+    if not new_items:
+        return 0
+
+    bot = TelegramBot()
+    sent_count = 0
+    for item in reversed(new_items):  # oldest-first -- alerts arrive in the order things actually happened
+        message = (
+            f"\U0001F4F0 <b>F&O News</b>\n\n"
+            f"{item['title']}\n\n"
+            f"<i>{item['source']} \u00b7 {item['time']}</i>\n"
+            f"{item['link']}"
+        )
+        result = bot.send_message(message)
+        _sent_links.add(item["link"])
+        if result:
+            sent_count += 1
+    return sent_count
