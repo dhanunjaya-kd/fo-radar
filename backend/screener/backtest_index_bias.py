@@ -5,7 +5,11 @@ Answers the question "does our Bias reading actually predict what price
 does next?" using REAL data -- every snapshot the Index Tracker has
 already been logging to signal_logs/index_tracker_{NIFTY|BANKNIFTY}_
 YYYY-MM-DD.xlsx since Round 14. No new data collection needed, this
-reads what's already there.
+reads what's already there. Now also works for commodities (crude oil)
+the same way -- load_all_snapshots() and write_backtest_report() were
+already generic on index_name, only backtest()/backtest_by_day() needed
+a fix: they fall back to Fut (futures price) when Spot is None, since
+commodities never have a separate spot/cash index to read one from.
 
 METHOD: for every logged snapshot with a directional Bias (Bullish/
 Bearish, Neutral is excluded since it makes no directional claim to
@@ -107,7 +111,13 @@ def backtest(index_name, horizon_minutes):
             continue
         if next_eligible_time is not None and row["_datetime"] < next_eligible_time:
             continue  # still inside the previous sample's window -- skip, don't double-count
+        # Commodities (crude oil etc.) have no separate spot/cash index --
+        # Spot is always None for those rows by design. Fut (the futures
+        # price) is the only real price series that exists for them, so
+        # fall back to it rather than skipping every commodity row outright.
         spot_now = row.get("Spot")
+        if spot_now is None:
+            spot_now = row.get("Fut")
         if spot_now is None:
             continue
 
@@ -116,6 +126,8 @@ def backtest(index_name, horizon_minutes):
         if future_row is None:
             continue  # no snapshot far enough ahead yet (e.g. near end of day/data)
         spot_future = future_row.get("Spot")
+        if spot_future is None:
+            spot_future = future_row.get("Fut")
         if spot_future is None:
             continue
 
@@ -155,7 +167,11 @@ def backtest_by_day(index_name, horizon_minutes):
             continue
         if next_eligible_time is not None and row["_datetime"] < next_eligible_time:
             continue
+        # Same fallback as backtest() above -- commodities never have a
+        # Spot value, Fut is their only real price series.
         spot_now = row.get("Spot")
+        if spot_now is None:
+            spot_now = row.get("Fut")
         if spot_now is None:
             continue
 
@@ -164,6 +180,8 @@ def backtest_by_day(index_name, horizon_minutes):
         if future_row is None:
             continue
         spot_future = future_row.get("Spot")
+        if spot_future is None:
+            spot_future = future_row.get("Fut")
         if spot_future is None:
             continue
 
@@ -267,3 +285,5 @@ if __name__ == "__main__":
     else:
         print_report("NIFTY")
         print_report("BANKNIFTY")
+        print_report("CRUDEOIL")
+        print_report("CRUDEOILM")
