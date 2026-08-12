@@ -367,9 +367,19 @@ def get_today_snapshots(index_name, limit=100):
     try:
         wb = load_workbook(path)
         ws = wb["Snapshots"]
+        # Zip against the file's OWN header row, not the current in-memory
+        # COLUMNS constant -- a column added mid-day (like this one) means
+        # an already-written file's real column order can legitimately
+        # differ from what COLUMNS says right now. Zipping against the
+        # constant silently shifted every value after the change point
+        # onto the wrong new label for any row written before the change
+        # (caught live: PCR/ATM Strike/VIX/etc. all showing garbage after
+        # Fut OI / Fut OI Chg % were inserted). Reading the file's actual
+        # header keeps older rows correctly labeled regardless.
+        file_columns = [c.value for c in ws[1]]
         rows = []
         for r in ws.iter_rows(min_row=2, values_only=True):
-            rows.append(dict(zip(COLUMNS, r)))
+            rows.append(dict(zip(file_columns, r)))
         return list(reversed(rows))[:limit]
     except Exception as e:
         print(f"[IndexTracker] Failed to read {index_name} snapshots: {e}")
