@@ -121,13 +121,17 @@ def get_fno_news(fno_tickers, limit=20):
     now_utc = datetime.utcnow()
     for item in items:
         delta = now_utc - item.pop("_published")
-        hours = int(delta.total_seconds() // 3600)
-        if hours < 1:
+        minutes = int(delta.total_seconds() // 60)
+        if minutes < 1:
             item["time"] = "just now"
-        elif hours < 24:
-            item["time"] = f"{hours}h ago"
+        elif minutes < 60:
+            item["time"] = f"{minutes}m ago"
         else:
-            item["time"] = f"{hours // 24}d ago"
+            hours = int(delta.total_seconds() // 3600)
+            if hours < 24:
+                item["time"] = f"{hours}h ago"
+            else:
+                item["time"] = f"{hours // 24}d ago"
 
     _cache["data"] = items
     _cache["fetched_at"] = now
