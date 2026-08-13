@@ -1,0 +1,127 @@
+{
+  "NSE:20MICRONS-EQ": {
+    "fundamentals": {
+      "company_name": "20 MICRONS LTD",
+      "current_price": 184.4,
+      "market_cap_cr": 650.68,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 953.83,
+      "net_profit_cr": 66.83,
+      "eps": 18.93,
+      "pe_ratio": 9.74,
+      "roe_pct": 13.82,
+      "debt_to_equity": 0.323,
+      "opm_pct": 12.84,
+      "sales_cagr_pct": 10.38
+    },
+    "price_levels": {
+      "latest_close": 184.46,
+      "week52_high": 246.61,
+      "week52_low": 129.61,
+      "pct_off_52w_high": -25.2,
+      "pct_above_52w_low": 42.32,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T12:29:19.751073"
+  },
+  "NSE:21STCENMGM-EQ": {
+    "fundamentals": {
+      "company_name": "TWENTY FIRST CENTURY MANAGEMENT SERVICES LTD",
+      "current_price": 42.56,
+      "market_cap_cr": 44.68,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": -16.87,
+      "net_profit_cr": -24.05,
+      "eps": -22.9,
+      "pe_ratio": -1.86,
+      "roe_pct": -72.75,
+      "debt_to_equity": 0.0,
+      "opm_pct": 141.97,
+      "sales_cagr_pct": null
+    },
+    "price_levels": {
+      "latest_close": 42.56,
+      "week52_high": 57.98,
+      "week52_low": 28.25,
+      "pct_off_52w_high": -26.6,
+      "pct_above_52w_low": 50.65,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T12:29:23.033303"
+  },
+  "NSE:360ONE-EQ": {
+    "fundamentals": {
+      "company_name": "360 ONE WAM LTD",
+      "current_price": 1173.5,
+      "market_cap_cr": 47748.43,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4361.62,
+      "net_profit_cr": 1216.17,
+      "eps": 29.95,
+      "pe_ratio": 39.19,
+      "roe_pct": 12.37,
+      "debt_to_equity": 1.62,
+      "opm_pct": 62.06,
+      "sales_cagr_pct": 12.46
+    },
+    "price_levels": {
+      "latest_close": 1174.0,
+      "week52_high": 1236.2,
+      "week52_low": 906.05,
+      "pct_off_52w_high": -5.03,
+      "pct_above_52w_low": 29.57,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T12:29:26.322546"
+  },
+  "NSE:3BBLACKBIO-EQ": {
+    "fundamentals": {
+      "company_name": "3B BLACKBIO DX LTD",
+      "current_price": 1241.5,
+      "market_cap_cr": 1065.54,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 141.92,
+      "net_profit_cr": 58.59,
+      "eps": 68.13,
+      "pe_ratio": 18.22,
+      "roe_pct": 18.06,
+      "debt_to_equity": 0.01,
+      "opm_pct": 40.01,
+      "sales_cagr_pct": 27.3
+    },
+    "price_levels": {
+      "latest_close": 1230.2,
+      "week52_high": 1441.5,
+      "week52_low": 1085.0,
+      "pct_off_52w_high": -14.66,
+      "pct_above_52w_low": 13.38,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T12:29:29.697006"
+  },
+  "NSE:3IINFOLTD-EQ": {
+    "fundamentals": {
+      "company_name": "3I INFOTECH LTD",
+      "current_price": 26.95,
+      "market_cap_cr": 558.95,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 693.36,
+      "net_profit_cr": 35.46,
+      "eps": 1.71,
+      "pe_ratio": 15.76,
+      "roe_pct": 9.3,
+      "debt_to_equity": 0.162,
+      "opm_pct": -2.59,
+      "sales_cagr_pct": -4.03
+    },
+    "price_levels": {
+      "latest_close": 27.08,
+      "week52_high": 27.8,
+      "week52_low": 12.68,
+      "pct_off_52w_high": -2.59,
+      "pct_above_52w_low": 113.56,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T12:29:33.312447"
+  }
+}
