@@ -52894,5 +52894,1361 @@
       "candle_count": 80
     },
     "fetched_at": "2026-08-13T17:09:00.463822"
+  },
+  "NSE:ZUARI-EQ": {
+    "fundamentals": {
+      "company_name": "ZUARI AGRO CHEMICALS LTD",
+      "current_price": 220.92,
+      "market_cap_cr": 927.24,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3199.72,
+      "net_profit_cr": 919.81,
+      "eps": 218.48,
+      "pe_ratio": 1.01,
+      "roe_pct": 44.03,
+      "debt_to_equity": 0.307,
+      "opm_pct": 9.67,
+      "sales_cagr_pct": -7.38
+    },
+    "price_levels": {
+      "latest_close": 220.92,
+      "week52_high": 393.55,
+      "week52_low": 175.1,
+      "pct_off_52w_high": -43.86,
+      "pct_above_52w_low": 26.17,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:04.233980"
+  },
+  "NSE:ZUARIIND-EQ": {
+    "fundamentals": {
+      "company_name": "ZUARI INDUSTRIES LTD",
+      "current_price": 257.4,
+      "market_cap_cr": 769.61,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1044.82,
+      "net_profit_cr": 107.96,
+      "eps": 36.23,
+      "pe_ratio": 7.1,
+      "roe_pct": 2.98,
+      "debt_to_equity": 0.718,
+      "opm_pct": 6.76,
+      "sales_cagr_pct": 6.29
+    },
+    "price_levels": {
+      "latest_close": 259.05,
+      "week52_high": 416.0,
+      "week52_low": 210.0,
+      "pct_off_52w_high": -37.73,
+      "pct_above_52w_low": 23.36,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:08.334311"
+  },
+  "NSE:ZYDUSLIFE-EQ": {
+    "fundamentals": {
+      "company_name": "ZYDUS LIFESCIENCES LTD",
+      "current_price": 1173.0,
+      "market_cap_cr": 117104.38,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 27148.4,
+      "net_profit_cr": 5040.0,
+      "eps": 50.09,
+      "pe_ratio": 23.42,
+      "roe_pct": 18.59,
+      "debt_to_equity": 0.461,
+      "opm_pct": 31.22,
+      "sales_cagr_pct": 12.54
+    },
+    "price_levels": {
+      "latest_close": 1167.3,
+      "week52_high": 1205.0,
+      "week52_low": 835.5,
+      "pct_off_52w_high": -3.13,
+      "pct_above_52w_low": 39.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:11.835711"
+  },
+  "NSE:ZYDUSWELL-EQ": {
+    "fundamentals": {
+      "company_name": "ZYDUS WELLNESS LTD",
+      "current_price": 512.0,
+      "market_cap_cr": 16285.01,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3961.0,
+      "net_profit_cr": 197.2,
+      "eps": 6.2,
+      "pe_ratio": 82.62,
+      "roe_pct": 3.38,
+      "debt_to_equity": 0.55,
+      "opm_pct": 12.87,
+      "sales_cagr_pct": 27.96
+    },
+    "price_levels": {
+      "latest_close": 505.45,
+      "week52_high": 611.85,
+      "week52_low": 367.55,
+      "pct_off_52w_high": -17.39,
+      "pct_above_52w_low": 37.52,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:15.236968"
+  },
+  "NSE:ABGSEC-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 115.14,
+      "week52_high": 116.23,
+      "week52_low": 108.0,
+      "pct_off_52w_high": -0.94,
+      "pct_above_52w_low": 6.61,
+      "candle_count": 226
+    },
+    "fetched_at": "2026-08-13T17:09:17.983230"
+  },
+  "NSE:ABSL10BANK-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 169.26,
+      "week52_high": 214.42,
+      "week52_low": 150.0,
+      "pct_off_52w_high": -21.06,
+      "pct_above_52w_low": 12.84,
+      "candle_count": 110
+    },
+    "fetched_at": "2026-08-13T17:09:20.572776"
+  },
+  "NSE:ABSLBANETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 59.18,
+      "week52_high": 64.94,
+      "week52_low": 50.97,
+      "pct_off_52w_high": -8.87,
+      "pct_above_52w_low": 16.11,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:23.520683"
+  },
+  "NSE:ABSLLIQUID-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1000.0,
+      "week52_high": 1044.99,
+      "week52_low": 999.56,
+      "pct_off_52w_high": -4.31,
+      "pct_above_52w_low": 0.04,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:26.182657"
+  },
+  "NSE:ABSLMSCIN-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 30.0,
+      "week52_high": 35.34,
+      "week52_low": 26.34,
+      "pct_off_52w_high": -15.11,
+      "pct_above_52w_low": 13.9,
+      "candle_count": 116
+    },
+    "fetched_at": "2026-08-13T17:09:28.768341"
+  },
+  "NSE:ABSLNN50ET-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 78.18,
+      "week52_high": 80.33,
+      "week52_low": 63.02,
+      "pct_off_52w_high": -2.68,
+      "pct_above_52w_low": 24.06,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:31.440839"
+  },
+  "NSE:ABSLPSE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.28,
+      "week52_high": 11.6,
+      "week52_low": 9.21,
+      "pct_off_52w_high": -11.38,
+      "pct_above_52w_low": 11.62,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:33.932591"
+  },
+  "NSE:ALPHA-EQ": {
+    "fundamentals": {
+      "company_name": "ALPHAGEO (INDIA) LTD",
+      "current_price": 292.35,
+      "market_cap_cr": 186.34,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 112.17,
+      "net_profit_cr": -13.89,
+      "eps": -21.7,
+      "pe_ratio": -13.47,
+      "roe_pct": -5.48,
+      "debt_to_equity": 0.031,
+      "opm_pct": -7.42,
+      "sales_cagr_pct": -10.55
+    },
+    "price_levels": {
+      "latest_close": 54.25,
+      "week52_high": 54.6,
+      "week52_low": 42.0,
+      "pct_off_52w_high": -0.64,
+      "pct_above_52w_low": 29.17,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:37.076400"
+  },
+  "NSE:ALPHAETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 26.8,
+      "week52_high": 27.1,
+      "week52_low": 21.8,
+      "pct_off_52w_high": -1.11,
+      "pct_above_52w_low": 22.94,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:39.603997"
+  },
+  "NSE:ALPL30IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 28.31,
+      "week52_high": 29.17,
+      "week52_low": 24.35,
+      "pct_off_52w_high": -2.95,
+      "pct_above_52w_low": 16.26,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:42.116135"
+  },
+  "NSE:AONEGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 14.19,
+      "week52_high": 17.73,
+      "week52_low": 10.0,
+      "pct_off_52w_high": -19.97,
+      "pct_above_52w_low": 41.9,
+      "candle_count": 229
+    },
+    "fetched_at": "2026-08-13T17:09:44.635869"
+  },
+  "NSE:AONELIQUID-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1072.34,
+      "week52_high": 1094.59,
+      "week52_low": 997.56,
+      "pct_off_52w_high": -2.03,
+      "pct_above_52w_low": 7.5,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:47.149119"
+  },
+  "NSE:AONENIFTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.07,
+      "week52_high": 12.0,
+      "week52_low": 9.0,
+      "pct_off_52w_high": -16.08,
+      "pct_above_52w_low": 11.89,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:49.787357"
+  },
+  "NSE:AONESILVER-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 8.83,
+      "week52_high": 12.0,
+      "week52_low": 7.43,
+      "pct_off_52w_high": -26.42,
+      "pct_above_52w_low": 18.84,
+      "candle_count": 111
+    },
+    "fetched_at": "2026-08-13T17:09:52.281741"
+  },
+  "NSE:AONETMMQ50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.4,
+      "week52_high": 10.87,
+      "week52_low": 8.0,
+      "pct_off_52w_high": -4.32,
+      "pct_above_52w_low": 30.0,
+      "candle_count": 176
+    },
+    "fetched_at": "2026-08-13T17:09:54.820534"
+  },
+  "NSE:AONETOTAL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 12.05,
+      "week52_high": 12.51,
+      "week52_low": 9.6,
+      "pct_off_52w_high": -3.68,
+      "pct_above_52w_low": 25.52,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:09:57.373824"
+  },
+  "NSE:AUTOBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 304.22,
+      "week52_high": 310.45,
+      "week52_low": 242.5,
+      "pct_off_52w_high": -2.01,
+      "pct_above_52w_low": 25.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:00.273707"
+  },
+  "NSE:AUTOIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 30.48,
+      "week52_high": 31.46,
+      "week52_low": 24.2,
+      "pct_off_52w_high": -3.12,
+      "pct_above_52w_low": 25.95,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:03.076340"
+  },
+  "NSE:BANK10ADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 16.9,
+      "week52_high": 18.99,
+      "week52_low": 12.08,
+      "pct_off_52w_high": -11.01,
+      "pct_above_52w_low": 39.9,
+      "candle_count": 104
+    },
+    "fetched_at": "2026-08-13T17:10:07.208532"
+  },
+  "NSE:BANK10BETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 20.78,
+      "week52_high": 24.9,
+      "week52_low": 20.17,
+      "pct_off_52w_high": -16.55,
+      "pct_above_52w_low": 3.02,
+      "candle_count": 18
+    },
+    "fetched_at": "2026-08-13T17:10:09.999114"
+  },
+  "NSE:BANKADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 59.06,
+      "week52_high": 62.9,
+      "week52_low": 51.01,
+      "pct_off_52w_high": -6.1,
+      "pct_above_52w_low": 15.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:13.160268"
+  },
+  "NSE:BANKBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 597.97,
+      "week52_high": 638.99,
+      "week52_low": 515.98,
+      "pct_off_52w_high": -6.42,
+      "pct_above_52w_low": 15.89,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:16.674832"
+  },
+  "NSE:BANKBETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 59.65,
+      "week52_high": 73.7,
+      "week52_low": 51.3,
+      "pct_off_52w_high": -19.06,
+      "pct_above_52w_low": 16.28,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:20.268759"
+  },
+  "NSE:BANKBETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 58.65,
+      "week52_high": 63.9,
+      "week52_low": 50.71,
+      "pct_off_52w_high": -8.22,
+      "pct_above_52w_low": 15.66,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:23.594009"
+  },
+  "NSE:BANKETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 588.22,
+      "week52_high": 628.27,
+      "week52_low": 507.01,
+      "pct_off_52w_high": -6.37,
+      "pct_above_52w_low": 16.02,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:26.550010"
+  },
+  "NSE:BANKIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 59.31,
+      "week52_high": 63.9,
+      "week52_low": 51.17,
+      "pct_off_52w_high": -7.18,
+      "pct_above_52w_low": 15.91,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:30.197376"
+  },
+  "NSE:BANKNIFTY1-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 59.89,
+      "week52_high": 65.29,
+      "week52_low": 51.71,
+      "pct_off_52w_high": -8.27,
+      "pct_above_52w_low": 15.82,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:33.980905"
+  },
+  "NSE:BANKPSU-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 88.59,
+      "week52_high": 99.52,
+      "week52_low": 67.59,
+      "pct_off_52w_high": -10.98,
+      "pct_above_52w_low": 31.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:37.224775"
+  },
+  "NSE:BBETF0432-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1355.89,
+      "week52_high": 1378.0,
+      "week52_low": 1262.29,
+      "pct_off_52w_high": -1.6,
+      "pct_above_52w_low": 7.42,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:40.213597"
+  },
+  "NSE:BBNPNBETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 58.11,
+      "week52_high": 62.77,
+      "week52_low": 50.03,
+      "pct_off_52w_high": -7.42,
+      "pct_above_52w_low": 16.15,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:43.161991"
+  },
+  "NSE:BBNPPGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 147.05,
+      "week52_high": 184.05,
+      "week52_low": 94.5,
+      "pct_off_52w_high": -20.1,
+      "pct_above_52w_low": 55.61,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:45.691441"
+  },
+  "NSE:BFSI-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 27.34,
+      "week52_high": 29.94,
+      "week52_low": 24.03,
+      "pct_off_52w_high": -8.68,
+      "pct_above_52w_low": 13.77,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:48.331189"
+  },
+  "NSE:BNKETFAXIS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 595.17,
+      "week52_high": 647.82,
+      "week52_low": 512.51,
+      "pct_off_52w_high": -8.13,
+      "pct_above_52w_low": 16.13,
+      "candle_count": 246
+    },
+    "fetched_at": "2026-08-13T17:10:50.918088"
+  },
+  "NSE:BSE500IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 39.96,
+      "week52_high": 42.05,
+      "week52_low": 34.5,
+      "pct_off_52w_high": -4.97,
+      "pct_above_52w_low": 15.83,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:53.603368"
+  },
+  "NSE:BSLGOLDETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 133.66,
+      "week52_high": 155.99,
+      "week52_low": 85.74,
+      "pct_off_52w_high": -14.32,
+      "pct_above_52w_low": 55.89,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:57.083116"
+  },
+  "NSE:BSLNIFTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 28.64,
+      "week52_high": 33.0,
+      "week52_low": 25.7,
+      "pct_off_52w_high": -13.21,
+      "pct_above_52w_low": 11.44,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:10:59.814544"
+  },
+  "NSE:BSLSENETFG-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 78.55,
+      "week52_high": 87.82,
+      "week52_low": 70.32,
+      "pct_off_52w_high": -10.56,
+      "pct_above_52w_low": 11.7,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:02.795586"
+  },
+  "NSE:CASHIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1075.03,
+      "week52_high": 1099.28,
+      "week52_low": 1023.27,
+      "pct_off_52w_high": -2.21,
+      "pct_above_52w_low": 5.06,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:05.920179"
+  },
+  "NSE:CEMNTGROWW-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 14.7,
+      "week52_high": 16.27,
+      "week52_low": 14.5,
+      "pct_off_52w_high": -9.65,
+      "pct_above_52w_low": 1.38,
+      "candle_count": 13
+    },
+    "fetched_at": "2026-08-13T17:11:09.234926"
+  },
+  "NSE:CHEMICAL-EQ": {
+    "fundamentals": {
+      "company_name": "FERTILIZERS & CHEMICALS TRAVANCORE LTD",
+      "current_price": 820.45,
+      "market_cap_cr": 53027.55,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5723.76,
+      "net_profit_cr": -39.6,
+      "eps": -0.61,
+      "pe_ratio": -1340.69,
+      "roe_pct": -2.93,
+      "debt_to_equity": 2.951,
+      "opm_pct": 1.21,
+      "sales_cagr_pct": 13.26
+    },
+    "price_levels": {
+      "latest_close": 30.97,
+      "week52_high": 31.8,
+      "week52_low": 24.5,
+      "pct_off_52w_high": -2.61,
+      "pct_above_52w_low": 26.41,
+      "candle_count": 182
+    },
+    "fetched_at": "2026-08-13T17:11:12.648175"
+  },
+  "NSE:CHOICEGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 150.44,
+      "week52_high": 175.49,
+      "week52_low": 115.79,
+      "pct_off_52w_high": -14.27,
+      "pct_above_52w_low": 29.92,
+      "candle_count": 189
+    },
+    "fetched_at": "2026-08-13T17:11:15.347083"
+  },
+  "NSE:COMMOIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 100.34,
+      "week52_high": 110.56,
+      "week52_low": 86.79,
+      "pct_off_52w_high": -9.24,
+      "pct_above_52w_low": 15.61,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:18.019304"
+  },
+  "NSE:CONS-EQ": {
+    "fundamentals": {
+      "company_name": "CONSOLIDATED FINVEST & HOLDINGS LTD",
+      "current_price": 272.05,
+      "market_cap_cr": 880.47,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 60.68,
+      "net_profit_cr": 54.1,
+      "eps": 16.7,
+      "pe_ratio": 16.29,
+      "roe_pct": 4.67,
+      "debt_to_equity": 0.0,
+      "opm_pct": 99.04,
+      "sales_cagr_pct": 28.3
+    },
+    "price_levels": {
+      "latest_close": 12.5,
+      "week52_high": 13.2,
+      "week52_low": 10.2,
+      "pct_off_52w_high": -5.3,
+      "pct_above_52w_low": 22.55,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:21.197090"
+  },
+  "NSE:CONSUMAXIS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 124.88,
+      "week52_high": 131.85,
+      "week52_low": 105.63,
+      "pct_off_52w_high": -5.29,
+      "pct_above_52w_low": 18.22,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:23.814289"
+  },
+  "NSE:CONSUMBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 135.07,
+      "week52_high": 144.38,
+      "week52_low": 114.0,
+      "pct_off_52w_high": -6.45,
+      "pct_above_52w_low": 18.48,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:27.038860"
+  },
+  "NSE:CONSUMER-EQ": {
+    "fundamentals": {
+      "company_name": "TATA CONSUMER PRODUCTS LTD",
+      "current_price": 1090.5,
+      "market_cap_cr": 107976.53,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 20290.43,
+      "net_profit_cr": 1542.3,
+      "eps": 15.59,
+      "pe_ratio": 69.97,
+      "roe_pct": 7.08,
+      "debt_to_equity": 0.129,
+      "opm_pct": 13.76,
+      "sales_cagr_pct": 12.95
+    },
+    "price_levels": {
+      "latest_close": 12.26,
+      "week52_high": 12.87,
+      "week52_low": 9.69,
+      "pct_off_52w_high": -4.74,
+      "pct_above_52w_low": 26.52,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:31.213259"
+  },
+  "NSE:CONSUMIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 125.37,
+      "week52_high": 141.27,
+      "week52_low": 94.65,
+      "pct_off_52w_high": -11.26,
+      "pct_above_52w_low": 32.46,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:33.799988"
+  },
+  "NSE:CPSEETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 94.37,
+      "week52_high": 112.0,
+      "week52_low": 85.67,
+      "pct_off_52w_high": -15.74,
+      "pct_above_52w_low": 10.16,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:36.531349"
+  },
+  "NSE:DEFENCE-EQ": {
+    "fundamentals": {
+      "company_name": "SWAN DEFENCE AND HEAVY INDUSTRIES LTD",
+      "current_price": 2484.0,
+      "market_cap_cr": 12994.78,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 282.14,
+      "net_profit_cr": -225.97,
+      "eps": -42.88,
+      "pe_ratio": -57.93,
+      "roe_pct": -324.48,
+      "debt_to_equity": 40.027,
+      "opm_pct": -109.79,
+      "sales_cagr_pct": -7.4
+    },
+    "price_levels": {
+      "latest_close": 82.21,
+      "week52_high": 82.32,
+      "week52_low": 58.91,
+      "pct_off_52w_high": -0.13,
+      "pct_above_52w_low": 39.55,
+      "candle_count": 118
+    },
+    "fetched_at": "2026-08-13T17:11:39.657625"
+  },
+  "NSE:DIVIDEND-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 36.26,
+      "week52_high": 38.03,
+      "week52_low": 33.15,
+      "pct_off_52w_high": -4.65,
+      "pct_above_52w_low": 9.38,
+      "candle_count": 160
+    },
+    "fetched_at": "2026-08-13T17:11:42.304510"
+  },
+  "NSE:DIVOPPBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 79.07,
+      "week52_high": 87.09,
+      "week52_low": 72.13,
+      "pct_off_52w_high": -9.21,
+      "pct_above_52w_low": 9.62,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:44.965463"
+  },
+  "NSE:EBANK10-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 16.86,
+      "week52_high": 17.13,
+      "week52_low": 16.7,
+      "pct_off_52w_high": -1.58,
+      "pct_above_52w_low": 0.96,
+      "candle_count": 7
+    },
+    "fetched_at": "2026-08-13T17:11:47.508270"
+  },
+  "NSE:EBANKNIFTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 58.33,
+      "week52_high": 69.39,
+      "week52_low": 50.05,
+      "pct_off_52w_high": -15.94,
+      "pct_above_52w_low": 16.54,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:50.085532"
+  },
+  "NSE:EBBETF0430-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1615.2,
+      "week52_high": 1644.19,
+      "week52_low": 1232.0,
+      "pct_off_52w_high": -1.76,
+      "pct_above_52w_low": 31.1,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:52.644267"
+  },
+  "NSE:EBBETF0431-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1443.01,
+      "week52_high": 1469.0,
+      "week52_low": 1363.0,
+      "pct_off_52w_high": -1.77,
+      "pct_above_52w_low": 5.87,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:55.361990"
+  },
+  "NSE:EBBETF0433-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1317.74,
+      "week52_high": 1345.89,
+      "week52_low": 1242.87,
+      "pct_off_52w_high": -2.09,
+      "pct_above_52w_low": 6.02,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:11:58.041027"
+  },
+  "NSE:ECAPINSURE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 23.82,
+      "week52_high": 25.88,
+      "week52_low": 20.5,
+      "pct_off_52w_high": -7.96,
+      "pct_above_52w_low": 16.2,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:00.872554"
+  },
+  "NSE:EGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 151.85,
+      "week52_high": 184.95,
+      "week52_low": 98.8,
+      "pct_off_52w_high": -17.9,
+      "pct_above_52w_low": 53.69,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:03.536461"
+  },
+  "NSE:ELIQUID-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1043.4,
+      "week52_high": 1043.41,
+      "week52_low": 996.0,
+      "pct_off_52w_high": -0.0,
+      "pct_above_52w_low": 4.76,
+      "candle_count": 192
+    },
+    "fetched_at": "2026-08-13T17:12:06.519328"
+  },
+  "NSE:ELM250-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 17.04,
+      "week52_high": 19.2,
+      "week52_low": 14.43,
+      "pct_off_52w_high": -11.25,
+      "pct_above_52w_low": 18.09,
+      "candle_count": 230
+    },
+    "fetched_at": "2026-08-13T17:12:09.325782"
+  },
+  "NSE:ELMDIV-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 36.96,
+      "week52_high": 38.67,
+      "week52_low": 36.13,
+      "pct_off_52w_high": -4.42,
+      "pct_above_52w_low": 2.3,
+      "candle_count": 7
+    },
+    "fetched_at": "2026-08-13T17:12:12.120589"
+  },
+  "NSE:EMETAL-EQ": {
+    "fundamentals": {
+      "company_name": "SHREE METALLOYS LTD",
+      "current_price": 39.11,
+      "market_cap_cr": 20.56,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 103.73,
+      "net_profit_cr": 1.45,
+      "eps": 2.74,
+      "pe_ratio": 14.3,
+      "roe_pct": 12.6,
+      "debt_to_equity": 0.0,
+      "opm_pct": 2.03,
+      "sales_cagr_pct": 9.95
+    },
+    "price_levels": {
+      "latest_close": 13.06,
+      "week52_high": 15.21,
+      "week52_low": 12.41,
+      "pct_off_52w_high": -14.14,
+      "pct_above_52w_low": 5.24,
+      "candle_count": 13
+    },
+    "fetched_at": "2026-08-13T17:12:16.328877"
+  },
+  "NSE:EMULTIMQ-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 42.17,
+      "week52_high": 43.54,
+      "week52_low": 36.25,
+      "pct_off_52w_high": -3.15,
+      "pct_above_52w_low": 16.33,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:19.696185"
+  },
+  "NSE:ENERGY-EQ": {
+    "fundamentals": {
+      "company_name": "ENERGY DEVELOPMENT COMPANY LTD",
+      "current_price": 16.26,
+      "market_cap_cr": 77.19,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 46.25,
+      "net_profit_cr": -0.24,
+      "eps": -0.05,
+      "pe_ratio": -321.81,
+      "roe_pct": -6.14,
+      "debt_to_equity": 35.164,
+      "opm_pct": 59.5,
+      "sales_cagr_pct": -9.63
+    },
+    "price_levels": {
+      "latest_close": 38.83,
+      "week52_high": 42.82,
+      "week52_low": 29.0,
+      "pct_off_52w_high": -9.32,
+      "pct_above_52w_low": 33.9,
+      "candle_count": 186
+    },
+    "fetched_at": "2026-08-13T17:12:23.527837"
+  },
+  "NSE:ENEXT50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 73.01,
+      "week52_high": 75.14,
+      "week52_low": 68.59,
+      "pct_off_52w_high": -2.83,
+      "pct_above_52w_low": 6.44,
+      "candle_count": 57
+    },
+    "fetched_at": "2026-08-13T17:12:26.218167"
+  },
+  "NSE:ENIFTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 24.62,
+      "week52_high": 27.99,
+      "week52_low": 22.28,
+      "pct_off_52w_high": -12.04,
+      "pct_above_52w_low": 10.5,
+      "candle_count": 176
+    },
+    "fetched_at": "2026-08-13T17:12:28.864254"
+  },
+  "NSE:EQUAL200-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 14.07,
+      "week52_high": 14.6,
+      "week52_low": 11.75,
+      "pct_off_52w_high": -3.63,
+      "pct_above_52w_low": 19.74,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:31.456742"
+  },
+  "NSE:EQUAL50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 338.0,
+      "week52_high": 342.88,
+      "week52_low": 295.16,
+      "pct_off_52w_high": -1.42,
+      "pct_above_52w_low": 14.51,
+      "candle_count": 246
+    },
+    "fetched_at": "2026-08-13T17:12:34.148566"
+  },
+  "NSE:EQUAL50ADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 347.9,
+      "week52_high": 361.0,
+      "week52_low": 304.78,
+      "pct_off_52w_high": -3.63,
+      "pct_above_52w_low": 14.15,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:36.840511"
+  },
+  "NSE:ESENSEX-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 80.13,
+      "week52_high": 88.05,
+      "week52_low": 71.87,
+      "pct_off_52w_high": -8.99,
+      "pct_above_52w_low": 11.49,
+      "candle_count": 175
+    },
+    "fetched_at": "2026-08-13T17:12:39.480195"
+  },
+  "NSE:ESG-EQ": {
+    "fundamentals": {
+      "company_name": "FORBES & COMPANY LTD",
+      "current_price": 308.0,
+      "market_cap_cr": 397.32,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 76.14,
+      "net_profit_cr": 13.41,
+      "eps": 10.4,
+      "pe_ratio": 29.63,
+      "roe_pct": 6.73,
+      "debt_to_equity": 0.03,
+      "opm_pct": 9.98,
+      "sales_cagr_pct": -33.51
+    },
+    "price_levels": {
+      "latest_close": 41.97,
+      "week52_high": 45.06,
+      "week52_low": 37.52,
+      "pct_off_52w_high": -6.86,
+      "pct_above_52w_low": 11.86,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:42.824209"
+  },
+  "NSE:ESILVER-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 230.95,
+      "week52_high": 375.0,
+      "week52_low": 111.7,
+      "pct_off_52w_high": -38.41,
+      "pct_above_52w_low": 106.76,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:45.779290"
+  },
+  "NSE:EVIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 34.27,
+      "week52_high": 36.0,
+      "week52_low": 26.28,
+      "pct_off_52w_high": -4.81,
+      "pct_above_52w_low": 30.4,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:48.481969"
+  },
+  "NSE:EVINDIA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 34.24,
+      "week52_high": 35.04,
+      "week52_low": 26.2,
+      "pct_off_52w_high": -2.28,
+      "pct_above_52w_low": 30.69,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:51.134477"
+  },
+  "NSE:FINIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 33.5,
+      "week52_high": 34.56,
+      "week52_low": 27.4,
+      "pct_off_52w_high": -3.07,
+      "pct_above_52w_low": 22.26,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:12:53.803057"
+  },
+  "NSE:FLEXIADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.36,
+      "week52_high": 11.9,
+      "week52_low": 8.73,
+      "pct_off_52w_high": -12.94,
+      "pct_above_52w_low": 18.67,
+      "candle_count": 204
+    },
+    "fetched_at": "2026-08-13T17:12:56.430039"
+  },
+  "NSE:FMCGADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 49.16,
+      "week52_high": 51.09,
+      "week52_low": 47.87,
+      "pct_off_52w_high": -3.78,
+      "pct_above_52w_low": 2.69,
+      "candle_count": 58
+    },
+    "fetched_at": "2026-08-13T17:12:59.148529"
+  },
+  "NSE:FMCGIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 52.43,
+      "week52_high": 62.3,
+      "week52_low": 48.55,
+      "pct_off_52w_high": -15.84,
+      "pct_above_52w_low": 7.99,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:01.755953"
+  },
+  "NSE:GILT10BETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 26.92,
+      "week52_high": 27.14,
+      "week52_low": 25.1,
+      "pct_off_52w_high": -0.81,
+      "pct_above_52w_low": 7.25,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:04.348416"
+  },
+  "NSE:GILT5BETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 66.92,
+      "week52_high": 67.29,
+      "week52_low": 61.51,
+      "pct_off_52w_high": -0.55,
+      "pct_above_52w_low": 8.8,
+      "candle_count": 236
+    },
+    "fetched_at": "2026-08-13T17:13:07.573502"
+  },
+  "NSE:GILT5YBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 66.41,
+      "week52_high": 67.84,
+      "week52_low": 61.45,
+      "pct_off_52w_high": -2.11,
+      "pct_above_52w_low": 8.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:10.367825"
+  },
+  "NSE:GOLD1-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 126.92,
+      "week52_high": 158.0,
+      "week52_low": 80.77,
+      "pct_off_52w_high": -19.67,
+      "pct_above_52w_low": 57.14,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:13.007680"
+  },
+  "NSE:GOLD360-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 148.5,
+      "week52_high": 178.0,
+      "week52_low": 87.85,
+      "pct_off_52w_high": -16.57,
+      "pct_above_52w_low": 69.04,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:15.683299"
+  },
+  "NSE:GOLDADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 147.57,
+      "week52_high": 181.0,
+      "week52_low": 95.24,
+      "pct_off_52w_high": -18.47,
+      "pct_above_52w_low": 54.95,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:18.360041"
+  },
+  "NSE:GOLDAXIS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 126.4,
+      "week52_high": 150.0,
+      "week52_low": 80.84,
+      "pct_off_52w_high": -15.73,
+      "pct_above_52w_low": 56.36,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:20.874414"
+  },
+  "NSE:GOLDBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 125.48,
+      "week52_high": 148.14,
+      "week52_low": 80.02,
+      "pct_off_52w_high": -15.3,
+      "pct_above_52w_low": 56.81,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:23.550261"
+  },
+  "NSE:GOLDBETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 127.95,
+      "week52_high": 149.35,
+      "week52_low": 81.35,
+      "pct_off_52w_high": -14.33,
+      "pct_above_52w_low": 57.28,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:26.271526"
+  },
+  "NSE:GOLDBND-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 151.75,
+      "week52_high": 180.16,
+      "week52_low": 115.17,
+      "pct_off_52w_high": -15.77,
+      "pct_above_52w_low": 31.76,
+      "candle_count": 165
+    },
+    "fetched_at": "2026-08-13T17:13:29.476922"
+  },
+  "NSE:GOLDCASE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 23.91,
+      "week52_high": 27.94,
+      "week52_low": 15.25,
+      "pct_off_52w_high": -14.42,
+      "pct_above_52w_low": 56.79,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:32.334862"
+  },
+  "NSE:GOLDETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 147.72,
+      "week52_high": 173.5,
+      "week52_low": 96.03,
+      "pct_off_52w_high": -14.86,
+      "pct_above_52w_low": 53.83,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:35.184708"
+  },
+  "NSE:GOLDIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 129.92,
+      "week52_high": 158.0,
+      "week52_low": 82.87,
+      "pct_off_52w_high": -17.77,
+      "pct_above_52w_low": 56.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:37.983546"
+  },
+  "NSE:GROWWCAPM-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 11.29,
+      "week52_high": 12.66,
+      "week52_low": 8.02,
+      "pct_off_52w_high": -10.82,
+      "pct_above_52w_low": 40.77,
+      "candle_count": 171
+    },
+    "fetched_at": "2026-08-13T17:13:40.583109"
+  },
+  "NSE:GROWWCHEM-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 30.87,
+      "week52_high": 31.74,
+      "week52_low": 24.64,
+      "pct_off_52w_high": -2.74,
+      "pct_above_52w_low": 25.28,
+      "candle_count": 142
+    },
+    "fetched_at": "2026-08-13T17:13:44.287638"
+  },
+  "NSE:GROWWDEFNC-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 97.94,
+      "week52_high": 99.44,
+      "week52_low": 71.78,
+      "pct_off_52w_high": -1.51,
+      "pct_above_52w_low": 36.44,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:47.002716"
+  },
+  "NSE:GROWWEV-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 34.14,
+      "week52_high": 34.64,
+      "week52_low": 26.2,
+      "pct_off_52w_high": -1.44,
+      "pct_above_52w_low": 30.31,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:49.813471"
+  },
+  "NSE:GROWWGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 14.82,
+      "week52_high": 18.0,
+      "week52_low": 9.67,
+      "pct_off_52w_high": -17.67,
+      "pct_above_52w_low": 53.26,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:52.897148"
   }
 }
