@@ -70,13 +70,23 @@ def build_watchlist(data_file=DATA_FILE, min_discount_pct=-10, top_n=50):
     if not candidates:
         return []
 
-    pe_values = [c["pe_ratio"] for c in candidates]
+    pe_values = [c["pe_ratio"] for c in candidates if c["pe_ratio"] is not None and c["pe_ratio"] > 0]
     roe_values = [c["roe_pct"] for c in candidates]
     de_values = [c["debt_to_equity"] for c in candidates]
     growth_values = [c["sales_cagr_pct"] for c in candidates]
 
     for c in candidates:
-        c["pe_rank"] = _percentile_rank(pe_values, c["pe_ratio"], lower_is_better=True)
+        # P/E ranking excludes negative or zero values entirely -- those
+        # signal a loss-making company, not "cheap." Caught live: a
+        # stock with P/E -1.86 and ROE -72.75% ranked #1 before this
+        # fix, because naive lower-is-better ranking scored -1.86 as
+        # the single best P/E in the whole batch (numerically smallest
+        # = "cheapest"), when it actually means the company lost money
+        # that year. Treating it as not-applicable here lets the
+        # correctly-bad ROE actually pull the combined rank down
+        # instead of being masked by an artificially perfect P/E score.
+        pe = c["pe_ratio"]
+        c["pe_rank"] = _percentile_rank(pe_values, pe, lower_is_better=True) if (pe is not None and pe > 0) else None
         c["roe_rank"] = _percentile_rank(roe_values, c["roe_pct"], lower_is_better=False)
         c["debt_equity_rank"] = _percentile_rank(de_values, c["debt_to_equity"], lower_is_better=True)
         c["growth_rank"] = _percentile_rank(growth_values, c["sales_cagr_pct"], lower_is_better=False)
