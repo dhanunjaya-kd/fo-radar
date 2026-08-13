@@ -47907,5 +47907,1005 @@
       "candle_count": 247
     },
     "fetched_at": "2026-08-13T16:57:53.182578"
+  },
+  "NSE:TIMEX-EQ": {
+    "fundamentals": {
+      "company_name": "TIMEX GROUP INDIA LTD",
+      "current_price": 538.55,
+      "market_cap_cr": 5428.48,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 798.59,
+      "net_profit_cr": 75.44,
+      "eps": 7.47,
+      "pe_ratio": 72.1,
+      "roe_pct": 100.07,
+      "debt_to_equity": 0.947,
+      "opm_pct": 14.31,
+      "sales_cagr_pct": 16.62
+    },
+    "price_levels": {
+      "latest_close": 539.15,
+      "week52_high": 618.0,
+      "week52_low": 312.0,
+      "pct_off_52w_high": -12.76,
+      "pct_above_52w_low": 72.8,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T16:57:57.042195"
+  },
+  "NSE:TIMKEN-EQ": {
+    "fundamentals": {
+      "company_name": "TIMKEN INDIA LTD",
+      "current_price": 3252.35,
+      "market_cap_cr": 24442.23,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3419.32,
+      "net_profit_cr": 398.33,
+      "eps": 52.97,
+      "pe_ratio": 61.4,
+      "roe_pct": 13.4,
+      "debt_to_equity": 0.005,
+      "opm_pct": 17.89,
+      "sales_cagr_pct": 13.95
+    },
+    "price_levels": {
+      "latest_close": 3260.3,
+      "week52_high": 3925.0,
+      "week52_low": 2800.5,
+      "pct_off_52w_high": -16.94,
+      "pct_above_52w_low": 16.42,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:00.322493"
+  },
+  "NSE:TINNARUBR-EQ": {
+    "fundamentals": {
+      "company_name": "TINNA RUBBER & INFRASTRUCTURE LTD",
+      "current_price": 1094.5,
+      "market_cap_cr": 1964.67,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 545.81,
+      "net_profit_cr": 52.85,
+      "eps": 29.36,
+      "pe_ratio": 37.28,
+      "roe_pct": 17.59,
+      "debt_to_equity": 0.43,
+      "opm_pct": 17.07,
+      "sales_cagr_pct": 25.86
+    },
+    "price_levels": {
+      "latest_close": 1108.1,
+      "week52_high": 1322.0,
+      "week52_low": 527.45,
+      "pct_off_52w_high": -16.18,
+      "pct_above_52w_low": 110.09,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:03.615965"
+  },
+  "NSE:TIPSFILMS-EQ": {
+    "fundamentals": {
+      "company_name": "TIPS FILMS LTD",
+      "current_price": 361.45,
+      "market_cap_cr": 156.24,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 158.27,
+      "net_profit_cr": -15.85,
+      "eps": -36.86,
+      "pe_ratio": -9.81,
+      "roe_pct": -53.05,
+      "debt_to_equity": 6.302,
+      "opm_pct": -9.88,
+      "sales_cagr_pct": 24.05
+    },
+    "price_levels": {
+      "latest_close": 361.95,
+      "week52_high": 574.1,
+      "week52_low": 276.75,
+      "pct_off_52w_high": -36.95,
+      "pct_above_52w_low": 30.79,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:06.753253"
+  },
+  "NSE:TIPSMUSIC-EQ": {
+    "fundamentals": {
+      "company_name": "TIPS MUSIC LTD",
+      "current_price": 669.6,
+      "market_cap_cr": 8566.59,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 375.51,
+      "net_profit_cr": 216.75,
+      "eps": 16.96,
+      "pe_ratio": 39.48,
+      "roe_pct": 83.38,
+      "debt_to_equity": 0.02,
+      "opm_pct": 73.44,
+      "sales_cagr_pct": 25.97
+    },
+    "price_levels": {
+      "latest_close": 671.95,
+      "week52_high": 741.0,
+      "week52_low": 481.15,
+      "pct_off_52w_high": -9.32,
+      "pct_above_52w_low": 39.65,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:10.766318"
+  },
+  "NSE:TIRUMALCHM-EQ": {
+    "fundamentals": {
+      "company_name": "THIRUMALAI CHEMICALS LTD",
+      "current_price": 160.5,
+      "market_cap_cr": 1935.11,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1735.52,
+      "net_profit_cr": -167.91,
+      "eps": -13.92,
+      "pe_ratio": -11.53,
+      "roe_pct": -10.74,
+      "debt_to_equity": 1.391,
+      "opm_pct": -2.03,
+      "sales_cagr_pct": 5.99
+    },
+    "price_levels": {
+      "latest_close": 160.8,
+      "week52_high": 328.8,
+      "week52_low": 158.0,
+      "pct_off_52w_high": -51.09,
+      "pct_above_52w_low": 1.77,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:14.017098"
+  },
+  "NSE:TITAGARH-EQ": {
+    "fundamentals": {
+      "company_name": "TITAGARH RAIL SYSTEMS LTD",
+      "current_price": 849.0,
+      "market_cap_cr": 11396.89,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3185.82,
+      "net_profit_cr": 122.98,
+      "eps": 9.13,
+      "pe_ratio": 92.99,
+      "roe_pct": 5.01,
+      "debt_to_equity": 0.254,
+      "opm_pct": 10.39,
+      "sales_cagr_pct": 7.13
+    },
+    "price_levels": {
+      "latest_close": 850.75,
+      "week52_high": 971.0,
+      "week52_low": 568.7,
+      "pct_off_52w_high": -12.38,
+      "pct_above_52w_low": 49.6,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:17.322751"
+  },
+  "NSE:TITAN-EQ": {
+    "fundamentals": {
+      "company_name": "TITAN COMPANY LTD",
+      "current_price": 5050.6,
+      "market_cap_cr": 447770.56,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 87584.0,
+      "net_profit_cr": 5073.0,
+      "eps": 57.14,
+      "pe_ratio": 88.39,
+      "roe_pct": 32.31,
+      "debt_to_equity": 1.95,
+      "opm_pct": 9.54,
+      "sales_cagr_pct": 23.34
+    },
+    "price_levels": {
+      "latest_close": 5063.7,
+      "week52_high": 5168.0,
+      "week52_low": 3303.1,
+      "pct_off_52w_high": -2.02,
+      "pct_above_52w_low": 53.3,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:20.573554"
+  },
+  "NSE:TMB-EQ": {
+    "fundamentals": {
+      "company_name": "TAMILNAD MERCANTILE BANK LTD",
+      "current_price": 847.1,
+      "market_cap_cr": 13413.94,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5819.41,
+      "net_profit_cr": 1337.55,
+      "eps": 84.44,
+      "pe_ratio": 10.03,
+      "roe_pct": 13.23,
+      "debt_to_equity": 6.173,
+      "opm_pct": 74.14,
+      "sales_cagr_pct": 7.55
+    },
+    "price_levels": {
+      "latest_close": 845.85,
+      "week52_high": 917.0,
+      "week52_low": 411.8,
+      "pct_off_52w_high": -7.76,
+      "pct_above_52w_low": 105.4,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:23.607012"
+  },
+  "NSE:TMCV-EQ": {
+    "fundamentals": {
+      "company_name": "TATA MOTORS LTD",
+      "current_price": 474.8,
+      "market_cap_cr": 174854.62,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 83855.0,
+      "net_profit_cr": 3030.0,
+      "eps": 8.23,
+      "pe_ratio": 57.7,
+      "roe_pct": 23.79,
+      "debt_to_equity": 0.441,
+      "opm_pct": 9.08,
+      "sales_cagr_pct": 44.04
+    },
+    "price_levels": {
+      "latest_close": 474.8,
+      "week52_high": 509.0,
+      "week52_low": 306.3,
+      "pct_off_52w_high": -6.72,
+      "pct_above_52w_low": 55.01,
+      "candle_count": 187
+    },
+    "fetched_at": "2026-08-13T16:58:26.505558"
+  },
+  "NSE:TMPV-EQ": {
+    "fundamentals": {
+      "company_name": "TATA MOTORS PASSENGER VEHICLES LTD",
+      "current_price": 348.05,
+      "market_cap_cr": 128445.17,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 335582.0,
+      "net_profit_cr": 82390.0,
+      "eps": 223.74,
+      "pe_ratio": 1.56,
+      "roe_pct": 73.52,
+      "debt_to_equity": 0.706,
+      "opm_pct": 5.58,
+      "sales_cagr_pct": 2.46
+    },
+    "price_levels": {
+      "latest_close": 349.6,
+      "week52_high": 448.3,
+      "week52_low": 294.3,
+      "pct_off_52w_high": -22.02,
+      "pct_above_52w_low": 18.79,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:30.193756"
+  },
+  "NSE:TNPETRO-EQ": {
+    "fundamentals": {
+      "company_name": "TAMIL NADU PETRO PRODUCTS LTD",
+      "current_price": 110.25,
+      "market_cap_cr": 991.36,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1466.14,
+      "net_profit_cr": 97.45,
+      "eps": 10.83,
+      "pe_ratio": 10.18,
+      "roe_pct": 9.58,
+      "debt_to_equity": 0.457,
+      "opm_pct": 8.94,
+      "sales_cagr_pct": 5.72
+    },
+    "price_levels": {
+      "latest_close": 110.59,
+      "week52_high": 129.89,
+      "week52_low": 78.67,
+      "pct_off_52w_high": -14.86,
+      "pct_above_52w_low": 40.57,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:34.373279"
+  },
+  "NSE:TNPL-EQ": {
+    "fundamentals": {
+      "company_name": "TAMIL NADU NEWSPRINT & PAPERS LTD",
+      "current_price": 141.85,
+      "market_cap_cr": 983.97,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4644.89,
+      "net_profit_cr": 247.75,
+      "eps": 35.8,
+      "pe_ratio": 3.96,
+      "roe_pct": 10.7,
+      "debt_to_equity": 0.696,
+      "opm_pct": 10.35,
+      "sales_cagr_pct": 5.14
+    },
+    "price_levels": {
+      "latest_close": 141.77,
+      "week52_high": 179.9,
+      "week52_low": 121.51,
+      "pct_off_52w_high": -21.2,
+      "pct_above_52w_low": 16.67,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:37.556008"
+  },
+  "NSE:TNTELE-EQ": {
+    "fundamentals": {
+      "company_name": "TAMIL NADU TELECOMMUNICATIONS LTD",
+      "current_price": 9.25,
+      "market_cap_cr": 41.75,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 0,
+      "net_profit_cr": -14.89,
+      "eps": -3.26,
+      "pe_ratio": -2.84,
+      "roe_pct": 7.69,
+      "debt_to_equity": -0.197,
+      "opm_pct": null,
+      "sales_cagr_pct": -32.49
+    },
+    "price_levels": {
+      "latest_close": 9.02,
+      "week52_high": 17.9,
+      "week52_low": 7.81,
+      "pct_off_52w_high": -49.61,
+      "pct_above_52w_low": 15.49,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:40.757404"
+  },
+  "NSE:TOKYOPLAST-EQ": {
+    "fundamentals": {
+      "company_name": "TOKYO PLAST INTERNATIONAL LTD",
+      "current_price": 78.5,
+      "market_cap_cr": 74.58,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 79.31,
+      "net_profit_cr": 0.63,
+      "eps": 0.66,
+      "pe_ratio": 118.37,
+      "roe_pct": 1.0,
+      "debt_to_equity": 0.772,
+      "opm_pct": 8.76,
+      "sales_cagr_pct": 3.5
+    },
+    "price_levels": {
+      "latest_close": 80.0,
+      "week52_high": 140.85,
+      "week52_low": 53.86,
+      "pct_off_52w_high": -43.2,
+      "pct_above_52w_low": 48.53,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:44.170844"
+  },
+  "NSE:TOLINS-EQ": {
+    "fundamentals": {
+      "company_name": "TOLINS TYRES LTD",
+      "current_price": 96.0,
+      "market_cap_cr": 379.23,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 327.12,
+      "net_profit_cr": 35.69,
+      "eps": 9.04,
+      "pe_ratio": 10.62,
+      "roe_pct": 9.88,
+      "debt_to_equity": 0.03,
+      "opm_pct": 14.61,
+      "sales_cagr_pct": 19.99
+    },
+    "price_levels": {
+      "latest_close": 95.71,
+      "week52_high": 202.0,
+      "week52_low": 83.04,
+      "pct_off_52w_high": -52.62,
+      "pct_above_52w_low": 15.26,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:47.175943"
+  },
+  "NSE:TORNTPHARM-EQ": {
+    "fundamentals": {
+      "company_name": "TORRENT PHARMACEUTICALS LTD",
+      "current_price": 4876.3,
+      "market_cap_cr": 185592.56,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 13979.73,
+      "net_profit_cr": 2163.37,
+      "eps": 63.93,
+      "pe_ratio": 76.28,
+      "roe_pct": 25.79,
+      "debt_to_equity": 1.791,
+      "opm_pct": 32.61,
+      "sales_cagr_pct": 10.24
+    },
+    "price_levels": {
+      "latest_close": 4914.5,
+      "week52_high": 5250.0,
+      "week52_low": 3480.6,
+      "pct_off_52w_high": -6.39,
+      "pct_above_52w_low": 41.2,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:50.522565"
+  },
+  "NSE:TORNTPOWER-EQ": {
+    "fundamentals": {
+      "company_name": "TORRENT POWER LTD",
+      "current_price": 1316.0,
+      "market_cap_cr": 66311.19,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 28966.31,
+      "net_profit_cr": 2416.43,
+      "eps": 47.95,
+      "pe_ratio": 27.44,
+      "roe_pct": 12.67,
+      "debt_to_equity": 0.732,
+      "opm_pct": 19.25,
+      "sales_cagr_pct": 12.59
+    },
+    "price_levels": {
+      "latest_close": 1318.0,
+      "week52_high": 1824.1,
+      "week52_low": 1188.0,
+      "pct_off_52w_high": -27.75,
+      "pct_above_52w_low": 10.94,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:54.889920"
+  },
+  "NSE:TOTAL-EQ": {
+    "fundamentals": {
+      "company_name": "TOTAL TRANSPORT SYSTEMS LTD",
+      "current_price": 63.03,
+      "market_cap_cr": 101.66,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 621.59,
+      "net_profit_cr": 7.8,
+      "eps": 4.84,
+      "pe_ratio": 13.01,
+      "roe_pct": 8.62,
+      "debt_to_equity": 0.441,
+      "opm_pct": 2.4,
+      "sales_cagr_pct": 13.45
+    },
+    "price_levels": {
+      "latest_close": 63.03,
+      "week52_high": 87.89,
+      "week52_low": 45.0,
+      "pct_off_52w_high": -28.29,
+      "pct_above_52w_low": 40.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:58:58.301406"
+  },
+  "NSE:TOUCHWOOD-EQ": {
+    "fundamentals": {
+      "company_name": "TOUCHWOOD ENTERTAINMENT LTD",
+      "current_price": 63.65,
+      "market_cap_cr": 70.54,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 74.58,
+      "net_profit_cr": 4.25,
+      "eps": 3.83,
+      "pe_ratio": 16.62,
+      "roe_pct": 9.35,
+      "debt_to_equity": 0.078,
+      "opm_pct": 8.88,
+      "sales_cagr_pct": 21.4
+    },
+    "price_levels": {
+      "latest_close": 63.65,
+      "week52_high": 128.0,
+      "week52_low": 61.8,
+      "pct_off_52w_high": -50.27,
+      "pct_above_52w_low": 2.99,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:01.525642"
+  },
+  "NSE:TPHQ-EQ": {
+    "fundamentals": {
+      "company_name": "TEAMO PRODUCTIONS HQ LTD",
+      "current_price": 0.42,
+      "market_cap_cr": 44.95,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 112.35,
+      "net_profit_cr": 0.1,
+      "eps": 0.0,
+      "pe_ratio": 460.4,
+      "roe_pct": 0.07,
+      "debt_to_equity": 0.01,
+      "opm_pct": -4.67,
+      "sales_cagr_pct": 160.99
+    },
+    "price_levels": {
+      "latest_close": 0.41,
+      "week52_high": 0.86,
+      "week52_low": 0.4,
+      "pct_off_52w_high": -52.33,
+      "pct_above_52w_low": 2.5,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:05.101381"
+  },
+  "NSE:TPLPLASTEH-EQ": {
+    "fundamentals": {
+      "company_name": "TPL PLASTECH LTD",
+      "current_price": 76.4,
+      "market_cap_cr": 599.71,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 422.55,
+      "net_profit_cr": 29.07,
+      "eps": 3.73,
+      "pe_ratio": 20.5,
+      "roe_pct": 17.21,
+      "debt_to_equity": 0.112,
+      "opm_pct": 11.43,
+      "sales_cagr_pct": 9.94
+    },
+    "price_levels": {
+      "latest_close": 76.62,
+      "week52_high": 90.33,
+      "week52_low": 50.01,
+      "pct_off_52w_high": -15.18,
+      "pct_above_52w_low": 53.21,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:08.495373"
+  },
+  "NSE:TRACXN-EQ": {
+    "fundamentals": {
+      "company_name": "TRACXN TECHNOLOGIES LTD",
+      "current_price": 29.55,
+      "market_cap_cr": 315.97,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 83.97,
+      "net_profit_cr": -7.89,
+      "eps": -0.74,
+      "pe_ratio": -39.96,
+      "roe_pct": -15.02,
+      "debt_to_equity": 0.0,
+      "opm_pct": -7.43,
+      "sales_cagr_pct": 14.81
+    },
+    "price_levels": {
+      "latest_close": 29.57,
+      "week52_high": 55.9,
+      "week52_low": 25.39,
+      "pct_off_52w_high": -47.1,
+      "pct_above_52w_low": 16.46,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:11.740917"
+  },
+  "NSE:TRANSRAILL-EQ": {
+    "fundamentals": {
+      "company_name": "TRANSRAIL LIGHTING LTD",
+      "current_price": 473.7,
+      "market_cap_cr": 6359.68,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6880.11,
+      "net_profit_cr": 403.59,
+      "eps": 30.05,
+      "pe_ratio": 15.76,
+      "roe_pct": 17.69,
+      "debt_to_equity": 0.297,
+      "opm_pct": 11.91,
+      "sales_cagr_pct": 24.13
+    },
+    "price_levels": {
+      "latest_close": 472.95,
+      "week52_high": 855.8,
+      "week52_low": 450.05,
+      "pct_off_52w_high": -44.74,
+      "pct_above_52w_low": 5.09,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:14.978184"
+  },
+  "NSE:TRAVELFOOD-EQ": {
+    "fundamentals": {
+      "company_name": "TRAVEL FOOD SERVICES LTD",
+      "current_price": 1395.8,
+      "market_cap_cr": 18379.79,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1647.8,
+      "net_profit_cr": 441.03,
+      "eps": 33.49,
+      "pe_ratio": 41.68,
+      "roe_pct": 30.57,
+      "debt_to_equity": 0.17,
+      "opm_pct": 39.36,
+      "sales_cagr_pct": 18.56
+    },
+    "price_levels": {
+      "latest_close": 1394.3,
+      "week52_high": 1470.9,
+      "week52_low": 1035.3,
+      "pct_off_52w_high": -5.21,
+      "pct_above_52w_low": 34.68,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:18.775196"
+  },
+  "NSE:TREEHOUSE-EQ": {
+    "fundamentals": {
+      "company_name": "TREE HOUSE EDUCATION & ACCESSORIES LTD",
+      "current_price": 6.35,
+      "market_cap_cr": 26.86,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3.99,
+      "net_profit_cr": -9.97,
+      "eps": -2.36,
+      "pe_ratio": -2.69,
+      "roe_pct": -5.52,
+      "debt_to_equity": 0.033,
+      "opm_pct": -293.73,
+      "sales_cagr_pct": -25.9
+    },
+    "price_levels": {
+      "latest_close": 6.34,
+      "week52_high": 11.0,
+      "week52_low": 5.52,
+      "pct_off_52w_high": -42.36,
+      "pct_above_52w_low": 14.86,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:22.410423"
+  },
+  "NSE:TREJHARA-EQ": {
+    "fundamentals": {
+      "company_name": "TREJHARA SOLUTIONS LTD",
+      "current_price": 164.75,
+      "market_cap_cr": 397.33,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 142.25,
+      "net_profit_cr": 8.53,
+      "eps": 3.54,
+      "pe_ratio": 46.55,
+      "roe_pct": 2.87,
+      "debt_to_equity": 0.076,
+      "opm_pct": 5.5,
+      "sales_cagr_pct": 6.26
+    },
+    "price_levels": {
+      "latest_close": 163.17,
+      "week52_high": 284.85,
+      "week52_low": 128.4,
+      "pct_off_52w_high": -42.72,
+      "pct_above_52w_low": 27.08,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:25.743175"
+  },
+  "NSE:TREL-EQ": {
+    "fundamentals": {
+      "company_name": "TRANSINDIA REAL ESTATE LTD",
+      "current_price": 26.5,
+      "market_cap_cr": 651.06,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 83.75,
+      "net_profit_cr": 36.95,
+      "eps": 1.5,
+      "pe_ratio": 17.62,
+      "roe_pct": 2.89,
+      "debt_to_equity": 0.0,
+      "opm_pct": 54.48,
+      "sales_cagr_pct": -14.99
+    },
+    "price_levels": {
+      "latest_close": 26.13,
+      "week52_high": 34.37,
+      "week52_low": 21.47,
+      "pct_off_52w_high": -23.97,
+      "pct_above_52w_low": 21.7,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:29.048540"
+  },
+  "NSE:TRENT-EQ": {
+    "fundamentals": {
+      "company_name": "TRENT LTD",
+      "current_price": 3014.2,
+      "market_cap_cr": 160990.98,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 20074.21,
+      "net_profit_cr": 1719.65,
+      "eps": 32.25,
+      "pe_ratio": 93.46,
+      "roe_pct": 24.62,
+      "debt_to_equity": 0.367,
+      "opm_pct": 18.66,
+      "sales_cagr_pct": 30.63
+    },
+    "price_levels": {
+      "latest_close": 2990.0,
+      "week52_high": 3782.67,
+      "week52_low": 2183.67,
+      "pct_off_52w_high": -20.96,
+      "pct_above_52w_low": 36.93,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:32.253361"
+  },
+  "NSE:TRF-EQ": {
+    "fundamentals": {
+      "company_name": "TRF LTD",
+      "current_price": 231.75,
+      "market_cap_cr": 253.88,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 85.03,
+      "net_profit_cr": -4.47,
+      "eps": -4.06,
+      "pe_ratio": -57.03,
+      "roe_pct": 1.32,
+      "debt_to_equity": -1.633,
+      "opm_pct": 10.27,
+      "sales_cagr_pct": -18.74
+    },
+    "price_levels": {
+      "latest_close": 232.19,
+      "week52_high": 405.0,
+      "week52_low": 215.5,
+      "pct_off_52w_high": -42.67,
+      "pct_above_52w_low": 7.74,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:35.606389"
+  },
+  "NSE:TRIDENT-EQ": {
+    "fundamentals": {
+      "company_name": "TRIDENT LTD",
+      "current_price": 24.69,
+      "market_cap_cr": 12581.92,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6701.05,
+      "net_profit_cr": 377.11,
+      "eps": 0.74,
+      "pe_ratio": 33.36,
+      "roe_pct": 7.9,
+      "debt_to_equity": 0.383,
+      "opm_pct": 12.97,
+      "sales_cagr_pct": 4.21
+    },
+    "price_levels": {
+      "latest_close": 24.66,
+      "week52_high": 30.94,
+      "week52_low": 21.98,
+      "pct_off_52w_high": -20.3,
+      "pct_above_52w_low": 12.19,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:39.244602"
+  },
+  "NSE:TRIGYN-EQ": {
+    "fundamentals": {
+      "company_name": "TRIGYN TECHNOLOGIES LTD",
+      "current_price": 56.11,
+      "market_cap_cr": 172.31,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 976.43,
+      "net_profit_cr": 1.99,
+      "eps": 0.65,
+      "pe_ratio": 86.84,
+      "roe_pct": 0.25,
+      "debt_to_equity": 0.013,
+      "opm_pct": 0.37,
+      "sales_cagr_pct": 4.12
+    },
+    "price_levels": {
+      "latest_close": 56.02,
+      "week52_high": 102.4,
+      "week52_low": 37.55,
+      "pct_off_52w_high": -45.29,
+      "pct_above_52w_low": 49.19,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:43.194703"
+  },
+  "NSE:TRITURBINE-EQ": {
+    "fundamentals": {
+      "company_name": "TRIVENI TURBINE LTD",
+      "current_price": 592.0,
+      "market_cap_cr": 18820.99,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2181.1,
+      "net_profit_cr": 349.7,
+      "eps": 11.0,
+      "pe_ratio": 53.82,
+      "roe_pct": 24.18,
+      "debt_to_equity": 0.025,
+      "opm_pct": 20.59,
+      "sales_cagr_pct": 12.68
+    },
+    "price_levels": {
+      "latest_close": 591.95,
+      "week52_high": 787.6,
+      "week52_low": 428.35,
+      "pct_off_52w_high": -24.84,
+      "pct_above_52w_low": 38.19,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:46.460555"
+  },
+  "NSE:TRIVENI-EQ": {
+    "fundamentals": {
+      "company_name": "TRIVENI ENGINEERING AND INDUSTRIES LTD",
+      "current_price": 248.2,
+      "market_cap_cr": 5469.42,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5951.6,
+      "net_profit_cr": 268.71,
+      "eps": 12.28,
+      "pe_ratio": 20.22,
+      "roe_pct": 8.04,
+      "debt_to_equity": 0.646,
+      "opm_pct": 6.84,
+      "sales_cagr_pct": 8.63
+    },
+    "price_levels": {
+      "latest_close": 249.84,
+      "week52_high": 300.67,
+      "week52_low": 194.82,
+      "pct_off_52w_high": -16.91,
+      "pct_above_52w_low": 28.24,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:49.858242"
+  },
+  "NSE:TRU-EQ": {
+    "fundamentals": {
+      "company_name": "TRUALT BIOENERGY LTD",
+      "current_price": 487.0,
+      "market_cap_cr": 4176.2,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1727.51,
+      "net_profit_cr": 95.95,
+      "eps": 11.18,
+      "pe_ratio": 43.55,
+      "roe_pct": 6.31,
+      "debt_to_equity": 1.086,
+      "opm_pct": 16.77,
+      "sales_cagr_pct": 31.35
+    },
+    "price_levels": {
+      "latest_close": 4.17,
+      "week52_high": 13.82,
+      "week52_low": 4.07,
+      "pct_off_52w_high": -69.83,
+      "pct_above_52w_low": 2.46,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:53.701998"
+  },
+  "NSE:TRUALT-EQ": {
+    "fundamentals": {
+      "company_name": "TRUALT BIOENERGY LTD",
+      "current_price": 487.0,
+      "market_cap_cr": 4176.2,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1727.51,
+      "net_profit_cr": 95.95,
+      "eps": 11.18,
+      "pe_ratio": 43.55,
+      "roe_pct": 6.31,
+      "debt_to_equity": 1.086,
+      "opm_pct": 16.77,
+      "sales_cagr_pct": 31.35
+    },
+    "price_levels": {
+      "latest_close": 489.35,
+      "week52_high": 549.0,
+      "week52_low": 310.2,
+      "pct_off_52w_high": -10.87,
+      "pct_above_52w_low": 57.75,
+      "candle_count": 213
+    },
+    "fetched_at": "2026-08-13T16:59:56.717253"
+  },
+  "NSE:TSFINV-EQ": {
+    "fundamentals": {
+      "company_name": "TSF INVESTMENTS LTD",
+      "current_price": 418.05,
+      "market_cap_cr": 9285.11,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1026.9,
+      "net_profit_cr": 521.78,
+      "eps": 23.49,
+      "pe_ratio": 17.79,
+      "roe_pct": 8.65,
+      "debt_to_equity": 0.039,
+      "opm_pct": 23.87,
+      "sales_cagr_pct": 40.03
+    },
+    "price_levels": {
+      "latest_close": 418.05,
+      "week52_high": 701.5,
+      "week52_low": 331.7,
+      "pct_off_52w_high": -40.41,
+      "pct_above_52w_low": 26.03,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:59:59.981024"
+  },
+  "NSE:TTKHLTCARE-EQ": {
+    "fundamentals": {
+      "company_name": "TTK HEALTHCARE LTD",
+      "current_price": 1137.65,
+      "market_cap_cr": 1609.95,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 857.28,
+      "net_profit_cr": 65.68,
+      "eps": 46.58,
+      "pe_ratio": 24.42,
+      "roe_pct": 5.89,
+      "debt_to_equity": 0.022,
+      "opm_pct": 3.05,
+      "sales_cagr_pct": 5.54
+    },
+    "price_levels": {
+      "latest_close": 1139.1,
+      "week52_high": 1216.8,
+      "week52_low": 735.0,
+      "pct_off_52w_high": -6.39,
+      "pct_above_52w_low": 54.98,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:03.768114"
+  },
+  "NSE:TTKPRESTIG-EQ": {
+    "fundamentals": {
+      "company_name": "TTK PRESTIGE LTD",
+      "current_price": 601.0,
+      "market_cap_cr": 8238.71,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2973.57,
+      "net_profit_cr": 160.59,
+      "eps": 11.72,
+      "pe_ratio": 51.27,
+      "roe_pct": 8.11,
+      "debt_to_equity": 0.088,
+      "opm_pct": 9.32,
+      "sales_cagr_pct": 6.1
+    },
+    "price_levels": {
+      "latest_close": 600.95,
+      "week52_high": 771.2,
+      "week52_low": 423.0,
+      "pct_off_52w_high": -22.08,
+      "pct_above_52w_low": 42.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:07.499942"
+  },
+  "NSE:TTL-EQ": {
+    "fundamentals": {
+      "company_name": "T T LTD",
+      "current_price": 6.09,
+      "market_cap_cr": 157.31,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 191.52,
+      "net_profit_cr": 0.29,
+      "eps": 0.01,
+      "pe_ratio": 542.43,
+      "roe_pct": 0.23,
+      "debt_to_equity": 0.637,
+      "opm_pct": 5.67,
+      "sales_cagr_pct": -13.1
+    },
+    "price_levels": {
+      "latest_close": 6.2,
+      "week52_high": 12.0,
+      "week52_low": 5.5,
+      "pct_off_52w_high": -48.33,
+      "pct_above_52w_low": 12.73,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:10.899677"
   }
 }
