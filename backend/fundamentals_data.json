@@ -123,5 +123,1130 @@
       "candle_count": 247
     },
     "fetched_at": "2026-08-13T12:29:33.312447"
+  },
+  "NSE:3MINDIA-EQ": {
+    "fundamentals": {
+      "company_name": "3M INDIA LTD",
+      "current_price": 36207.85,
+      "market_cap_cr": 40806.25,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5089.76,
+      "net_profit_cr": 522.32,
+      "eps": 462.23,
+      "pe_ratio": 78.33,
+      "roe_pct": 29.54,
+      "debt_to_equity": 0.096,
+      "opm_pct": 19.37,
+      "sales_cagr_pct": 8.9
+    },
+    "price_levels": {
+      "latest_close": 36195.0,
+      "week52_high": 38030.0,
+      "week52_low": 28730.0,
+      "pct_off_52w_high": -4.83,
+      "pct_above_52w_low": 25.98,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:10:43.380318"
+  },
+  "NSE:3PLAND-EQ": {
+    "fundamentals": {
+      "company_name": "3P LAND HOLDINGS LTD",
+      "current_price": 32.13,
+      "market_cap_cr": 57.83,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4.67,
+      "net_profit_cr": 2.18,
+      "eps": 1.21,
+      "pe_ratio": 26.53,
+      "roe_pct": 2.08,
+      "debt_to_equity": 0.0,
+      "opm_pct": 63.81,
+      "sales_cagr_pct": 34.24
+    },
+    "price_levels": {
+      "latest_close": 32.4,
+      "week52_high": 52.9,
+      "week52_low": 28.51,
+      "pct_off_52w_high": -38.75,
+      "pct_above_52w_low": 13.64,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:10:46.506446"
+  },
+  "NSE:5PAISA-EQ": {
+    "fundamentals": {
+      "company_name": "5PAISA CAPITAL LTD",
+      "current_price": 390.35,
+      "market_cap_cr": 1830.06,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 319.73,
+      "net_profit_cr": 44.18,
+      "eps": 9.42,
+      "pe_ratio": 41.44,
+      "roe_pct": 6.8,
+      "debt_to_equity": 0.583,
+      "opm_pct": 31.59,
+      "sales_cagr_pct": 51.8
+    },
+    "price_levels": {
+      "latest_close": 391.0,
+      "week52_high": 400.37,
+      "week52_low": 245.5,
+      "pct_off_52w_high": -2.34,
+      "pct_above_52w_low": 59.27,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:10:49.482134"
+  },
+  "NSE:63MOONS-EQ": {
+    "fundamentals": {
+      "company_name": "63 MOONS TECHNOLOGIES LTD",
+      "current_price": 804.3,
+      "market_cap_cr": 3706.11,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 211.59,
+      "net_profit_cr": -22.43,
+      "eps": -4.87,
+      "pe_ratio": -165.31,
+      "roe_pct": -0.63,
+      "debt_to_equity": 0.001,
+      "opm_pct": -133.13,
+      "sales_cagr_pct": -0.33
+    },
+    "price_levels": {
+      "latest_close": 803.7,
+      "week52_high": 1029.9,
+      "week52_low": 467.0,
+      "pct_off_52w_high": -21.96,
+      "pct_above_52w_low": 72.1,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:10:52.458476"
+  },
+  "NSE:A2ZINFRA-EQ": {
+    "fundamentals": {
+      "company_name": "A2Z INFRA ENGINEERING LTD",
+      "current_price": 15.08,
+      "market_cap_cr": 267.72,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 386.44,
+      "net_profit_cr": 4.37,
+      "eps": 0.25,
+      "pe_ratio": 60.77,
+      "roe_pct": 8.83,
+      "debt_to_equity": 1.954,
+      "opm_pct": 2.24,
+      "sales_cagr_pct": -9.98
+    },
+    "price_levels": {
+      "latest_close": 15.0,
+      "week52_high": 22.64,
+      "week52_low": 12.0,
+      "pct_off_52w_high": -33.75,
+      "pct_above_52w_low": 25.0,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:10:55.461115"
+  },
+  "NSE:AAATECH-EQ": {
+    "fundamentals": {
+      "company_name": "AAA TECHNOLOGIES LTD",
+      "current_price": 91.0,
+      "market_cap_cr": 116.72,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 20.38,
+      "net_profit_cr": 2.06,
+      "eps": 1.61,
+      "pe_ratio": 56.54,
+      "roe_pct": 6.65,
+      "debt_to_equity": 0.0,
+      "opm_pct": 8.15,
+      "sales_cagr_pct": 5.96
+    },
+    "price_levels": {
+      "latest_close": 90.8,
+      "week52_high": 136.0,
+      "week52_low": 76.11,
+      "pct_off_52w_high": -33.24,
+      "pct_above_52w_low": 19.3,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:10:58.382338"
+  },
+  "NSE:AADHARHFC-EQ": {
+    "fundamentals": {
+      "company_name": "AADHAR HOUSING FINANCE LTD",
+      "current_price": 504.0,
+      "market_cap_cr": 22041.8,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3683.44,
+      "net_profit_cr": 1095.88,
+      "eps": 25.15,
+      "pe_ratio": 20.04,
+      "roe_pct": 14.53,
+      "debt_to_equity": 2.486,
+      "opm_pct": 76.43,
+      "sales_cagr_pct": 16.49
+    },
+    "price_levels": {
+      "latest_close": 503.6,
+      "week52_high": 563.0,
+      "week52_low": 430.15,
+      "pct_off_52w_high": -10.55,
+      "pct_above_52w_low": 17.08,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:01.232892"
+  },
+  "NSE:AAKASH-EQ": {
+    "fundamentals": {
+      "company_name": "AAKASH EXPLORATION SERVICES LTD",
+      "current_price": 8.67,
+      "market_cap_cr": 87.81,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 112.46,
+      "net_profit_cr": 3.5,
+      "eps": 0.35,
+      "pe_ratio": 25.07,
+      "roe_pct": 5.48,
+      "debt_to_equity": 0.347,
+      "opm_pct": 13.4,
+      "sales_cagr_pct": 14.37
+    },
+    "price_levels": {
+      "latest_close": 8.76,
+      "week52_high": 13.4,
+      "week52_low": 7.21,
+      "pct_off_52w_high": -34.63,
+      "pct_above_52w_low": 21.5,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:04.155995"
+  },
+  "NSE:AARNAV-EQ": {
+    "fundamentals": {
+      "company_name": "AARNAV FASHIONS LTD",
+      "current_price": 32.77,
+      "market_cap_cr": 138.4,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 462.4,
+      "net_profit_cr": 9.35,
+      "eps": 2.22,
+      "pe_ratio": 14.79,
+      "roe_pct": 4.76,
+      "debt_to_equity": 0.555,
+      "opm_pct": 6.5,
+      "sales_cagr_pct": 108.54
+    },
+    "price_levels": {
+      "latest_close": 32.7,
+      "week52_high": 37.4,
+      "week52_low": 21.0,
+      "pct_off_52w_high": -12.57,
+      "pct_above_52w_low": 55.71,
+      "candle_count": 114
+    },
+    "fetched_at": "2026-08-13T15:11:07.035972"
+  },
+  "NSE:AARON-EQ": {
+    "fundamentals": {
+      "company_name": "AARON INDUSTRIES LTD",
+      "current_price": 139.38,
+      "market_cap_cr": 291.95,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 92.01,
+      "net_profit_cr": 6.8,
+      "eps": 3.25,
+      "pe_ratio": 42.84,
+      "roe_pct": 13.99,
+      "debt_to_equity": 0.571,
+      "opm_pct": 19.33,
+      "sales_cagr_pct": 38.84
+    },
+    "price_levels": {
+      "latest_close": 139.16,
+      "week52_high": 258.0,
+      "week52_low": 106.8,
+      "pct_off_52w_high": -46.06,
+      "pct_above_52w_low": 30.3,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:09.935124"
+  },
+  "NSE:AARTIDRUGS-EQ": {
+    "fundamentals": {
+      "company_name": "AARTI DRUGS LTD",
+      "current_price": 427.15,
+      "market_cap_cr": 3898.63,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2565.31,
+      "net_profit_cr": 194.92,
+      "eps": 21.35,
+      "pe_ratio": 20.01,
+      "roe_pct": 12.58,
+      "debt_to_equity": 0.372,
+      "opm_pct": 12.05,
+      "sales_cagr_pct": 8.86
+    },
+    "price_levels": {
+      "latest_close": 427.0,
+      "week52_high": 534.55,
+      "week52_low": 318.95,
+      "pct_off_52w_high": -20.12,
+      "pct_above_52w_low": 33.88,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:12.963283"
+  },
+  "NSE:AARTIIND-EQ": {
+    "fundamentals": {
+      "company_name": "AARTI INDUSTRIES LTD",
+      "current_price": 537.0,
+      "market_cap_cr": 19478.39,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8286.0,
+      "net_profit_cr": 419.0,
+      "eps": 11.56,
+      "pe_ratio": 46.47,
+      "roe_pct": 7.04,
+      "debt_to_equity": 0.834,
+      "opm_pct": 14.08,
+      "sales_cagr_pct": 11.29
+    },
+    "price_levels": {
+      "latest_close": 539.5,
+      "week52_high": 541.7,
+      "week52_low": 338.05,
+      "pct_off_52w_high": -0.41,
+      "pct_above_52w_low": 59.59,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:15.992657"
+  },
+  "NSE:AARTIPHARM-EQ": {
+    "fundamentals": {
+      "company_name": "AARTI PHARMALABS LTD",
+      "current_price": 871.8,
+      "market_cap_cr": 7905.46,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1819.44,
+      "net_profit_cr": 174.71,
+      "eps": 19.26,
+      "pe_ratio": 45.26,
+      "roe_pct": 8.22,
+      "debt_to_equity": 0.355,
+      "opm_pct": 20.29,
+      "sales_cagr_pct": 10.97
+    },
+    "price_levels": {
+      "latest_close": 876.6,
+      "week52_high": 946.1,
+      "week52_low": 585.0,
+      "pct_off_52w_high": -7.35,
+      "pct_above_52w_low": 49.85,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:18.866344"
+  },
+  "NSE:AARTISURF-EQ": {
+    "fundamentals": {
+      "company_name": "AARTI SURFACTANTS LTD",
+      "current_price": 642.95,
+      "market_cap_cr": 544.64,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 859.13,
+      "net_profit_cr": 12.34,
+      "eps": 14.52,
+      "pe_ratio": 44.29,
+      "roe_pct": 5.04,
+      "debt_to_equity": 0.425,
+      "opm_pct": 5.46,
+      "sales_cagr_pct": 17.54
+    },
+    "price_levels": {
+      "latest_close": 647.1,
+      "week52_high": 649.9,
+      "week52_low": 316.0,
+      "pct_off_52w_high": -0.43,
+      "pct_above_52w_low": 104.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:21.686870"
+  },
+  "NSE:AARVI-EQ": {
+    "fundamentals": {
+      "company_name": "AARVI ENCON LTD",
+      "current_price": 155.66,
+      "market_cap_cr": 231.05,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 649.85,
+      "net_profit_cr": 17.62,
+      "eps": 11.91,
+      "pe_ratio": 13.07,
+      "roe_pct": 12.4,
+      "debt_to_equity": 0.188,
+      "opm_pct": 3.49,
+      "sales_cagr_pct": 17.42
+    },
+    "price_levels": {
+      "latest_close": 155.0,
+      "week52_high": 168.4,
+      "week52_low": 108.05,
+      "pct_off_52w_high": -7.96,
+      "pct_above_52w_low": 43.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:24.611608"
+  },
+  "NSE:AASTHA-EQ": {
+    "fundamentals": {
+      "company_name": "AASTHA SPINTEX LTD",
+      "current_price": 73.71,
+      "market_cap_cr": 325.38,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 442.64,
+      "net_profit_cr": 23.74,
+      "eps": 7.51,
+      "pe_ratio": 9.81,
+      "roe_pct": 14.8,
+      "debt_to_equity": 0.665,
+      "opm_pct": 12.01,
+      "sales_cagr_pct": 19.14
+    },
+    "price_levels": {
+      "latest_close": 74.15,
+      "week52_high": 140.01,
+      "week52_low": 70.0,
+      "pct_off_52w_high": -47.04,
+      "pct_above_52w_low": 5.93,
+      "candle_count": 29
+    },
+    "fetched_at": "2026-08-13T15:11:27.358415"
+  },
+  "NSE:AAVAS-EQ": {
+    "fundamentals": {
+      "company_name": "AAVAS FINANCIERS LTD",
+      "current_price": 1430.0,
+      "market_cap_cr": 11338.51,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2683.46,
+      "net_profit_cr": 654.88,
+      "eps": 82.58,
+      "pe_ratio": 17.32,
+      "roe_pct": 12.97,
+      "debt_to_equity": 3.106,
+      "opm_pct": 73.67,
+      "sales_cagr_pct": 27.32
+    },
+    "price_levels": {
+      "latest_close": 1431.7,
+      "week52_high": 1771.9,
+      "week52_low": 1060.4,
+      "pct_off_52w_high": -19.2,
+      "pct_above_52w_low": 35.02,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:30.316765"
+  },
+  "NSE:ABANSENT-EQ": {
+    "fundamentals": {
+      "company_name": "ABANS ENTERPRISES LTD",
+      "current_price": 29.5,
+      "market_cap_cr": 205.76,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 13812.82,
+      "net_profit_cr": 3.96,
+      "eps": 0.57,
+      "pe_ratio": 51.92,
+      "roe_pct": 1.83,
+      "debt_to_equity": 0.723,
+      "opm_pct": -0.03,
+      "sales_cagr_pct": 20.39
+    },
+    "price_levels": {
+      "latest_close": 28.94,
+      "week52_high": 48.85,
+      "week52_low": 22.3,
+      "pct_off_52w_high": -40.76,
+      "pct_above_52w_low": 29.78,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T15:11:33.209929"
+  },
+  "NSE:ABB-EQ": {
+    "fundamentals": {
+      "company_name": "ABBOTT INDIA LTD",
+      "current_price": 27614.95,
+      "market_cap_cr": 58681.8,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6929.05,
+      "net_profit_cr": 1552.02,
+      "eps": 732.08,
+      "pe_ratio": 37.72,
+      "roe_pct": 32.51,
+      "debt_to_equity": 0.036,
+      "opm_pct": 27.31,
+      "sales_cagr_pct": 10.15
+    },
+    "price_levels": {
+      "latest_close": 7699.5,
+      "week52_high": 7924.5,
+      "week52_low": 4637.5,
+      "pct_off_52w_high": -2.84,
+      "pct_above_52w_low": 66.03,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:36.198511"
+  },
+  "NSE:ABBOTINDIA-EQ": {
+    "fundamentals": {
+      "company_name": "ABBOTT INDIA LTD",
+      "current_price": 27614.95,
+      "market_cap_cr": 58681.8,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6929.05,
+      "net_profit_cr": 1552.02,
+      "eps": 732.08,
+      "pe_ratio": 37.72,
+      "roe_pct": 32.51,
+      "debt_to_equity": 0.036,
+      "opm_pct": 27.31,
+      "sales_cagr_pct": 10.15
+    },
+    "price_levels": {
+      "latest_close": 27635.0,
+      "week52_high": 34060.0,
+      "week52_low": 25150.0,
+      "pct_off_52w_high": -18.86,
+      "pct_above_52w_low": 9.88,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:39.225164"
+  },
+  "NSE:ABCAPITAL-EQ": {
+    "fundamentals": {
+      "company_name": "ADITYA BIRLA CAPITAL LTD",
+      "current_price": 405.8,
+      "market_cap_cr": 111045.73,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 45513.0,
+      "net_profit_cr": 3863.8,
+      "eps": 14.75,
+      "pe_ratio": 27.51,
+      "roe_pct": 11.22,
+      "debt_to_equity": 5.216,
+      "opm_pct": 36.69,
+      "sales_cagr_pct": 25.53
+    },
+    "price_levels": {
+      "latest_close": 406.2,
+      "week52_high": 430.7,
+      "week52_low": 267.25,
+      "pct_off_52w_high": -5.69,
+      "pct_above_52w_low": 51.99,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:42.154643"
+  },
+  "NSE:ABCOTS-EQ": {
+    "fundamentals": {
+      "company_name": "AB COTSPIN INDIA LTD",
+      "current_price": 200.6,
+      "market_cap_cr": 440.6,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 298.68,
+      "net_profit_cr": 13.26,
+      "eps": 6.03,
+      "pe_ratio": 33.28,
+      "roe_pct": 8.65,
+      "debt_to_equity": 0.958,
+      "opm_pct": 13.34,
+      "sales_cagr_pct": 11.98
+    },
+    "price_levels": {
+      "latest_close": 199.01,
+      "week52_high": 504.0,
+      "week52_low": 196.81,
+      "pct_off_52w_high": -60.51,
+      "pct_above_52w_low": 1.12,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:45.056932"
+  },
+  "NSE:ABDL-EQ": {
+    "fundamentals": {
+      "company_name": "ALLIED BLENDERS & DISTILLERS LTD",
+      "current_price": 630.6,
+      "market_cap_cr": 17638.49,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3922.78,
+      "net_profit_cr": 228.32,
+      "eps": 8.16,
+      "pe_ratio": 77.25,
+      "roe_pct": 13.73,
+      "debt_to_equity": 0.692,
+      "opm_pct": 13.83,
+      "sales_cagr_pct": 4.59
+    },
+    "price_levels": {
+      "latest_close": 628.35,
+      "week52_high": 711.7,
+      "week52_low": 382.1,
+      "pct_off_52w_high": -11.71,
+      "pct_above_52w_low": 64.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:47.905686"
+  },
+  "NSE:ABFRL-EQ": {
+    "fundamentals": {
+      "company_name": "ADITYA BIRLA FASHION & RETAIL LTD",
+      "current_price": 56.76,
+      "market_cap_cr": 6927.62,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8175.74,
+      "net_profit_cr": -775.89,
+      "eps": -6.36,
+      "pe_ratio": -8.93,
+      "roe_pct": -13.29,
+      "debt_to_equity": 1.06,
+      "opm_pct": 8.59,
+      "sales_cagr_pct": 0.1
+    },
+    "price_levels": {
+      "latest_close": 56.75,
+      "week52_high": 94.95,
+      "week52_low": 53.51,
+      "pct_off_52w_high": -40.23,
+      "pct_above_52w_low": 6.05,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:51.011355"
+  },
+  "NSE:ABINFRA-EQ": {
+    "fundamentals": {
+      "company_name": "A B INFRABUILD LTD",
+      "current_price": 11.25,
+      "market_cap_cr": 718.65,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 256.21,
+      "net_profit_cr": 19.34,
+      "eps": 0.3,
+      "pe_ratio": 37.16,
+      "roe_pct": 11.42,
+      "debt_to_equity": 0.521,
+      "opm_pct": 14.86,
+      "sales_cagr_pct": 15.52
+    },
+    "price_levels": {
+      "latest_close": 11.2,
+      "week52_high": 23.56,
+      "week52_low": 8.82,
+      "pct_off_52w_high": -52.46,
+      "pct_above_52w_low": 26.98,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:53.927598"
+  },
+  "NSE:ABLBL-EQ": {
+    "fundamentals": {
+      "company_name": "ADITYA BIRLA LIFESTYLE BRANDS LTD",
+      "current_price": 90.05,
+      "market_cap_cr": 10990.81,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8395.81,
+      "net_profit_cr": 171.05,
+      "eps": 1.4,
+      "pe_ratio": 64.25,
+      "roe_pct": 12.11,
+      "debt_to_equity": 2.137,
+      "opm_pct": 16.33,
+      "sales_cagr_pct": 7.23
+    },
+    "price_levels": {
+      "latest_close": 89.97,
+      "week52_high": 151.33,
+      "week52_low": 87.91,
+      "pct_off_52w_high": -40.55,
+      "pct_above_52w_low": 2.34,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:11:56.680750"
+  },
+  "NSE:ABMINTLLTD-EQ": {
+    "fundamentals": {
+      "company_name": "A B M INTERNATIONAL LTD",
+      "current_price": 69.37,
+      "market_cap_cr": 65.27,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 54.46,
+      "net_profit_cr": -2.15,
+      "eps": -2.29,
+      "pe_ratio": -30.33,
+      "roe_pct": -18.73,
+      "debt_to_equity": 0.728,
+      "opm_pct": -4.59,
+      "sales_cagr_pct": -10.11
+    },
+    "price_levels": {
+      "latest_close": 69.37,
+      "week52_high": 69.37,
+      "week52_low": 34.0,
+      "pct_off_52w_high": 0.0,
+      "pct_above_52w_low": 104.03,
+      "candle_count": 233
+    },
+    "fetched_at": "2026-08-13T15:11:59.629046"
+  },
+  "NSE:ABMKNO-EQ": {
+    "fundamentals": {
+      "company_name": "ABM KNOWLEDGEWARE LTD",
+      "current_price": 193.05,
+      "market_cap_cr": 386.14,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 103.46,
+      "net_profit_cr": 9.45,
+      "eps": 4.72,
+      "pe_ratio": 40.86,
+      "roe_pct": 3.91,
+      "debt_to_equity": 0.0,
+      "opm_pct": 13.98,
+      "sales_cagr_pct": 4.33
+    },
+    "price_levels": {
+      "latest_close": 200.0,
+      "week52_high": 254.9,
+      "week52_low": 182.5,
+      "pct_off_52w_high": -21.54,
+      "pct_above_52w_low": 9.59,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T15:12:02.567724"
+  },
+  "NSE:ABREL-EQ": {
+    "fundamentals": {
+      "company_name": "ADITYA BIRLA REAL ESTATE LTD",
+      "current_price": 1390.1,
+      "market_cap_cr": 15522.3,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 407.18,
+      "net_profit_cr": -103.22,
+      "eps": -9.24,
+      "pe_ratio": -150.43,
+      "roe_pct": -2.79,
+      "debt_to_equity": 1.523,
+      "opm_pct": -90.32,
+      "sales_cagr_pct": -27.81
+    },
+    "price_levels": {
+      "latest_close": 1395.2,
+      "week52_high": 1965.3,
+      "week52_low": 1080.1,
+      "pct_off_52w_high": -29.01,
+      "pct_above_52w_low": 29.17,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:05.630004"
+  },
+  "NSE:ABSLAMC-EQ": {
+    "fundamentals": {
+      "company_name": "ADITYA BIRLA SUN LIFE AMC LTD",
+      "current_price": 1025.75,
+      "market_cap_cr": 29671.2,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2056.16,
+      "net_profit_cr": 975.07,
+      "eps": 33.76,
+      "pe_ratio": 30.38,
+      "roe_pct": 24.13,
+      "debt_to_equity": 0.016,
+      "opm_pct": 64.0,
+      "sales_cagr_pct": 8.18
+    },
+    "price_levels": {
+      "latest_close": 1027.8,
+      "week52_high": 1224.9,
+      "week52_low": 708.0,
+      "pct_off_52w_high": -16.09,
+      "pct_above_52w_low": 45.17,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:08.520237"
+  },
+  "NSE:ACC-EQ": {
+    "fundamentals": {
+      "company_name": "ACC LTD",
+      "current_price": 1325.35,
+      "market_cap_cr": 24888.38,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 25961.85,
+      "net_profit_cr": 2137.07,
+      "eps": 113.79,
+      "pe_ratio": 11.65,
+      "roe_pct": 10.4,
+      "debt_to_equity": 0.021,
+      "opm_pct": 11.39,
+      "sales_cagr_pct": 10.02
+    },
+    "price_levels": {
+      "latest_close": 1324.0,
+      "week52_high": 1987.0,
+      "week52_low": 1251.7,
+      "pct_off_52w_high": -33.37,
+      "pct_above_52w_low": 5.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:11.521217"
+  },
+  "NSE:ACCELYA-EQ": {
+    "fundamentals": {
+      "company_name": "ACCELYA SOLUTIONS INDIA LTD",
+      "current_price": 1135.0,
+      "market_cap_cr": 1694.12,
+      "latest_year": "2026-06-30 00:00:00",
+      "sales_cr": 532.27,
+      "net_profit_cr": 95.38,
+      "eps": 64.01,
+      "pe_ratio": 17.73,
+      "roe_pct": 38.13,
+      "debt_to_equity": 0.063,
+      "opm_pct": 32.52,
+      "sales_cagr_pct": 4.2
+    },
+    "price_levels": {
+      "latest_close": 1131.6,
+      "week52_high": 1527.0,
+      "week52_low": 1012.4,
+      "pct_off_52w_high": -25.89,
+      "pct_above_52w_low": 11.77,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:14.513345"
+  },
+  "NSE:ACE-EQ": {
+    "fundamentals": {
+      "company_name": "ACE SOFTWARE EXPORTS LTD",
+      "current_price": 192.0,
+      "market_cap_cr": 302.83,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 56.81,
+      "net_profit_cr": 4.37,
+      "eps": 2.4,
+      "pe_ratio": 79.96,
+      "roe_pct": 3.63,
+      "debt_to_equity": 0.123,
+      "opm_pct": 10.77,
+      "sales_cagr_pct": 23.61
+    },
+    "price_levels": {
+      "latest_close": 1079.5,
+      "week52_high": 1170.0,
+      "week52_low": 745.1,
+      "pct_off_52w_high": -7.74,
+      "pct_above_52w_low": 44.88,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:17.415265"
+  },
+  "NSE:ACEINTEG-EQ": {
+    "fundamentals": {
+      "company_name": "ACE INTEGRATED SOLUTIONS LTD",
+      "current_price": 17.4,
+      "market_cap_cr": 17.75,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 0.81,
+      "net_profit_cr": -0.95,
+      "eps": -0.93,
+      "pe_ratio": -18.68,
+      "roe_pct": -5.69,
+      "debt_to_equity": 0.005,
+      "opm_pct": -195.06,
+      "sales_cagr_pct": -29.51
+    },
+    "price_levels": {
+      "latest_close": 17.31,
+      "week52_high": 29.94,
+      "week52_low": 14.2,
+      "pct_off_52w_high": -42.18,
+      "pct_above_52w_low": 21.9,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:20.646013"
+  },
+  "NSE:ACI-EQ": {
+    "fundamentals": {
+      "company_name": "ACI INFOCOM LTD",
+      "current_price": 1.96,
+      "market_cap_cr": 21.65,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 0,
+      "net_profit_cr": -1.85,
+      "eps": -0.17,
+      "pe_ratio": -11.71,
+      "roe_pct": -12.74,
+      "debt_to_equity": 0.0,
+      "opm_pct": null,
+      "sales_cagr_pct": -33.77
+    },
+    "price_levels": {
+      "latest_close": 509.4,
+      "week52_high": 727.6,
+      "week52_low": 483.0,
+      "pct_off_52w_high": -29.99,
+      "pct_above_52w_low": 5.47,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:23.533668"
+  },
+  "NSE:ACL-EQ": {
+    "fundamentals": {
+      "company_name": "ANDHRA CEMENTS LTD",
+      "current_price": 45.6,
+      "market_cap_cr": 420.29,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 442.49,
+      "net_profit_cr": -67.16,
+      "eps": -7.28,
+      "pe_ratio": -6.26,
+      "roe_pct": -83.18,
+      "debt_to_equity": 13.959,
+      "opm_pct": 3.63,
+      "sales_cagr_pct": 2.66
+    },
+    "price_levels": {
+      "latest_close": 45.99,
+      "week52_high": 109.99,
+      "week52_low": 40.5,
+      "pct_off_52w_high": -58.19,
+      "pct_above_52w_low": 13.56,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:26.526956"
+  },
+  "NSE:ACMESOLAR-EQ": {
+    "fundamentals": {
+      "company_name": "ACME SOLAR HOLDINGS LTD",
+      "current_price": 373.95,
+      "market_cap_cr": 26433.58,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2023.38,
+      "net_profit_cr": 498.92,
+      "eps": 8.23,
+      "pe_ratio": 45.42,
+      "roe_pct": 9.86,
+      "debt_to_equity": 3.931,
+      "opm_pct": 88.04,
+      "sales_cagr_pct": 2.19
+    },
+    "price_levels": {
+      "latest_close": 373.0,
+      "week52_high": 398.65,
+      "week52_low": 195.9,
+      "pct_off_52w_high": -6.43,
+      "pct_above_52w_low": 90.4,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:29.361615"
+  },
+  "NSE:ACSTECH-EQ": {
+    "fundamentals": {
+      "company_name": "ACS TECHNOLOGIES LTD",
+      "current_price": 48.91,
+      "market_cap_cr": 339.6,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 264.24,
+      "net_profit_cr": 7.96,
+      "eps": 1.31,
+      "pe_ratio": 37.3,
+      "roe_pct": 5.95,
+      "debt_to_equity": 0.349,
+      "opm_pct": 7.44,
+      "sales_cagr_pct": 56.11
+    },
+    "price_levels": {
+      "latest_close": 48.47,
+      "week52_high": 53.56,
+      "week52_low": 31.71,
+      "pct_off_52w_high": -9.5,
+      "pct_above_52w_low": 52.85,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T15:12:32.145342"
+  },
+  "NSE:ACUTAAS-EQ": {
+    "fundamentals": {
+      "company_name": "ACUTAAS CHEMICALS LTD",
+      "current_price": 3114.5,
+      "market_cap_cr": 25498.76,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1339.37,
+      "net_profit_cr": 356.26,
+      "eps": 43.5,
+      "pe_ratio": 71.6,
+      "roe_pct": 21.54,
+      "debt_to_equity": 0.022,
+      "opm_pct": 35.87,
+      "sales_cagr_pct": 26.61
+    },
+    "price_levels": {
+      "latest_close": 3112.2,
+      "week52_high": 3740.0,
+      "week52_low": 1287.8,
+      "pct_off_52w_high": -16.79,
+      "pct_above_52w_low": 141.67,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:35.091605"
+  },
+  "NSE:ADANIENSOL-EQ": {
+    "fundamentals": {
+      "company_name": "ADANI ENERGY SOLUTIONS LTD",
+      "current_price": 1586.0,
+      "market_cap_cr": 193960.57,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 27588.03,
+      "net_profit_cr": 2282.54,
+      "eps": 19.0,
+      "pe_ratio": 83.47,
+      "roe_pct": 8.98,
+      "debt_to_equity": 1.934,
+      "opm_pct": 29.02,
+      "sales_cagr_pct": 28.56
+    },
+    "price_levels": {
+      "latest_close": 1582.7,
+      "week52_high": 1789.0,
+      "week52_low": 744.9,
+      "pct_off_52w_high": -11.53,
+      "pct_above_52w_low": 112.47,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:38.081289"
+  },
+  "NSE:ADANIENT-EQ": {
+    "fundamentals": {
+      "company_name": "ADANI ENTERPRISES LTD",
+      "current_price": 2962.2,
+      "market_cap_cr": 400912.84,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 100468.61,
+      "net_profit_cr": 9339.47,
+      "eps": 72.31,
+      "pe_ratio": 40.97,
+      "roe_pct": 11.54,
+      "debt_to_equity": 1.318,
+      "opm_pct": 13.93,
+      "sales_cagr_pct": 11.9
+    },
+    "price_levels": {
+      "latest_close": 2957.5,
+      "week52_high": 3245.0,
+      "week52_low": 1753.0,
+      "pct_off_52w_high": -8.86,
+      "pct_above_52w_low": 68.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:41.217428"
+  },
+  "NSE:ADANIGREEN-EQ": {
+    "fundamentals": {
+      "company_name": "ADANI GREEN ENERGY LTD",
+      "current_price": 1319.85,
+      "market_cap_cr": 217402.52,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 12928.0,
+      "net_profit_cr": 1652.0,
+      "eps": 10.03,
+      "pe_ratio": 131.6,
+      "roe_pct": 8.27,
+      "debt_to_equity": 5.186,
+      "opm_pct": 83.42,
+      "sales_cagr_pct": 43.48
+    },
+    "price_levels": {
+      "latest_close": 1315.2,
+      "week52_high": 1631.5,
+      "week52_low": 765.0,
+      "pct_off_52w_high": -19.39,
+      "pct_above_52w_low": 71.92,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:44.127603"
+  },
+  "NSE:ADANIPORTS-EQ": {
+    "fundamentals": {
+      "company_name": "ADANI PORTS & SPECIAL ECONOMIC ZONE LTD",
+      "current_price": 1653.25,
+      "market_cap_cr": 380902.03,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 38735.77,
+      "net_profit_cr": 12806.21,
+      "eps": 55.58,
+      "pe_ratio": 29.74,
+      "roe_pct": 13.35,
+      "debt_to_equity": 0.662,
+      "opm_pct": 59.04,
+      "sales_cagr_pct": 18.45
+    },
+    "price_levels": {
+      "latest_close": 1649.9,
+      "week52_high": 1891.1,
+      "week52_low": 1290.5,
+      "pct_off_52w_high": -12.75,
+      "pct_above_52w_low": 27.85,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:47.160152"
+  },
+  "NSE:ADANIPOWER-EQ": {
+    "fundamentals": {
+      "company_name": "ADANI POWER LTD",
+      "current_price": 205.8,
+      "market_cap_cr": 396879.07,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 54240.52,
+      "net_profit_cr": 12834.3,
+      "eps": 6.66,
+      "pe_ratio": 30.92,
+      "roe_pct": 19.76,
+      "debt_to_equity": 0.842,
+      "opm_pct": 36.52,
+      "sales_cagr_pct": 10.21
+    },
+    "price_levels": {
+      "latest_close": 205.35,
+      "week52_high": 254.2,
+      "week52_low": 116.22,
+      "pct_off_52w_high": -19.22,
+      "pct_above_52w_low": 76.69,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:50.138040"
+  },
+  "NSE:ADFFOODS-EQ": {
+    "fundamentals": {
+      "company_name": "ADF FOODS LTD",
+      "current_price": 263.3,
+      "market_cap_cr": 2892.73,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 683.23,
+      "net_profit_cr": 89.92,
+      "eps": 8.18,
+      "pe_ratio": 32.18,
+      "roe_pct": 15.72,
+      "debt_to_equity": 0.096,
+      "opm_pct": 19.14,
+      "sales_cagr_pct": 14.57
+    },
+    "price_levels": {
+      "latest_close": 262.05,
+      "week52_high": 346.95,
+      "week52_low": 153.1,
+      "pct_off_52w_high": -24.47,
+      "pct_above_52w_low": 71.16,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T15:12:53.232539"
   }
 }
