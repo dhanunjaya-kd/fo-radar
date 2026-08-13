@@ -24446,5 +24446,505 @@
       "candle_count": 247
     },
     "fetched_at": "2026-08-13T16:06:01.053610"
+  },
+  "NSE:JUNIPER-EQ": {
+    "fundamentals": {
+      "company_name": "JUNIPER HOTELS LTD",
+      "current_price": 194.0,
+      "market_cap_cr": 4311.35,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1047.68,
+      "net_profit_cr": 141.61,
+      "eps": 6.36,
+      "pe_ratio": 30.48,
+      "roe_pct": 4.94,
+      "debt_to_equity": 0.416,
+      "opm_pct": 40.33,
+      "sales_cagr_pct": 11.72
+    },
+    "price_levels": {
+      "latest_close": 193.82,
+      "week52_high": 312.5,
+      "week52_low": 188.5,
+      "pct_off_52w_high": -37.98,
+      "pct_above_52w_low": 2.82,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:04.443382"
+  },
+  "NSE:JUSTDIAL-EQ": {
+    "fundamentals": {
+      "company_name": "JUST DIAL LTD",
+      "current_price": 675.9,
+      "market_cap_cr": 5748.47,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1213.86,
+      "net_profit_cr": 497.02,
+      "eps": 58.47,
+      "pe_ratio": 11.56,
+      "roe_pct": 9.73,
+      "debt_to_equity": 0.017,
+      "opm_pct": 29.45,
+      "sales_cagr_pct": 6.0
+    },
+    "price_levels": {
+      "latest_close": 677.85,
+      "week52_high": 878.6,
+      "week52_low": 480.5,
+      "pct_off_52w_high": -22.85,
+      "pct_above_52w_low": 41.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:07.720211"
+  },
+  "NSE:JWL-EQ": {
+    "fundamentals": {
+      "company_name": "JUPITER WAGONS LTD",
+      "current_price": 257.85,
+      "market_cap_cr": 11019.74,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2915.7,
+      "net_profit_cr": 171.08,
+      "eps": 4.0,
+      "pe_ratio": 64.42,
+      "roe_pct": 5.74,
+      "debt_to_equity": 0.335,
+      "opm_pct": 12.13,
+      "sales_cagr_pct": 23.97
+    },
+    "price_levels": {
+      "latest_close": 257.6,
+      "week52_high": 372.85,
+      "week52_low": 235.65,
+      "pct_off_52w_high": -30.91,
+      "pct_above_52w_low": 9.31,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:10.791420"
+  },
+  "NSE:JYOTHYLAB-EQ": {
+    "fundamentals": {
+      "company_name": "JYOTHY LABS LTD",
+      "current_price": 200.2,
+      "market_cap_cr": 7351.64,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2944.29,
+      "net_profit_cr": 333.19,
+      "eps": 9.07,
+      "pe_ratio": 22.06,
+      "roe_pct": 20.97,
+      "debt_to_equity": 0.032,
+      "opm_pct": 15.28,
+      "sales_cagr_pct": 6.78
+    },
+    "price_levels": {
+      "latest_close": 199.98,
+      "week52_high": 352.7,
+      "week52_low": 188.1,
+      "pct_off_52w_high": -43.3,
+      "pct_above_52w_low": 6.32,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:14.103948"
+  },
+  "NSE:JYOTICNC-EQ": {
+    "fundamentals": {
+      "company_name": "JYOTI CNC AUTOMATION LTD",
+      "current_price": 840.0,
+      "market_cap_cr": 19103.6,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2093.13,
+      "net_profit_cr": 336.0,
+      "eps": 14.78,
+      "pe_ratio": 56.85,
+      "roe_pct": 16.79,
+      "debt_to_equity": 0.426,
+      "opm_pct": 25.17,
+      "sales_cagr_pct": 11.69
+    },
+    "price_levels": {
+      "latest_close": 832.55,
+      "week52_high": 1055.9,
+      "week52_low": 580.1,
+      "pct_off_52w_high": -21.15,
+      "pct_above_52w_low": 43.52,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:17.515999"
+  },
+  "NSE:JYOTISTRUC-EQ": {
+    "fundamentals": {
+      "company_name": "JYOTI STRUCTURES LTD",
+      "current_price": 11.04,
+      "market_cap_cr": 1317.82,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 750.87,
+      "net_profit_cr": 56.03,
+      "eps": 0.47,
+      "pe_ratio": 23.52,
+      "roe_pct": 11.81,
+      "debt_to_equity": 4.391,
+      "opm_pct": 6.45,
+      "sales_cagr_pct": -14.09
+    },
+    "price_levels": {
+      "latest_close": 11.02,
+      "week52_high": 17.42,
+      "week52_low": 7.94,
+      "pct_off_52w_high": -36.74,
+      "pct_above_52w_low": 38.79,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:22.386839"
+  },
+  "NSE:KABRAEXTRU-EQ": {
+    "fundamentals": {
+      "company_name": "KABRA EXTRUSION TECHNIK LTD",
+      "current_price": 480.0,
+      "market_cap_cr": 1678.71,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 451.05,
+      "net_profit_cr": -5.37,
+      "eps": -1.53,
+      "pe_ratio": -312.85,
+      "roe_pct": -1.22,
+      "debt_to_equity": 0.329,
+      "opm_pct": 2.31,
+      "sales_cagr_pct": 5.61
+    },
+    "price_levels": {
+      "latest_close": 484.3,
+      "week52_high": 523.8,
+      "week52_low": 180.0,
+      "pct_off_52w_high": -7.54,
+      "pct_above_52w_low": 169.06,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:25.998749"
+  },
+  "NSE:KAJARIACER-EQ": {
+    "fundamentals": {
+      "company_name": "KAJARIA CERAMICS LTD",
+      "current_price": 1260.0,
+      "market_cap_cr": 19800.01,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4830.36,
+      "net_profit_cr": 485.41,
+      "eps": 30.47,
+      "pe_ratio": 41.35,
+      "roe_pct": 15.83,
+      "debt_to_equity": 0.075,
+      "opm_pct": 17.91,
+      "sales_cagr_pct": 7.36
+    },
+    "price_levels": {
+      "latest_close": 1260.9,
+      "week52_high": 1309.7,
+      "week52_low": 869.6,
+      "pct_off_52w_high": -3.73,
+      "pct_above_52w_low": 45.0,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:29.239998"
+  },
+  "NSE:KAKATCEM-EQ": {
+    "fundamentals": {
+      "company_name": "KAKATIYA CEMENT SUGAR & INDUSTRIES LTD",
+      "current_price": 105.55,
+      "market_cap_cr": 82.05,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 78.86,
+      "net_profit_cr": -24.06,
+      "eps": -30.85,
+      "pe_ratio": -3.42,
+      "roe_pct": -13.17,
+      "debt_to_equity": 0.107,
+      "opm_pct": -27.16,
+      "sales_cagr_pct": -10.78
+    },
+    "price_levels": {
+      "latest_close": 103.77,
+      "week52_high": 165.55,
+      "week52_low": 85.0,
+      "pct_off_52w_high": -37.32,
+      "pct_above_52w_low": 22.08,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:32.521799"
+  },
+  "NSE:KALAMANDIR-EQ": {
+    "fundamentals": {
+      "company_name": "SAI SILKS (KALAMANDIR) LTD",
+      "current_price": 86.5,
+      "market_cap_cr": 1326.67,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1653.67,
+      "net_profit_cr": 140.92,
+      "eps": 9.19,
+      "pe_ratio": 9.42,
+      "roe_pct": 11.18,
+      "debt_to_equity": 0.287,
+      "opm_pct": 16.18,
+      "sales_cagr_pct": 11.51
+    },
+    "price_levels": {
+      "latest_close": 85.83,
+      "week52_high": 223.03,
+      "week52_low": 84.82,
+      "pct_off_52w_high": -61.52,
+      "pct_above_52w_low": 1.19,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:35.667650"
+  },
+  "NSE:KALPATARU-EQ": {
+    "fundamentals": {
+      "company_name": "KALPATARU LTD",
+      "current_price": 286.9,
+      "market_cap_cr": 5907.89,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3435.62,
+      "net_profit_cr": 93.71,
+      "eps": 4.55,
+      "pe_ratio": 63.04,
+      "roe_pct": 2.28,
+      "debt_to_equity": 2.227,
+      "opm_pct": 3.46,
+      "sales_cagr_pct": 16.71
+    },
+    "price_levels": {
+      "latest_close": 287.9,
+      "week52_high": 429.3,
+      "week52_low": 258.0,
+      "pct_off_52w_high": -32.94,
+      "pct_above_52w_low": 11.59,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:38.895235"
+  },
+  "NSE:KALYANIFRG-EQ": {
+    "fundamentals": {
+      "company_name": "KALYANI FORGE LTD",
+      "current_price": 660.1,
+      "market_cap_cr": 240.28,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 234.64,
+      "net_profit_cr": 9.32,
+      "eps": 25.89,
+      "pe_ratio": 25.5,
+      "roe_pct": 9.76,
+      "debt_to_equity": 1.106,
+      "opm_pct": 11.93,
+      "sales_cagr_pct": 0.38
+    },
+    "price_levels": {
+      "latest_close": 667.25,
+      "week52_high": 849.65,
+      "week52_low": 523.6,
+      "pct_off_52w_high": -21.47,
+      "pct_above_52w_low": 27.44,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:42.077423"
+  },
+  "NSE:KALYANKJIL-EQ": {
+    "fundamentals": {
+      "company_name": "KALYAN JEWELLERS INDIA LTD",
+      "current_price": 611.15,
+      "market_cap_cr": 63116.62,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 35742.86,
+      "net_profit_cr": 1350.4,
+      "eps": 13.08,
+      "pe_ratio": 46.74,
+      "roe_pct": 21.41,
+      "debt_to_equity": 0.97,
+      "opm_pct": 6.97,
+      "sales_cagr_pct": 16.54
+    },
+    "price_levels": {
+      "latest_close": 613.4,
+      "week52_high": 648.95,
+      "week52_low": 327.05,
+      "pct_off_52w_high": -5.48,
+      "pct_above_52w_low": 87.56,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:45.296624"
+  },
+  "NSE:KAMAHOLD-EQ": {
+    "fundamentals": {
+      "company_name": "KAMA HOLDINGS LTD",
+      "current_price": 2468.85,
+      "market_cap_cr": 7922.68,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 15929.98,
+      "net_profit_cr": 930.74,
+      "eps": 289.95,
+      "pe_ratio": 8.51,
+      "roe_pct": 11.62,
+      "debt_to_equity": 0.634,
+      "opm_pct": 21.92,
+      "sales_cagr_pct": 14.09
+    },
+    "price_levels": {
+      "latest_close": 2474.2,
+      "week52_high": 2750.0,
+      "week52_low": 2461.0,
+      "pct_off_52w_high": -10.03,
+      "pct_above_52w_low": 0.54,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T16:06:48.587716"
+  },
+  "NSE:KAMATHOTEL-EQ": {
+    "fundamentals": {
+      "company_name": "KAMAT HOTELS (INDIA) LTD",
+      "current_price": 188.0,
+      "market_cap_cr": 554.22,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 385.63,
+      "net_profit_cr": 34.38,
+      "eps": 11.65,
+      "pe_ratio": 16.13,
+      "roe_pct": 10.88,
+      "debt_to_equity": 0.738,
+      "opm_pct": 25.11,
+      "sales_cagr_pct": 8.62
+    },
+    "price_levels": {
+      "latest_close": 187.54,
+      "week52_high": 329.8,
+      "week52_low": 140.2,
+      "pct_off_52w_high": -43.14,
+      "pct_above_52w_low": 33.77,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:51.848491"
+  },
+  "NSE:KAMOPAINTS-EQ": {
+    "fundamentals": {
+      "company_name": "KAMDHENU VENTURES LTD",
+      "current_price": 4.58,
+      "market_cap_cr": 150.66,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 245.26,
+      "net_profit_cr": 0.2,
+      "eps": 0.01,
+      "pe_ratio": 753.41,
+      "roe_pct": 0.11,
+      "debt_to_equity": 0.191,
+      "opm_pct": 3.87,
+      "sales_cagr_pct": -1.86
+    },
+    "price_levels": {
+      "latest_close": 4.54,
+      "week52_high": 10.76,
+      "week52_low": 3.6,
+      "pct_off_52w_high": -57.81,
+      "pct_above_52w_low": 26.11,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:55.015004"
+  },
+  "NSE:KANANIIND-EQ": {
+    "fundamentals": {
+      "company_name": "KANANI INDUSTRIES LTD",
+      "current_price": 1.52,
+      "market_cap_cr": 30.08,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 173.79,
+      "net_profit_cr": 2.58,
+      "eps": 0.13,
+      "pe_ratio": 11.66,
+      "roe_pct": 3.72,
+      "debt_to_equity": 0.007,
+      "opm_pct": 0.79,
+      "sales_cagr_pct": -9.86
+    },
+    "price_levels": {
+      "latest_close": 1.52,
+      "week52_high": 2.27,
+      "week52_low": 1.02,
+      "pct_off_52w_high": -33.04,
+      "pct_above_52w_low": 49.02,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:58.572587"
+  },
+  "NSE:KANCHI-EQ": {
+    "fundamentals": {
+      "company_name": "KANCHI KARPOORAM LTD",
+      "current_price": 375.8,
+      "market_cap_cr": 163.25,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 147.79,
+      "net_profit_cr": 5.16,
+      "eps": 12.0,
+      "pe_ratio": 31.32,
+      "roe_pct": 2.37,
+      "debt_to_equity": 0.002,
+      "opm_pct": 5.3,
+      "sales_cagr_pct": 10.81
+    },
+    "price_levels": {
+      "latest_close": 377.9,
+      "week52_high": 463.35,
+      "week52_low": 334.7,
+      "pct_off_52w_high": -18.44,
+      "pct_above_52w_low": 12.91,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T16:07:01.950670"
+  },
+  "NSE:KANPRPLA-EQ": {
+    "fundamentals": {
+      "company_name": "KANPUR PLASTIPACK LTD",
+      "current_price": 261.9,
+      "market_cap_cr": 641.08,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 716.49,
+      "net_profit_cr": 36.89,
+      "eps": 15.06,
+      "pe_ratio": 17.39,
+      "roe_pct": 13.9,
+      "debt_to_equity": 0.423,
+      "opm_pct": 9.14,
+      "sales_cagr_pct": 12.76
+    },
+    "price_levels": {
+      "latest_close": 260.38,
+      "week52_high": 264.0,
+      "week52_low": 151.25,
+      "pct_off_52w_high": -1.37,
+      "pct_above_52w_low": 72.15,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:05.609091"
+  },
+  "NSE:KANSAINER-EQ": {
+    "fundamentals": {
+      "company_name": "KANSAI NEROLAC PAINTS LTD",
+      "current_price": 209.3,
+      "market_cap_cr": 16927.74,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8051.91,
+      "net_profit_cr": 589.47,
+      "eps": 7.29,
+      "pe_ratio": 28.71,
+      "roe_pct": 8.78,
+      "debt_to_equity": 0.045,
+      "opm_pct": 12.1,
+      "sales_cagr_pct": 7.93
+    },
+    "price_levels": {
+      "latest_close": 209.12,
+      "week52_high": 264.0,
+      "week52_low": 157.91,
+      "pct_off_52w_high": -20.79,
+      "pct_above_52w_low": 32.43,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:09.703064"
   }
 }
