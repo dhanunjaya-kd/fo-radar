@@ -33,7 +33,7 @@ import json
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fundamentals.symbol_master import get_nse_equity_symbols
 from fundamentals.screener_client import get_session, fetch_export_bytes, SessionExpiredError
@@ -42,6 +42,36 @@ from fundamentals.price_levels import get_52week_range
 
 OUTPUT_FILE = "fundamentals_data.json"
 PAUSE_SECONDS = 2.0  # between each stock's Screener.in requests -- a politeness pause, not a rate-limit workaround. Adjust if this turns out too slow or too fast once you see it running.
+REFRESH_AFTER_DAYS = 7  # matches the intended weekly-refresh cadence -- fundamentals don't move fast enough to justify anything shorter
+
+
+def is_stale(entry, max_age_days=REFRESH_AFTER_DAYS):
+    """
+    True if this saved entry is old enough to warrant re-fetching, or
+    missing/malformed enough that it shouldn't be trusted as-is.
+
+    Without this, "already in the file" meant "done forever" -- a
+    second full run (like next week's refresh) would see every one of
+    2,466 symbols already present and skip all of them, refreshing
+    nothing. This is what makes runner.py usable as a recurring job
+    instead of a one-time pass.
+
+    A complete failure (both halves missing) is always treated as
+    stale regardless of age -- a failure is more likely a transient
+    hiccup (a Screener/Fyers blip) than something that needs a full
+    week to resolve, and there's no real data being "wasted" by
+    retrying it on the very next run instead of waiting.
+    """
+    if not entry.get("fundamentals") and not entry.get("price_levels"):
+        return True
+    fetched_at = entry.get("fetched_at")
+    if not fetched_at:
+        return True  # old entry from before this field existed, or malformed -- don't trust it indefinitely
+    try:
+        fetched_dt = datetime.fromisoformat(fetched_at)
+    except (ValueError, TypeError):
+        return True
+    return (datetime.now() - fetched_dt) > timedelta(days=max_age_days)
 
 
 def load_existing():
@@ -70,8 +100,9 @@ def run(limit=None):
 
     print(f"Starting: {len(symbols)} symbols to check, {len(results)} already done from a previous run.")
     for i, fyers_symbol in enumerate(symbols):
-        if fyers_symbol in results:
-            continue  # already have this one -- resuming, not restarting
+        existing = results.get(fyers_symbol)
+        if existing is not None and not is_stale(existing):
+            continue  # still fresh -- genuinely done, not just "present"
 
         # e.g. "NSE:RELIANCE-EQ" -> "RELIANCE" for the Screener search
         screener_symbol = fyers_symbol.replace("NSE:", "").replace("-EQ", "")
