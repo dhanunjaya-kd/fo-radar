@@ -14,10 +14,18 @@ provide APIs on Screener"); this automates their own "Export to Excel"
 feature instead, which is a real, sanctioned first-party mechanism,
 not scraping raw HTML.
 """
+import os
 import re
 import requests
 
-SESSION_FILE = "screener_session.txt"  # same file/folder convention as the rest of this project (e.g. fyers_auth.json)
+# Anchored to this file's OWN folder (fundamentals/), not the current
+# working directory -- so this finds screener_session.txt correctly
+# whether the calling script is run from backend/ (like runner.py, for
+# import-path reasons) or from inside fundamentals/ itself. A relative
+# "screener_session.txt" would silently look in whatever folder the
+# script happened to be launched from instead, which is exactly what
+# broke runner.py's first real run.
+SESSION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screener_session.txt")
 
 
 def _load_session_id(path=SESSION_FILE):
