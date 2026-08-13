@@ -27,6 +27,7 @@ parse next.
 """
 import re
 import sys
+import traceback
 import requests
 
 # Windows PowerShell's default console encoding can't display every
@@ -63,8 +64,9 @@ try:
         print(">>> Search returned an empty result list")
     print("\nRaw response (first 1500 chars):")
     print(resp.text[:1500])
-except Exception as e:
-    print(f"ERROR: {e}")
+except Exception:
+    print("ERROR -- full traceback below (this is the real diagnostic, not a guess):")
+    traceback.print_exc(file=sys.stdout)
 
 print("\n" + "=" * 70)
 print("STEP 2: Company page HTML + export ID extraction")
@@ -88,8 +90,9 @@ if company_path:
 
         if "Stock P/E" in resp.text or "ROE" in resp.text:
             print(">>> Ratio-like labels found directly in the page HTML (Stock P/E / ROE present) -- may be parseable straight from the page itself, without even needing the export step.")
-    except Exception as e:
-        print(f"ERROR: {e}")
+    except Exception:
+        print("ERROR -- full traceback below (this is the real diagnostic, not a guess):")
+        traceback.print_exc(file=sys.stdout)
 else:
     print("Skipped -- no company path found in step 1")
 
@@ -111,8 +114,9 @@ if warehouse_id:
         else:
             print("Not a spreadsheet content-type -- first 500 chars of response:")
             print(resp.text[:500])
-    except Exception as e:
-        print(f"ERROR: {e}")
+    except Exception:
+        print("ERROR -- full traceback below (this is the real diagnostic, not a guess):")
+        traceback.print_exc(file=sys.stdout)
 else:
     print("Skipped -- no export ID found in step 2")
 
