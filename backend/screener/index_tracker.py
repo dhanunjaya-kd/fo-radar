@@ -588,3 +588,81 @@ def get_today_snapshots(index_name, limit=100):
 def get_today_log_path(index_name):
     path = _today_path(index_name)
     return path if os.path.exists(path) else None
+
+
+def compute_cas_auction_moves(index_name):
+    """
+    Day-by-day price move specifically attributable to the CAS
+    auction: the last snapshot BEFORE the 3:15 PM auction start, vs
+    the first snapshot AFTER it resolves (>3:35 PM) -- isolates the
+    auction's effect from ordinary intraday movement, using real
+    logged data, not an estimate. Uses Spot specifically (the actual
+    index/cash value CAS affects), not Fut -- futures trade
+    continuously through 3:40 PM and aren't subject to the auction
+    mechanism the same way.
+
+    Reuses the same historical snapshot loading as the Bias backtest
+    (backtest_index_bias.load_all_snapshots) -- same underlying data,
+    a different question asked of it.
+
+    HONEST LIMITATION: days before Aug 13, 2026 (when market_hours.py
+    still cut off at 3:30 PM, before the auction resolved) won't have
+    a valid post-auction reading and are correctly skipped here, not
+    guessed at. Real data only starts accumulating from today forward.
+
+    Returns a list of {date, pre_auction_time, pre_auction_price,
+    post_auction_time, post_auction_price, move_abs, move_pct},
+    newest day first.
+    """
+    from .backtest_index_bias import load_all_snapshots
+    from datetime import time as _time
+
+    rows = load_all_snapshots(index_name)
+
+    by_day = {}
+    for row in rows:
+        day = row["_datetime"].strftime("%Y-%m-%d")
+        by_day.setdefault(day, []).append(row)
+
+    auction_start = _time(15, 15)
+    auction_end = _time(15, 35)
+
+    results = []
+    for day, day_rows in by_day.items():
+        day_rows.sort(key=lambda r: r["_datetime"])
+
+        pre = None
+        for r in day_rows:
+            if r["_datetime"].time() < auction_start:
+                pre = r
+            else:
+                break
+
+        post = None
+        for r in day_rows:
+            if r["_datetime"].time() > auction_end:
+                post = r
+                break
+
+        if pre is None or post is None:
+            continue  # incomplete day (e.g. pre-fix data, or server wasn't running through the window) -- skip, don't guess
+
+        pre_price = pre.get("Spot")
+        post_price = post.get("Spot")
+        if pre_price is None or post_price is None:
+            continue
+
+        move_abs = post_price - pre_price
+        move_pct = (move_abs / pre_price * 100) if pre_price else None
+
+        results.append({
+            "date": day,
+            "pre_auction_time": pre["Time"],
+            "pre_auction_price": pre_price,
+            "post_auction_time": post["Time"],
+            "post_auction_price": post_price,
+            "move_abs": round(move_abs, 2),
+            "move_pct": round(move_pct, 3) if move_pct is not None else None,
+        })
+
+    return sorted(results, key=lambda r: r["date"], reverse=True)
