@@ -26,7 +26,16 @@ step 3 succeeds) since those show the real structure this needs to
 parse next.
 """
 import re
+import sys
 import requests
+
+# Windows PowerShell's default console encoding can't display every
+# Unicode character (a rupee symbol crashed the first run of this
+# script with "ordinal not in range(256)") -- reconfigure stdout to
+# UTF-8 and swap unprintable characters for a placeholder instead of
+# crashing. This only affects what gets displayed, not what gets
+# parsed from the actual response.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 with open("screener_session.txt", "r") as f:
     SESSION_ID = f.read().strip()
@@ -44,14 +53,16 @@ company_path = None
 try:
     resp = requests.get(search_url, headers=HEADERS, cookies=COOKIES, timeout=15)
     print(f"Status: {resp.status_code}")
+    # Parse BEFORE printing raw text -- so a display-only crash can
+    # never block the actual data extraction the way it did last time.
+    results = resp.json() if resp.status_code == 200 else []
+    if results:
+        company_path = results[0].get("url")
+        print(f">>> Found company path: {company_path}")
+    else:
+        print(">>> Search returned an empty result list")
+    print("\nRaw response (first 1500 chars):")
     print(resp.text[:1500])
-    if resp.status_code == 200:
-        results = resp.json()
-        if results:
-            company_path = results[0].get("url")
-            print(f"\n>>> Found company path: {company_path}")
-        else:
-            print("\n>>> Search returned an empty result list")
 except Exception as e:
     print(f"ERROR: {e}")
 
