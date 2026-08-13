@@ -48907,5 +48907,3992 @@
       "candle_count": 247
     },
     "fetched_at": "2026-08-13T17:00:10.899677"
+  },
+  "NSE:TTML-EQ": {
+    "fundamentals": {
+      "company_name": "TATA TELESERVICES (MAHARASHTRA) LTD",
+      "current_price": 38.81,
+      "market_cap_cr": 7587.07,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1160.23,
+      "net_profit_cr": -215.3,
+      "eps": -1.1,
+      "pe_ratio": -35.24,
+      "roe_pct": 1.08,
+      "debt_to_equity": -1.044,
+      "opm_pct": 53.21,
+      "sales_cagr_pct": -8.97
+    },
+    "price_levels": {
+      "latest_close": 38.74,
+      "week52_high": 60.89,
+      "week52_low": 31.22,
+      "pct_off_52w_high": -36.38,
+      "pct_above_52w_low": 24.09,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:14.526898"
+  },
+  "NSE:TURTLEMINT-EQ": {
+    "fundamentals": {
+      "company_name": "TURTLEMINT FINTECH SOLUTIONS LTD",
+      "current_price": 141.0,
+      "market_cap_cr": 4152.14,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1098.28,
+      "net_profit_cr": -184.27,
+      "eps": -34.51,
+      "pe_ratio": -4.09,
+      "roe_pct": -60.38,
+      "debt_to_equity": 0.061,
+      "opm_pct": -11.88,
+      "sales_cagr_pct": 39.02
+    },
+    "price_levels": {
+      "latest_close": 141.25,
+      "week52_high": 154.3,
+      "week52_low": 110.41,
+      "pct_off_52w_high": -8.46,
+      "pct_above_52w_low": 27.93,
+      "candle_count": 34
+    },
+    "fetched_at": "2026-08-13T17:00:17.476684"
+  },
+  "NSE:TVSELECT-EQ": {
+    "fundamentals": {
+      "company_name": "TVS ELECTRONICS LTD",
+      "current_price": 460.0,
+      "market_cap_cr": 857.9,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 455.2,
+      "net_profit_cr": 1.26,
+      "eps": 0.67,
+      "pe_ratio": 682.7,
+      "roe_pct": 1.31,
+      "debt_to_equity": 0.559,
+      "opm_pct": 4.31,
+      "sales_cagr_pct": -17.31
+    },
+    "price_levels": {
+      "latest_close": 458.85,
+      "week52_high": 739.35,
+      "week52_low": 336.2,
+      "pct_off_52w_high": -37.94,
+      "pct_above_52w_low": 36.48,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:20.813678"
+  },
+  "NSE:TVSHLTD-EQ": {
+    "fundamentals": {
+      "company_name": "TVS HOLDINGS LTD",
+      "current_price": 14297.4,
+      "market_cap_cr": 28991.99,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 58154.5,
+      "net_profit_cr": 1695.69,
+      "eps": 839.45,
+      "pe_ratio": 17.03,
+      "roe_pct": 26.23,
+      "debt_to_equity": 5.592,
+      "opm_pct": 15.69,
+      "sales_cagr_pct": 17.62
+    },
+    "price_levels": {
+      "latest_close": 14317.0,
+      "week52_high": 16297.0,
+      "week52_low": 11128.0,
+      "pct_off_52w_high": -12.15,
+      "pct_above_52w_low": 28.66,
+      "candle_count": 246
+    },
+    "fetched_at": "2026-08-13T17:00:25.198887"
+  },
+  "NSE:TVSMOTOR-EQ": {
+    "fundamentals": {
+      "company_name": "TVS MOTOR COMPANY LTD",
+      "current_price": 4314.05,
+      "market_cap_cr": 206476.99,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 56069.52,
+      "net_profit_cr": 3018.33,
+      "eps": 63.53,
+      "pe_ratio": 67.91,
+      "roe_pct": 31.56,
+      "debt_to_equity": 3.428,
+      "opm_pct": 14.9,
+      "sales_cagr_pct": 18.19
+    },
+    "price_levels": {
+      "latest_close": 4342.2,
+      "week52_high": 4475.0,
+      "week52_low": 2963.8,
+      "pct_off_52w_high": -2.97,
+      "pct_above_52w_low": 46.51,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:28.628514"
+  },
+  "NSE:TVSSCS-EQ": {
+    "fundamentals": {
+      "company_name": "TVS SUPPLY CHAIN SOLUTIONS LTD",
+      "current_price": 127.7,
+      "market_cap_cr": 5634.4,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 11002.97,
+      "net_profit_cr": 114.28,
+      "eps": 2.59,
+      "pe_ratio": 49.3,
+      "roe_pct": 5.62,
+      "debt_to_equity": 1.355,
+      "opm_pct": 7.07,
+      "sales_cagr_pct": 7.16
+    },
+    "price_levels": {
+      "latest_close": 127.54,
+      "week52_high": 146.5,
+      "week52_low": 90.32,
+      "pct_off_52w_high": -12.94,
+      "pct_above_52w_low": 41.21,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:31.847618"
+  },
+  "NSE:TVSSRICHAK-EQ": {
+    "fundamentals": {
+      "company_name": "TVS SRICHAKRA LTD",
+      "current_price": 3959.75,
+      "market_cap_cr": 3026.67,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3643.35,
+      "net_profit_cr": 71.23,
+      "eps": 92.51,
+      "pe_ratio": 42.81,
+      "roe_pct": 5.98,
+      "debt_to_equity": 0.645,
+      "opm_pct": 7.66,
+      "sales_cagr_pct": 7.13
+    },
+    "price_levels": {
+      "latest_close": 3994.9,
+      "week52_high": 4775.8,
+      "week52_low": 2812.0,
+      "pct_off_52w_high": -16.35,
+      "pct_above_52w_low": 42.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:35.134980"
+  },
+  "NSE:TVTODAY-EQ": {
+    "fundamentals": {
+      "company_name": "T.V. TODAY NETWORK LTD",
+      "current_price": 113.2,
+      "market_cap_cr": 685.79,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 808.7,
+      "net_profit_cr": 14.35,
+      "eps": 2.4,
+      "pe_ratio": 47.09,
+      "roe_pct": 1.61,
+      "debt_to_equity": 0.016,
+      "opm_pct": 3.83,
+      "sales_cagr_pct": 2.42
+    },
+    "price_levels": {
+      "latest_close": 113.23,
+      "week52_high": 156.48,
+      "week52_low": 93.5,
+      "pct_off_52w_high": -27.64,
+      "pct_above_52w_low": 21.1,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:38.484761"
+  },
+  "NSE:UBL-EQ": {
+    "fundamentals": {
+      "company_name": "UNITED BREWERIES LTD",
+      "current_price": 1390.55,
+      "market_cap_cr": 36745.69,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 9239.94,
+      "net_profit_cr": 413.17,
+      "eps": 15.63,
+      "pe_ratio": 88.99,
+      "roe_pct": 9.14,
+      "debt_to_equity": 0.291,
+      "opm_pct": 8.72,
+      "sales_cagr_pct": 7.73
+    },
+    "price_levels": {
+      "latest_close": 1389.7,
+      "week52_high": 1935.6,
+      "week52_low": 1276.0,
+      "pct_off_52w_high": -28.2,
+      "pct_above_52w_low": 8.91,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:41.844070"
+  },
+  "NSE:UCAL-EQ": {
+    "fundamentals": {
+      "company_name": "UCAL LTD",
+      "current_price": 126.6,
+      "market_cap_cr": 279.96,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 837.82,
+      "net_profit_cr": -33.32,
+      "eps": -15.08,
+      "pe_ratio": -8.4,
+      "roe_pct": -10.22,
+      "debt_to_equity": 0.569,
+      "opm_pct": 6.03,
+      "sales_cagr_pct": 0.64
+    },
+    "price_levels": {
+      "latest_close": 127.89,
+      "week52_high": 146.99,
+      "week52_low": 77.0,
+      "pct_off_52w_high": -12.99,
+      "pct_above_52w_low": 66.09,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:45.197203"
+  },
+  "NSE:UCOBANK-EQ": {
+    "fundamentals": {
+      "company_name": "UCO BANK",
+      "current_price": 26.06,
+      "market_cap_cr": 32665.62,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 26281.36,
+      "net_profit_cr": 2767.86,
+      "eps": 2.21,
+      "pe_ratio": 11.81,
+      "roe_pct": 8.32,
+      "debt_to_equity": 10.553,
+      "opm_pct": 66.1,
+      "sales_cagr_pct": 5.43
+    },
+    "price_levels": {
+      "latest_close": 26.09,
+      "week52_high": 34.2,
+      "week52_low": 22.22,
+      "pct_off_52w_high": -23.71,
+      "pct_above_52w_low": 17.42,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:49.889207"
+  },
+  "NSE:UDS-EQ": {
+    "fundamentals": {
+      "company_name": "UPDATER SERVICES LTD",
+      "current_price": 209.85,
+      "market_cap_cr": 1405.04,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2939.51,
+      "net_profit_cr": 85.68,
+      "eps": 12.79,
+      "pe_ratio": 16.41,
+      "roe_pct": 8.14,
+      "debt_to_equity": 0.043,
+      "opm_pct": 4.6,
+      "sales_cagr_pct": 14.22
+    },
+    "price_levels": {
+      "latest_close": 210.09,
+      "week52_high": 266.2,
+      "week52_low": 125.1,
+      "pct_off_52w_high": -21.08,
+      "pct_above_52w_low": 67.94,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:53.005523"
+  },
+  "NSE:UEL-EQ": {
+    "fundamentals": {
+      "company_name": "UJAAS ENERGY LTD",
+      "current_price": 252.75,
+      "market_cap_cr": 3288.24,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 16.64,
+      "net_profit_cr": 3.16,
+      "eps": 0.24,
+      "pe_ratio": 1066.99,
+      "roe_pct": 3.56,
+      "debt_to_equity": 0.271,
+      "opm_pct": -23.5,
+      "sales_cagr_pct": -31.27
+    },
+    "price_levels": {
+      "latest_close": 246.5,
+      "week52_high": 371.35,
+      "week52_low": 110.13,
+      "pct_off_52w_high": -33.62,
+      "pct_above_52w_low": 123.83,
+      "candle_count": 165
+    },
+    "fetched_at": "2026-08-13T17:00:56.306943"
+  },
+  "NSE:UFLEX-EQ": {
+    "fundamentals": {
+      "company_name": "UFLEX LTD",
+      "current_price": 496.0,
+      "market_cap_cr": 3573.44,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 15400.52,
+      "net_profit_cr": 317.1,
+      "eps": 43.92,
+      "pe_ratio": 11.29,
+      "roe_pct": 3.9,
+      "debt_to_equity": 1.25,
+      "opm_pct": 12.04,
+      "sales_cagr_pct": 10.05
+    },
+    "price_levels": {
+      "latest_close": 493.8,
+      "week52_high": 602.8,
+      "week52_low": 330.0,
+      "pct_off_52w_high": -18.08,
+      "pct_above_52w_low": 49.64,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:00:59.598863"
+  },
+  "NSE:UFO-EQ": {
+    "fundamentals": {
+      "company_name": "UFO MOVIEZ INDIA LTD",
+      "current_price": 67.01,
+      "market_cap_cr": 260.18,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 482.0,
+      "net_profit_cr": 24.91,
+      "eps": 6.42,
+      "pe_ratio": 10.44,
+      "roe_pct": 7.66,
+      "debt_to_equity": 0.288,
+      "opm_pct": 15.74,
+      "sales_cagr_pct": -2.38
+    },
+    "price_levels": {
+      "latest_close": 67.39,
+      "week52_high": 92.97,
+      "week52_low": 53.75,
+      "pct_off_52w_high": -27.51,
+      "pct_above_52w_low": 25.38,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:02.918487"
+  },
+  "NSE:UGARSUGAR-EQ": {
+    "fundamentals": {
+      "company_name": "UGAR SUGAR WORKS LTD",
+      "current_price": 46.25,
+      "market_cap_cr": 524.23,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1484.26,
+      "net_profit_cr": 13.61,
+      "eps": 1.21,
+      "pe_ratio": 38.23,
+      "roe_pct": 5.82,
+      "debt_to_equity": 2.858,
+      "opm_pct": 6.98,
+      "sales_cagr_pct": 10.89
+    },
+    "price_levels": {
+      "latest_close": 46.49,
+      "week52_high": 48.85,
+      "week52_low": 33.75,
+      "pct_off_52w_high": -4.83,
+      "pct_above_52w_low": 37.75,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:06.071553"
+  },
+  "NSE:UGROCAP-EQ": {
+    "fundamentals": {
+      "company_name": "UGRO CAPITAL LTD",
+      "current_price": 92.36,
+      "market_cap_cr": 1436.4,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1785.18,
+      "net_profit_cr": 113.37,
+      "eps": 7.3,
+      "pe_ratio": 12.65,
+      "roe_pct": 3.99,
+      "debt_to_equity": 3.237,
+      "opm_pct": 60.29,
+      "sales_cagr_pct": 109.06
+    },
+    "price_levels": {
+      "latest_close": 92.4,
+      "week52_high": 192.5,
+      "week52_low": 80.12,
+      "pct_off_52w_high": -52.0,
+      "pct_above_52w_low": 15.33,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:09.239826"
+  },
+  "NSE:UJJIVANSFB-EQ": {
+    "fundamentals": {
+      "company_name": "UJJIVAN SMALL FINANCE BANK LTD",
+      "current_price": 71.22,
+      "market_cap_cr": 13877.39,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6931.45,
+      "net_profit_cr": 692.63,
+      "eps": 3.57,
+      "pe_ratio": 19.98,
+      "roe_pct": 10.16,
+      "debt_to_equity": 7.249,
+      "opm_pct": 43.41,
+      "sales_cagr_pct": 46.95
+    },
+    "price_levels": {
+      "latest_close": 71.19,
+      "week52_high": 73.29,
+      "week52_low": 41.32,
+      "pct_off_52w_high": -2.87,
+      "pct_above_52w_low": 72.29,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:12.596267"
+  },
+  "NSE:ULTRACEMCO-EQ": {
+    "fundamentals": {
+      "company_name": "ULTRATECH CEMENT LTD",
+      "current_price": 11750.0,
+      "market_cap_cr": 347856.98,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 88511.53,
+      "net_profit_cr": 8165.64,
+      "eps": 277.08,
+      "pe_ratio": 42.41,
+      "roe_pct": 10.66,
+      "debt_to_equity": 0.31,
+      "opm_pct": 19.21,
+      "sales_cagr_pct": 14.89
+    },
+    "price_levels": {
+      "latest_close": 11706.0,
+      "week52_high": 13110.0,
+      "week52_low": 10325.0,
+      "pct_off_52w_high": -10.71,
+      "pct_above_52w_low": 13.38,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:16.034333"
+  },
+  "NSE:ULTRAMAR-EQ": {
+    "fundamentals": {
+      "company_name": "ULTRAMARINE & PIGMENTS LTD",
+      "current_price": 400.5,
+      "market_cap_cr": 1170.79,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 706.97,
+      "net_profit_cr": 72.32,
+      "eps": 24.77,
+      "pe_ratio": 16.17,
+      "roe_pct": 8.51,
+      "debt_to_equity": 0.028,
+      "opm_pct": 14.04,
+      "sales_cagr_pct": 11.98
+    },
+    "price_levels": {
+      "latest_close": 399.85,
+      "week52_high": 455.75,
+      "week52_low": 364.1,
+      "pct_off_52w_high": -12.27,
+      "pct_above_52w_low": 9.82,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T17:01:19.415566"
+  },
+  "NSE:UMESLTD-EQ": {
+    "fundamentals": {
+      "company_name": "USHA MARTIN EDUCATION & SOLUTIONS LTD",
+      "current_price": 6.25,
+      "market_cap_cr": 16.43,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 0.88,
+      "net_profit_cr": 0.39,
+      "eps": 0.15,
+      "pe_ratio": 42.31,
+      "roe_pct": 15.92,
+      "debt_to_equity": 0.094,
+      "opm_pct": 50.0,
+      "sales_cagr_pct": -5.4
+    },
+    "price_levels": {
+      "latest_close": 5.99,
+      "week52_high": 7.14,
+      "week52_low": 3.88,
+      "pct_off_52w_high": -16.11,
+      "pct_above_52w_low": 54.38,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:23.083825"
+  },
+  "NSE:UMIYA-MRO-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 88.63,
+      "week52_high": 110.9,
+      "week52_low": 70.0,
+      "pct_off_52w_high": -20.08,
+      "pct_above_52w_low": 26.61,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:25.807009"
+  },
+  "NSE:UNICHEMLAB-EQ": {
+    "fundamentals": {
+      "company_name": "UNICHEM LABORATORIES LTD",
+      "current_price": 539.65,
+      "market_cap_cr": 3818.72,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2201.85,
+      "net_profit_cr": 252.84,
+      "eps": 35.91,
+      "pe_ratio": 15.03,
+      "roe_pct": 9.3,
+      "debt_to_equity": 0.184,
+      "opm_pct": 8.57,
+      "sales_cagr_pct": 13.62
+    },
+    "price_levels": {
+      "latest_close": 542.4,
+      "week52_high": 687.2,
+      "week52_low": 278.2,
+      "pct_off_52w_high": -21.07,
+      "pct_above_52w_low": 94.97,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:29.203917"
+  },
+  "NSE:UNIECOM-EQ": {
+    "fundamentals": {
+      "company_name": "UNICOMMERCE ESOLUTIONS LTD",
+      "current_price": 91.1,
+      "market_cap_cr": 1023.76,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 204.34,
+      "net_profit_cr": 20.46,
+      "eps": 1.82,
+      "pe_ratio": 50.05,
+      "roe_pct": 10.6,
+      "debt_to_equity": 0.049,
+      "opm_pct": 17.34,
+      "sales_cagr_pct": 40.46
+    },
+    "price_levels": {
+      "latest_close": 91.36,
+      "week52_high": 155.8,
+      "week52_low": 78.51,
+      "pct_off_52w_high": -41.36,
+      "pct_above_52w_low": 16.37,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:32.504066"
+  },
+  "NSE:UNIENTER-EQ": {
+    "fundamentals": {
+      "company_name": "UNIPHOS ENTERPRISES LTD",
+      "current_price": 96.0,
+      "market_cap_cr": 675.19,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 32.0,
+      "net_profit_cr": 20.71,
+      "eps": 2.98,
+      "pe_ratio": 32.22,
+      "roe_pct": 0.85,
+      "debt_to_equity": 0.0,
+      "opm_pct": -11.62,
+      "sales_cagr_pct": 127.63
+    },
+    "price_levels": {
+      "latest_close": 95.18,
+      "week52_high": 161.8,
+      "week52_low": 87.51,
+      "pct_off_52w_high": -41.17,
+      "pct_above_52w_low": 8.76,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:35.670098"
+  },
+  "NSE:UNIINFO-EQ": {
+    "fundamentals": {
+      "company_name": "UNIINFO TELECOM SERVICES LTD",
+      "current_price": 12.16,
+      "market_cap_cr": 13.02,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 43.52,
+      "net_profit_cr": -1.2,
+      "eps": -1.12,
+      "pe_ratio": -10.84,
+      "roe_pct": -3.77,
+      "debt_to_equity": 0.168,
+      "opm_pct": 0.74,
+      "sales_cagr_pct": 5.07
+    },
+    "price_levels": {
+      "latest_close": 12.16,
+      "week52_high": 21.78,
+      "week52_low": 9.36,
+      "pct_off_52w_high": -44.17,
+      "pct_above_52w_low": 29.91,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:38.887351"
+  },
+  "NSE:UNIMECH-EQ": {
+    "fundamentals": {
+      "company_name": "UNIMECH AEROSPACE AND MANUFACTURING LTD",
+      "current_price": 1437.25,
+      "market_cap_cr": 7315.91,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 240.49,
+      "net_profit_cr": 63.28,
+      "eps": 12.43,
+      "pe_ratio": 115.61,
+      "roe_pct": 8.58,
+      "debt_to_equity": 0.172,
+      "opm_pct": 31.76,
+      "sales_cagr_pct": 60.38
+    },
+    "price_levels": {
+      "latest_close": 1426.9,
+      "week52_high": 1482.7,
+      "week52_low": 695.0,
+      "pct_off_52w_high": -3.76,
+      "pct_above_52w_low": 105.31,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:42.038343"
+  },
+  "NSE:UNIONBANK-EQ": {
+    "fundamentals": {
+      "company_name": "UNION BANK OF INDIA",
+      "current_price": 186.0,
+      "market_cap_cr": 142213.21,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 106798.9,
+      "net_profit_cr": 19430.21,
+      "eps": 25.45,
+      "pe_ratio": 7.31,
+      "roe_pct": 14.55,
+      "debt_to_equity": 10.39,
+      "opm_pct": 68.69,
+      "sales_cagr_pct": 14.01
+    },
+    "price_levels": {
+      "latest_close": 186.5,
+      "week52_high": 205.49,
+      "week52_low": 124.64,
+      "pct_off_52w_high": -9.24,
+      "pct_above_52w_low": 49.63,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:45.471413"
+  },
+  "NSE:UNIPARTS-EQ": {
+    "fundamentals": {
+      "company_name": "UNIPARTS INDIA LTD",
+      "current_price": 824.15,
+      "market_cap_cr": 3721.99,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1170.4,
+      "net_profit_cr": 158.32,
+      "eps": 35.1,
+      "pe_ratio": 23.48,
+      "roe_pct": 18.19,
+      "debt_to_equity": 0.178,
+      "opm_pct": 21.12,
+      "sales_cagr_pct": 4.8
+    },
+    "price_levels": {
+      "latest_close": 824.3,
+      "week52_high": 839.0,
+      "week52_low": 387.1,
+      "pct_off_52w_high": -1.75,
+      "pct_above_52w_low": 112.94,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:49.356276"
+  },
+  "NSE:UNITDSPR-EQ": {
+    "fundamentals": {
+      "company_name": "UNITED SPIRITS LTD",
+      "current_price": 1524.0,
+      "market_cap_cr": 111648.36,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 12467.0,
+      "net_profit_cr": 1838.0,
+      "eps": 25.27,
+      "pe_ratio": 60.31,
+      "roe_pct": 20.53,
+      "debt_to_equity": 0.046,
+      "opm_pct": 18.28,
+      "sales_cagr_pct": 3.92
+    },
+    "price_levels": {
+      "latest_close": 1515.0,
+      "week52_high": 1548.7,
+      "week52_low": 1210.8,
+      "pct_off_52w_high": -2.18,
+      "pct_above_52w_low": 25.12,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:52.757073"
+  },
+  "NSE:UNITECH-EQ": {
+    "fundamentals": {
+      "company_name": "UNITECH LTD",
+      "current_price": 4.01,
+      "market_cap_cr": 1049.14,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 512.23,
+      "net_profit_cr": -2455.74,
+      "eps": -9.39,
+      "pe_ratio": -0.43,
+      "roe_pct": 26.22,
+      "debt_to_equity": -0.803,
+      "opm_pct": -1.1,
+      "sales_cagr_pct": -12.65
+    },
+    "price_levels": {
+      "latest_close": 3.99,
+      "week52_high": 7.93,
+      "week52_low": 3.1,
+      "pct_off_52w_high": -49.68,
+      "pct_above_52w_low": 28.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:56.067131"
+  },
+  "NSE:UNITEDTEA-EQ": {
+    "fundamentals": {
+      "company_name": "UNITED NILGIRI TEA ESTATES COMPANY LTD",
+      "current_price": 459.65,
+      "market_cap_cr": 229.67,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 83.35,
+      "net_profit_cr": 21.94,
+      "eps": 43.88,
+      "pe_ratio": 10.48,
+      "roe_pct": 9.09,
+      "debt_to_equity": 0.0,
+      "opm_pct": 23.79,
+      "sales_cagr_pct": 4.84
+    },
+    "price_levels": {
+      "latest_close": 459.65,
+      "week52_high": 590.0,
+      "week52_low": 412.0,
+      "pct_off_52w_high": -22.09,
+      "pct_above_52w_low": 11.57,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:01:59.144060"
+  },
+  "NSE:UNIVCABLES-EQ": {
+    "fundamentals": {
+      "company_name": "UNIVERSAL CABLES LTD",
+      "current_price": 1702.2,
+      "market_cap_cr": 5903.08,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3022.07,
+      "net_profit_cr": 163.11,
+      "eps": 47.01,
+      "pe_ratio": 36.21,
+      "roe_pct": 8.63,
+      "debt_to_equity": 0.623,
+      "opm_pct": 8.61,
+      "sales_cagr_pct": 15.64
+    },
+    "price_levels": {
+      "latest_close": 1702.2,
+      "week52_high": 1774.9,
+      "week52_low": 576.0,
+      "pct_off_52w_high": -4.1,
+      "pct_above_52w_low": 195.52,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:02.443777"
+  },
+  "NSE:UNOMINDA-EQ": {
+    "fundamentals": {
+      "company_name": "UNO MINDA LTD",
+      "current_price": 1243.0,
+      "market_cap_cr": 71339.24,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 19657.59,
+      "net_profit_cr": 1197.13,
+      "eps": 20.73,
+      "pe_ratio": 59.95,
+      "roe_pct": 17.53,
+      "debt_to_equity": 0.401,
+      "opm_pct": 11.45,
+      "sales_cagr_pct": 21.58
+    },
+    "price_levels": {
+      "latest_close": 1240.0,
+      "week52_high": 1382.0,
+      "week52_low": 994.0,
+      "pct_off_52w_high": -10.27,
+      "pct_above_52w_low": 24.75,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:05.637210"
+  },
+  "NSE:UPL-EQ": {
+    "fundamentals": {
+      "company_name": "UPL LTD",
+      "current_price": 568.0,
+      "market_cap_cr": 47975.85,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 51839.0,
+      "net_profit_cr": 1922.0,
+      "eps": 22.78,
+      "pe_ratio": 24.94,
+      "roe_pct": 5.54,
+      "debt_to_equity": 0.68,
+      "opm_pct": 17.51,
+      "sales_cagr_pct": 13.71
+    },
+    "price_levels": {
+      "latest_close": 568.15,
+      "week52_high": 812.2,
+      "week52_low": 563.15,
+      "pct_off_52w_high": -30.05,
+      "pct_above_52w_low": 0.89,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:09.252678"
+  },
+  "NSE:URBANCO-EQ": {
+    "fundamentals": {
+      "company_name": "URBAN COMPANY LTD",
+      "current_price": 141.2,
+      "market_cap_cr": 21775.57,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1555.54,
+      "net_profit_cr": -234.81,
+      "eps": -1.52,
+      "pe_ratio": -92.74,
+      "roe_pct": -10.95,
+      "debt_to_equity": 0.063,
+      "opm_pct": -16.31,
+      "sales_cagr_pct": 38.68
+    },
+    "price_levels": {
+      "latest_close": 141.34,
+      "week52_high": 201.18,
+      "week52_low": 100.7,
+      "pct_off_52w_high": -29.74,
+      "pct_above_52w_low": 40.36,
+      "candle_count": 224
+    },
+    "fetched_at": "2026-08-13T17:02:12.357010"
+  },
+  "NSE:URJA-EQ": {
+    "fundamentals": {
+      "company_name": "URJA GLOBAL LTD",
+      "current_price": 9.6,
+      "market_cap_cr": 502.85,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 66.7,
+      "net_profit_cr": 1.35,
+      "eps": 0.03,
+      "pe_ratio": 373.69,
+      "roe_pct": 0.76,
+      "debt_to_equity": 0.053,
+      "opm_pct": 3.19,
+      "sales_cagr_pct": -7.01
+    },
+    "price_levels": {
+      "latest_close": 9.6,
+      "week52_high": 14.45,
+      "week52_low": 8.0,
+      "pct_off_52w_high": -33.56,
+      "pct_above_52w_low": 20.0,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:15.641844"
+  },
+  "NSE:USHAMART-EQ": {
+    "fundamentals": {
+      "company_name": "USHA MARTIN LTD",
+      "current_price": 496.75,
+      "market_cap_cr": 15121.51,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3691.06,
+      "net_profit_cr": 465.99,
+      "eps": 15.29,
+      "pe_ratio": 32.48,
+      "roe_pct": 14.11,
+      "debt_to_equity": 0.069,
+      "opm_pct": 19.1,
+      "sales_cagr_pct": -0.56
+    },
+    "price_levels": {
+      "latest_close": 497.35,
+      "week52_high": 527.5,
+      "week52_low": 337.35,
+      "pct_off_52w_high": -5.72,
+      "pct_above_52w_low": 47.43,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:18.775135"
+  },
+  "NSE:USK-EQ": {
+    "fundamentals": {
+      "company_name": "UDAYSHIVAKUMAR INFRA LTD",
+      "current_price": 21.45,
+      "market_cap_cr": 118.74,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 211.33,
+      "net_profit_cr": 1.66,
+      "eps": 0.3,
+      "pe_ratio": 71.59,
+      "roe_pct": 0.97,
+      "debt_to_equity": 0.45,
+      "opm_pct": 6.98,
+      "sales_cagr_pct": 1.47
+    },
+    "price_levels": {
+      "latest_close": 21.88,
+      "week52_high": 36.0,
+      "week52_low": 18.97,
+      "pct_off_52w_high": -39.22,
+      "pct_above_52w_low": 15.34,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:21.794644"
+  },
+  "NSE:UTIAMC-EQ": {
+    "fundamentals": {
+      "company_name": "UTI ASSET MANAGEMENT COMPANY LTD",
+      "current_price": 908.0,
+      "market_cap_cr": 11671.36,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1704.52,
+      "net_profit_cr": 404.12,
+      "eps": 31.45,
+      "pe_ratio": 28.87,
+      "roe_pct": 8.97,
+      "debt_to_equity": 0.031,
+      "opm_pct": 47.87,
+      "sales_cagr_pct": 6.91
+    },
+    "price_levels": {
+      "latest_close": 908.5,
+      "week52_high": 1418.0,
+      "week52_low": 876.0,
+      "pct_off_52w_high": -35.93,
+      "pct_above_52w_low": 3.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:25.003405"
+  },
+  "NSE:UTKARSHBNK-EQ": {
+    "fundamentals": {
+      "company_name": "UTKARSH SMALL FINANCE BANK LTD",
+      "current_price": 14.24,
+      "market_cap_cr": 2534.05,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3378.78,
+      "net_profit_cr": -1150.98,
+      "eps": -6.47,
+      "pe_ratio": -2.2,
+      "roe_pct": -41.47,
+      "debt_to_equity": 8.821,
+      "opm_pct": 1.24,
+      "sales_cagr_pct": 26.39
+    },
+    "price_levels": {
+      "latest_close": 14.25,
+      "week52_high": 22.03,
+      "week52_low": 10.12,
+      "pct_off_52w_high": -35.32,
+      "pct_above_52w_low": 40.81,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:28.271273"
+  },
+  "NSE:UTLSOLAR-EQ": {
+    "fundamentals": {
+      "company_name": "FUJIYAMA POWER SYSTEMS LTD",
+      "current_price": 413.65,
+      "market_cap_cr": 12695.0,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2654.51,
+      "net_profit_cr": 304.13,
+      "eps": 9.93,
+      "pe_ratio": 41.67,
+      "roe_pct": 23.88,
+      "debt_to_equity": 0.408,
+      "opm_pct": 18.47,
+      "sales_cagr_pct": 43.86
+    },
+    "price_levels": {
+      "latest_close": 409.9,
+      "week52_high": 424.8,
+      "week52_low": 172.0,
+      "pct_off_52w_high": -3.51,
+      "pct_above_52w_low": 138.31,
+      "candle_count": 181
+    },
+    "fetched_at": "2026-08-13T17:02:31.700411"
+  },
+  "NSE:UTTAMSUGAR-EQ": {
+    "fundamentals": {
+      "company_name": "UTTAM SUGAR MILLS LTD",
+      "current_price": 264.4,
+      "market_cap_cr": 1011.49,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2201.65,
+      "net_profit_cr": 100.29,
+      "eps": 26.32,
+      "pe_ratio": 10.04,
+      "roe_pct": 11.44,
+      "debt_to_equity": 0.824,
+      "opm_pct": 10.41,
+      "sales_cagr_pct": 3.71
+    },
+    "price_levels": {
+      "latest_close": 264.99,
+      "week52_high": 299.0,
+      "week52_low": 181.1,
+      "pct_off_52w_high": -11.37,
+      "pct_above_52w_low": 46.32,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:34.885826"
+  },
+  "NSE:V2RETAIL-EQ": {
+    "fundamentals": {
+      "company_name": "V2 RETAIL LTD",
+      "current_price": 217.6,
+      "market_cap_cr": 7946.08,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3060.03,
+      "net_profit_cr": 163.34,
+      "eps": 4.48,
+      "pe_ratio": 48.57,
+      "roe_pct": 18.1,
+      "debt_to_equity": 1.102,
+      "opm_pct": 15.54,
+      "sales_cagr_pct": 23.08
+    },
+    "price_levels": {
+      "latest_close": 217.43,
+      "week52_high": 259.25,
+      "week52_low": 158.56,
+      "pct_off_52w_high": -16.13,
+      "pct_above_52w_low": 37.13,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:38.257132"
+  },
+  "NSE:VADILALIND-EQ": {
+    "fundamentals": {
+      "company_name": "VADILAL INDUSTRIES LTD",
+      "current_price": 7804.95,
+      "market_cap_cr": 5627.75,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1503.12,
+      "net_profit_cr": 155.1,
+      "eps": 215.42,
+      "pe_ratio": 36.23,
+      "roe_pct": 18.24,
+      "debt_to_equity": 0.27,
+      "opm_pct": 16.55,
+      "sales_cagr_pct": 13.47
+    },
+    "price_levels": {
+      "latest_close": 7781.0,
+      "week52_high": 8447.0,
+      "week52_low": 3996.0,
+      "pct_off_52w_high": -7.88,
+      "pct_above_52w_low": 94.72,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:41.513635"
+  },
+  "NSE:VAIBHAVGBL-EQ": {
+    "fundamentals": {
+      "company_name": "VAIBHAV GLOBAL LTD",
+      "current_price": 238.35,
+      "market_cap_cr": 3980.64,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3691.79,
+      "net_profit_cr": 266.13,
+      "eps": 15.93,
+      "pe_ratio": 14.97,
+      "roe_pct": 16.15,
+      "debt_to_equity": 0.252,
+      "opm_pct": 9.77,
+      "sales_cagr_pct": 11.04
+    },
+    "price_levels": {
+      "latest_close": 233.4,
+      "week52_high": 293.25,
+      "week52_low": 174.13,
+      "pct_off_52w_high": -20.41,
+      "pct_above_52w_low": 34.04,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:44.932222"
+  },
+  "NSE:VAISHALI-EQ": {
+    "fundamentals": {
+      "company_name": "VAISHALI PHARMA LTD",
+      "current_price": 8.47,
+      "market_cap_cr": 110.48,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 108.77,
+      "net_profit_cr": 4.16,
+      "eps": 0.32,
+      "pe_ratio": 26.57,
+      "roe_pct": 6.02,
+      "debt_to_equity": 0.273,
+      "opm_pct": 3.78,
+      "sales_cagr_pct": null
+    },
+    "price_levels": {
+      "latest_close": 8.47,
+      "week52_high": 13.05,
+      "week52_low": 4.75,
+      "pct_off_52w_high": -35.1,
+      "pct_above_52w_low": 78.32,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:48.095018"
+  },
+  "NSE:VAKRANGEE-EQ": {
+    "fundamentals": {
+      "company_name": "VAKRANGEE LTD",
+      "current_price": 5.99,
+      "market_cap_cr": 647.75,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 254.76,
+      "net_profit_cr": 11.27,
+      "eps": 0.1,
+      "pe_ratio": 57.57,
+      "roe_pct": 5.27,
+      "debt_to_equity": 0.018,
+      "opm_pct": 10.86,
+      "sales_cagr_pct": -26.36
+    },
+    "price_levels": {
+      "latest_close": 5.95,
+      "week52_high": 9.77,
+      "week52_low": 4.61,
+      "pct_off_52w_high": -39.1,
+      "pct_above_52w_low": 29.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:51.469831"
+  },
+  "NSE:VALIANTLAB-EQ": {
+    "fundamentals": {
+      "company_name": "VALIANT LABORATORIES LTD",
+      "current_price": 79.1,
+      "market_cap_cr": 429.61,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 237.47,
+      "net_profit_cr": -3.27,
+      "eps": -0.6,
+      "pe_ratio": -131.35,
+      "roe_pct": -1.05,
+      "debt_to_equity": 0.149,
+      "opm_pct": 2.69,
+      "sales_cagr_pct": -10.74
+    },
+    "price_levels": {
+      "latest_close": 78.49,
+      "week52_high": 94.95,
+      "week52_low": 49.51,
+      "pct_off_52w_high": -17.34,
+      "pct_above_52w_low": 58.53,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:02:55.275470"
+  },
+  "NSE:VAML-EQ": {
+    "fundamentals": {
+      "company_name": "VEDANTA ALUMINIUM METAL LTD",
+      "current_price": 450.3,
+      "market_cap_cr": 176084.81,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 66891.0,
+      "net_profit_cr": 11819.0,
+      "eps": 1181900.0,
+      "pe_ratio": 0.0,
+      "roe_pct": null,
+      "debt_to_equity": null,
+      "opm_pct": 37.62,
+      "sales_cagr_pct": null
+    },
+    "price_levels": {
+      "latest_close": 450.65,
+      "week52_high": 537.0,
+      "week52_low": 423.15,
+      "pct_off_52w_high": -16.08,
+      "pct_above_52w_low": 6.5,
+      "candle_count": 43
+    },
+    "fetched_at": "2026-08-13T17:02:58.117297"
+  },
+  "NSE:VARDMNPOLY-EQ": {
+    "fundamentals": {
+      "company_name": "VARDHMAN POLYTEX LTD",
+      "current_price": 6.53,
+      "market_cap_cr": 320.44,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 236.7,
+      "net_profit_cr": 7.68,
+      "eps": 0.16,
+      "pe_ratio": 41.07,
+      "roe_pct": -3.89,
+      "debt_to_equity": -0.28,
+      "opm_pct": 6.01,
+      "sales_cagr_pct": -13.34
+    },
+    "price_levels": {
+      "latest_close": 6.43,
+      "week52_high": 10.56,
+      "week52_low": 5.1,
+      "pct_off_52w_high": -39.11,
+      "pct_above_52w_low": 26.08,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:01.349242"
+  },
+  "NSE:VARROC-EQ": {
+    "fundamentals": {
+      "company_name": "VARROC ENGINEERING LTD",
+      "current_price": 837.75,
+      "market_cap_cr": 12799.72,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8890.49,
+      "net_profit_cr": 225.03,
+      "eps": 14.73,
+      "pe_ratio": 56.88,
+      "roe_pct": 12.64,
+      "debt_to_equity": 0.519,
+      "opm_pct": 9.24,
+      "sales_cagr_pct": -0.5
+    },
+    "price_levels": {
+      "latest_close": 841.95,
+      "week52_high": 864.9,
+      "week52_low": 462.0,
+      "pct_off_52w_high": -2.65,
+      "pct_above_52w_low": 82.24,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:04.589087"
+  },
+  "NSE:VASCONEQ-EQ": {
+    "fundamentals": {
+      "company_name": "VASCON ENGINEERS LTD",
+      "current_price": 31.43,
+      "market_cap_cr": 730.33,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 948.53,
+      "net_profit_cr": 48.9,
+      "eps": 2.11,
+      "pe_ratio": 14.89,
+      "roe_pct": 4.26,
+      "debt_to_equity": 0.261,
+      "opm_pct": 5.64,
+      "sales_cagr_pct": 7.61
+    },
+    "price_levels": {
+      "latest_close": 31.41,
+      "week52_high": 74.59,
+      "week52_low": 26.75,
+      "pct_off_52w_high": -57.89,
+      "pct_above_52w_low": 17.42,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:07.832726"
+  },
+  "NSE:VASWANI-EQ": {
+    "fundamentals": {
+      "company_name": "VASWANI INDUSTRIES LTD",
+      "current_price": 51.35,
+      "market_cap_cr": 171.55,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 467.37,
+      "net_profit_cr": 4.24,
+      "eps": 1.29,
+      "pe_ratio": 39.84,
+      "roe_pct": 2.82,
+      "debt_to_equity": 1.845,
+      "opm_pct": 8.58,
+      "sales_cagr_pct": 6.94
+    },
+    "price_levels": {
+      "latest_close": 53.04,
+      "week52_high": 69.99,
+      "week52_low": 48.58,
+      "pct_off_52w_high": -24.22,
+      "pct_above_52w_low": 9.18,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:11.138014"
+  },
+  "NSE:VBL-EQ": {
+    "fundamentals": {
+      "company_name": "VARUN BEVERAGES LTD",
+      "current_price": 438.25,
+      "market_cap_cr": 148236.53,
+      "latest_year": "2025-12-31 00:00:00",
+      "sales_cr": 21685.37,
+      "net_profit_cr": 3036.49,
+      "eps": 8.98,
+      "pe_ratio": 48.81,
+      "roe_pct": 15.51,
+      "debt_to_equity": 0.128,
+      "opm_pct": 23.38,
+      "sales_cagr_pct": 21.14
+    },
+    "price_levels": {
+      "latest_close": 440.5,
+      "week52_high": 555.8,
+      "week52_low": 381.0,
+      "pct_off_52w_high": -20.74,
+      "pct_above_52w_low": 15.62,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:14.374080"
+  },
+  "NSE:VCL-EQ": {
+    "fundamentals": {
+      "company_name": "VAXTEX COTFAB LTD",
+      "current_price": 1.61,
+      "market_cap_cr": 29.59,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 11.17,
+      "net_profit_cr": 5.53,
+      "eps": 0.3,
+      "pe_ratio": 5.35,
+      "roe_pct": 24.63,
+      "debt_to_equity": 0.234,
+      "opm_pct": 16.92,
+      "sales_cagr_pct": 10.82
+    },
+    "price_levels": {
+      "latest_close": 1.61,
+      "week52_high": 2.66,
+      "week52_low": 0.87,
+      "pct_off_52w_high": -39.47,
+      "pct_above_52w_low": 85.06,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:17.428392"
+  },
+  "NSE:VEDL-EQ": {
+    "fundamentals": {
+      "company_name": "VEDANTA LTD",
+      "current_price": 270.5,
+      "market_cap_cr": 106083.7,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 78437.0,
+      "net_profit_cr": 17391.0,
+      "eps": 44.47,
+      "pe_ratio": 6.08,
+      "roe_pct": 35.03,
+      "debt_to_equity": 0.664,
+      "opm_pct": 29.56,
+      "sales_cagr_pct": 0.92
+    },
+    "price_levels": {
+      "latest_close": 271.1,
+      "week52_high": 360.0,
+      "week52_low": 157.3,
+      "pct_off_52w_high": -24.69,
+      "pct_above_52w_low": 72.35,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:20.761267"
+  },
+  "NSE:VEDPOWER-EQ": {
+    "fundamentals": {
+      "company_name": "VEDANTA POWER LTD",
+      "current_price": 36.87,
+      "market_cap_cr": 14417.65,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8799.0,
+      "net_profit_cr": -1686.0,
+      "eps": -5.26,
+      "pe_ratio": -7.01,
+      "roe_pct": null,
+      "debt_to_equity": null,
+      "opm_pct": 17.71,
+      "sales_cagr_pct": null
+    },
+    "price_levels": {
+      "latest_close": 36.88,
+      "week52_high": 49.88,
+      "week52_low": 33.06,
+      "pct_off_52w_high": -26.06,
+      "pct_above_52w_low": 11.55,
+      "candle_count": 43
+    },
+    "fetched_at": "2026-08-13T17:03:24.130363"
+  },
+  "NSE:VEEDOL-EQ": {
+    "fundamentals": {
+      "company_name": "VEEDOL CORPORATION LTD",
+      "current_price": 1505.5,
+      "market_cap_cr": 2621.8,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2168.54,
+      "net_profit_cr": 191.62,
+      "eps": 110.13,
+      "pe_ratio": 13.67,
+      "roe_pct": 18.5,
+      "debt_to_equity": 0.015,
+      "opm_pct": 10.48,
+      "sales_cagr_pct": 7.51
+    },
+    "price_levels": {
+      "latest_close": 1497.9,
+      "week52_high": 2035.0,
+      "week52_low": 1238.2,
+      "pct_off_52w_high": -26.39,
+      "pct_above_52w_low": 20.97,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:27.306075"
+  },
+  "NSE:VENKEYS-EQ": {
+    "fundamentals": {
+      "company_name": "VENKYS (INDIA) LTD",
+      "current_price": 1522.0,
+      "market_cap_cr": 2141.61,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3727.32,
+      "net_profit_cr": 139.25,
+      "eps": 98.76,
+      "pe_ratio": 15.41,
+      "roe_pct": 8.72,
+      "debt_to_equity": 0.104,
+      "opm_pct": 5.15,
+      "sales_cagr_pct": 4.65
+    },
+    "price_levels": {
+      "latest_close": 1523.0,
+      "week52_high": 1800.0,
+      "week52_low": 1165.0,
+      "pct_off_52w_high": -15.39,
+      "pct_above_52w_low": 30.73,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:30.628056"
+  },
+  "NSE:VENTIVE-EQ": {
+    "fundamentals": {
+      "company_name": "VENTIVE HOSPITALITY LTD",
+      "current_price": 587.4,
+      "market_cap_cr": 13718.23,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2461.05,
+      "net_profit_cr": 425.65,
+      "eps": 18.23,
+      "pe_ratio": 32.22,
+      "roe_pct": 7.73,
+      "debt_to_equity": 0.468,
+      "opm_pct": 44.44,
+      "sales_cagr_pct": 126.91
+    },
+    "price_levels": {
+      "latest_close": 588.45,
+      "week52_high": 793.95,
+      "week52_low": 542.6,
+      "pct_off_52w_high": -25.88,
+      "pct_above_52w_low": 8.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:33.812791"
+  },
+  "NSE:VENUSPIPES-EQ": {
+    "fundamentals": {
+      "company_name": "VENUS PIPES & TUBES LTD",
+      "current_price": 1569.65,
+      "market_cap_cr": 3251.71,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1166.85,
+      "net_profit_cr": 101.96,
+      "eps": 49.26,
+      "pe_ratio": 31.87,
+      "roe_pct": 15.25,
+      "debt_to_equity": 0.294,
+      "opm_pct": 16.33,
+      "sales_cagr_pct": 38.6
+    },
+    "price_levels": {
+      "latest_close": 1579.8,
+      "week52_high": 1875.0,
+      "week52_low": 890.0,
+      "pct_off_52w_high": -15.74,
+      "pct_above_52w_low": 77.51,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:37.698689"
+  },
+  "NSE:VERANDA-EQ": {
+    "fundamentals": {
+      "company_name": "VERANDA LEARNING SOLUTIONS LTD",
+      "current_price": 240.5,
+      "market_cap_cr": 2317.24,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 481.51,
+      "net_profit_cr": 105.52,
+      "eps": 10.97,
+      "pe_ratio": 21.93,
+      "roe_pct": 11.01,
+      "debt_to_equity": 0.399,
+      "opm_pct": 34.46,
+      "sales_cagr_pct": 185.47
+    },
+    "price_levels": {
+      "latest_close": 242.8,
+      "week52_high": 272.5,
+      "week52_low": 130.02,
+      "pct_off_52w_high": -10.9,
+      "pct_above_52w_low": 86.74,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:41.389033"
+  },
+  "NSE:VESUVIUS-EQ": {
+    "fundamentals": {
+      "company_name": "VESUVIUS INDIA LTD",
+      "current_price": 441.3,
+      "market_cap_cr": 8949.8,
+      "latest_year": "2025-12-31 00:00:00",
+      "sales_cr": 2104.33,
+      "net_profit_cr": 264.08,
+      "eps": 13.01,
+      "pe_ratio": 33.92,
+      "roe_pct": 15.87,
+      "debt_to_equity": 0.008,
+      "opm_pct": 17.15,
+      "sales_cagr_pct": 11.02
+    },
+    "price_levels": {
+      "latest_close": 440.0,
+      "week52_high": 607.9,
+      "week52_low": 430.3,
+      "pct_off_52w_high": -27.62,
+      "pct_above_52w_low": 2.25,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:44.686261"
+  },
+  "NSE:VGL-EQ": {
+    "fundamentals": {
+      "company_name": "VARVEE GLOBAL LTD",
+      "current_price": 59.49,
+      "market_cap_cr": 303.87,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 62.8,
+      "net_profit_cr": 12.45,
+      "eps": 2.42,
+      "pe_ratio": 24.61,
+      "roe_pct": 16.17,
+      "debt_to_equity": 0.037,
+      "opm_pct": 8.55,
+      "sales_cagr_pct": -25.08
+    },
+    "price_levels": {
+      "latest_close": 59.89,
+      "week52_high": 98.48,
+      "week52_low": 43.7,
+      "pct_off_52w_high": -39.19,
+      "pct_above_52w_low": 37.05,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:48.079413"
+  },
+  "NSE:VGUARD-EQ": {
+    "fundamentals": {
+      "company_name": "V-GUARD INDUSTRIES LTD",
+      "current_price": 330.0,
+      "market_cap_cr": 14426.89,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5965.78,
+      "net_profit_cr": 308.33,
+      "eps": 7.06,
+      "pe_ratio": 46.75,
+      "roe_pct": 12.99,
+      "debt_to_equity": 0.07,
+      "opm_pct": 8.84,
+      "sales_cagr_pct": 12.39
+    },
+    "price_levels": {
+      "latest_close": 331.7,
+      "week52_high": 392.2,
+      "week52_low": 288.8,
+      "pct_off_52w_high": -15.43,
+      "pct_above_52w_low": 14.85,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:51.482474"
+  },
+  "NSE:VHL-EQ": {
+    "fundamentals": {
+      "company_name": "VARDHMAN HOLDINGS LTD",
+      "current_price": 3465.0,
+      "market_cap_cr": 1096.91,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 12.25,
+      "net_profit_cr": 216.01,
+      "eps": 675.03,
+      "pe_ratio": 5.13,
+      "roe_pct": 5.74,
+      "debt_to_equity": 0.0,
+      "opm_pct": 83.35,
+      "sales_cagr_pct": -17.64
+    },
+    "price_levels": {
+      "latest_close": 3454.9,
+      "week52_high": 4275.0,
+      "week52_low": 2870.0,
+      "pct_off_52w_high": -19.18,
+      "pct_above_52w_low": 20.38,
+      "candle_count": 242
+    },
+    "fetched_at": "2026-08-13T17:03:54.788205"
+  },
+  "NSE:VIDHIING-EQ": {
+    "fundamentals": {
+      "company_name": "VIDHI SPECIALTY FOOD INGREDIENTS LTD",
+      "current_price": 306.55,
+      "market_cap_cr": 1530.83,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 380.03,
+      "net_profit_cr": 49.15,
+      "eps": 9.85,
+      "pe_ratio": 31.12,
+      "roe_pct": 14.94,
+      "debt_to_equity": 0.175,
+      "opm_pct": 20.54,
+      "sales_cagr_pct": 7.84
+    },
+    "price_levels": {
+      "latest_close": 307.4,
+      "week52_high": 410.0,
+      "week52_low": 258.6,
+      "pct_off_52w_high": -25.02,
+      "pct_above_52w_low": 18.87,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:03:58.112582"
+  },
+  "NSE:VIDYAWIRES-EQ": {
+    "fundamentals": {
+      "company_name": "VIDYA WIRES LTD",
+      "current_price": 88.17,
+      "market_cap_cr": 1875.27,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1839.64,
+      "net_profit_cr": 57.66,
+      "eps": 2.71,
+      "pe_ratio": 32.52,
+      "roe_pct": 12.02,
+      "debt_to_equity": 0.178,
+      "opm_pct": 4.66,
+      "sales_cagr_pct": 19.16
+    },
+    "price_levels": {
+      "latest_close": 88.17,
+      "week52_high": 117.35,
+      "week52_low": 42.51,
+      "pct_off_52w_high": -24.87,
+      "pct_above_52w_low": 107.41,
+      "candle_count": 167
+    },
+    "fetched_at": "2026-08-13T17:04:01.088922"
+  },
+  "NSE:VIJAYA-EQ": {
+    "fundamentals": {
+      "company_name": "VIJAYA DIAGNOSTIC CENTRE LTD",
+      "current_price": 1485.85,
+      "market_cap_cr": 15303.9,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 814.2,
+      "net_profit_cr": 172.98,
+      "eps": 16.81,
+      "pe_ratio": 88.39,
+      "roe_pct": 18.07,
+      "debt_to_equity": 0.442,
+      "opm_pct": 41.38,
+      "sales_cagr_pct": 15.87
+    },
+    "price_levels": {
+      "latest_close": 1486.5,
+      "week52_high": 1573.0,
+      "week52_low": 848.0,
+      "pct_off_52w_high": -5.5,
+      "pct_above_52w_low": 75.29,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:04.927528"
+  },
+  "NSE:VIKASECO-EQ": {
+    "fundamentals": {
+      "company_name": "VIKAS ECOTECH LTD",
+      "current_price": 1.11,
+      "market_cap_cr": 196.33,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 353.18,
+      "net_profit_cr": 3.14,
+      "eps": 0.02,
+      "pe_ratio": 62.52,
+      "roe_pct": 0.79,
+      "debt_to_equity": 0.075,
+      "opm_pct": 2.36,
+      "sales_cagr_pct": 24.18
+    },
+    "price_levels": {
+      "latest_close": 1.11,
+      "week52_high": 2.25,
+      "week52_low": 0.99,
+      "pct_off_52w_high": -50.67,
+      "pct_above_52w_low": 12.12,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:08.432390"
+  },
+  "NSE:VIKASLIFE-EQ": {
+    "fundamentals": {
+      "company_name": "VIKAS LIFECARE LTD",
+      "current_price": 1.26,
+      "market_cap_cr": 234.07,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 499.36,
+      "net_profit_cr": 18.41,
+      "eps": 0.1,
+      "pe_ratio": 12.71,
+      "roe_pct": 3.34,
+      "debt_to_equity": 0.191,
+      "opm_pct": -23.26,
+      "sales_cagr_pct": 46.11
+    },
+    "price_levels": {
+      "latest_close": 1.25,
+      "week52_high": 2.37,
+      "week52_low": 1.05,
+      "pct_off_52w_high": -47.26,
+      "pct_above_52w_low": 19.05,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:11.524046"
+  },
+  "NSE:VIKRAMSOLR-EQ": {
+    "fundamentals": {
+      "company_name": "VIKRAM SOLAR LTD",
+      "current_price": 163.2,
+      "market_cap_cr": 5913.6,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4803.43,
+      "net_profit_cr": 469.06,
+      "eps": 12.95,
+      "pe_ratio": 12.61,
+      "roe_pct": 14.78,
+      "debt_to_equity": 0.194,
+      "opm_pct": 19.08,
+      "sales_cagr_pct": 19.62
+    },
+    "price_levels": {
+      "latest_close": 163.46,
+      "week52_high": 407.95,
+      "week52_low": 155.38,
+      "pct_off_52w_high": -59.93,
+      "pct_above_52w_low": 5.2,
+      "candle_count": 239
+    },
+    "fetched_at": "2026-08-13T17:04:14.486856"
+  },
+  "NSE:VIKRAN-EQ": {
+    "fundamentals": {
+      "company_name": "VIKRAN ENGINEERING LTD",
+      "current_price": 65.18,
+      "market_cap_cr": 1680.98,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1249.31,
+      "net_profit_cr": 91.7,
+      "eps": 3.56,
+      "pe_ratio": 18.33,
+      "roe_pct": 7.41,
+      "debt_to_equity": 0.243,
+      "opm_pct": 14.02,
+      "sales_cagr_pct": 36.41
+    },
+    "price_levels": {
+      "latest_close": 65.16,
+      "week52_high": 118.4,
+      "week52_low": 51.1,
+      "pct_off_52w_high": -44.97,
+      "pct_above_52w_low": 27.51,
+      "candle_count": 234
+    },
+    "fetched_at": "2026-08-13T17:04:17.423840"
+  },
+  "NSE:VIMTALABS-EQ": {
+    "fundamentals": {
+      "company_name": "VIMTA LABS LTD",
+      "current_price": 633.0,
+      "market_cap_cr": 2830.04,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 407.29,
+      "net_profit_cr": 77.51,
+      "eps": 17.34,
+      "pe_ratio": 36.51,
+      "roe_pct": 16.97,
+      "debt_to_equity": 0.007,
+      "opm_pct": 34.79,
+      "sales_cagr_pct": 11.42
+    },
+    "price_levels": {
+      "latest_close": 633.2,
+      "week52_high": 902.65,
+      "week52_low": 376.05,
+      "pct_off_52w_high": -29.85,
+      "pct_above_52w_low": 68.38,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:20.844253"
+  },
+  "NSE:VINATIORGA-EQ": {
+    "fundamentals": {
+      "company_name": "VINATI ORGANICS LTD",
+      "current_price": 1340.1,
+      "market_cap_cr": 13915.3,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2228.22,
+      "net_profit_cr": 487.78,
+      "eps": 47.04,
+      "pe_ratio": 28.49,
+      "roe_pct": 15.16,
+      "debt_to_equity": 0.0,
+      "opm_pct": 30.89,
+      "sales_cagr_pct": 14.85
+    },
+    "price_levels": {
+      "latest_close": 1344.6,
+      "week52_high": 1849.9,
+      "week52_low": 1203.0,
+      "pct_off_52w_high": -27.31,
+      "pct_above_52w_low": 11.77,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:24.044782"
+  },
+  "NSE:VINCOFE-EQ": {
+    "fundamentals": {
+      "company_name": "VINTAGE COFFEE & BEVERAGES LTD",
+      "current_price": 146.65,
+      "market_cap_cr": 2138.27,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 553.05,
+      "net_profit_cr": 72.19,
+      "eps": 4.95,
+      "pe_ratio": 29.6,
+      "roe_pct": 12.68,
+      "debt_to_equity": 0.217,
+      "opm_pct": 18.02,
+      "sales_cagr_pct": 97.17
+    },
+    "price_levels": {
+      "latest_close": 146.65,
+      "week52_high": 179.85,
+      "week52_low": 120.24,
+      "pct_off_52w_high": -18.46,
+      "pct_above_52w_low": 21.96,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:27.310105"
+  },
+  "NSE:VINDHYATEL-EQ": {
+    "fundamentals": {
+      "company_name": "VINDHYA TELELINKS LTD",
+      "current_price": 2450.0,
+      "market_cap_cr": 2898.32,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3593.21,
+      "net_profit_cr": 220.18,
+      "eps": 185.03,
+      "pe_ratio": 13.24,
+      "roe_pct": 5.24,
+      "debt_to_equity": 0.341,
+      "opm_pct": 6.16,
+      "sales_cagr_pct": 15.3
+    },
+    "price_levels": {
+      "latest_close": 2460.4,
+      "week52_high": 2600.0,
+      "week52_low": 963.9,
+      "pct_off_52w_high": -5.37,
+      "pct_above_52w_low": 155.25,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:30.518100"
+  },
+  "NSE:VINEETLAB-EQ": {
+    "fundamentals": {
+      "company_name": "VINEET LABORATORIES LTD",
+      "current_price": 38.38,
+      "market_cap_cr": 73.69,
+      "latest_year": "2025-03-31 00:00:00",
+      "sales_cr": 75.0,
+      "net_profit_cr": -20.19,
+      "eps": -10.52,
+      "pe_ratio": -3.65,
+      "roe_pct": -137.82,
+      "debt_to_equity": 2.734,
+      "opm_pct": -21.71,
+      "sales_cagr_pct": -25.5
+    },
+    "price_levels": {
+      "latest_close": 38.44,
+      "week52_high": 43.5,
+      "week52_low": 27.0,
+      "pct_off_52w_high": -11.63,
+      "pct_above_52w_low": 42.37,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:33.806171"
+  },
+  "NSE:VINNY-EQ": {
+    "fundamentals": {
+      "company_name": "VINNY OVERSEAS LTD",
+      "current_price": 1.07,
+      "market_cap_cr": 49.78,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 124.62,
+      "net_profit_cr": 0.92,
+      "eps": 0.02,
+      "pe_ratio": 54.1,
+      "roe_pct": 1.11,
+      "debt_to_equity": 0.197,
+      "opm_pct": 4.33,
+      "sales_cagr_pct": 9.69
+    },
+    "price_levels": {
+      "latest_close": 1.06,
+      "week52_high": 1.53,
+      "week52_low": 0.94,
+      "pct_off_52w_high": -30.72,
+      "pct_above_52w_low": 12.77,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:37.257220"
+  },
+  "NSE:VINYLINDIA-EQ": {
+    "fundamentals": {
+      "company_name": "VINYL CHEMICALS (I) LTD",
+      "current_price": 242.3,
+      "market_cap_cr": 448.21,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 652.44,
+      "net_profit_cr": 16.49,
+      "eps": 9.01,
+      "pe_ratio": 26.89,
+      "roe_pct": 12.66,
+      "debt_to_equity": 0.004,
+      "opm_pct": 2.0,
+      "sales_cagr_pct": 9.31
+    },
+    "price_levels": {
+      "latest_close": 240.46,
+      "week52_high": 325.0,
+      "week52_low": 161.0,
+      "pct_off_52w_high": -26.01,
+      "pct_above_52w_low": 49.35,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:40.706729"
+  },
+  "NSE:VIPIND-EQ": {
+    "fundamentals": {
+      "company_name": "V I P INDUSTRIES LTD",
+      "current_price": 306.25,
+      "market_cap_cr": 4343.34,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1858.13,
+      "net_profit_cr": -338.01,
+      "eps": -23.79,
+      "pe_ratio": -12.87,
+      "roe_pct": -116.76,
+      "debt_to_equity": 2.548,
+      "opm_pct": -10.98,
+      "sales_cagr_pct": 4.49
+    },
+    "price_levels": {
+      "latest_close": 307.7,
+      "week52_high": 454.3,
+      "week52_low": 278.25,
+      "pct_off_52w_high": -32.27,
+      "pct_above_52w_low": 10.58,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:43.932681"
+  },
+  "NSE:VIRINCHI-EQ": {
+    "fundamentals": {
+      "company_name": "VIRINCHI LTD",
+      "current_price": 15.1,
+      "market_cap_cr": 171.32,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 284.36,
+      "net_profit_cr": -26.12,
+      "eps": -2.4,
+      "pe_ratio": -6.29,
+      "roe_pct": -5.3,
+      "debt_to_equity": 0.555,
+      "opm_pct": 22.66,
+      "sales_cagr_pct": -0.09
+    },
+    "price_levels": {
+      "latest_close": 15.17,
+      "week52_high": 32.69,
+      "week52_low": 13.81,
+      "pct_off_52w_high": -53.59,
+      "pct_above_52w_low": 9.85,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:47.062531"
+  },
+  "NSE:VISAKAIND-EQ": {
+    "fundamentals": {
+      "company_name": "VISAKA INDUSTRIES LTD",
+      "current_price": 95.51,
+      "market_cap_cr": 824.83,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1675.59,
+      "net_profit_cr": 87.83,
+      "eps": 10.17,
+      "pe_ratio": 9.4,
+      "roe_pct": 10.51,
+      "debt_to_equity": 0.363,
+      "opm_pct": 8.44,
+      "sales_cagr_pct": 6.38
+    },
+    "price_levels": {
+      "latest_close": 95.51,
+      "week52_high": 104.41,
+      "week52_low": 50.2,
+      "pct_off_52w_high": -8.52,
+      "pct_above_52w_low": 90.26,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:50.585526"
+  },
+  "NSE:VISHNU-EQ": {
+    "fundamentals": {
+      "company_name": "VISHNU CHEMICALS LTD",
+      "current_price": 609.15,
+      "market_cap_cr": 4105.04,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1609.7,
+      "net_profit_cr": 142.27,
+      "eps": 21.14,
+      "pe_ratio": 28.82,
+      "roe_pct": 13.31,
+      "debt_to_equity": 0.493,
+      "opm_pct": 15.74,
+      "sales_cagr_pct": 13.7
+    },
+    "price_levels": {
+      "latest_close": 600.25,
+      "week52_high": 670.0,
+      "week52_low": 443.7,
+      "pct_off_52w_high": -10.41,
+      "pct_above_52w_low": 35.28,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:53.795815"
+  },
+  "NSE:VISHWARAJ-EQ": {
+    "fundamentals": {
+      "company_name": "VISHWARAJ SUGAR INDUSTRIES LTD",
+      "current_price": 5.42,
+      "market_cap_cr": 118.02,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 376.81,
+      "net_profit_cr": -28.17,
+      "eps": -1.29,
+      "pe_ratio": -4.19,
+      "roe_pct": -11.14,
+      "debt_to_equity": 1.663,
+      "opm_pct": -2.58,
+      "sales_cagr_pct": 3.2
+    },
+    "price_levels": {
+      "latest_close": 5.45,
+      "week52_high": 10.2,
+      "week52_low": 4.14,
+      "pct_off_52w_high": -46.57,
+      "pct_above_52w_low": 31.64,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:04:56.974508"
+  },
+  "NSE:VISL-EQ": {
+    "fundamentals": {
+      "company_name": "VEDANTA IRON & STEEL LTD",
+      "current_price": 38.79,
+      "market_cap_cr": 15168.41,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 13587.0,
+      "net_profit_cr": -2882.0,
+      "eps": -288200.0,
+      "pe_ratio": -0.0,
+      "roe_pct": null,
+      "debt_to_equity": null,
+      "opm_pct": 8.29,
+      "sales_cagr_pct": null
+    },
+    "price_levels": {
+      "latest_close": 38.79,
+      "week52_high": 44.78,
+      "week52_low": 19.06,
+      "pct_off_52w_high": -13.38,
+      "pct_above_52w_low": 103.52,
+      "candle_count": 43
+    },
+    "fetched_at": "2026-08-13T17:04:59.834679"
+  },
+  "NSE:VIVIDHA-EQ": {
+    "fundamentals": {
+      "company_name": "VISAGAR POLYTEX LTD",
+      "current_price": 0.55,
+      "market_cap_cr": 15.81,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 0.12,
+      "net_profit_cr": -1.54,
+      "eps": -0.05,
+      "pe_ratio": -10.45,
+      "roe_pct": 375.61,
+      "debt_to_equity": -15.341,
+      "opm_pct": -583.33,
+      "sales_cagr_pct": -51.52
+    },
+    "price_levels": {
+      "latest_close": 0.55,
+      "week52_high": 0.91,
+      "week52_low": 0.43,
+      "pct_off_52w_high": -39.56,
+      "pct_above_52w_low": 27.91,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:03.332906"
+  },
+  "NSE:VIYASH-EQ": {
+    "fundamentals": {
+      "company_name": "VIYASH SCIENTIFIC LTD",
+      "current_price": 266.45,
+      "market_cap_cr": 11712.42,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3420.31,
+      "net_profit_cr": 177.29,
+      "eps": 4.06,
+      "pe_ratio": 65.66,
+      "roe_pct": 6.09,
+      "debt_to_equity": 0.168,
+      "opm_pct": 19.08,
+      "sales_cagr_pct": 19.59
+    },
+    "price_levels": {
+      "latest_close": 266.3,
+      "week52_high": 298.0,
+      "week52_low": 167.95,
+      "pct_off_52w_high": -10.64,
+      "pct_above_52w_low": 58.56,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:06.568651"
+  },
+  "NSE:VLSFINANCE-EQ": {
+    "fundamentals": {
+      "company_name": "VLS FINANCE LTD",
+      "current_price": 268.0,
+      "market_cap_cr": 837.85,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 39.42,
+      "net_profit_cr": 21.75,
+      "eps": 6.93,
+      "pe_ratio": 38.69,
+      "roe_pct": 1.03,
+      "debt_to_equity": 0.0,
+      "opm_pct": 42.87,
+      "sales_cagr_pct": -37.46
+    },
+    "price_levels": {
+      "latest_close": 265.15,
+      "week52_high": 339.0,
+      "week52_low": 198.81,
+      "pct_off_52w_high": -21.78,
+      "pct_above_52w_low": 33.37,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:09.980941"
+  },
+  "NSE:VMART-EQ": {
+    "fundamentals": {
+      "company_name": "V-MART RETAIL LTD",
+      "current_price": 807.3,
+      "market_cap_cr": 6427.73,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3789.36,
+      "net_profit_cr": 124.0,
+      "eps": 15.6,
+      "pe_ratio": 51.76,
+      "roe_pct": 13.04,
+      "debt_to_equity": 1.007,
+      "opm_pct": 13.56,
+      "sales_cagr_pct": 15.93
+    },
+    "price_levels": {
+      "latest_close": 807.3,
+      "week52_high": 888.0,
+      "week52_low": 457.9,
+      "pct_off_52w_high": -9.09,
+      "pct_above_52w_low": 76.3,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:13.307826"
+  },
+  "NSE:VMM-EQ": {
+    "fundamentals": {
+      "company_name": "VISHAL MEGA MART LTD",
+      "current_price": 107.0,
+      "market_cap_cr": 50122.08,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 12906.32,
+      "net_profit_cr": 839.23,
+      "eps": 1.8,
+      "pe_ratio": 59.58,
+      "roe_pct": 11.32,
+      "debt_to_equity": 0.268,
+      "opm_pct": 14.59,
+      "sales_cagr_pct": 16.02
+    },
+    "price_levels": {
+      "latest_close": 107.0,
+      "week52_high": 157.6,
+      "week52_low": 98.77,
+      "pct_off_52w_high": -32.11,
+      "pct_above_52w_low": 8.33,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:16.330139"
+  },
+  "NSE:VMSTMT-EQ": {
+    "fundamentals": {
+      "company_name": "VMS TMT LTD",
+      "current_price": 51.6,
+      "market_cap_cr": 255.48,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 838.56,
+      "net_profit_cr": 21.03,
+      "eps": 4.24,
+      "pe_ratio": 12.17,
+      "roe_pct": 9.22,
+      "debt_to_equity": 1.012,
+      "opm_pct": 7.24,
+      "sales_cagr_pct": 29.88
+    },
+    "price_levels": {
+      "latest_close": 51.42,
+      "week52_high": 105.0,
+      "week52_low": 33.5,
+      "pct_off_52w_high": -51.03,
+      "pct_above_52w_low": 53.49,
+      "candle_count": 219
+    },
+    "fetched_at": "2026-08-13T17:05:19.426133"
+  },
+  "NSE:VOEPL-EQ": {
+    "fundamentals": {
+      "company_name": "VIRTUOSO OPTOELECTRONICS LTD",
+      "current_price": 500.35,
+      "market_cap_cr": 1629.38,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 834.81,
+      "net_profit_cr": 15.79,
+      "eps": 4.97,
+      "pe_ratio": 100.77,
+      "roe_pct": 3.82,
+      "debt_to_equity": 0.809,
+      "opm_pct": 9.73,
+      "sales_cagr_pct": 47.5
+    },
+    "price_levels": {
+      "latest_close": 499.05,
+      "week52_high": 547.0,
+      "week52_low": 428.65,
+      "pct_off_52w_high": -8.77,
+      "pct_above_52w_low": 16.42,
+      "candle_count": 32
+    },
+    "fetched_at": "2026-08-13T17:05:22.458679"
+  },
+  "NSE:VOGL-EQ": {
+    "fundamentals": {
+      "company_name": "VEDANTA OIL AND GAS LTD",
+      "current_price": 37.86,
+      "market_cap_cr": 14804.75,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 9606.0,
+      "net_profit_cr": -488.0,
+      "eps": -208.55,
+      "pe_ratio": -0.18,
+      "roe_pct": null,
+      "debt_to_equity": null,
+      "opm_pct": 30.62,
+      "sales_cagr_pct": null
+    },
+    "price_levels": {
+      "latest_close": 37.85,
+      "week52_high": 47.6,
+      "week52_low": 30.42,
+      "pct_off_52w_high": -20.48,
+      "pct_above_52w_low": 24.42,
+      "candle_count": 43
+    },
+    "fetched_at": "2026-08-13T17:05:25.780674"
+  },
+  "NSE:VOLTAMP-EQ": {
+    "fundamentals": {
+      "company_name": "VOLTAMP TRANSFORMERS LTD",
+      "current_price": 10007.5,
+      "market_cap_cr": 10130.17,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2153.69,
+      "net_profit_cr": 305.38,
+      "eps": 302.36,
+      "pe_ratio": 33.1,
+      "roe_pct": 17.04,
+      "debt_to_equity": 0.0,
+      "opm_pct": 16.5,
+      "sales_cagr_pct": 15.03
+    },
+    "price_levels": {
+      "latest_close": 10039.5,
+      "week52_high": 12863.0,
+      "week52_low": 6666.0,
+      "pct_off_52w_high": -21.95,
+      "pct_above_52w_low": 50.61,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:29.102604"
+  },
+  "NSE:VOLTAS-EQ": {
+    "fundamentals": {
+      "company_name": "VOLTAS LTD",
+      "current_price": 1288.7,
+      "market_cap_cr": 42790.39,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 14244.5,
+      "net_profit_cr": 375.88,
+      "eps": 11.36,
+      "pe_ratio": 113.45,
+      "roe_pct": 5.9,
+      "debt_to_equity": 0.156,
+      "opm_pct": 3.62,
+      "sales_cagr_pct": 10.02
+    },
+    "price_levels": {
+      "latest_close": 1289.5,
+      "week52_high": 1582.5,
+      "week52_low": 1186.8,
+      "pct_off_52w_high": -18.52,
+      "pct_above_52w_low": 8.65,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:32.336392"
+  },
+  "NSE:VPRPL-EQ": {
+    "fundamentals": {
+      "company_name": "VISHNU PRAKASH R PUNGLIA LTD",
+      "current_price": 34.84,
+      "market_cap_cr": 434.26,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 851.2,
+      "net_profit_cr": -150.12,
+      "eps": -12.05,
+      "pe_ratio": -2.89,
+      "roe_pct": -23.83,
+      "debt_to_equity": 1.031,
+      "opm_pct": -9.64,
+      "sales_cagr_pct": 11.68
+    },
+    "price_levels": {
+      "latest_close": 34.97,
+      "week52_high": 163.37,
+      "week52_low": 23.94,
+      "pct_off_52w_high": -78.59,
+      "pct_above_52w_low": 46.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:35.617164"
+  },
+  "NSE:VRAJ-EQ": {
+    "fundamentals": {
+      "company_name": "VRAJ IRON & STEEL LTD",
+      "current_price": 123.9,
+      "market_cap_cr": 408.65,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 587.92,
+      "net_profit_cr": 32.01,
+      "eps": 9.7,
+      "pe_ratio": 12.77,
+      "roe_pct": 7.72,
+      "debt_to_equity": 0.103,
+      "opm_pct": 9.65,
+      "sales_cagr_pct": 15.13
+    },
+    "price_levels": {
+      "latest_close": 123.96,
+      "week52_high": 162.0,
+      "week52_low": 93.0,
+      "pct_off_52w_high": -23.48,
+      "pct_above_52w_low": 33.29,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:38.742637"
+  },
+  "NSE:VRLLOG-EQ": {
+    "fundamentals": {
+      "company_name": "VRL LOGISTICS LTD",
+      "current_price": 301.65,
+      "market_cap_cr": 5262.98,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3221.11,
+      "net_profit_cr": 236.83,
+      "eps": 13.54,
+      "pe_ratio": 22.28,
+      "roe_pct": 20.73,
+      "debt_to_equity": 1.01,
+      "opm_pct": 20.44,
+      "sales_cagr_pct": 6.66
+    },
+    "price_levels": {
+      "latest_close": 301.65,
+      "week52_high": 310.2,
+      "week52_low": 225.0,
+      "pct_off_52w_high": -2.76,
+      "pct_above_52w_low": 34.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:41.827535"
+  },
+  "NSE:VSSL-EQ": {
+    "fundamentals": {
+      "company_name": "VARDHMAN SPECIAL STEELS LTD",
+      "current_price": 328.45,
+      "market_cap_cr": 3177.6,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1754.43,
+      "net_profit_cr": 122.02,
+      "eps": 12.62,
+      "pe_ratio": 26.03,
+      "roe_pct": 9.55,
+      "debt_to_equity": 0.073,
+      "opm_pct": 9.49,
+      "sales_cagr_pct": 11.22
+    },
+    "price_levels": {
+      "latest_close": 327.15,
+      "week52_high": 351.7,
+      "week52_low": 206.4,
+      "pct_off_52w_high": -6.98,
+      "pct_above_52w_low": 58.5,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:45.251783"
+  },
+  "NSE:VSTIND-EQ": {
+    "fundamentals": {
+      "company_name": "VST INDUSTRIES LTD",
+      "current_price": 217.55,
+      "market_cap_cr": 3695.33,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1464.54,
+      "net_profit_cr": 292.25,
+      "eps": 17.2,
+      "pe_ratio": 12.65,
+      "roe_pct": 20.22,
+      "debt_to_equity": 0.0,
+      "opm_pct": 30.72,
+      "sales_cagr_pct": 5.27
+    },
+    "price_levels": {
+      "latest_close": 217.27,
+      "week52_high": 286.78,
+      "week52_low": 200.0,
+      "pct_off_52w_high": -24.24,
+      "pct_above_52w_low": 8.64,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:48.518080"
+  },
+  "NSE:VSTL-EQ": {
+    "fundamentals": {
+      "company_name": "VIBHOR STEEL TUBES LTD",
+      "current_price": 106.95,
+      "market_cap_cr": 202.81,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1149.35,
+      "net_profit_cr": 8.79,
+      "eps": 4.63,
+      "pe_ratio": 23.12,
+      "roe_pct": 4.46,
+      "debt_to_equity": 0.979,
+      "opm_pct": 3.78,
+      "sales_cagr_pct": 9.73
+    },
+    "price_levels": {
+      "latest_close": 106.88,
+      "week52_high": 187.24,
+      "week52_low": 100.8,
+      "pct_off_52w_high": -42.92,
+      "pct_above_52w_low": 6.03,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:51.462013"
+  },
+  "NSE:VSTTILLERS-EQ": {
+    "fundamentals": {
+      "company_name": "VST TILLERS TRACTORS LTD",
+      "current_price": 4630.0,
+      "market_cap_cr": 4005.32,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1240.36,
+      "net_profit_cr": 106.0,
+      "eps": 121.84,
+      "pe_ratio": 38.0,
+      "roe_pct": 9.66,
+      "debt_to_equity": 0.002,
+      "opm_pct": 13.38,
+      "sales_cagr_pct": 6.99
+    },
+    "price_levels": {
+      "latest_close": 4601.4,
+      "week52_high": 6374.0,
+      "week52_low": 4275.0,
+      "pct_off_52w_high": -27.81,
+      "pct_above_52w_low": 7.64,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:54.779885"
+  },
+  "NSE:VTL-EQ": {
+    "fundamentals": {
+      "company_name": "VARDHMAN TEXTILES LTD",
+      "current_price": 590.45,
+      "market_cap_cr": 17118.12,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 9869.05,
+      "net_profit_cr": 745.25,
+      "eps": 25.76,
+      "pe_ratio": 22.92,
+      "roe_pct": 7.09,
+      "debt_to_equity": 0.176,
+      "opm_pct": 12.55,
+      "sales_cagr_pct": 5.63
+    },
+    "price_levels": {
+      "latest_close": 590.85,
+      "week52_high": 688.0,
+      "week52_low": 385.5,
+      "pct_off_52w_high": -14.12,
+      "pct_above_52w_low": 53.27,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:05:58.029582"
+  },
+  "NSE:WAAREEENER-EQ": {
+    "fundamentals": {
+      "company_name": "WAAREE ENERGIES LTD",
+      "current_price": 2680.0,
+      "market_cap_cr": 77090.5,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 26536.77,
+      "net_profit_cr": 3711.3,
+      "eps": 129.0,
+      "pe_ratio": 20.78,
+      "roe_pct": 25.71,
+      "debt_to_equity": 0.223,
+      "opm_pct": 22.27,
+      "sales_cagr_pct": 53.92
+    },
+    "price_levels": {
+      "latest_close": 2687.0,
+      "week52_high": 3865.0,
+      "week52_low": 2403.0,
+      "pct_off_52w_high": -30.48,
+      "pct_above_52w_low": 11.82,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:01.061904"
+  },
+  "NSE:WAAREEINDO-EQ": {
+    "fundamentals": {
+      "company_name": "INDOSOLAR LTD",
+      "current_price": 298.5,
+      "market_cap_cr": 1241.87,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 679.85,
+      "net_profit_cr": 246.6,
+      "eps": 59.28,
+      "pe_ratio": 5.04,
+      "roe_pct": 85.92,
+      "debt_to_equity": 0.011,
+      "opm_pct": 39.82,
+      "sales_cagr_pct": 4.89
+    },
+    "price_levels": {
+      "latest_close": 298.5,
+      "week52_high": 725.0,
+      "week52_low": 282.8,
+      "pct_off_52w_high": -58.83,
+      "pct_above_52w_low": 5.55,
+      "candle_count": 192
+    },
+    "fetched_at": "2026-08-13T17:06:04.242263"
+  },
+  "NSE:WAAREERTL-EQ": {
+    "fundamentals": {
+      "company_name": "WAAREE RENEWABLE TECHNOLOGIES LTD",
+      "current_price": 891.0,
+      "market_cap_cr": 9294.09,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3331.16,
+      "net_profit_cr": 482.55,
+      "eps": 46.27,
+      "pe_ratio": 19.26,
+      "roe_pct": 51.36,
+      "debt_to_equity": 0.122,
+      "opm_pct": 19.24,
+      "sales_cagr_pct": 186.02
+    },
+    "price_levels": {
+      "latest_close": 891.7,
+      "week52_high": 1358.0,
+      "week52_low": 779.5,
+      "pct_off_52w_high": -34.34,
+      "pct_above_52w_low": 14.39,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:07.440479"
+  },
+  "NSE:WABAG-EQ": {
+    "fundamentals": {
+      "company_name": "VA TECH WABAG LTD",
+      "current_price": 1885.0,
+      "market_cap_cr": 11775.59,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3944.2,
+      "net_profit_cr": 370.5,
+      "eps": 59.47,
+      "pe_ratio": 31.7,
+      "roe_pct": 14.42,
+      "debt_to_equity": 0.089,
+      "opm_pct": 12.11,
+      "sales_cagr_pct": 2.32
+    },
+    "price_levels": {
+      "latest_close": 1885.6,
+      "week52_high": 2253.5,
+      "week52_low": 1033.0,
+      "pct_off_52w_high": -16.33,
+      "pct_above_52w_low": 82.54,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:10.696092"
+  },
+  "NSE:WAKEFIT-EQ": {
+    "fundamentals": {
+      "company_name": "WAKEFIT INNOVATIONS LTD",
+      "current_price": 122.2,
+      "market_cap_cr": 4048.86,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1488.94,
+      "net_profit_cr": 189.18,
+      "eps": 5.73,
+      "pe_ratio": 21.32,
+      "roe_pct": 16.71,
+      "debt_to_equity": 0.24,
+      "opm_pct": 12.22,
+      "sales_cagr_pct": 29.51
+    },
+    "price_levels": {
+      "latest_close": 122.37,
+      "week52_high": 224.0,
+      "week52_low": 111.4,
+      "pct_off_52w_high": -45.37,
+      "pct_above_52w_low": 9.85,
+      "candle_count": 164
+    },
+    "fetched_at": "2026-08-13T17:06:13.657458"
+  },
+  "NSE:WALCHANNAG-EQ": {
+    "fundamentals": {
+      "company_name": "WALCHANDNAGAR INDUSTRIES LTD",
+      "current_price": 225.56,
+      "market_cap_cr": 1533.7,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 275.19,
+      "net_profit_cr": -14.66,
+      "eps": -2.16,
+      "pe_ratio": -104.32,
+      "roe_pct": -4.09,
+      "debt_to_equity": 0.61,
+      "opm_pct": 5.36,
+      "sales_cagr_pct": -4.01
+    },
+    "price_levels": {
+      "latest_close": 225.56,
+      "week52_high": 315.8,
+      "week52_low": 131.15,
+      "pct_off_52w_high": -28.58,
+      "pct_above_52w_low": 71.99,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:16.894717"
+  },
+  "NSE:WANBURY-EQ": {
+    "fundamentals": {
+      "company_name": "WANBURY LTD",
+      "current_price": 250.85,
+      "market_cap_cr": 875.82,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 650.27,
+      "net_profit_cr": 66.13,
+      "eps": 18.95,
+      "pe_ratio": 13.24,
+      "roe_pct": 45.78,
+      "debt_to_equity": 1.553,
+      "opm_pct": 16.42,
+      "sales_cagr_pct": 4.64
+    },
+    "price_levels": {
+      "latest_close": 251.1,
+      "week52_high": 358.85,
+      "week52_low": 161.5,
+      "pct_off_52w_high": -30.03,
+      "pct_above_52w_low": 55.48,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:20.301981"
+  },
+  "NSE:WCIL-EQ": {
+    "fundamentals": {
+      "company_name": "WESTERN CARRIERS (INDIA) LTD",
+      "current_price": 88.56,
+      "market_cap_cr": 902.9,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1829.24,
+      "net_profit_cr": 38.82,
+      "eps": 3.81,
+      "pe_ratio": 23.27,
+      "roe_pct": 4.48,
+      "debt_to_equity": 0.26,
+      "opm_pct": 4.65,
+      "sales_cagr_pct": 9.4
+    },
+    "price_levels": {
+      "latest_close": 88.23,
+      "week52_high": 147.29,
+      "week52_low": 77.02,
+      "pct_off_52w_high": -40.1,
+      "pct_above_52w_low": 14.55,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:23.510603"
+  },
+  "NSE:WEALTH-EQ": {
+    "fundamentals": {
+      "company_name": "WEALTH FIRST PORTFOLIO MANAGERS LTD",
+      "current_price": 912.7,
+      "market_cap_cr": 972.48,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 68.39,
+      "net_profit_cr": 38.66,
+      "eps": 36.13,
+      "pe_ratio": 25.26,
+      "roe_pct": 25.69,
+      "debt_to_equity": 0.0,
+      "opm_pct": 72.23,
+      "sales_cagr_pct": -11.19
+    },
+    "price_levels": {
+      "latest_close": 912.7,
+      "week52_high": 1300.5,
+      "week52_low": 774.95,
+      "pct_off_52w_high": -29.82,
+      "pct_above_52w_low": 17.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:26.757202"
+  },
+  "NSE:WEBELSOLAR-EQ": {
+    "fundamentals": {
+      "company_name": "WEBSOL ENERGY SYSTEM LTD",
+      "current_price": 87.38,
+      "market_cap_cr": 3799.96,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1049.44,
+      "net_profit_cr": 303.0,
+      "eps": 6.98,
+      "pe_ratio": 12.52,
+      "roe_pct": 48.04,
+      "debt_to_equity": 0.207,
+      "opm_pct": 40.83,
+      "sales_cagr_pct": 15.1
+    },
+    "price_levels": {
+      "latest_close": 87.1,
+      "week52_high": 143.3,
+      "week52_low": 50.4,
+      "pct_off_52w_high": -39.22,
+      "pct_above_52w_low": 72.82,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:29.934390"
+  },
+  "NSE:WEIZMANIND-EQ": {
+    "fundamentals": {
+      "company_name": "WEIZMANN LTD",
+      "current_price": 77.0,
+      "market_cap_cr": 117.7,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 126.69,
+      "net_profit_cr": 5.91,
+      "eps": 3.81,
+      "pe_ratio": 20.19,
+      "roe_pct": 8.95,
+      "debt_to_equity": 0.095,
+      "opm_pct": 11.41,
+      "sales_cagr_pct": 4.69
+    },
+    "price_levels": {
+      "latest_close": 78.05,
+      "week52_high": 122.5,
+      "week52_low": 65.21,
+      "pct_off_52w_high": -36.29,
+      "pct_above_52w_low": 19.69,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:33.193479"
+  },
+  "NSE:WEL-EQ": {
+    "fundamentals": {
+      "company_name": "WELSPUN CORP LTD",
+      "current_price": 1886.0,
+      "market_cap_cr": 49785.56,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 16770.14,
+      "net_profit_cr": 1613.05,
+      "eps": 61.15,
+      "pe_ratio": 30.84,
+      "roe_pct": 17.62,
+      "debt_to_equity": 0.257,
+      "opm_pct": 13.33,
+      "sales_cagr_pct": 12.31
+    },
+    "price_levels": {
+      "latest_close": 140.0,
+      "week52_high": 183.53,
+      "week52_low": 75.01,
+      "pct_off_52w_high": -23.72,
+      "pct_above_52w_low": 86.64,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:36.369767"
+  },
+  "NSE:WELCORP-EQ": {
+    "fundamentals": {
+      "company_name": "WELSPUN CORP LTD",
+      "current_price": 1886.0,
+      "market_cap_cr": 49785.56,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 16770.14,
+      "net_profit_cr": 1613.05,
+      "eps": 61.15,
+      "pe_ratio": 30.84,
+      "roe_pct": 17.62,
+      "debt_to_equity": 0.257,
+      "opm_pct": 13.33,
+      "sales_cagr_pct": 12.31
+    },
+    "price_levels": {
+      "latest_close": 1883.9,
+      "week52_high": 1886.0,
+      "week52_low": 710.0,
+      "pct_off_52w_high": -0.11,
+      "pct_above_52w_low": 165.34,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:39.554426"
+  },
+  "NSE:WELENT-EQ": {
+    "fundamentals": {
+      "company_name": "WELSPUN ENTERPRISES LTD",
+      "current_price": 573.1,
+      "market_cap_cr": 7929.04,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3615.38,
+      "net_profit_cr": 349.87,
+      "eps": 25.28,
+      "pe_ratio": 22.67,
+      "roe_pct": 11.49,
+      "debt_to_equity": 0.653,
+      "opm_pct": 20.65,
+      "sales_cagr_pct": 31.6
+    },
+    "price_levels": {
+      "latest_close": 568.25,
+      "week52_high": 634.9,
+      "week52_low": 412.0,
+      "pct_off_52w_high": -10.5,
+      "pct_above_52w_low": 37.92,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:43.242677"
+  },
+  "NSE:WELSPLSOL-EQ": {
+    "fundamentals": {
+      "company_name": "WELSPUN SPECIALTY SOLUTIONS LTD",
+      "current_price": 48.27,
+      "market_cap_cr": 3191.73,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 886.2,
+      "net_profit_cr": 22.67,
+      "eps": 0.34,
+      "pe_ratio": 141.08,
+      "roe_pct": 4.97,
+      "debt_to_equity": 0.077,
+      "opm_pct": 5.29,
+      "sales_cagr_pct": 14.5
+    },
+    "price_levels": {
+      "latest_close": 48.19,
+      "week52_high": 63.25,
+      "week52_low": 36.0,
+      "pct_off_52w_high": -23.81,
+      "pct_above_52w_low": 33.86,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T17:06:46.670201"
+  },
+  "NSE:WELSPUNLIV-EQ": {
+    "fundamentals": {
+      "company_name": "WELSPUN LIVING LTD",
+      "current_price": 160.25,
+      "market_cap_cr": 15377.86,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 9399.11,
+      "net_profit_cr": 204.44,
+      "eps": 2.13,
+      "pe_ratio": 75.19,
+      "roe_pct": 4.16,
+      "debt_to_equity": 0.471,
+      "opm_pct": 8.44,
+      "sales_cagr_pct": 3.94
+    },
+    "price_levels": {
+      "latest_close": 159.83,
+      "week52_high": 174.97,
+      "week52_low": 107.1,
+      "pct_off_52w_high": -8.65,
+      "pct_above_52w_low": 49.23,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:50.166940"
+  },
+  "NSE:WENDT-EQ": {
+    "fundamentals": {
+      "company_name": "WENDT INDIA LTD",
+      "current_price": 7990.0,
+      "market_cap_cr": 1594.27,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 236.32,
+      "net_profit_cr": 14.55,
+      "eps": 72.75,
+      "pe_ratio": 109.83,
+      "roe_pct": 5.73,
+      "debt_to_equity": 0.0,
+      "opm_pct": 13.72,
+      "sales_cagr_pct": 5.49
+    },
+    "price_levels": {
+      "latest_close": 7985.0,
+      "week52_high": 10585.0,
+      "week52_low": 5841.5,
+      "pct_off_52w_high": -24.56,
+      "pct_above_52w_low": 36.69,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:53.581475"
+  },
+  "NSE:WESTLIFE-EQ": {
+    "fundamentals": {
+      "company_name": "WESTLIFE FOODWORLD LTD",
+      "current_price": 588.95,
+      "market_cap_cr": 9191.58,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2625.56,
+      "net_profit_cr": 32.33,
+      "eps": 2.07,
+      "pe_ratio": 284.0,
+      "roe_pct": 5.22,
+      "debt_to_equity": 2.915,
+      "opm_pct": 13.14,
+      "sales_cagr_pct": 12.21
+    },
+    "price_levels": {
+      "latest_close": 588.75,
+      "week52_high": 775.0,
+      "week52_low": 398.4,
+      "pct_off_52w_high": -24.03,
+      "pct_above_52w_low": 47.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:06:56.706605"
+  },
+  "NSE:WEWORK-EQ": {
+    "fundamentals": {
+      "company_name": "WEWORK INDIA MANAGEMENT LTD",
+      "current_price": 719.1,
+      "market_cap_cr": 9965.99,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2431.76,
+      "net_profit_cr": 72.22,
+      "eps": 5.33,
+      "pe_ratio": 134.82,
+      "roe_pct": 23.66,
+      "debt_to_equity": 18.181,
+      "opm_pct": 64.66,
+      "sales_cagr_pct": 59.96
+    },
+    "price_levels": {
+      "latest_close": 719.5,
+      "week52_high": 794.5,
+      "week52_low": 420.0,
+      "pct_off_52w_high": -9.44,
+      "pct_above_52w_low": 71.31,
+      "candle_count": 208
+    },
+    "fetched_at": "2026-08-13T17:06:59.852241"
+  },
+  "NSE:WHEELS-EQ": {
+    "fundamentals": {
+      "company_name": "WHEELS INDIA LTD",
+      "current_price": 1352.8,
+      "market_cap_cr": 3301.54,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5464.94,
+      "net_profit_cr": 155.01,
+      "eps": 63.53,
+      "pe_ratio": 21.29,
+      "roe_pct": 14.88,
+      "debt_to_equity": 0.738,
+      "opm_pct": 7.55,
+      "sales_cagr_pct": 10.79
+    },
+    "price_levels": {
+      "latest_close": 1353.6,
+      "week52_high": 1808.0,
+      "week52_low": 705.85,
+      "pct_off_52w_high": -25.13,
+      "pct_above_52w_low": 91.77,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:03.115837"
+  },
+  "NSE:WHIRLPOOL-EQ": {
+    "fundamentals": {
+      "company_name": "WHIRLPOOL OF INDIA LTD",
+      "current_price": 784.5,
+      "market_cap_cr": 9956.88,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8034.2,
+      "net_profit_cr": 293.75,
+      "eps": 23.15,
+      "pe_ratio": 33.89,
+      "roe_pct": 7.06,
+      "debt_to_equity": 0.017,
+      "opm_pct": 5.99,
+      "sales_cagr_pct": 6.56
+    },
+    "price_levels": {
+      "latest_close": 784.8,
+      "week52_high": 1437.0,
+      "week52_low": 753.15,
+      "pct_off_52w_high": -45.39,
+      "pct_above_52w_low": 4.2,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:06.797339"
+  },
+  "NSE:WILLAMAGOR-EQ": {
+    "fundamentals": {
+      "company_name": "WILLIAMSON MAGOR & COMPANY LTD",
+      "current_price": 26.7,
+      "market_cap_cr": 29.07,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1.54,
+      "net_profit_cr": -1.26,
+      "eps": -1.15,
+      "pe_ratio": -23.31,
+      "roe_pct": 0.57,
+      "debt_to_equity": -2.503,
+      "opm_pct": -9725.32,
+      "sales_cagr_pct": -32.22
+    },
+    "price_levels": {
+      "latest_close": 25.98,
+      "week52_high": 37.5,
+      "week52_low": 21.11,
+      "pct_off_52w_high": -30.72,
+      "pct_above_52w_low": 23.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:10.843110"
+  },
+  "NSE:WINDLAS-EQ": {
+    "fundamentals": {
+      "company_name": "WINDLAS BIOTECH LTD",
+      "current_price": 947.85,
+      "market_cap_cr": 1955.98,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 904.09,
+      "net_profit_cr": 66.44,
+      "eps": 31.49,
+      "pe_ratio": 30.1,
+      "roe_pct": 11.44,
+      "debt_to_equity": 0.061,
+      "opm_pct": 11.58,
+      "sales_cagr_pct": 12.42
+    },
+    "price_levels": {
+      "latest_close": 949.5,
+      "week52_high": 1097.9,
+      "week52_low": 697.4,
+      "pct_off_52w_high": -13.52,
+      "pct_above_52w_low": 36.15,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:13.986050"
+  },
+  "NSE:WINDMACHIN-EQ": {
+    "fundamentals": {
+      "company_name": "WINDSOR MACHINES LTD",
+      "current_price": 299.35,
+      "market_cap_cr": 3106.74,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 570.5,
+      "net_profit_cr": 0.64,
+      "eps": 0.07,
+      "pe_ratio": 4106.71,
+      "roe_pct": 0.13,
+      "debt_to_equity": 0.175,
+      "opm_pct": 5.51,
+      "sales_cagr_pct": 5.44
+    },
+    "price_levels": {
+      "latest_close": 300.1,
+      "week52_high": 345.45,
+      "week52_low": 200.65,
+      "pct_off_52w_high": -13.13,
+      "pct_above_52w_low": 49.56,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:17.680986"
+  },
+  "NSE:WIPL-EQ": {
+    "fundamentals": {
+      "company_name": "WESTERN INDIA PLYWOODS LTD",
+      "current_price": 167.19,
+      "market_cap_cr": 141.9,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 118.88,
+      "net_profit_cr": 0.45,
+      "eps": 0.53,
+      "pe_ratio": 315.8,
+      "roe_pct": 1.01,
+      "debt_to_equity": 0.207,
+      "opm_pct": 2.99,
+      "sales_cagr_pct": 3.72
+    },
+    "price_levels": {
+      "latest_close": 167.19,
+      "week52_high": 193.2,
+      "week52_low": 133.1,
+      "pct_off_52w_high": -13.46,
+      "pct_above_52w_low": 25.61,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:20.798685"
+  },
+  "NSE:WIPRO-EQ": {
+    "fundamentals": {
+      "company_name": "WIPRO LTD",
+      "current_price": 183.25,
+      "market_cap_cr": 181438.87,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 92624.0,
+      "net_profit_cr": 13197.4,
+      "eps": 12.58,
+      "pe_ratio": 14.56,
+      "roe_pct": 14.99,
+      "debt_to_equity": 0.231,
+      "opm_pct": 19.23,
+      "sales_cagr_pct": 5.87
+    },
+    "price_levels": {
+      "latest_close": 183.1,
+      "week52_high": 273.1,
+      "week52_low": 169.0,
+      "pct_off_52w_high": -32.95,
+      "pct_above_52w_low": 8.34,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:24.136394"
+  },
+  "NSE:WOCKPHARMA-EQ": {
+    "fundamentals": {
+      "company_name": "WOCKHARDT LTD",
+      "current_price": 1914.95,
+      "market_cap_cr": 31118.12,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3373.0,
+      "net_profit_cr": 213.0,
+      "eps": 13.11,
+      "pe_ratio": 146.09,
+      "roe_pct": 4.31,
+      "debt_to_equity": 0.452,
+      "opm_pct": 19.33,
+      "sales_cagr_pct": -1.92
+    },
+    "price_levels": {
+      "latest_close": 1912.9,
+      "week52_high": 2422.3,
+      "week52_low": 1086.7,
+      "pct_off_52w_high": -21.03,
+      "pct_above_52w_low": 76.03,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:27.577832"
+  },
+  "NSE:WONDERLA-EQ": {
+    "fundamentals": {
+      "company_name": "WONDERLA HOLIDAYS LTD",
+      "current_price": 470.85,
+      "market_cap_cr": 2977.17,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 518.77,
+      "net_profit_cr": 81.73,
+      "eps": 12.89,
+      "pe_ratio": 36.53,
+      "roe_pct": 4.55,
+      "debt_to_equity": 0.003,
+      "opm_pct": 32.07,
+      "sales_cagr_pct": 7.85
+    },
+    "price_levels": {
+      "latest_close": 470.85,
+      "week52_high": 659.0,
+      "week52_low": 455.0,
+      "pct_off_52w_high": -28.55,
+      "pct_above_52w_low": 3.48,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:32.202945"
+  },
+  "NSE:WORTHPERI-EQ": {
+    "fundamentals": {
+      "company_name": "WORTH PERIPHERALS LTD",
+      "current_price": 151.56,
+      "market_cap_cr": 237.04,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 304.91,
+      "net_profit_cr": 14.63,
+      "eps": 9.26,
+      "pe_ratio": 16.37,
+      "roe_pct": 7.78,
+      "debt_to_equity": 0.221,
+      "opm_pct": 10.88,
+      "sales_cagr_pct": 9.25
+    },
+    "price_levels": {
+      "latest_close": 151.56,
+      "week52_high": 169.8,
+      "week52_low": 109.0,
+      "pct_off_52w_high": -10.74,
+      "pct_above_52w_low": 39.05,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:35.660771"
+  },
+  "NSE:WPIL-EQ": {
+    "fundamentals": {
+      "company_name": "WPIL LTD",
+      "current_price": 420.45,
+      "market_cap_cr": 4107.53,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1854.57,
+      "net_profit_cr": 158.11,
+      "eps": 16.18,
+      "pe_ratio": 25.98,
+      "roe_pct": 9.94,
+      "debt_to_equity": 0.316,
+      "opm_pct": 17.17,
+      "sales_cagr_pct": 11.29
+    },
+    "price_levels": {
+      "latest_close": 420.4,
+      "week52_high": 510.35,
+      "week52_low": 383.55,
+      "pct_off_52w_high": -17.63,
+      "pct_above_52w_low": 9.61,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T17:07:39.106736"
+  },
+  "NSE:WSI-EQ": {
+    "fundamentals": {
+      "company_name": "W S INDUSTRIES (INDIA) LTD",
+      "current_price": 56.8,
+      "market_cap_cr": 427.46,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 91.5,
+      "net_profit_cr": 2.6,
+      "eps": 0.34,
+      "pe_ratio": 165.81,
+      "roe_pct": 0.66,
+      "debt_to_equity": 0.173,
+      "opm_pct": 9.91,
+      "sales_cagr_pct": 53.36
+    },
+    "price_levels": {
+      "latest_close": 57.78,
+      "week52_high": 98.9,
+      "week52_low": 53.8,
+      "pct_off_52w_high": -41.58,
+      "pct_above_52w_low": 7.4,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:42.240458"
+  },
+  "NSE:WSTCSTPAPR-EQ": {
+    "fundamentals": {
+      "company_name": "WEST COAST PAPER MILLS LTD",
+      "current_price": 606.1,
+      "market_cap_cr": 4006.5,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4278.79,
+      "net_profit_cr": 150.6,
+      "eps": 22.82,
+      "pe_ratio": 26.56,
+      "roe_pct": 4.17,
+      "debt_to_equity": 0.096,
+      "opm_pct": 9.67,
+      "sales_cagr_pct": 12.15
+    },
+    "price_levels": {
+      "latest_close": 606.1,
+      "week52_high": 645.0,
+      "week52_low": 375.0,
+      "pct_off_52w_high": -6.03,
+      "pct_above_52w_low": 61.63,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:45.485356"
+  },
+  "NSE:XCHANGING-EQ": {
+    "fundamentals": {
+      "company_name": "XCHANGING SOLUTIONS LTD",
+      "current_price": 66.0,
+      "market_cap_cr": 734.6,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 202.92,
+      "net_profit_cr": 59.45,
+      "eps": 5.34,
+      "pe_ratio": 12.37,
+      "roe_pct": 15.01,
+      "debt_to_equity": 0.18,
+      "opm_pct": 33.77,
+      "sales_cagr_pct": -4.51
+    },
+    "price_levels": {
+      "latest_close": 65.74,
+      "week52_high": 103.0,
+      "week52_low": 47.5,
+      "pct_off_52w_high": -36.17,
+      "pct_above_52w_low": 38.4,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:48.906382"
+  },
+  "NSE:XELPMOC-EQ": {
+    "fundamentals": {
+      "company_name": "XELPMOC DESIGN AND TECH LTD",
+      "current_price": 82.4,
+      "market_cap_cr": 122.13,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3.74,
+      "net_profit_cr": -7.59,
+      "eps": -5.13,
+      "pe_ratio": -16.07,
+      "roe_pct": -10.14,
+      "debt_to_equity": 0.009,
+      "opm_pct": -190.11,
+      "sales_cagr_pct": 7.94
+    },
+    "price_levels": {
+      "latest_close": 81.03,
+      "week52_high": 155.5,
+      "week52_low": 76.0,
+      "pct_off_52w_high": -47.89,
+      "pct_above_52w_low": 6.62,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:52.036110"
+  },
+  "NSE:XPROINDIA-EQ": {
+    "fundamentals": {
+      "company_name": "XPRO INDIA LTD",
+      "current_price": 1114.5,
+      "market_cap_cr": 2603.74,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 505.49,
+      "net_profit_cr": 19.23,
+      "eps": 8.18,
+      "pe_ratio": 136.2,
+      "roe_pct": 2.53,
+      "debt_to_equity": 0.427,
+      "opm_pct": 6.25,
+      "sales_cagr_pct": 5.28
+    },
+    "price_levels": {
+      "latest_close": 1115.6,
+      "week52_high": 1574.8,
+      "week52_low": 788.05,
+      "pct_off_52w_high": -29.16,
+      "pct_above_52w_low": 41.56,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:55.252180"
+  },
+  "NSE:XTGLOBAL-EQ": {
+    "fundamentals": {
+      "company_name": "XT GLOBAL INFOTECH LTD",
+      "current_price": 31.4,
+      "market_cap_cr": 424.88,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 368.72,
+      "net_profit_cr": 11.53,
+      "eps": 0.86,
+      "pe_ratio": 36.52,
+      "roe_pct": 5.66,
+      "debt_to_equity": 0.246,
+      "opm_pct": 7.18,
+      "sales_cagr_pct": 163.33
+    },
+    "price_levels": {
+      "latest_close": 31.68,
+      "week52_high": 46.25,
+      "week52_low": 25.2,
+      "pct_off_52w_high": -31.5,
+      "pct_above_52w_low": 25.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:07:58.516105"
+  },
+  "NSE:XTRANET-EQ": {
+    "fundamentals": {
+      "company_name": "XTRANET TECHNOLOGIES LTD",
+      "current_price": 150.9,
+      "market_cap_cr": 788.94,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 365.29,
+      "net_profit_cr": 40.26,
+      "eps": 10.27,
+      "pe_ratio": 14.69,
+      "roe_pct": 29.6,
+      "debt_to_equity": 0.629,
+      "opm_pct": 17.42,
+      "sales_cagr_pct": 17.96
+    },
+    "price_levels": {
+      "latest_close": 150.4,
+      "week52_high": 157.67,
+      "week52_low": 122.5,
+      "pct_off_52w_high": -4.61,
+      "pct_above_52w_low": 22.78,
+      "candle_count": 11
+    },
+    "fetched_at": "2026-08-13T17:08:01.499716"
+  },
+  "NSE:YASHO-EQ": {
+    "fundamentals": {
+      "company_name": "YASHO INDUSTRIES LTD",
+      "current_price": 4276.5,
+      "market_cap_cr": 5149.67,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 817.29,
+      "net_profit_cr": 21.48,
+      "eps": 17.75,
+      "pe_ratio": 240.9,
+      "roe_pct": 4.87,
+      "debt_to_equity": 1.264,
+      "opm_pct": 16.89,
+      "sales_cagr_pct": 17.24
+    },
+    "price_levels": {
+      "latest_close": 4276.5,
+      "week52_high": 4490.0,
+      "week52_low": 1130.0,
+      "pct_off_52w_high": -4.76,
+      "pct_above_52w_low": 278.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:04.932879"
+  },
+  "NSE:YATHARTH-EQ": {
+    "fundamentals": {
+      "company_name": "YATHARTH HOSPITAL & TRAUMA CARE SERVICES LTD",
+      "current_price": 846.35,
+      "market_cap_cr": 8154.99,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1207.17,
+      "net_profit_cr": 175.38,
+      "eps": 18.19,
+      "pe_ratio": 46.52,
+      "roe_pct": 9.85,
+      "debt_to_equity": 0.148,
+      "opm_pct": 24.2,
+      "sales_cagr_pct": 37.0
+    },
+    "price_levels": {
+      "latest_close": 845.1,
+      "week52_high": 919.5,
+      "week52_low": 538.25,
+      "pct_off_52w_high": -8.09,
+      "pct_above_52w_low": 57.01,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:08.145114"
+  },
+  "NSE:YATRA-EQ": {
+    "fundamentals": {
+      "company_name": "YATRA ONLINE LTD",
+      "current_price": 116.2,
+      "market_cap_cr": 1823.34,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1006.51,
+      "net_profit_cr": 46.81,
+      "eps": 2.98,
+      "pe_ratio": 38.95,
+      "roe_pct": 5.64,
+      "debt_to_equity": 0.124,
+      "opm_pct": 7.98,
+      "sales_cagr_pct": 2.54
+    },
+    "price_levels": {
+      "latest_close": 116.11,
+      "week52_high": 202.0,
+      "week52_low": 89.9,
+      "pct_off_52w_high": -42.52,
+      "pct_above_52w_low": 29.15,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:11.276752"
+  },
+  "NSE:YESBANK-EQ": {
+    "fundamentals": {
+      "company_name": "YES BANK LTD",
+      "current_price": 22.9,
+      "market_cap_cr": 72286.96,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 30208.46,
+      "net_profit_cr": 3511.71,
+      "eps": 1.12,
+      "pe_ratio": 20.46,
+      "roe_pct": 6.86,
+      "debt_to_equity": 7.514,
+      "opm_pct": 61.53,
+      "sales_cagr_pct": 7.0
+    },
+    "price_levels": {
+      "latest_close": 22.98,
+      "week52_high": 25.78,
+      "week52_low": 17.2,
+      "pct_off_52w_high": -10.86,
+      "pct_above_52w_low": 33.6,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:14.704287"
+  },
+  "NSE:YUKEN-EQ": {
+    "fundamentals": {
+      "company_name": "YUKEN INDIA LTD",
+      "current_price": 840.75,
+      "market_cap_cr": 1142.75,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 462.17,
+      "net_profit_cr": 14.47,
+      "eps": 10.64,
+      "pe_ratio": 79.02,
+      "roe_pct": 3.88,
+      "debt_to_equity": 0.307,
+      "opm_pct": 10.86,
+      "sales_cagr_pct": 9.25
+    },
+    "price_levels": {
+      "latest_close": 845.65,
+      "week52_high": 1053.9,
+      "week52_low": 584.1,
+      "pct_off_52w_high": -19.76,
+      "pct_above_52w_low": 44.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:18.030824"
+  },
+  "NSE:ZAGGLE-EQ": {
+    "fundamentals": {
+      "company_name": "ZAGGLE PREPAID OCEAN SERVICES LTD",
+      "current_price": 201.0,
+      "market_cap_cr": 2702.61,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1852.81,
+      "net_profit_cr": 132.86,
+      "eps": 9.88,
+      "pe_ratio": 20.35,
+      "roe_pct": 9.49,
+      "debt_to_equity": 0.038,
+      "opm_pct": 9.75,
+      "sales_cagr_pct": 73.33
+    },
+    "price_levels": {
+      "latest_close": 201.04,
+      "week52_high": 417.6,
+      "week52_low": 186.05,
+      "pct_off_52w_high": -51.86,
+      "pct_above_52w_low": 8.06,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:21.429288"
+  },
+  "NSE:ZEEL-EQ": {
+    "fundamentals": {
+      "company_name": "ZEE ENTERTAINMENT ENTERPRISES LTD",
+      "current_price": 96.75,
+      "market_cap_cr": 9299.71,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8098.9,
+      "net_profit_cr": 271.3,
+      "eps": 2.82,
+      "pe_ratio": 34.25,
+      "roe_pct": 2.31,
+      "debt_to_equity": 0.023,
+      "opm_pct": 4.92,
+      "sales_cagr_pct": 2.59
+    },
+    "price_levels": {
+      "latest_close": 96.75,
+      "week52_high": 124.14,
+      "week52_low": 68.0,
+      "pct_off_52w_high": -22.06,
+      "pct_above_52w_low": 42.28,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:24.663264"
+  },
+  "NSE:ZEEMEDIA-EQ": {
+    "fundamentals": {
+      "company_name": "ZEE MEDIA CORPORATION LTD",
+      "current_price": 8.58,
+      "market_cap_cr": 562.36,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 759.18,
+      "net_profit_cr": 1.9,
+      "eps": 0.03,
+      "pe_ratio": 282.42,
+      "roe_pct": 0.85,
+      "debt_to_equity": 0.372,
+      "opm_pct": 13.92,
+      "sales_cagr_pct": 5.99
+    },
+    "price_levels": {
+      "latest_close": 8.58,
+      "week52_high": 13.26,
+      "week52_low": 6.65,
+      "pct_off_52w_high": -35.29,
+      "pct_above_52w_low": 29.02,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:27.897106"
+  },
+  "NSE:ZENITHEXPO-EQ": {
+    "fundamentals": {
+      "company_name": "ZENITH EXPORTS LTD",
+      "current_price": 230.15,
+      "market_cap_cr": 122.37,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 64.68,
+      "net_profit_cr": 2.29,
+      "eps": 4.24,
+      "pe_ratio": 54.27,
+      "roe_pct": 2.72,
+      "debt_to_equity": 0.025,
+      "opm_pct": 0.2,
+      "sales_cagr_pct": -7.35
+    },
+    "price_levels": {
+      "latest_close": 226.6,
+      "week52_high": 351.65,
+      "week52_low": 174.0,
+      "pct_off_52w_high": -35.56,
+      "pct_above_52w_low": 30.23,
+      "candle_count": 244
+    },
+    "fetched_at": "2026-08-13T17:08:31.210408"
+  },
+  "NSE:ZENITHSTL-EQ": {
+    "fundamentals": {
+      "company_name": "ZENITH STEEL PIPES & INDUSTRIES LTD",
+      "current_price": 5.72,
+      "market_cap_cr": 81.53,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 53.38,
+      "net_profit_cr": 4.38,
+      "eps": 0.31,
+      "pe_ratio": 18.58,
+      "roe_pct": -1.76,
+      "debt_to_equity": -0.885,
+      "opm_pct": -30.44,
+      "sales_cagr_pct": -11.29
+    },
+    "price_levels": {
+      "latest_close": 5.54,
+      "week52_high": 10.33,
+      "week52_low": 4.41,
+      "pct_off_52w_high": -46.37,
+      "pct_above_52w_low": 25.62,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:34.603203"
+  },
+  "NSE:ZENSARTECH-EQ": {
+    "fundamentals": {
+      "company_name": "ZENSAR TECHNOLOGIES LTD",
+      "current_price": 500.0,
+      "market_cap_cr": 11377.75,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5687.4,
+      "net_profit_cr": 774.6,
+      "eps": 34.05,
+      "pe_ratio": 14.68,
+      "roe_pct": 16.41,
+      "debt_to_equity": 0.017,
+      "opm_pct": 16.11,
+      "sales_cagr_pct": 7.15
+    },
+    "price_levels": {
+      "latest_close": 498.65,
+      "week52_high": 868.95,
+      "week52_low": 423.0,
+      "pct_off_52w_high": -42.61,
+      "pct_above_52w_low": 17.88,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:37.717061"
+  },
+  "NSE:ZENTEC-EQ": {
+    "fundamentals": {
+      "company_name": "ZEN TECHNOLOGIES LTD",
+      "current_price": 1835.0,
+      "market_cap_cr": 16578.28,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 687.69,
+      "net_profit_cr": 193.45,
+      "eps": 21.42,
+      "pe_ratio": 85.66,
+      "roe_pct": 10.24,
+      "debt_to_equity": 0.01,
+      "opm_pct": 35.62,
+      "sales_cagr_pct": 33.05
+    },
+    "price_levels": {
+      "latest_close": 1831.8,
+      "week52_high": 2024.0,
+      "week52_low": 1223.0,
+      "pct_off_52w_high": -9.5,
+      "pct_above_52w_low": 49.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:41.000095"
+  },
+  "NSE:ZFCVINDIA-EQ": {
+    "fundamentals": {
+      "company_name": "ZF COMMERCIAL VEHICLE CONTROL SYSTEM INDIA LTD",
+      "current_price": 2616.6,
+      "market_cap_cr": 29728.29,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4055.48,
+      "net_profit_cr": 506.68,
+      "eps": 44.52,
+      "pe_ratio": 58.77,
+      "roe_pct": 13.78,
+      "debt_to_equity": 0.015,
+      "opm_pct": 15.77,
+      "sales_cagr_pct": 7.77
+    },
+    "price_levels": {
+      "latest_close": 2616.2,
+      "week52_high": 3044.0,
+      "week52_low": 2050.33,
+      "pct_off_52w_high": -14.05,
+      "pct_above_52w_low": 27.6,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:44.288660"
+  },
+  "NSE:ZFSTEERING-EQ": {
+    "fundamentals": {
+      "company_name": "Z F STEERING GEAR (INDIA) LTD",
+      "current_price": 668.75,
+      "market_cap_cr": 611.0,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 571.06,
+      "net_profit_cr": 15.39,
+      "eps": 16.91,
+      "pe_ratio": 39.54,
+      "roe_pct": 3.2,
+      "debt_to_equity": 0.221,
+      "opm_pct": 13.12,
+      "sales_cagr_pct": 5.57
+    },
+    "price_levels": {
+      "latest_close": 668.15,
+      "week52_high": 894.98,
+      "week52_low": 620.65,
+      "pct_off_52w_high": -25.34,
+      "pct_above_52w_low": 7.65,
+      "candle_count": 80
+    },
+    "fetched_at": "2026-08-13T17:08:47.665031"
+  },
+  "NSE:ZODIAC-EQ": {
+    "fundamentals": {
+      "company_name": "ZODIAC ENERGY LTD",
+      "current_price": 269.65,
+      "market_cap_cr": 409.26,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 543.52,
+      "net_profit_cr": 21.07,
+      "eps": 13.95,
+      "pe_ratio": 19.32,
+      "roe_pct": 18.03,
+      "debt_to_equity": 1.86,
+      "opm_pct": 10.22,
+      "sales_cagr_pct": 47.25
+    },
+    "price_levels": {
+      "latest_close": 269.65,
+      "week52_high": 430.0,
+      "week52_low": 205.55,
+      "pct_off_52w_high": -37.29,
+      "pct_above_52w_low": 31.18,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:50.951157"
+  },
+  "NSE:ZODIACLOTH-EQ": {
+    "fundamentals": {
+      "company_name": "ZODIAC CLOTHING COMPANY LTD",
+      "current_price": 76.61,
+      "market_cap_cr": 211.61,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 161.51,
+      "net_profit_cr": -35.04,
+      "eps": -12.74,
+      "pe_ratio": -6.01,
+      "roe_pct": -19.25,
+      "debt_to_equity": 0.588,
+      "opm_pct": -7.86,
+      "sales_cagr_pct": -5.95
+    },
+    "price_levels": {
+      "latest_close": 77.0,
+      "week52_high": 119.45,
+      "week52_low": 58.5,
+      "pct_off_52w_high": -35.54,
+      "pct_above_52w_low": 31.62,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:54.071097"
+  },
+  "NSE:ZOTA-EQ": {
+    "fundamentals": {
+      "company_name": "ZOTA HEALTH CARE LTD",
+      "current_price": 1241.3,
+      "market_cap_cr": 4298.94,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 538.66,
+      "net_profit_cr": -73.94,
+      "eps": -21.37,
+      "pe_ratio": -58.09,
+      "roe_pct": -10.66,
+      "debt_to_equity": 0.39,
+      "opm_pct": 3.44,
+      "sales_cagr_pct": 30.36
+    },
+    "price_levels": {
+      "latest_close": 1241.3,
+      "week52_high": 1740.0,
+      "week52_low": 1026.2,
+      "pct_off_52w_high": -28.66,
+      "pct_above_52w_low": 20.96,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:08:57.151850"
+  },
+  "NSE:ZSARACOM-EQ": {
+    "fundamentals": {
+      "company_name": "SARASWATI COMMERCIAL (INDIA) LTD",
+      "current_price": 12584.1,
+      "market_cap_cr": 1379.13,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 120.96,
+      "net_profit_cr": 92.31,
+      "eps": 839.18,
+      "pe_ratio": 15.0,
+      "roe_pct": 8.38,
+      "debt_to_equity": 0.0,
+      "opm_pct": 95.35,
+      "sales_cagr_pct": 30.91
+    },
+    "price_levels": {
+      "latest_close": 12388.0,
+      "week52_high": 14400.0,
+      "week52_low": 9000.0,
+      "pct_off_52w_high": -13.97,
+      "pct_above_52w_low": 37.64,
+      "candle_count": 80
+    },
+    "fetched_at": "2026-08-13T17:09:00.463822"
   }
 }
