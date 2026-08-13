@@ -36,7 +36,7 @@ import time
 from datetime import datetime
 
 from fundamentals.symbol_master import get_nse_equity_symbols
-from fundamentals.screener_client import get_session, fetch_export_bytes
+from fundamentals.screener_client import get_session, fetch_export_bytes, SessionExpiredError
 from fundamentals.parser import parse_fundamentals
 from fundamentals.price_levels import get_52week_range
 
@@ -79,6 +79,15 @@ def run(limit=None):
         try:
             xlsx_bytes = fetch_export_bytes(session, screener_symbol)
             fundamentals = parse_fundamentals(xlsx_bytes) if xlsx_bytes else None
+        except SessionExpiredError as e:
+            print(f"\n{'=' * 70}")
+            print("STOPPING -- Screener session has expired.")
+            print("=" * 70)
+            print(str(e))
+            save_progress(results)
+            print(f"\nProgress so far ({len(results)} stocks) has been saved to {OUTPUT_FILE}.")
+            print("Refresh screener_session.txt, then rerun this same command -- already-completed stocks will be skipped automatically.")
+            return
         except Exception as e:
             print(f"[{i + 1}/{len(symbols)}] {fyers_symbol}: fundamentals fetch failed: {e}")
             fundamentals = None

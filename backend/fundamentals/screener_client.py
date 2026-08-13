@@ -28,6 +28,19 @@ import requests
 SESSION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "screener_session.txt")
 
 
+class SessionExpiredError(Exception):
+    """
+    Raised when Screener's response indicates the session cookie is no
+    longer valid -- distinct from a per-stock failure (bad symbol, no
+    listed export, etc.), because this means EVERY subsequent stock in
+    a run will fail the same way until the session is refreshed. The
+    detection signal (a login/register page instead of real data) is
+    the exact same tell seen live the first time the cookie was wrong:
+    <title>Register - Screener</title>.
+    """
+    pass
+
+
 def _load_session_id(path=SESSION_FILE):
     """Reads and sanitizes the session value -- takes only the first
     whitespace-separated field (discards any extra pasted columns
@@ -104,7 +117,16 @@ def fetch_export_bytes(session, symbol):
 
         content_type = resp.headers.get("Content-Type", "")
         if "spreadsheet" not in content_type and "excel" not in content_type:
+            body_start = resp.text[:2000].lower()
+            if "register" in body_start or "log in" in body_start or "please login" in body_start:
+                raise SessionExpiredError(
+                    "Screener session appears to have expired (got a login/register page "
+                    "instead of real data). Refresh screener_session.txt with a fresh cookie "
+                    "value, then rerun -- already-completed stocks will be skipped automatically."
+                )
             return None
         return resp.content
+    except SessionExpiredError:
+        raise  # let this propagate -- callers need to handle it differently from a normal failure
     except Exception:
         return None
