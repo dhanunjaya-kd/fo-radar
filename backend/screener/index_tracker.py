@@ -621,11 +621,27 @@ def compute_cas_auction_moves(index_name):
 
     by_day = {}
     for row in rows:
-        day = row["_datetime"].strftime("%Y-%m-%d")
+        dt = row["_datetime"]
+        if dt.weekday() >= 5:
+            continue  # Sat/Sun -- shouldn't have real data at all; any row here is stale/leftover, not a genuine trading-day reading
+        day = dt.strftime("%Y-%m-%d")
         by_day.setdefault(day, []).append(row)
 
     auction_start = _time(15, 15)
     auction_end = _time(15, 35)
+    # A genuine pre-auction reading should be reasonably close to
+    # 3:15 PM -- with ~60s snapshot cadence, a real trading day always
+    # has one within the last hour. A genuine post-auction reading
+    # should show up reasonably soon after 3:35 PM too (derivatives
+    # close 3:40 PM, post-close session ends 4:00 PM). Caught live:
+    # without these bounds, a day with sparse/stale data (e.g. leftover
+    # rows from before proper weekend/hours gating existed) could match
+    # a "last before / first after" reading from hours away -- a real
+    # instance showed 12:09 PM as "pre" and 8:26 PM as "post," neither
+    # anywhere near the actual auction. Skipping the day entirely here
+    # is the same honest choice as skipping an incomplete one below.
+    pre_earliest = _time(14, 30)
+    post_latest = _time(15, 55)
 
     results = []
     for day, day_rows in by_day.items():
@@ -637,15 +653,19 @@ def compute_cas_auction_moves(index_name):
                 pre = r
             else:
                 break
+        if pre is not None and pre["_datetime"].time() < pre_earliest:
+            pre = None  # too far from the auction to trust as "the pre-auction reading"
 
         post = None
         for r in day_rows:
             if r["_datetime"].time() > auction_end:
                 post = r
                 break
+        if post is not None and post["_datetime"].time() > post_latest:
+            post = None  # too far from the auction to trust as "the post-auction reading"
 
         if pre is None or post is None:
-            continue  # incomplete day (e.g. pre-fix data, or server wasn't running through the window) -- skip, don't guess
+            continue  # incomplete or untrustworthy day -- skip, don't guess
 
         pre_price = pre.get("Spot")
         post_price = post.get("Spot")
