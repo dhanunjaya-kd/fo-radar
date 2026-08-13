@@ -18,7 +18,14 @@ a stock missing either half is left out rather than guessed at.
 import json
 import os
 
-DATA_FILE = "fundamentals_data.json"
+# Anchored to backend/ (one level up from fundamentals/, via __file__)
+# rather than a plain relative path -- same fix already needed for
+# screener_client.py's session file. runner.py always runs from
+# backend/ so a relative path works fine there, but this module will
+# also get called from a Django view with a different working
+# directory, where a relative path would silently look in the wrong
+# place instead of erroring.
+DATA_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fundamentals_data.json")
 
 
 def _percentile_rank(values, value, lower_is_better=False):

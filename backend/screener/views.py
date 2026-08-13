@@ -1017,6 +1017,40 @@ class NewsView(APIView):
         return Response({"news": news})
 
 
+class FundamentalsWatchlistView(APIView):
+    """
+    Long-term value watchlist: NSE stocks meaningfully below their
+    52-week high, ranked by combined fundamentals (P/E, ROE, Debt/
+    Equity, Sales growth) via percentile ranking across whatever's been
+    collected so far -- see fundamentals/ranking.py for the full method
+    and reasoning (including why negative P/E is excluded from ranking
+    rather than treated as "cheapest," caught from a real bad result).
+
+    Reads from fundamentals_data.json, built by a SEPARATE background
+    process (fundamentals/runner.py) -- not live-fetched here, since a
+    full pass across the whole NSE list takes hours and fundamentals
+    don't change that often anyway. This view is just reading whatever
+    that process has saved so far, which may be a partial, still-
+    growing list while the full run is in progress.
+
+    GET /api/fundamentals-watchlist/
+    Optional query params: ?min_discount=-10&limit=50
+    """
+    def get(self, request):
+        from fundamentals.ranking import build_watchlist
+        try:
+            min_discount = float(request.GET.get("min_discount", -10))
+        except (TypeError, ValueError):
+            min_discount = -10
+        try:
+            limit = int(request.GET.get("limit", 50))
+        except (TypeError, ValueError):
+            limit = 50
+
+        results = build_watchlist(min_discount_pct=min_discount, top_n=limit)
+        return Response({"watchlist": results, "count": len(results)})
+
+
 class FyersStatusView(APIView):
     def get(self, request):
         auth = is_authenticated()

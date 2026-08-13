@@ -8,11 +8,12 @@ import Analytics from './components/Analytics';
 import IndexTracker from './components/IndexTracker';
 import CrudeOilTracker from './components/CrudeOilTracker';
 import NewsFeed from './components/NewsFeed';
+import FundamentalsWatchlist from './components/FundamentalsWatchlist';
 
-// The 6 valid tab ids -- used to validate whatever's in localStorage
+// The 7 valid tab ids -- used to validate whatever's in localStorage
 // so a stale/unrecognized value (e.g. from an older version of the
 // app) can't leave activeTab pointing at nothing and rendering blank.
-const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'crude', 'news'];
+const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'crude', 'news', 'value'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -44,6 +45,7 @@ export default function App() {
     { id: 'index', label: 'Index Tracker', count: null },
     { id: 'crude', label: 'Crude Oil', count: null },
     { id: 'news', label: 'News', count: null },
+    { id: 'value', label: 'Value Watchlist', count: null },
   ];
 
   useEffect(() => {
@@ -115,6 +117,7 @@ export default function App() {
               {tab.id === 'index' && '📈'}
               {tab.id === 'crude' && '🛢️'}
               {tab.id === 'news' && '📰'}
+              {tab.id === 'value' && '💎'}
               {tab.label}
               {tab.count !== null && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full ${
@@ -136,6 +139,7 @@ export default function App() {
         {activeTab === 'index' && <IndexTracker />}
         {activeTab === 'crude' && <CrudeOilTracker />}
         {activeTab === 'news' && <NewsFeed />}
+        {activeTab === 'value' && <FundamentalsWatchlist />}
       </div>
     </div>
   );
