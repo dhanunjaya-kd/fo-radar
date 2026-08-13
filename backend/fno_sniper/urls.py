@@ -7,7 +7,8 @@ from screener.views import (
     FyersStatusView, OptionAnalyticsView, FyersBrowserTokenView,
     SignalExcelExportView, IndexTrackerView, IndexTrackerExportView,
     SignalExportDatesView, SignalExcelExportByDateView,
-    IndexBacktestView, IndexBacktestExportView, WeeklyReportView
+    IndexBacktestView, IndexBacktestExportView, WeeklyReportView,
+    FundamentalsWatchlistView
 )
 
 urlpatterns = [
@@ -33,6 +34,7 @@ urlpatterns = [
     path('api/index-backtest/<str:index_name>/', IndexBacktestView.as_view(), name='index_backtest'),
     path('api/index-backtest/<str:index_name>/export/', IndexBacktestExportView.as_view(), name='index_backtest_export'),
     path('api/weekly-report/', WeeklyReportView.as_view(), name='weekly_report'),
+    path('api/fundamentals-watchlist/', FundamentalsWatchlistView.as_view(), name='fundamentals_watchlist'),
 
     # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
