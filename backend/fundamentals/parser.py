@@ -69,8 +69,19 @@ def parse_fundamentals(xlsx_bytes):
 
     eps = (net_profit / adj_shares) if adj_shares else None
     pe = (current_price / eps) if (eps and current_price) else None
-    roe_pct = (net_profit / total_equity * 100) if total_equity else None
-    debt_equity = (borrowings / total_equity) if total_equity else None
+    # ROE and Debt/Equity are only meaningful when total equity is
+    # positive. A company with NEGATIVE total equity (accumulated
+    # losses exceeding paid-in capital -- real financial distress)
+    # produces mathematically valid but deeply misleading numbers
+    # here: negative Net Profit / negative equity gives a POSITIVE ROE
+    # that looks great but means the opposite, and Borrowings /
+    # negative equity gives a nonsensical negative Debt/Equity. Caught
+    # live: this exact pattern let several negative-equity distressed
+    # companies rank at the top of the real full-universe watchlist
+    # (see ranking.py, which now also excludes these entirely as a
+    # second layer of defense). Left as None here rather than faked.
+    roe_pct = (net_profit / total_equity * 100) if total_equity > 0 else None
+    debt_equity = (borrowings / total_equity) if total_equity > 0 else None
 
     # Same expense components Screener's own 'Profit & Loss' sheet sums
     # (row 5 there): Raw Material + Power&Fuel + Other Mfr + Employee +

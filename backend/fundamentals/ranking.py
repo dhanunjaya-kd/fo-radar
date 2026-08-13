@@ -61,6 +61,24 @@ def build_watchlist(data_file=DATA_FILE, min_discount_pct=-10, top_n=50):
         pct_off_high = p_data.get("pct_off_52w_high")
         if pct_off_high is None or pct_off_high > min_discount_pct:
             continue  # not far enough below its 52-week high to qualify
+
+        # A negative Debt/Equity is only possible when total equity
+        # itself is negative (accumulated losses exceeding paid-in
+        # capital) -- real financial distress, not a value opportunity.
+        # Excluded entirely here, not just de-ranked: with negative
+        # equity, ROE flips to a misleadingly POSITIVE number (negative
+        # profit / negative equity), and Debt/Equity becomes
+        # nonsensical. Caught live in the real full-universe ranking:
+        # de-ranking just those two metrics still let a company with
+        # almost no other usable data rank #1 on a single extreme,
+        # thin Sales CAGR outlier (885%, almost certainly a low-base-
+        # year artifact) -- a company failing this basic solvency
+        # check doesn't belong on this list at all, regardless of how
+        # any one remaining number looks.
+        de = f_data.get("debt_to_equity")
+        if de is not None and de < 0:
+            continue
+
         candidates.append({
             "symbol": symbol,
             "company_name": f_data.get("company_name"),
@@ -78,6 +96,10 @@ def build_watchlist(data_file=DATA_FILE, min_discount_pct=-10, top_n=50):
         return []
 
     pe_values = [c["pe_ratio"] for c in candidates if c["pe_ratio"] is not None and c["pe_ratio"] > 0]
+    # Negative-equity companies are already excluded entirely above
+    # (see the candidate-building loop) -- everything reaching this
+    # point has non-negative Debt/Equity, so ROE and D/E don't need a
+    # separate exclusion here.
     roe_values = [c["roe_pct"] for c in candidates]
     de_values = [c["debt_to_equity"] for c in candidates]
     growth_values = [c["sales_cagr_pct"] for c in candidates]
