@@ -228,6 +228,83 @@ const DISPLAY_NAME = {
   CRUDEOILM: 'CRUDE OIL MINI',
 };
 
+// Day-by-day price move specifically attributable to the CAS auction
+// window -- last reading before 3:15 PM vs first reading after 3:35 PM,
+// isolating the auction's own effect from ordinary intraday movement.
+// Same collapsible pattern as BacktestSection above.
+function CASMovesSection({ indexName }) {
+  const [show, setShow] = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!show || data || loading) return;
+    setLoading(true);
+    fetch(`${API_BASE}/api/cas-auction-moves/${indexName}/`)
+      .then(r => r.json())
+      .then(d => { setData(d); setError(null); })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [show, indexName, data, loading]);
+
+  const moves = data?.moves || [];
+
+  return (
+    <div className="mt-3 border-t border-slate-800/60 pt-3">
+      <button
+        onClick={() => setShow(v => !v)}
+        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-200 transition-colors mb-2"
+      >
+        {show ? '▲ Hide' : '▼ Show'} CAS auction moves (day-by-day)
+      </button>
+
+      {show && (
+        <>
+          {loading && <div className="py-4 text-center text-slate-500 text-xs">Loading...</div>}
+          {error && <div className="py-2 text-center text-rose-400 text-xs">⚠ {error}</div>}
+          {data && moves.length === 0 && (
+            <div className="py-4 text-center text-slate-500 text-xs max-w-md">
+              No complete days yet — needs a snapshot both before 3:15 PM and after 3:35 PM on the same day. Days before Aug 13, 2026 won't qualify (the scanner used to stop at 3:30 PM, before the auction resolved) — real data only accumulates from today forward.
+            </div>
+          )}
+          {moves.length > 0 && (
+            <div className="overflow-x-auto rounded-lg border border-slate-800">
+              <p className="text-[10px] text-slate-500 px-3 pt-2">Last reading before 3:15 PM vs first reading after 3:35 PM — isolates the auction's own effect from normal intraday movement.</p>
+              <table className="w-full text-xs mt-1">
+                <thead>
+                  <tr className="bg-slate-800/60 text-slate-500 text-[10px] uppercase">
+                    <th className="text-left px-3 py-2">Date</th>
+                    <th className="text-right px-3 py-2">Pre-Auction</th>
+                    <th className="text-right px-3 py-2">Post-Auction</th>
+                    <th className="text-right px-3 py-2">Move</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {moves.map(m => (
+                    <tr key={m.date} className="border-t border-slate-800/60">
+                      <td className="px-3 py-1.5 text-slate-300 whitespace-nowrap">{m.date}</td>
+                      <td className="px-3 py-1.5 text-right text-slate-300 whitespace-nowrap">
+                        {m.pre_auction_price?.toLocaleString('en-IN')} <span className="text-slate-600">@{m.pre_auction_time}</span>
+                      </td>
+                      <td className="px-3 py-1.5 text-right text-slate-300 whitespace-nowrap">
+                        {m.post_auction_price?.toLocaleString('en-IN')} <span className="text-slate-600">@{m.post_auction_time}</span>
+                      </td>
+                      <td className={`px-3 py-1.5 text-right font-semibold whitespace-nowrap ${m.move_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {m.move_pct >= 0 ? '+' : ''}{m.move_pct}% ({m.move_abs >= 0 ? '+' : ''}{m.move_abs})
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function IndexSection({ indexName, showBacktest = true }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -280,6 +357,7 @@ function IndexSection({ indexName, showBacktest = true }) {
           <>
             <SnapshotTable rows={rows} showAll={showHistory} onToggleShowAll={() => setShowHistory(v => !v)} />
             {showBacktest && <BacktestSection indexName={indexName} />}
+            {showBacktest && <CASMovesSection indexName={indexName} />}
           </>
         )}
       </div>
