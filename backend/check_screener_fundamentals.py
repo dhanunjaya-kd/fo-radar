@@ -38,8 +38,35 @@ import requests
 # parsed from the actual response.
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-with open("screener_session.txt", "r") as f:
-    SESSION_ID = f.read().strip()
+with open("screener_session.txt", "r", encoding="utf-8") as f:
+    raw = f.read()
+
+# HTTP headers must be plain ASCII/latin-1 by spec -- the actual
+# traceback showed the crash happening deep inside urllib3 while
+# SENDING the cookie header, not in any print statement. That means
+# screener_session.txt likely has more in it than just the bare
+# session value (a common way this happens: DevTools truncates long
+# text with a single "..." ellipsis CHARACTER, not three periods, if
+# more than one table column gets selected/copied together). Clean
+# defensively: take only the first line, strip anything that isn't a
+# plausible cookie character, and say exactly what got removed so this
+# isn't a silent guess either.
+first_line = raw.splitlines()[0] if raw.splitlines() else ""
+# Take the FIRST whitespace-separated field before cleaning -- if
+# extra columns got pasted alongside the real value (tab-separated,
+# straight from a DevTools table row), this discards them entirely
+# instead of mashing separate columns into one garbled string.
+first_field = re.split(r'[\s\t]+', first_line.strip())[0] if first_line.strip() else ""
+SESSION_ID = re.sub(r'[^A-Za-z0-9_\-\.]', '', first_field)
+
+if SESSION_ID != first_line.strip():
+    print(f"NOTE: cleaned screener_session.txt down to just the first field: {SESSION_ID!r}")
+    print(f"      (raw first line was {len(first_line.strip())} chars, cleaned to {len(SESSION_ID)} chars)")
+    print("      If the result below still fails, re-copy ONLY the sessionid VALUE column into that file, nothing else.\n")
+
+if not SESSION_ID:
+    print("ERROR: screener_session.txt is empty after cleanup -- re-check its contents.")
+    sys.exit(1)
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 COOKIES = {"sessionid": SESSION_ID}
