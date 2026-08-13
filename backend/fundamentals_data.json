@@ -24946,5 +24946,992 @@
       "candle_count": 247
     },
     "fetched_at": "2026-08-13T16:07:09.703064"
+  },
+  "NSE:KAPSTON-EQ": {
+    "fundamentals": {
+      "company_name": "KAPSTON SERVICES LTD",
+      "current_price": 585.1,
+      "market_cap_cr": 1780.6,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 830.32,
+      "net_profit_cr": 28.02,
+      "eps": 9.22,
+      "pe_ratio": 63.48,
+      "roe_pct": 24.11,
+      "debt_to_equity": 1.576,
+      "opm_pct": 5.29,
+      "sales_cagr_pct": 27.9
+    },
+    "price_levels": {
+      "latest_close": 585.1,
+      "week52_high": 600.0,
+      "week52_low": 158.13,
+      "pct_off_52w_high": -2.48,
+      "pct_above_52w_low": 270.01,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:13.877840"
+  },
+  "NSE:KARMAENG-EQ": {
+    "fundamentals": {
+      "company_name": "KARMA ENERGY LTD",
+      "current_price": 41.0,
+      "market_cap_cr": 47.43,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 9.76,
+      "net_profit_cr": 1.05,
+      "eps": 0.91,
+      "pe_ratio": 45.3,
+      "roe_pct": 2.57,
+      "debt_to_equity": 0.037,
+      "opm_pct": -29.3,
+      "sales_cagr_pct": -10.86
+    },
+    "price_levels": {
+      "latest_close": 41.22,
+      "week52_high": 73.7,
+      "week52_low": 34.38,
+      "pct_off_52w_high": -44.07,
+      "pct_above_52w_low": 19.9,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:18.348066"
+  },
+  "NSE:KARURVYSYA-EQ": {
+    "fundamentals": {
+      "company_name": "KARUR VYSYA BANK LTD",
+      "current_price": 335.0,
+      "market_cap_cr": 32379.48,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 11074.35,
+      "net_profit_cr": 2510.33,
+      "eps": 25.97,
+      "pe_ratio": 12.9,
+      "roe_pct": 17.79,
+      "debt_to_equity": 8.385,
+      "opm_pct": 67.71,
+      "sales_cagr_pct": 7.82
+    },
+    "price_levels": {
+      "latest_close": 335.95,
+      "week52_high": 351.8,
+      "week52_low": 201.82,
+      "pct_off_52w_high": -4.51,
+      "pct_above_52w_low": 66.46,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:22.180179"
+  },
+  "NSE:KAVDEFENCE-EQ": {
+    "fundamentals": {
+      "company_name": "KAVVERI DEFENCE & WIRELESS TECHNOLOGIES LTD",
+      "current_price": 57.22,
+      "market_cap_cr": 344.03,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8.42,
+      "net_profit_cr": 1.24,
+      "eps": 0.21,
+      "pe_ratio": 277.33,
+      "roe_pct": 1.11,
+      "debt_to_equity": 0.039,
+      "opm_pct": -16.51,
+      "sales_cagr_pct": -11.55
+    },
+    "price_levels": {
+      "latest_close": 57.29,
+      "week52_high": 162.87,
+      "week52_low": 51.51,
+      "pct_off_52w_high": -64.82,
+      "pct_above_52w_low": 11.22,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:25.536282"
+  },
+  "NSE:KAYA-EQ": {
+    "fundamentals": {
+      "company_name": "KAYA LTD",
+      "current_price": 296.8,
+      "market_cap_cr": 450.77,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 222.48,
+      "net_profit_cr": -96.17,
+      "eps": -63.27,
+      "pe_ratio": -4.69,
+      "roe_pct": 62.95,
+      "debt_to_equity": -1.935,
+      "opm_pct": -9.76,
+      "sales_cagr_pct": -6.54
+    },
+    "price_levels": {
+      "latest_close": 292.8,
+      "week52_high": 487.9,
+      "week52_low": 224.01,
+      "pct_off_52w_high": -39.99,
+      "pct_above_52w_low": 30.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:29.567699"
+  },
+  "NSE:KAYNES-EQ": {
+    "fundamentals": {
+      "company_name": "KAYNES TECHNOLOGY INDIA LTD",
+      "current_price": 3750.0,
+      "market_cap_cr": 25208.49,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3626.35,
+      "net_profit_cr": 363.89,
+      "eps": 54.31,
+      "pe_ratio": 69.05,
+      "roe_pct": 7.66,
+      "debt_to_equity": 0.192,
+      "opm_pct": 15.83,
+      "sales_cagr_pct": 38.86
+    },
+    "price_levels": {
+      "latest_close": 3760.5,
+      "week52_high": 7705.0,
+      "week52_low": 2995.0,
+      "pct_off_52w_high": -51.19,
+      "pct_above_52w_low": 25.56,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:33.416303"
+  },
+  "NSE:KCP-EQ": {
+    "fundamentals": {
+      "company_name": "KCP SUGAR & INDUSTRIES CORPORATION LTD",
+      "current_price": 30.27,
+      "market_cap_cr": 343.23,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 259.95,
+      "net_profit_cr": 11.13,
+      "eps": 0.98,
+      "pe_ratio": 30.84,
+      "roe_pct": 2.42,
+      "debt_to_equity": 0.278,
+      "opm_pct": 0.33,
+      "sales_cagr_pct": -5.73
+    },
+    "price_levels": {
+      "latest_close": 154.78,
+      "week52_high": 212.7,
+      "week52_low": 125.0,
+      "pct_off_52w_high": -27.23,
+      "pct_above_52w_low": 23.82,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:36.871682"
+  },
+  "NSE:KDDL-EQ": {
+    "fundamentals": {
+      "company_name": "KDDL LTD",
+      "current_price": 3945.9,
+      "market_cap_cr": 4853.19,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2153.43,
+      "net_profit_cr": 88.1,
+      "eps": 71.63,
+      "pe_ratio": 55.09,
+      "roe_pct": 8.16,
+      "debt_to_equity": 0.474,
+      "opm_pct": 14.33,
+      "sales_cagr_pct": 18.91
+    },
+    "price_levels": {
+      "latest_close": 3945.9,
+      "week52_high": 4155.5,
+      "week52_low": 1990.0,
+      "pct_off_52w_high": -5.04,
+      "pct_above_52w_low": 98.29,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:40.479289"
+  },
+  "NSE:KEC-EQ": {
+    "fundamentals": {
+      "company_name": "KEC INTERNATIONAL LTD",
+      "current_price": 444.5,
+      "market_cap_cr": 11832.63,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 23505.54,
+      "net_profit_cr": 605.59,
+      "eps": 22.75,
+      "pe_ratio": 19.54,
+      "roe_pct": 9.83,
+      "debt_to_equity": 0.873,
+      "opm_pct": 7.95,
+      "sales_cagr_pct": 11.84
+    },
+    "price_levels": {
+      "latest_close": 444.65,
+      "week52_high": 937.8,
+      "week52_low": 439.85,
+      "pct_off_52w_high": -52.59,
+      "pct_above_52w_low": 1.09,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:43.978661"
+  },
+  "NSE:KECL-EQ": {
+    "fundamentals": {
+      "company_name": "KIRLOSKAR ELECTRIC COMPANY LTD",
+      "current_price": 143.4,
+      "market_cap_cr": 952.37,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 589.34,
+      "net_profit_cr": 8.38,
+      "eps": 1.26,
+      "pe_ratio": 113.62,
+      "roe_pct": 6.36,
+      "debt_to_equity": 0.761,
+      "opm_pct": 6.03,
+      "sales_cagr_pct": 0.34
+    },
+    "price_levels": {
+      "latest_close": 142.8,
+      "week52_high": 155.0,
+      "week52_low": 75.47,
+      "pct_off_52w_high": -7.87,
+      "pct_above_52w_low": 89.21,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:47.788514"
+  },
+  "NSE:KEEPLEARN-EQ": {
+    "fundamentals": {
+      "company_name": "DSJ KEEP LEARNING LTD",
+      "current_price": 2.0,
+      "market_cap_cr": 31.16,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 7.89,
+      "net_profit_cr": -0.97,
+      "eps": -0.06,
+      "pe_ratio": -32.1,
+      "roe_pct": -15.7,
+      "debt_to_equity": 0.265,
+      "opm_pct": -9.63,
+      "sales_cagr_pct": 64.39
+    },
+    "price_levels": {
+      "latest_close": 1.84,
+      "week52_high": 3.21,
+      "week52_low": 1.51,
+      "pct_off_52w_high": -42.68,
+      "pct_above_52w_low": 21.85,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:50.871946"
+  },
+  "NSE:KEI-EQ": {
+    "fundamentals": {
+      "company_name": "KEI INDUSTRIES LTD",
+      "current_price": 5750.0,
+      "market_cap_cr": 54970.37,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 11747.77,
+      "net_profit_cr": 918.43,
+      "eps": 96.07,
+      "pe_ratio": 59.85,
+      "roe_pct": 13.78,
+      "debt_to_equity": 0.038,
+      "opm_pct": 10.46,
+      "sales_cagr_pct": 18.1
+    },
+    "price_levels": {
+      "latest_close": 5789.0,
+      "week52_high": 5837.0,
+      "week52_low": 3728.7,
+      "pct_off_52w_high": -0.82,
+      "pct_above_52w_low": 55.26,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:54.641326"
+  },
+  "NSE:KELLTONTEC-EQ": {
+    "fundamentals": {
+      "company_name": "KELLTON TECH SOLUTIONS LTD",
+      "current_price": 13.8,
+      "market_cap_cr": 733.32,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1216.94,
+      "net_profit_cr": 91.66,
+      "eps": 1.72,
+      "pe_ratio": 8.0,
+      "roe_pct": 11.35,
+      "debt_to_equity": 0.237,
+      "opm_pct": 11.13,
+      "sales_cagr_pct": 7.88
+    },
+    "price_levels": {
+      "latest_close": 13.78,
+      "week52_high": 29.05,
+      "week52_low": 13.0,
+      "pct_off_52w_high": -52.56,
+      "pct_above_52w_low": 6.0,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:07:58.145583"
+  },
+  "NSE:KENNAMET-EQ": {
+    "fundamentals": {
+      "company_name": "KENNAMETAL INDIA LTD",
+      "current_price": 3676.0,
+      "market_cap_cr": 8079.26,
+      "latest_year": "2025-06-30 00:00:00",
+      "sales_cr": 1170.3,
+      "net_profit_cr": 102.9,
+      "eps": 46.77,
+      "pe_ratio": 78.59,
+      "roe_pct": 13.77,
+      "debt_to_equity": 0.003,
+      "opm_pct": 14.71,
+      "sales_cagr_pct": 8.32
+    },
+    "price_levels": {
+      "latest_close": 3674.1,
+      "week52_high": 3747.8,
+      "week52_low": 2405.2,
+      "pct_off_52w_high": -1.97,
+      "pct_above_52w_low": 52.76,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T16:08:01.910619"
+  },
+  "NSE:KERNEX-EQ": {
+    "fundamentals": {
+      "company_name": "KERNEX MICROSYSTEMS (INDIA) LTD",
+      "current_price": 2241.75,
+      "market_cap_cr": 3739.05,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 430.22,
+      "net_profit_cr": 88.34,
+      "eps": 52.58,
+      "pe_ratio": 42.63,
+      "roe_pct": 35.61,
+      "debt_to_equity": 0.653,
+      "opm_pct": 34.58,
+      "sales_cagr_pct": 48.47
+    },
+    "price_levels": {
+      "latest_close": 2242.7,
+      "week52_high": 2580.0,
+      "week52_low": 850.0,
+      "pct_off_52w_high": -13.07,
+      "pct_above_52w_low": 163.85,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:06.061049"
+  },
+  "NSE:KEYFINSERV-EQ": {
+    "fundamentals": {
+      "company_name": "KEYNOTE FINANCIAL SERVICES LTD",
+      "current_price": 265.65,
+      "market_cap_cr": 147.88,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 26.62,
+      "net_profit_cr": 6.66,
+      "eps": 11.89,
+      "pe_ratio": 22.34,
+      "roe_pct": 4.61,
+      "debt_to_equity": 0.029,
+      "opm_pct": 30.77,
+      "sales_cagr_pct": 0.83
+    },
+    "price_levels": {
+      "latest_close": 265.65,
+      "week52_high": 382.1,
+      "week52_low": 220.0,
+      "pct_off_52w_high": -30.48,
+      "pct_above_52w_low": 20.75,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:09.770705"
+  },
+  "NSE:KFINTECH-EQ": {
+    "fundamentals": {
+      "company_name": "KFIN TECHNOLOGIES LTD",
+      "current_price": 924.0,
+      "market_cap_cr": 15969.39,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1301.49,
+      "net_profit_cr": 343.71,
+      "eps": 19.93,
+      "pe_ratio": 46.37,
+      "roe_pct": 20.54,
+      "debt_to_equity": 0.033,
+      "opm_pct": 40.68,
+      "sales_cagr_pct": 34.62
+    },
+    "price_levels": {
+      "latest_close": 929.0,
+      "week52_high": 1215.0,
+      "week52_low": 784.95,
+      "pct_off_52w_high": -23.54,
+      "pct_above_52w_low": 18.35,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:13.066215"
+  },
+  "NSE:KHAICHEM-EQ": {
+    "fundamentals": {
+      "company_name": "KHAITAN CHEMICALS & FERTILIZERS LTD",
+      "current_price": 51.74,
+      "market_cap_cr": 501.82,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1001.63,
+      "net_profit_cr": 64.6,
+      "eps": 6.66,
+      "pe_ratio": 7.77,
+      "roe_pct": 22.23,
+      "debt_to_equity": 1.052,
+      "opm_pct": 11.34,
+      "sales_cagr_pct": 12.09
+    },
+    "price_levels": {
+      "latest_close": 51.19,
+      "week52_high": 135.8,
+      "week52_low": 42.92,
+      "pct_off_52w_high": -62.3,
+      "pct_above_52w_low": 19.27,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:17.184040"
+  },
+  "NSE:KHAITANLTD-EQ": {
+    "fundamentals": {
+      "company_name": "KHAITAN (INDIA) LTD",
+      "current_price": 146.95,
+      "market_cap_cr": 69.81,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 112.23,
+      "net_profit_cr": 6.06,
+      "eps": 12.62,
+      "pe_ratio": 11.64,
+      "roe_pct": 18.07,
+      "debt_to_equity": 0.162,
+      "opm_pct": 6.61,
+      "sales_cagr_pct": 24.39
+    },
+    "price_levels": {
+      "latest_close": 143.13,
+      "week52_high": 165.0,
+      "week52_low": 85.0,
+      "pct_off_52w_high": -13.25,
+      "pct_above_52w_low": 68.39,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:21.230932"
+  },
+  "NSE:KHANDSE-EQ": {
+    "fundamentals": {
+      "company_name": "KHANDWALA SECURITIES LTD",
+      "current_price": 17.1,
+      "market_cap_cr": 26.09,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 7.89,
+      "net_profit_cr": -1.27,
+      "eps": -0.83,
+      "pe_ratio": -20.6,
+      "roe_pct": -4.58,
+      "debt_to_equity": 0.104,
+      "opm_pct": -28.26,
+      "sales_cagr_pct": 7.43
+    },
+    "price_levels": {
+      "latest_close": 17.1,
+      "week52_high": 29.0,
+      "week52_low": 12.2,
+      "pct_off_52w_high": -41.03,
+      "pct_above_52w_low": 40.16,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:25.064148"
+  },
+  "NSE:KICL-EQ": {
+    "fundamentals": {
+      "company_name": "KALYANI INVESTMENT COMPANY LTD",
+      "current_price": 5477.0,
+      "market_cap_cr": 2393.45,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 78.05,
+      "net_profit_cr": 36.77,
+      "eps": 83.57,
+      "pe_ratio": 65.54,
+      "roe_pct": 0.32,
+      "debt_to_equity": 0.0,
+      "opm_pct": 62.61,
+      "sales_cagr_pct": 25.49
+    },
+    "price_levels": {
+      "latest_close": 5459.0,
+      "week52_high": 6554.9,
+      "week52_low": 4011.0,
+      "pct_off_52w_high": -16.72,
+      "pct_above_52w_low": 36.1,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:28.512014"
+  },
+  "NSE:KIMS-EQ": {
+    "fundamentals": {
+      "company_name": "KRISHNA INSTITUTE OF MEDICAL SCIENCES LTD",
+      "current_price": 802.0,
+      "market_cap_cr": 33684.52,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3904.6,
+      "net_profit_cr": 241.4,
+      "eps": 6.03,
+      "pe_ratio": 132.92,
+      "roe_pct": 10.74,
+      "debt_to_equity": 1.892,
+      "opm_pct": 20.88,
+      "sales_cagr_pct": 23.91
+    },
+    "price_levels": {
+      "latest_close": 807.55,
+      "week52_high": 858.0,
+      "week52_low": 575.8,
+      "pct_off_52w_high": -5.88,
+      "pct_above_52w_low": 40.25,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:31.784713"
+  },
+  "NSE:KINGFA-EQ": {
+    "fundamentals": {
+      "company_name": "KINGFA SCIENCE & TECHNOLOGY (INDIA) LTD",
+      "current_price": 6028.5,
+      "market_cap_cr": 8169.43,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1995.55,
+      "net_profit_cr": 185.26,
+      "eps": 136.22,
+      "pe_ratio": 44.26,
+      "roe_pct": 13.24,
+      "debt_to_equity": 0.011,
+      "opm_pct": 13.1,
+      "sales_cagr_pct": 18.68
+    },
+    "price_levels": {
+      "latest_close": 6028.5,
+      "week52_high": 6200.0,
+      "week52_low": 3570.0,
+      "pct_off_52w_high": -2.77,
+      "pct_above_52w_low": 68.87,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:35.027321"
+  },
+  "NSE:KIOCL-EQ": {
+    "fundamentals": {
+      "company_name": "KIOCL LTD",
+      "current_price": 384.95,
+      "market_cap_cr": 23395.39,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 613.46,
+      "net_profit_cr": 16.57,
+      "eps": 0.27,
+      "pe_ratio": 1412.03,
+      "roe_pct": 0.95,
+      "debt_to_equity": 0.111,
+      "opm_pct": -4.76,
+      "sales_cagr_pct": -3.81
+    },
+    "price_levels": {
+      "latest_close": 384.85,
+      "week52_high": 634.55,
+      "week52_low": 290.65,
+      "pct_off_52w_high": -39.35,
+      "pct_above_52w_low": 32.41,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:38.225018"
+  },
+  "NSE:KIRANVYPAR-EQ": {
+    "fundamentals": {
+      "company_name": "KIRAN VYAPAR LTD",
+      "current_price": 199.0,
+      "market_cap_cr": 542.96,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 106.68,
+      "net_profit_cr": 1.02,
+      "eps": 0.37,
+      "pe_ratio": 532.62,
+      "roe_pct": 0.05,
+      "debt_to_equity": 0.222,
+      "opm_pct": 39.15,
+      "sales_cagr_pct": -1.28
+    },
+    "price_levels": {
+      "latest_close": 200.31,
+      "week52_high": 219.0,
+      "week52_low": 148.27,
+      "pct_off_52w_high": -8.53,
+      "pct_above_52w_low": 35.1,
+      "candle_count": 80
+    },
+    "fetched_at": "2026-08-13T16:08:41.520525"
+  },
+  "NSE:KIRIINDUS-EQ": {
+    "fundamentals": {
+      "company_name": "KIRI INDUSTRIES LTD",
+      "current_price": 416.7,
+      "market_cap_cr": 2715.48,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 839.65,
+      "net_profit_cr": 5566.5,
+      "eps": 927.75,
+      "pe_ratio": 0.45,
+      "roe_pct": 86.49,
+      "debt_to_equity": 0.007,
+      "opm_pct": -26.31,
+      "sales_cagr_pct": -3.2
+    },
+    "price_levels": {
+      "latest_close": 414.65,
+      "week52_high": 779.0,
+      "week52_low": 333.8,
+      "pct_off_52w_high": -46.77,
+      "pct_above_52w_low": 24.22,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:44.775515"
+  },
+  "NSE:KIRLFER-EQ": {
+    "fundamentals": {
+      "company_name": "KIRLOSKAR FERROUS INDUSTRIES LTD",
+      "current_price": 435.55,
+      "market_cap_cr": 7187.82,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6888.57,
+      "net_profit_cr": 504.74,
+      "eps": 30.61,
+      "pe_ratio": 14.23,
+      "roe_pct": 13.06,
+      "debt_to_equity": 0.268,
+      "opm_pct": 12.34,
+      "sales_cagr_pct": 20.6
+    },
+    "price_levels": {
+      "latest_close": 435.55,
+      "week52_high": 513.0,
+      "week52_low": 408.0,
+      "pct_off_52w_high": -15.1,
+      "pct_above_52w_low": 6.75,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T16:08:48.004262"
+  },
+  "NSE:KIRLOSBROS-EQ": {
+    "fundamentals": {
+      "company_name": "KIRLOSKAR BROTHERS LTD",
+      "current_price": 1935.0,
+      "market_cap_cr": 15365.61,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4537.99,
+      "net_profit_cr": 373.63,
+      "eps": 47.06,
+      "pe_ratio": 41.12,
+      "roe_pct": 15.16,
+      "debt_to_equity": 0.101,
+      "opm_pct": 12.0,
+      "sales_cagr_pct": 6.72
+    },
+    "price_levels": {
+      "latest_close": 1935.5,
+      "week52_high": 2189.2,
+      "week52_low": 1335.0,
+      "pct_off_52w_high": -11.59,
+      "pct_above_52w_low": 44.98,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:51.331889"
+  },
+  "NSE:KIRLOSENG-EQ": {
+    "fundamentals": {
+      "company_name": "KIRLOSKAR OIL ENGINES LTD",
+      "current_price": 2060.35,
+      "market_cap_cr": 29979.36,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 7701.01,
+      "net_profit_cr": 574.32,
+      "eps": 39.5,
+      "pe_ratio": 52.16,
+      "roe_pct": 15.86,
+      "debt_to_equity": 1.485,
+      "opm_pct": 18.36,
+      "sales_cagr_pct": 12.47
+    },
+    "price_levels": {
+      "latest_close": 2059.9,
+      "week52_high": 2720.0,
+      "week52_low": 855.8,
+      "pct_off_52w_high": -24.27,
+      "pct_above_52w_low": 140.7,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:54.692291"
+  },
+  "NSE:KIRLOSIND-EQ": {
+    "fundamentals": {
+      "company_name": "KIRLOSKAR INDUSTRIES LTD",
+      "current_price": 3806.4,
+      "market_cap_cr": 4000.28,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6957.6,
+      "net_profit_cr": 227.54,
+      "eps": 216.7,
+      "pe_ratio": 17.56,
+      "roe_pct": 3.64,
+      "debt_to_equity": 0.178,
+      "opm_pct": 12.57,
+      "sales_cagr_pct": 22.29
+    },
+    "price_levels": {
+      "latest_close": 3806.4,
+      "week52_high": 4574.8,
+      "week52_low": 2463.0,
+      "pct_off_52w_high": -16.8,
+      "pct_above_52w_low": 54.54,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:08:58.193893"
+  },
+  "NSE:KIRLPNU-EQ": {
+    "fundamentals": {
+      "company_name": "KIRLOSKAR PNEUMATIC COMPANY LTD",
+      "current_price": 1503.75,
+      "market_cap_cr": 9768.89,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1759.23,
+      "net_profit_cr": 258.41,
+      "eps": 39.76,
+      "pe_ratio": 37.83,
+      "roe_pct": 20.66,
+      "debt_to_equity": 0.0,
+      "opm_pct": 20.62,
+      "sales_cagr_pct": 14.64
+    },
+    "price_levels": {
+      "latest_close": 1506.8,
+      "week52_high": 2197.1,
+      "week52_low": 990.1,
+      "pct_off_52w_high": -31.42,
+      "pct_above_52w_low": 52.19,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:09:01.457860"
+  },
+  "NSE:KISSHT-EQ": {
+    "fundamentals": {
+      "company_name": "ONEMI TECHNOLOGY SOLUTIONS LTD",
+      "current_price": 298.1,
+      "market_cap_cr": 5022.49,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2188.22,
+      "net_profit_cr": 281.45,
+      "eps": 23.69,
+      "pe_ratio": 12.58,
+      "roe_pct": 20.96,
+      "debt_to_equity": 1.436,
+      "opm_pct": 30.15,
+      "sales_cagr_pct": 65.73
+    },
+    "price_levels": {
+      "latest_close": 300.9,
+      "week52_high": 351.5,
+      "week52_low": 190.0,
+      "pct_off_52w_high": -14.4,
+      "pct_above_52w_low": 58.37,
+      "candle_count": 68
+    },
+    "fetched_at": "2026-08-13T16:09:04.501104"
+  },
+  "NSE:KITEX-EQ": {
+    "fundamentals": {
+      "company_name": "KITEX GARMENTS LTD",
+      "current_price": 138.85,
+      "market_cap_cr": 2770.09,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 666.95,
+      "net_profit_cr": 5.91,
+      "eps": 0.3,
+      "pe_ratio": 468.71,
+      "roe_pct": 0.57,
+      "debt_to_equity": 1.165,
+      "opm_pct": 4.26,
+      "sales_cagr_pct": 2.25
+    },
+    "price_levels": {
+      "latest_close": 138.89,
+      "week52_high": 232.7,
+      "week52_low": 132.01,
+      "pct_off_52w_high": -40.31,
+      "pct_above_52w_low": 5.21,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:09:07.941296"
+  },
+  "NSE:KKCL-EQ": {
+    "fundamentals": {
+      "company_name": "KEWAL KIRAN CLOTHING LTD",
+      "current_price": 520.1,
+      "market_cap_cr": 3205.12,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1212.77,
+      "net_profit_cr": 141.9,
+      "eps": 23.04,
+      "pe_ratio": 22.58,
+      "roe_pct": 15.12,
+      "debt_to_equity": 0.136,
+      "opm_pct": 19.61,
+      "sales_cagr_pct": 11.2
+    },
+    "price_levels": {
+      "latest_close": 521.4,
+      "week52_high": 595.0,
+      "week52_low": 408.35,
+      "pct_off_52w_high": -12.37,
+      "pct_above_52w_low": 27.68,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:09:11.238388"
+  },
+  "NSE:KLBRENG-B-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 358.9,
+      "week52_high": 544.85,
+      "week52_low": 353.0,
+      "pct_off_52w_high": -34.13,
+      "pct_above_52w_low": 1.67,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T16:09:13.854242"
+  },
+  "NSE:KMEW-EQ": {
+    "fundamentals": {
+      "company_name": "KNOWLEDGE MARINE & ENGINEERING WORKS LTD",
+      "current_price": 2707.9,
+      "market_cap_cr": 6868.45,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 256.28,
+      "net_profit_cr": 78.8,
+      "eps": 32.3,
+      "pe_ratio": 83.85,
+      "roe_pct": 13.82,
+      "debt_to_equity": 0.39,
+      "opm_pct": 37.75,
+      "sales_cagr_pct": 48.93
+    },
+    "price_levels": {
+      "latest_close": 2709.8,
+      "week52_high": 2737.0,
+      "week52_low": 809.6,
+      "pct_off_52w_high": -0.99,
+      "pct_above_52w_low": 234.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:09:17.052563"
+  },
+  "NSE:KMSUGAR-EQ": {
+    "fundamentals": {
+      "company_name": "KM SUGAR MILLS LTD",
+      "current_price": 27.95,
+      "market_cap_cr": 257.15,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 658.38,
+      "net_profit_cr": 53.42,
+      "eps": 5.81,
+      "pe_ratio": 4.81,
+      "roe_pct": 13.63,
+      "debt_to_equity": 0.637,
+      "opm_pct": 13.24,
+      "sales_cagr_pct": 7.62
+    },
+    "price_levels": {
+      "latest_close": 27.74,
+      "week52_high": 33.73,
+      "week52_low": 23.0,
+      "pct_off_52w_high": -17.76,
+      "pct_above_52w_low": 20.61,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:09:20.622063"
+  },
+  "NSE:KNACK-EQ": {
+    "fundamentals": {
+      "company_name": "KNACK PACKAGING LTD",
+      "current_price": 204.75,
+      "market_cap_cr": 2505.36,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 809.75,
+      "net_profit_cr": 89.42,
+      "eps": 8.94,
+      "pe_ratio": 22.9,
+      "roe_pct": null,
+      "debt_to_equity": null,
+      "opm_pct": 17.97,
+      "sales_cagr_pct": 17.12
+    },
+    "price_levels": {
+      "latest_close": 204.56,
+      "week52_high": 222.0,
+      "week52_low": 180.33,
+      "pct_off_52w_high": -7.86,
+      "pct_above_52w_low": 13.44,
+      "candle_count": 27
+    },
+    "fetched_at": "2026-08-13T16:09:24.018216"
+  },
+  "NSE:KNAGRI-EQ": {
+    "fundamentals": {
+      "company_name": "KN AGRI RESOURCES LTD",
+      "current_price": 214.52,
+      "market_cap_cr": 536.34,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1814.0,
+      "net_profit_cr": 31.68,
+      "eps": 12.67,
+      "pe_ratio": 16.93,
+      "roe_pct": 8.23,
+      "debt_to_equity": 0.089,
+      "opm_pct": 2.8,
+      "sales_cagr_pct": 5.05
+    },
+    "price_levels": {
+      "latest_close": 214.52,
+      "week52_high": 249.5,
+      "week52_low": 148.3,
+      "pct_off_52w_high": -14.02,
+      "pct_above_52w_low": 44.65,
+      "candle_count": 246
+    },
+    "fetched_at": "2026-08-13T16:09:27.159651"
+  },
+  "NSE:KNRCON-EQ": {
+    "fundamentals": {
+      "company_name": "KNR CONSTRUCTIONS LTD",
+      "current_price": 134.55,
+      "market_cap_cr": 3784.01,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2698.01,
+      "net_profit_cr": 437.08,
+      "eps": 15.54,
+      "pe_ratio": 8.66,
+      "roe_pct": 8.79,
+      "debt_to_equity": 0.492,
+      "opm_pct": 26.37,
+      "sales_cagr_pct": 5.67
+    },
+    "price_levels": {
+      "latest_close": 134.58,
+      "week52_high": 220.0,
+      "week52_low": 108.65,
+      "pct_off_52w_high": -38.83,
+      "pct_above_52w_low": 23.87,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:09:30.429550"
   }
 }
