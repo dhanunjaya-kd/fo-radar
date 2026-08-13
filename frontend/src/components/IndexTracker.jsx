@@ -48,6 +48,7 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
             <th className="text-left px-2.5 py-2 font-medium">Time</th>
             <th className="text-right px-2.5 py-2 font-medium">Spot</th>
             <th className="text-right px-2.5 py-2 font-medium">Chg%</th>
+            <th className="text-center px-2.5 py-2 font-medium">CAS</th>
             <th className="text-right px-2.5 py-2 font-medium">Futures</th>
             <th className="text-right px-2.5 py-2 font-medium">Fut OI</th>
             <th className="text-right px-2.5 py-2 font-medium">Fut OI Chg%</th>
@@ -75,6 +76,18 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                 <td className="px-2.5 py-2 text-slate-500 font-mono whitespace-nowrap">{r.Time}</td>
                 <td className="px-2.5 py-2 text-right text-white font-semibold whitespace-nowrap">{fmt(r.Spot)}</td>
                 <td className={`px-2.5 py-2 text-right whitespace-nowrap ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Change %'])}</td>
+                <td className="px-2.5 py-2 text-center">
+                  {r['CAS Auction'] ? (
+                    <span
+                      className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25 whitespace-nowrap"
+                      title="Taken during the 3:15-3:35 PM Closing Auction Session -- Chg% and Confirms? here reflect the real auction mechanism, not necessarily a normal intraday move"
+                    >
+                      Auction
+                    </span>
+                  ) : (
+                    <span className="text-slate-600">—</span>
+                  )}
+                </td>
                 <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmt(r.Fut)}</td>
                 <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmtOi(r['Fut OI'])}</td>
                 <td className={`px-2.5 py-2 text-right whitespace-nowrap ${(r['Fut OI Chg %'] || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Fut OI Chg %'])}</td>

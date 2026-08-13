@@ -148,7 +148,7 @@ def is_mcx_hours():
 
 
 COLUMNS = [
-    "Time", "Spot", "Change %", "Fut", "Fut OI", "Fut OI Chg %", "PCR", "ATM Strike",
+    "Time", "Spot", "Change %", "CAS Auction", "Fut", "Fut OI", "Fut OI Chg %", "PCR", "ATM Strike",
     "Put OI (ATM)", "Put OI Chg", "Put Status",
     "Call OI (ATM)", "Call OI Chg", "Call Status",
     "Total Put OI", "Total Call OI",
@@ -304,7 +304,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     if not OPENPYXL_AVAILABLE or index_name not in INDEX_SYMBOLS:
         return None
 
-    from .market_hours import is_market_hours
+    from .market_hours import is_market_hours, is_cas_auction_window
     if not is_market_hours():
         return None
 
@@ -362,6 +362,14 @@ def snapshot_index(index_name, change_percent=None, vix=None):
 
     bias = _derive_bias(oi.get("pcr"), oi.get("oi_buildup"))
     confirms = _price_confirms_bias(change_percent, bias)
+    # Flagged separately rather than suppressing/altering Change % or
+    # Price Confirms Bias -- those numbers are real, computed the same
+    # way regardless of when the snapshot was taken. This just gives
+    # the context that a reading during 3:15-3:35 PM coincides with
+    # the documented freeze-then-jump behavior of the CAS auction
+    # itself (see market_hours.py), so a big move here can be read
+    # correctly rather than mistaken for a normal intraday move.
+    cas_auction = is_cas_auction_window()
 
     row = {
         "Time": datetime.now().strftime("%H:%M:%S"),
@@ -370,6 +378,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "Fut OI": fut_oi,
         "Fut OI Chg %": fut_oi_chg_pct,
         "Change %": change_percent,
+        "CAS Auction": cas_auction,
         "PCR": oi.get("pcr"),
         "ATM Strike": atm_strike,
         "Put OI (ATM)": pe_oi, "Put OI Chg": pe_chg, "Put Status": _status_label(pe_chg),
@@ -501,6 +510,7 @@ def snapshot_commodity(name, base):
         "Fut OI": fut_oi,
         "Fut OI Chg %": fut_oi_chg_pct,
         "Change %": change_percent,
+        "CAS Auction": None,  # CAS is an NSE cash-market mechanism -- doesn't apply to MCX commodities at all
         "PCR": oi.get("pcr"),
         "ATM Strike": atm_strike,
         "Put OI (ATM)": pe_oi, "Put OI Chg": pe_chg, "Put Status": _status_label(pe_chg),

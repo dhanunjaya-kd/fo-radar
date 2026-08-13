@@ -54250,5 +54250,3074 @@
       "candle_count": 247
     },
     "fetched_at": "2026-08-13T17:13:52.897148"
+  },
+  "NSE:GROWWHOSPI-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 52.45,
+      "week52_high": 62.0,
+      "week52_low": 43.35,
+      "pct_off_52w_high": -15.4,
+      "pct_above_52w_low": 20.99,
+      "candle_count": 109
+    },
+    "fetched_at": "2026-08-13T17:13:55.805678"
+  },
+  "NSE:GROWWLIQID-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 110.31,
+      "week52_high": 110.9,
+      "week52_low": 102.89,
+      "pct_off_52w_high": -0.53,
+      "pct_above_52w_low": 7.21,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:13:58.460301"
+  },
+  "NSE:GROWWLOVOL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.6,
+      "week52_high": 11.1,
+      "week52_low": 9.39,
+      "pct_off_52w_high": -4.5,
+      "pct_above_52w_low": 12.89,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:01.064947"
+  },
+  "NSE:GROWWMC150-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 234.71,
+      "week52_high": 245.0,
+      "week52_low": 193.6,
+      "pct_off_52w_high": -4.2,
+      "pct_above_52w_low": 21.23,
+      "candle_count": 184
+    },
+    "fetched_at": "2026-08-13T17:14:03.743741"
+  },
+  "NSE:GROWWMETAL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 12.36,
+      "week52_high": 13.45,
+      "week52_low": 10.03,
+      "pct_off_52w_high": -8.1,
+      "pct_above_52w_low": 23.23,
+      "candle_count": 158
+    },
+    "fetched_at": "2026-08-13T17:14:06.686491"
+  },
+  "NSE:GROWWMOM50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 11.06,
+      "week52_high": 11.5,
+      "week52_low": 9.12,
+      "pct_off_52w_high": -3.83,
+      "pct_above_52w_low": 21.27,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:12.345622"
+  },
+  "NSE:GROWWN200-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 11.47,
+      "week52_high": 12.14,
+      "week52_low": 9.91,
+      "pct_off_52w_high": -5.52,
+      "pct_above_52w_low": 15.74,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:15.203519"
+  },
+  "NSE:GROWWNET-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.6,
+      "week52_high": 11.4,
+      "week52_low": 7.93,
+      "pct_off_52w_high": -7.02,
+      "pct_above_52w_low": 33.67,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:17.812216"
+  },
+  "NSE:GROWWNIFTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 9.87,
+      "week52_high": 11.88,
+      "week52_low": 8.93,
+      "pct_off_52w_high": -16.92,
+      "pct_above_52w_low": 10.53,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:20.739846"
+  },
+  "NSE:GROWWNXT50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 74.74,
+      "week52_high": 76.79,
+      "week52_low": 60.01,
+      "pct_off_52w_high": -2.67,
+      "pct_above_52w_low": 24.55,
+      "candle_count": 239
+    },
+    "fetched_at": "2026-08-13T17:14:23.402807"
+  },
+  "NSE:GROWWPOWER-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 11.5,
+      "week52_high": 13.2,
+      "week52_low": 7.75,
+      "pct_off_52w_high": -12.88,
+      "pct_above_52w_low": 48.39,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:26.066335"
+  },
+  "NSE:GROWWPSE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 99.57,
+      "week52_high": 109.85,
+      "week52_low": 93.2,
+      "pct_off_52w_high": -9.36,
+      "pct_above_52w_low": 6.83,
+      "candle_count": 124
+    },
+    "fetched_at": "2026-08-13T17:14:28.609722"
+  },
+  "NSE:GROWWPSUBK-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 87.83,
+      "week52_high": 91.19,
+      "week52_low": 77.57,
+      "pct_off_52w_high": -3.68,
+      "pct_above_52w_low": 13.23,
+      "candle_count": 94
+    },
+    "fetched_at": "2026-08-13T17:14:31.372633"
+  },
+  "NSE:GROWWRAIL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 29.3,
+      "week52_high": 36.75,
+      "week52_low": 27.8,
+      "pct_off_52w_high": -20.27,
+      "pct_above_52w_low": 5.4,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:33.985976"
+  },
+  "NSE:GROWWRLTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.12,
+      "week52_high": 11.3,
+      "week52_low": 7.17,
+      "pct_off_52w_high": -10.44,
+      "pct_above_52w_low": 41.14,
+      "candle_count": 209
+    },
+    "fetched_at": "2026-08-13T17:14:36.839277"
+  },
+  "NSE:GROWWSC250-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.61,
+      "week52_high": 10.97,
+      "week52_low": 8.0,
+      "pct_off_52w_high": -3.28,
+      "pct_above_52w_low": 32.62,
+      "candle_count": 195
+    },
+    "fetched_at": "2026-08-13T17:14:39.627357"
+  },
+  "NSE:GROWWSLVR-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 22.66,
+      "week52_high": 36.3,
+      "week52_low": 10.98,
+      "pct_off_52w_high": -37.58,
+      "pct_above_52w_low": 106.38,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:42.429139"
+  },
+  "NSE:GSEC10ABSL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 113.27,
+      "week52_high": 115.0,
+      "week52_low": 107.65,
+      "pct_off_52w_high": -1.5,
+      "pct_above_52w_low": 5.22,
+      "candle_count": 178
+    },
+    "fetched_at": "2026-08-13T17:14:45.007223"
+  },
+  "NSE:GSEC10IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 267.12,
+      "week52_high": 267.54,
+      "week52_low": 252.23,
+      "pct_off_52w_high": -0.16,
+      "pct_above_52w_low": 5.9,
+      "candle_count": 231
+    },
+    "fetched_at": "2026-08-13T17:14:47.597760"
+  },
+  "NSE:GSEC10YEAR-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 30.68,
+      "week52_high": 31.33,
+      "week52_low": 28.39,
+      "pct_off_52w_high": -2.07,
+      "pct_above_52w_low": 8.07,
+      "candle_count": 246
+    },
+    "fetched_at": "2026-08-13T17:14:50.299355"
+  },
+  "NSE:GSEC5IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 66.31,
+      "week52_high": 69.14,
+      "week52_low": 62.0,
+      "pct_off_52w_high": -4.09,
+      "pct_above_52w_low": 6.95,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:53.025962"
+  },
+  "NSE:HDFCBSE500-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 38.11,
+      "week52_high": 40.0,
+      "week52_low": 32.65,
+      "pct_off_52w_high": -4.73,
+      "pct_above_52w_low": 16.72,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:55.611676"
+  },
+  "NSE:HDFCGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 129.65,
+      "week52_high": 152.3,
+      "week52_low": 83.43,
+      "pct_off_52w_high": -14.87,
+      "pct_above_52w_low": 55.4,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:14:58.163104"
+  },
+  "NSE:HDFCGROWTH-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 123.16,
+      "week52_high": 133.3,
+      "week52_low": 107.86,
+      "pct_off_52w_high": -7.61,
+      "pct_above_52w_low": 14.19,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:00.760598"
+  },
+  "NSE:HDFCLIQUID-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1073.45,
+      "week52_high": 1073.55,
+      "week52_low": 1009.91,
+      "pct_off_52w_high": -0.01,
+      "pct_above_52w_low": 6.29,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:03.416242"
+  },
+  "NSE:HDFCLOWVOL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 21.13,
+      "week52_high": 22.28,
+      "week52_low": 18.35,
+      "pct_off_52w_high": -5.16,
+      "pct_above_52w_low": 15.15,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:06.050048"
+  },
+  "NSE:HDFCMID150-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 23.78,
+      "week52_high": 25.2,
+      "week52_low": 19.42,
+      "pct_off_52w_high": -5.63,
+      "pct_above_52w_low": 22.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:08.700463"
+  },
+  "NSE:HDFCMOMENT-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 31.49,
+      "week52_high": 33.23,
+      "week52_low": 27.13,
+      "pct_off_52w_high": -5.24,
+      "pct_above_52w_low": 16.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:11.292656"
+  },
+  "NSE:HDFCNEXT50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 76.17,
+      "week52_high": 77.9,
+      "week52_low": 59.99,
+      "pct_off_52w_high": -2.22,
+      "pct_above_52w_low": 26.97,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:13.987031"
+  },
+  "NSE:HDFCNIF100-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 26.33,
+      "week52_high": 29.0,
+      "week52_low": 22.0,
+      "pct_off_52w_high": -9.21,
+      "pct_above_52w_low": 19.68,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:16.552901"
+  },
+  "NSE:HDFCNIFBAN-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 59.43,
+      "week52_high": 65.54,
+      "week52_low": 51.2,
+      "pct_off_52w_high": -9.32,
+      "pct_above_52w_low": 16.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:19.115685"
+  },
+  "NSE:HDFCNIFIT-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 33.55,
+      "week52_high": 42.3,
+      "week52_low": 27.32,
+      "pct_off_52w_high": -20.69,
+      "pct_above_52w_low": 22.8,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:21.703885"
+  },
+  "NSE:HDFCNIFTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 275.2,
+      "week52_high": 301.88,
+      "week52_low": 247.56,
+      "pct_off_52w_high": -8.84,
+      "pct_above_52w_low": 11.16,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:24.322519"
+  },
+  "NSE:HDFCNIMEG-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 130.06,
+      "week52_high": 152.55,
+      "week52_low": 126.96,
+      "pct_off_52w_high": -14.74,
+      "pct_above_52w_low": 2.44,
+      "candle_count": 10
+    },
+    "fetched_at": "2026-08-13T17:15:26.994456"
+  },
+  "NSE:HDFCPSUBK-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 88.7,
+      "week52_high": 101.25,
+      "week52_low": 67.98,
+      "pct_off_52w_high": -12.4,
+      "pct_above_52w_low": 30.48,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:29.531324"
+  },
+  "NSE:HDFCPVTBAN-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 27.91,
+      "week52_high": 30.17,
+      "week52_low": 24.31,
+      "pct_off_52w_high": -7.49,
+      "pct_above_52w_low": 14.81,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:32.110793"
+  },
+  "NSE:HDFCQUAL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 60.08,
+      "week52_high": 61.87,
+      "week52_low": 51.91,
+      "pct_off_52w_high": -2.89,
+      "pct_above_52w_low": 15.74,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:34.767030"
+  },
+  "NSE:HDFCSENSEX-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 88.19,
+      "week52_high": 98.48,
+      "week52_low": 80.9,
+      "pct_off_52w_high": -10.45,
+      "pct_above_52w_low": 9.01,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:37.342362"
+  },
+  "NSE:HDFCSILVER-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 220.9,
+      "week52_high": 359.0,
+      "week52_low": 106.78,
+      "pct_off_52w_high": -38.47,
+      "pct_above_52w_low": 106.87,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:39.916039"
+  },
+  "NSE:HDFCSML250-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 185.21,
+      "week52_high": 189.51,
+      "week52_low": 142.7,
+      "pct_off_52w_high": -2.27,
+      "pct_above_52w_low": 29.79,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:42.571229"
+  },
+  "NSE:HDFCVALUE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 127.4,
+      "week52_high": 147.05,
+      "week52_low": 120.0,
+      "pct_off_52w_high": -13.36,
+      "pct_above_52w_low": 6.17,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:45.372636"
+  },
+  "NSE:HEALTHADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 16.69,
+      "week52_high": 17.47,
+      "week52_low": 13.54,
+      "pct_off_52w_high": -4.46,
+      "pct_above_52w_low": 23.26,
+      "candle_count": 246
+    },
+    "fetched_at": "2026-08-13T17:15:48.049362"
+  },
+  "NSE:HEALTHAXIS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 168.45,
+      "week52_high": 173.72,
+      "week52_low": 135.2,
+      "pct_off_52w_high": -3.03,
+      "pct_above_52w_low": 24.59,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:50.713839"
+  },
+  "NSE:HEALTHCARE-EQ": {
+    "fundamentals": {
+      "company_name": "HEALTHCARE GLOBAL ENTERPRISES LTD",
+      "current_price": 721.4,
+      "market_cap_cr": 10780.18,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2545.41,
+      "net_profit_cr": 13.76,
+      "eps": 0.92,
+      "pe_ratio": 782.74,
+      "roe_pct": 1.03,
+      "debt_to_equity": 1.303,
+      "opm_pct": 18.3,
+      "sales_cagr_pct": 15.42
+    },
+    "price_levels": {
+      "latest_close": 21.68,
+      "week52_high": 22.29,
+      "week52_low": 17.18,
+      "pct_off_52w_high": -2.74,
+      "pct_above_52w_low": 26.19,
+      "candle_count": 121
+    },
+    "fetched_at": "2026-08-13T17:15:54.248653"
+  },
+  "NSE:HEALTHIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 170.26,
+      "week52_high": 174.82,
+      "week52_low": 138.65,
+      "pct_off_52w_high": -2.61,
+      "pct_above_52w_low": 22.8,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:15:56.731834"
+  },
+  "NSE:HEALTHY-EQ": {
+    "fundamentals": {
+      "company_name": "HEALTHY LIFE AGRITEC LTD",
+      "current_price": 5.29,
+      "market_cap_cr": 26.25,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 228.14,
+      "net_profit_cr": 4.0,
+      "eps": 0.81,
+      "pe_ratio": 6.56,
+      "roe_pct": 6.33,
+      "debt_to_equity": 0.201,
+      "opm_pct": 2.82,
+      "sales_cagr_pct": 60.99
+    },
+    "price_levels": {
+      "latest_close": 17.06,
+      "week52_high": 17.67,
+      "week52_low": 13.58,
+      "pct_off_52w_high": -3.45,
+      "pct_above_52w_low": 25.63,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:00.542235"
+  },
+  "NSE:HNGSNGBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 480.01,
+      "week52_high": 579.92,
+      "week52_low": 436.11,
+      "pct_off_52w_high": -17.23,
+      "pct_above_52w_low": 10.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:03.157079"
+  },
+  "NSE:HSBCGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 131.9,
+      "week52_high": 146.4,
+      "week52_low": 119.1,
+      "pct_off_52w_high": -9.9,
+      "pct_above_52w_low": 10.75,
+      "candle_count": 94
+    },
+    "fetched_at": "2026-08-13T17:16:05.822800"
+  },
+  "NSE:HYBRIDETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.18,
+      "week52_high": 10.29,
+      "week52_low": 10.02,
+      "pct_off_52w_high": -1.07,
+      "pct_above_52w_low": 1.6,
+      "candle_count": 10
+    },
+    "fetched_at": "2026-08-13T17:16:08.489809"
+  },
+  "NSE:ICICIB22-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 116.32,
+      "week52_high": 131.0,
+      "week52_low": 103.6,
+      "pct_off_52w_high": -11.21,
+      "pct_above_52w_low": 12.28,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:11.244252"
+  },
+  "NSE:IDFNIFTYET-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 269.14,
+      "week52_high": 340.8,
+      "week52_low": 244.32,
+      "pct_off_52w_high": -21.03,
+      "pct_above_52w_low": 10.16,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:14.392055"
+  },
+  "NSE:INFRA-EQ": {
+    "fundamentals": {
+      "company_name": "ENERGY INFRASTRUCTURE TRUST",
+      "current_price": 74.63,
+      "market_cap_cr": 4955.43,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3817.13,
+      "net_profit_cr": 117.85,
+      "eps": 1.77,
+      "pe_ratio": 42.05,
+      "roe_pct": 23.79,
+      "debt_to_equity": 13.325,
+      "opm_pct": 39.16,
+      "sales_cagr_pct": 101.9
+    },
+    "price_levels": {
+      "latest_close": 12.23,
+      "week52_high": 13.27,
+      "week52_low": 10.14,
+      "pct_off_52w_high": -7.84,
+      "pct_above_52w_low": 20.61,
+      "candle_count": 119
+    },
+    "fetched_at": "2026-08-13T17:16:17.568032"
+  },
+  "NSE:INFRABEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 968.22,
+      "week52_high": 1018.3,
+      "week52_low": 871.35,
+      "pct_off_52w_high": -4.92,
+      "pct_above_52w_low": 11.12,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:20.157244"
+  },
+  "NSE:INFRAIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 96.77,
+      "week52_high": 101.0,
+      "week52_low": 86.8,
+      "pct_off_52w_high": -4.19,
+      "pct_above_52w_low": 11.49,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:22.834618"
+  },
+  "NSE:INSUREIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 15.42,
+      "week52_high": 16.46,
+      "week52_low": 15.33,
+      "pct_off_52w_high": -6.32,
+      "pct_above_52w_low": 0.59,
+      "candle_count": 7
+    },
+    "fetched_at": "2026-08-13T17:16:25.430613"
+  },
+  "NSE:INTERNET-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 14.38,
+      "week52_high": 15.2,
+      "week52_low": 10.72,
+      "pct_off_52w_high": -5.39,
+      "pct_above_52w_low": 34.14,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:28.099474"
+  },
+  "NSE:IT-EQ": {
+    "fundamentals": {
+      "company_name": "ITC LTD",
+      "current_price": 279.5,
+      "market_cap_cr": 349502.55,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 78868.4,
+      "net_profit_cr": 20689.47,
+      "eps": 16.51,
+      "pe_ratio": 16.93,
+      "roe_pct": 28.53,
+      "debt_to_equity": 0.033,
+      "opm_pct": 34.62,
+      "sales_cagr_pct": 7.04
+    },
+    "price_levels": {
+      "latest_close": 34.74,
+      "week52_high": 44.49,
+      "week52_low": 28.54,
+      "pct_off_52w_high": -21.92,
+      "pct_above_52w_low": 21.72,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:31.506139"
+  },
+  "NSE:ITADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 33.23,
+      "week52_high": 41.92,
+      "week52_low": 27.17,
+      "pct_off_52w_high": -20.73,
+      "pct_above_52w_low": 22.3,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:34.120170"
+  },
+  "NSE:ITAXIS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 344.51,
+      "week52_high": 439.67,
+      "week52_low": 230.7,
+      "pct_off_52w_high": -21.64,
+      "pct_above_52w_low": 49.33,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:36.816160"
+  },
+  "NSE:ITBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 34.77,
+      "week52_high": 44.27,
+      "week52_low": 28.55,
+      "pct_off_52w_high": -21.46,
+      "pct_above_52w_low": 21.79,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:39.626348"
+  },
+  "NSE:ITBETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 330.98,
+      "week52_high": 409.94,
+      "week52_low": 270.68,
+      "pct_off_52w_high": -19.26,
+      "pct_above_52w_low": 22.28,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:42.595936"
+  },
+  "NSE:ITETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 33.42,
+      "week52_high": 42.02,
+      "week52_low": 27.22,
+      "pct_off_52w_high": -20.47,
+      "pct_above_52w_low": 22.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:45.306329"
+  },
+  "NSE:ITIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 34.78,
+      "week52_high": 44.3,
+      "week52_low": 28.54,
+      "pct_off_52w_high": -21.49,
+      "pct_above_52w_low": 21.86,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:47.986578"
+  },
+  "NSE:IVZINGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 132.05,
+      "week52_high": 156.0,
+      "week52_low": 85.9,
+      "pct_off_52w_high": -15.35,
+      "pct_above_52w_low": 53.73,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:50.581690"
+  },
+  "NSE:IVZINNIFTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 279.8,
+      "week52_high": 315.0,
+      "week52_low": 251.1,
+      "pct_off_52w_high": -11.17,
+      "pct_above_52w_low": 11.43,
+      "candle_count": 228
+    },
+    "fetched_at": "2026-08-13T17:16:53.321694"
+  },
+  "NSE:JUNIORBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 807.69,
+      "week52_high": 818.04,
+      "week52_low": 632.34,
+      "pct_off_52w_high": -1.27,
+      "pct_above_52w_low": 27.73,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:56.186102"
+  },
+  "NSE:LICMFGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 137.05,
+      "week52_high": 162.0,
+      "week52_low": 89.07,
+      "pct_off_52w_high": -15.4,
+      "pct_above_52w_low": 53.87,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:16:58.871381"
+  },
+  "NSE:LICNETFGSC-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 29.64,
+      "week52_high": 30.5,
+      "week52_low": 27.42,
+      "pct_off_52w_high": -2.82,
+      "pct_above_52w_low": 8.1,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:01.383466"
+  },
+  "NSE:LICNETFN50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 273.2,
+      "week52_high": 295.0,
+      "week52_low": 248.17,
+      "pct_off_52w_high": -7.39,
+      "pct_above_52w_low": 10.09,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:04.063867"
+  },
+  "NSE:LICNETFSEN-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 883.91,
+      "week52_high": 974.02,
+      "week52_low": 803.0,
+      "pct_off_52w_high": -9.25,
+      "pct_above_52w_low": 10.08,
+      "candle_count": 232
+    },
+    "fetched_at": "2026-08-13T17:17:06.594604"
+  },
+  "NSE:LICNFNHGP-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 280.31,
+      "week52_high": 296.41,
+      "week52_low": 248.02,
+      "pct_off_52w_high": -5.43,
+      "pct_above_52w_low": 13.02,
+      "candle_count": 245
+    },
+    "fetched_at": "2026-08-13T17:17:09.709251"
+  },
+  "NSE:LICNMID100-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 64.57,
+      "week52_high": 67.5,
+      "week52_low": 52.3,
+      "pct_off_52w_high": -4.34,
+      "pct_above_52w_low": 23.46,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:13.000283"
+  },
+  "NSE:LIQGRWBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1051.42,
+      "week52_high": 1056.29,
+      "week52_low": 995.55,
+      "pct_off_52w_high": -0.46,
+      "pct_above_52w_low": 5.61,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:15.858380"
+  },
+  "NSE:LIQUID-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 999.99,
+      "week52_high": 1024.98,
+      "week52_low": 974.99,
+      "pct_off_52w_high": -2.44,
+      "pct_above_52w_low": 2.56,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:18.500263"
+  },
+  "NSE:LIQUID1-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1117.91,
+      "week52_high": 1136.66,
+      "week52_low": 1061.5,
+      "pct_off_52w_high": -1.65,
+      "pct_above_52w_low": 5.31,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:21.225076"
+  },
+  "NSE:LIQUIDADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1140.02,
+      "week52_high": 1151.22,
+      "week52_low": 1054.87,
+      "pct_off_52w_high": -0.97,
+      "pct_above_52w_low": 8.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:23.841316"
+  },
+  "NSE:LIQUIDBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 999.99,
+      "week52_high": 1029.99,
+      "week52_low": 969.99,
+      "pct_off_52w_high": -2.91,
+      "pct_above_52w_low": 3.09,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:26.405963"
+  },
+  "NSE:LIQUIDBETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1003.71,
+      "week52_high": 1003.71,
+      "week52_low": 997.13,
+      "pct_off_52w_high": 0.0,
+      "pct_above_52w_low": 0.66,
+      "candle_count": 15
+    },
+    "fetched_at": "2026-08-13T17:17:29.219453"
+  },
+  "NSE:LIQUIDBETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1094.34,
+      "week52_high": 1116.24,
+      "week52_low": 1009.94,
+      "pct_off_52w_high": -1.96,
+      "pct_above_52w_low": 8.36,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:31.961814"
+  },
+  "NSE:LIQUIDCASE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 115.43,
+      "week52_high": 115.45,
+      "week52_low": 102.0,
+      "pct_off_52w_high": -0.02,
+      "pct_above_52w_low": 13.17,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:34.884222"
+  },
+  "NSE:LIQUIDETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1000.0,
+      "week52_high": 1025.0,
+      "week52_low": 995.0,
+      "pct_off_52w_high": -2.44,
+      "pct_above_52w_low": 0.5,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:37.878110"
+  },
+  "NSE:LIQUIDIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 999.99,
+      "week52_high": 1041.19,
+      "week52_low": 969.99,
+      "pct_off_52w_high": -3.96,
+      "pct_above_52w_low": 3.09,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:40.650111"
+  },
+  "NSE:LIQUIDPLUS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1098.63,
+      "week52_high": 1127.08,
+      "week52_low": 1045.52,
+      "pct_off_52w_high": -2.52,
+      "pct_above_52w_low": 5.08,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:43.545793"
+  },
+  "NSE:LIQUIDSBI-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1000.01,
+      "week52_high": 1010.02,
+      "week52_low": 970.23,
+      "pct_off_52w_high": -0.99,
+      "pct_above_52w_low": 3.07,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:46.047829"
+  },
+  "NSE:LIQUIDSHRI-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1117.08,
+      "week52_high": 1117.08,
+      "week52_low": 1065.75,
+      "pct_off_52w_high": 0.0,
+      "pct_above_52w_low": 4.82,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:48.663842"
+  },
+  "NSE:LOWVOL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 211.39,
+      "week52_high": 219.1,
+      "week52_low": 183.58,
+      "pct_off_52w_high": -3.52,
+      "pct_above_52w_low": 15.15,
+      "candle_count": 244
+    },
+    "fetched_at": "2026-08-13T17:17:51.546506"
+  },
+  "NSE:LOWVOL1-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 21.58,
+      "week52_high": 22.9,
+      "week52_low": 18.77,
+      "pct_off_52w_high": -5.76,
+      "pct_above_52w_low": 14.97,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:54.228601"
+  },
+  "NSE:LOWVOLIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 22.62,
+      "week52_high": 26.81,
+      "week52_low": 19.84,
+      "pct_off_52w_high": -15.63,
+      "pct_above_52w_low": 14.01,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:57.126697"
+  },
+  "NSE:LTGILTBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 30.09,
+      "week52_high": 30.48,
+      "week52_low": 27.93,
+      "pct_off_52w_high": -1.28,
+      "pct_above_52w_low": 7.73,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:17:59.868548"
+  },
+  "NSE:LTGILTCASE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 30.69,
+      "week52_high": 31.17,
+      "week52_low": 28.71,
+      "pct_off_52w_high": -1.54,
+      "pct_above_52w_low": 6.9,
+      "candle_count": 243
+    },
+    "fetched_at": "2026-08-13T17:18:03.041295"
+  },
+  "NSE:MAFANG-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 208.59,
+      "week52_high": 210.2,
+      "week52_low": 149.74,
+      "pct_off_52w_high": -0.77,
+      "pct_above_52w_low": 39.3,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:05.711278"
+  },
+  "NSE:MAHKTECH-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 23.45,
+      "week52_high": 35.59,
+      "week52_low": 21.0,
+      "pct_off_52w_high": -34.11,
+      "pct_above_52w_low": 11.67,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:08.389281"
+  },
+  "NSE:MAKEINDIA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 168.91,
+      "week52_high": 173.11,
+      "week52_low": 140.12,
+      "pct_off_52w_high": -2.43,
+      "pct_above_52w_low": 20.55,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:11.019520"
+  },
+  "NSE:MANUFGBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 167.03,
+      "week52_high": 171.58,
+      "week52_low": 138.6,
+      "pct_off_52w_high": -2.65,
+      "pct_above_52w_low": 20.51,
+      "candle_count": 237
+    },
+    "fetched_at": "2026-08-13T17:18:13.660317"
+  },
+  "NSE:MASPTOP50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 80.55,
+      "week52_high": 82.78,
+      "week52_low": 62.42,
+      "pct_off_52w_high": -2.69,
+      "pct_above_52w_low": 29.05,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:16.736603"
+  },
+  "NSE:METAL-EQ": {
+    "fundamentals": {
+      "company_name": "METALIC TECHNOFORGE LTD",
+      "current_price": 114.15,
+      "market_cap_cr": 273.78,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 95.55,
+      "net_profit_cr": 12.36,
+      "eps": 7.06,
+      "pe_ratio": 16.16,
+      "roe_pct": 36.98,
+      "debt_to_equity": 0.951,
+      "opm_pct": 22.97,
+      "sales_cagr_pct": 26.76
+    },
+    "price_levels": {
+      "latest_close": 13.13,
+      "week52_high": 13.97,
+      "week52_low": 8.7,
+      "pct_off_52w_high": -6.01,
+      "pct_above_52w_low": 50.92,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:19.784994"
+  },
+  "NSE:METALIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 13.1,
+      "week52_high": 14.17,
+      "week52_low": 8.98,
+      "pct_off_52w_high": -7.55,
+      "pct_above_52w_low": 45.88,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:22.452032"
+  },
+  "NSE:MID150-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 23.91,
+      "week52_high": 24.95,
+      "week52_low": 18.97,
+      "pct_off_52w_high": -4.17,
+      "pct_above_52w_low": 26.04,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:25.069255"
+  },
+  "NSE:MID150BEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 243.53,
+      "week52_high": 245.0,
+      "week52_low": 190.43,
+      "pct_off_52w_high": -0.6,
+      "pct_above_52w_low": 27.88,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:27.721038"
+  },
+  "NSE:MID150CASE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 11.83,
+      "week52_high": 13.0,
+      "week52_low": 9.63,
+      "pct_off_52w_high": -9.0,
+      "pct_above_52w_low": 22.85,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:30.482799"
+  },
+  "NSE:MIDBANKADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 17.47,
+      "week52_high": 17.83,
+      "week52_low": 17.23,
+      "pct_off_52w_high": -2.02,
+      "pct_above_52w_low": 1.39,
+      "candle_count": 5
+    },
+    "fetched_at": "2026-08-13T17:18:33.482525"
+  },
+  "NSE:MIDCAP-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 18.74,
+      "week52_high": 19.27,
+      "week52_low": 15.01,
+      "pct_off_52w_high": -2.75,
+      "pct_above_52w_low": 24.85,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:36.182033"
+  },
+  "NSE:MIDCAPADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 23.44,
+      "week52_high": 25.5,
+      "week52_low": 19.27,
+      "pct_off_52w_high": -8.08,
+      "pct_above_52w_low": 21.64,
+      "candle_count": 161
+    },
+    "fetched_at": "2026-08-13T17:18:38.851037"
+  },
+  "NSE:MIDCAPBETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 237.56,
+      "week52_high": 239.9,
+      "week52_low": 192.5,
+      "pct_off_52w_high": -0.98,
+      "pct_above_52w_low": 23.41,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:41.614635"
+  },
+  "NSE:MIDCAPETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 24.01,
+      "week52_high": 24.57,
+      "week52_low": 19.6,
+      "pct_off_52w_high": -2.28,
+      "pct_above_52w_low": 22.5,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:44.444871"
+  },
+  "NSE:MIDCAPIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 24.36,
+      "week52_high": 24.88,
+      "week52_low": 19.89,
+      "pct_off_52w_high": -2.09,
+      "pct_above_52w_low": 22.47,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:46.981338"
+  },
+  "NSE:MIDQ50ADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 25.54,
+      "week52_high": 25.97,
+      "week52_low": 21.0,
+      "pct_off_52w_high": -1.66,
+      "pct_above_52w_low": 21.62,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:49.693431"
+  },
+  "NSE:MIDSELIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 19.87,
+      "week52_high": 20.19,
+      "week52_low": 14.55,
+      "pct_off_52w_high": -1.58,
+      "pct_above_52w_low": 36.56,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:52.514080"
+  },
+  "NSE:MIDSMALL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 52.47,
+      "week52_high": 52.77,
+      "week52_low": 42.41,
+      "pct_off_52w_high": -0.57,
+      "pct_above_52w_low": 23.72,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:55.190917"
+  },
+  "NSE:MNC-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 35.26,
+      "week52_high": 35.65,
+      "week52_low": 27.83,
+      "pct_off_52w_high": -1.09,
+      "pct_above_52w_low": 26.7,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:18:57.822519"
+  },
+  "NSE:MOALPHA50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 56.15,
+      "week52_high": 62.0,
+      "week52_low": 42.1,
+      "pct_off_52w_high": -9.44,
+      "pct_above_52w_low": 33.37,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:00.589111"
+  },
+  "NSE:MOBANK10-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 17.07,
+      "week52_high": 20.0,
+      "week52_low": 15.75,
+      "pct_off_52w_high": -14.65,
+      "pct_above_52w_low": 8.38,
+      "candle_count": 86
+    },
+    "fetched_at": "2026-08-13T17:19:03.254565"
+  },
+  "NSE:MOCAPITAL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 53.72,
+      "week52_high": 57.25,
+      "week52_low": 41.15,
+      "pct_off_52w_high": -6.17,
+      "pct_above_52w_low": 30.55,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:06.005442"
+  },
+  "NSE:MODEFENCE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 107.46,
+      "week52_high": 108.38,
+      "week52_low": 77.8,
+      "pct_off_52w_high": -0.85,
+      "pct_above_52w_low": 38.12,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:08.927742"
+  },
+  "NSE:MOENERGY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 38.83,
+      "week52_high": 43.0,
+      "week52_low": 33.0,
+      "pct_off_52w_high": -9.7,
+      "pct_above_52w_low": 17.67,
+      "candle_count": 204
+    },
+    "fetched_at": "2026-08-13T17:19:11.658757"
+  },
+  "NSE:MOGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 150.45,
+      "week52_high": 175.0,
+      "week52_low": 96.3,
+      "pct_off_52w_high": -14.03,
+      "pct_above_52w_low": 56.23,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:14.296047"
+  },
+  "NSE:MOGSEC-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 65.63,
+      "week52_high": 67.33,
+      "week52_low": 60.18,
+      "pct_off_52w_high": -2.52,
+      "pct_above_52w_low": 9.06,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:16.899390"
+  },
+  "NSE:MOHEALTH-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 51.79,
+      "week52_high": 53.0,
+      "week52_low": 40.79,
+      "pct_off_52w_high": -2.28,
+      "pct_above_52w_low": 26.97,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:19.718467"
+  },
+  "NSE:MOINFRA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 60.03,
+      "week52_high": 66.0,
+      "week52_low": 54.6,
+      "pct_off_52w_high": -9.05,
+      "pct_above_52w_low": 9.95,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:22.366855"
+  },
+  "NSE:MOIPO-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 48.96,
+      "week52_high": 53.0,
+      "week52_low": 36.5,
+      "pct_off_52w_high": -7.62,
+      "pct_above_52w_low": 34.14,
+      "candle_count": 180
+    },
+    "fetched_at": "2026-08-13T17:19:24.951725"
+  },
+  "NSE:MOLOWVOL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 37.57,
+      "week52_high": 43.07,
+      "week52_low": 33.52,
+      "pct_off_52w_high": -12.77,
+      "pct_above_52w_low": 12.08,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:28.062787"
+  },
+  "NSE:MOM100-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 69.0,
+      "week52_high": 69.48,
+      "week52_low": 56.15,
+      "pct_off_52w_high": -0.69,
+      "pct_above_52w_low": 22.89,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:30.680193"
+  },
+  "NSE:MOM30IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 31.72,
+      "week52_high": 32.9,
+      "week52_low": 26.0,
+      "pct_off_52w_high": -3.59,
+      "pct_above_52w_low": 22.0,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:33.249150"
+  },
+  "NSE:MOM50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 256.4,
+      "week52_high": 279.33,
+      "week52_low": 231.11,
+      "pct_off_52w_high": -8.21,
+      "pct_above_52w_low": 10.94,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:36.142786"
+  },
+  "NSE:MOMENTUM-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 31.57,
+      "week52_high": 33.0,
+      "week52_low": 27.05,
+      "pct_off_52w_high": -4.33,
+      "pct_above_52w_low": 16.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:38.850446"
+  },
+  "NSE:MOMENTUM30-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 31.21,
+      "week52_high": 37.38,
+      "week52_low": 26.91,
+      "pct_off_52w_high": -16.51,
+      "pct_above_52w_low": 15.98,
+      "candle_count": 203
+    },
+    "fetched_at": "2026-08-13T17:19:41.667476"
+  },
+  "NSE:MOMENTUM50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 54.67,
+      "week52_high": 55.88,
+      "week52_low": 44.96,
+      "pct_off_52w_high": -2.17,
+      "pct_above_52w_low": 21.6,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:44.192346"
+  },
+  "NSE:MOMETAL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 13.04,
+      "week52_high": 13.32,
+      "week52_low": 13.03,
+      "pct_off_52w_high": -2.1,
+      "pct_above_52w_low": 0.08,
+      "candle_count": 6
+    },
+    "fetched_at": "2026-08-13T17:19:46.806951"
+  },
+  "NSE:MOMGF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 167.42,
+      "week52_high": 182.16,
+      "week52_low": 137.9,
+      "pct_off_52w_high": -8.09,
+      "pct_above_52w_low": 21.41,
+      "candle_count": 246
+    },
+    "fetched_at": "2026-08-13T17:19:49.389319"
+  },
+  "NSE:MOMIDMTM-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 65.15,
+      "week52_high": 70.0,
+      "week52_low": 54.78,
+      "pct_off_52w_high": -6.93,
+      "pct_above_52w_low": 18.93,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:51.954551"
+  },
+  "NSE:MOMMIDCAP-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 13.09,
+      "week52_high": 14.99,
+      "week52_low": 12.21,
+      "pct_off_52w_high": -12.68,
+      "pct_above_52w_low": 7.21,
+      "candle_count": 17
+    },
+    "fetched_at": "2026-08-13T17:19:54.501963"
+  },
+  "NSE:MOMNC-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 33.54,
+      "week52_high": 35.8,
+      "week52_low": 27.03,
+      "pct_off_52w_high": -6.31,
+      "pct_above_52w_low": 24.08,
+      "candle_count": 170
+    },
+    "fetched_at": "2026-08-13T17:19:57.268933"
+  },
+  "NSE:MOMOMENTUM-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 63.12,
+      "week52_high": 66.28,
+      "week52_low": 54.32,
+      "pct_off_52w_high": -4.77,
+      "pct_above_52w_low": 16.2,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:19:59.791595"
+  },
+  "NSE:MON100-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 330.55,
+      "week52_high": 342.55,
+      "week52_low": 198.73,
+      "pct_off_52w_high": -3.5,
+      "pct_above_52w_low": 66.33,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:02.311944"
+  },
+  "NSE:MON50EQUAL-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 33.94,
+      "week52_high": 36.0,
+      "week52_low": 29.43,
+      "pct_off_52w_high": -5.72,
+      "pct_above_52w_low": 15.32,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:04.826519"
+  },
+  "NSE:MONEXT50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 74.29,
+      "week52_high": 75.89,
+      "week52_low": 59.43,
+      "pct_off_52w_high": -2.11,
+      "pct_above_52w_low": 25.0,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:07.453885"
+  },
+  "NSE:MONIFTY100-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 25.92,
+      "week52_high": 27.97,
+      "week52_low": 22.38,
+      "pct_off_52w_high": -7.33,
+      "pct_above_52w_low": 15.82,
+      "candle_count": 204
+    },
+    "fetched_at": "2026-08-13T17:20:10.030796"
+  },
+  "NSE:MONIFTY500-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 24.22,
+      "week52_high": 28.28,
+      "week52_low": 20.75,
+      "pct_off_52w_high": -14.36,
+      "pct_above_52w_low": 16.72,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:12.615469"
+  },
+  "NSE:MONQ50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 148.63,
+      "week52_high": 148.92,
+      "week52_low": 79.02,
+      "pct_off_52w_high": -0.19,
+      "pct_above_52w_low": 88.09,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:15.433732"
+  },
+  "NSE:MOOILGAS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 11.23,
+      "week52_high": 11.7,
+      "week52_low": 11.2,
+      "pct_off_52w_high": -4.02,
+      "pct_above_52w_low": 0.27,
+      "candle_count": 6
+    },
+    "fetched_at": "2026-08-13T17:20:18.044256"
+  },
+  "NSE:MOPSE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 99.99,
+      "week52_high": 114.7,
+      "week52_low": 92.55,
+      "pct_off_52w_high": -12.82,
+      "pct_above_52w_low": 8.04,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:20.858567"
+  },
+  "NSE:MOQUALITY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 205.94,
+      "week52_high": 225.6,
+      "week52_low": 176.15,
+      "pct_off_52w_high": -8.71,
+      "pct_above_52w_low": 16.91,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:23.484142"
+  },
+  "NSE:MOREALTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 89.94,
+      "week52_high": 99.49,
+      "week52_low": 64.0,
+      "pct_off_52w_high": -9.6,
+      "pct_above_52w_low": 40.53,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:26.088757"
+  },
+  "NSE:MOSERVICE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 31.25,
+      "week52_high": 35.37,
+      "week52_low": 28.3,
+      "pct_off_52w_high": -11.65,
+      "pct_above_52w_low": 10.42,
+      "candle_count": 176
+    },
+    "fetched_at": "2026-08-13T17:20:29.273728"
+  },
+  "NSE:MOSILVER-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 228.92,
+      "week52_high": 385.0,
+      "week52_low": 112.32,
+      "pct_off_52w_high": -40.54,
+      "pct_above_52w_low": 103.81,
+      "candle_count": 245
+    },
+    "fetched_at": "2026-08-13T17:20:31.795305"
+  },
+  "NSE:MOSMALL250-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 18.44,
+      "week52_high": 19.38,
+      "week52_low": 14.22,
+      "pct_off_52w_high": -4.85,
+      "pct_above_52w_low": 29.68,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:34.382962"
+  },
+  "NSE:MOTOUR-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 80.17,
+      "week52_high": 95.9,
+      "week52_low": 64.0,
+      "pct_off_52w_high": -16.4,
+      "pct_above_52w_low": 25.27,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:37.092343"
+  },
+  "NSE:MOVALUE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 115.22,
+      "week52_high": 128.77,
+      "week52_low": 98.1,
+      "pct_off_52w_high": -10.52,
+      "pct_above_52w_low": 17.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:39.671179"
+  },
+  "NSE:MSCI360-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.28,
+      "week52_high": 11.6,
+      "week52_low": 9.6,
+      "pct_off_52w_high": -11.38,
+      "pct_above_52w_low": 7.08,
+      "candle_count": 53
+    },
+    "fetched_at": "2026-08-13T17:20:42.291524"
+  },
+  "NSE:MSCIADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 30.05,
+      "week52_high": 33.82,
+      "week52_low": 26.4,
+      "pct_off_52w_high": -11.15,
+      "pct_above_52w_low": 13.83,
+      "candle_count": 172
+    },
+    "fetched_at": "2026-08-13T17:20:44.937738"
+  },
+  "NSE:MSCIINDIA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 30.33,
+      "week52_high": 32.14,
+      "week52_low": 26.5,
+      "pct_off_52w_high": -5.63,
+      "pct_above_52w_low": 14.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:47.514874"
+  },
+  "NSE:MULTICAP-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 16.93,
+      "week52_high": 17.5,
+      "week52_low": 14.2,
+      "pct_off_52w_high": -3.26,
+      "pct_above_52w_low": 19.23,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:50.000766"
+  },
+  "NSE:NETF-EQ": {
+    "fundamentals": {
+      "company_name": "NETFLIER FINCO LTD(MERGED)",
+      "current_price": null,
+      "market_cap_cr": null,
+      "latest_year": "2006-09-30 00:00:00",
+      "sales_cr": 1.64,
+      "net_profit_cr": -21.47,
+      "eps": -20.84,
+      "pe_ratio": null,
+      "roe_pct": -12.18,
+      "debt_to_equity": 0.009,
+      "opm_pct": -21.95,
+      "sales_cagr_pct": null
+    },
+    "price_levels": {
+      "latest_close": 265.4,
+      "week52_high": 292.9,
+      "week52_low": 240.66,
+      "pct_off_52w_high": -9.39,
+      "pct_above_52w_low": 10.28,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:53.016355"
+  },
+  "NSE:NEXT30ADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 43.96,
+      "week52_high": 45.9,
+      "week52_low": 36.98,
+      "pct_off_52w_high": -4.23,
+      "pct_above_52w_low": 18.88,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:55.778789"
+  },
+  "NSE:NEXT50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 770.52,
+      "week52_high": 785.96,
+      "week52_low": 617.0,
+      "pct_off_52w_high": -1.96,
+      "pct_above_52w_low": 24.88,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:20:58.447075"
+  },
+  "NSE:NEXT50ADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 75.1,
+      "week52_high": 81.0,
+      "week52_low": 56.25,
+      "pct_off_52w_high": -7.28,
+      "pct_above_52w_low": 33.51,
+      "candle_count": 146
+    },
+    "fetched_at": "2026-08-13T17:21:01.153941"
+  },
+  "NSE:NEXT50BETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 80.1,
+      "week52_high": 82.51,
+      "week52_low": 64.34,
+      "pct_off_52w_high": -2.92,
+      "pct_above_52w_low": 24.49,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:03.664125"
+  },
+  "NSE:NEXT50ETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 75.26,
+      "week52_high": 78.0,
+      "week52_low": 60.15,
+      "pct_off_52w_high": -3.51,
+      "pct_above_52w_low": 25.12,
+      "candle_count": 143
+    },
+    "fetched_at": "2026-08-13T17:21:06.181345"
+  },
+  "NSE:NEXT50IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 78.87,
+      "week52_high": 80.38,
+      "week52_low": 62.6,
+      "pct_off_52w_high": -1.88,
+      "pct_above_52w_low": 25.99,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:08.847593"
+  },
+  "NSE:NIF100BEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 271.23,
+      "week52_high": 290.0,
+      "week52_low": 240.0,
+      "pct_off_52w_high": -6.47,
+      "pct_above_52w_low": 13.01,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:11.342905"
+  },
+  "NSE:NIF100IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 28.55,
+      "week52_high": 30.88,
+      "week52_low": 23.0,
+      "pct_off_52w_high": -7.55,
+      "pct_above_52w_low": 24.13,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:14.253639"
+  },
+  "NSE:NIFTY1-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 270.72,
+      "week52_high": 320.0,
+      "week52_low": 244.8,
+      "pct_off_52w_high": -15.4,
+      "pct_above_52w_low": 10.59,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:17.379692"
+  },
+  "NSE:NIFTY100EW-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 35.85,
+      "week52_high": 41.41,
+      "week52_low": 29.84,
+      "pct_off_52w_high": -13.43,
+      "pct_above_52w_low": 20.14,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:19.956356"
+  },
+  "NSE:NIFTYADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 256.96,
+      "week52_high": 300.0,
+      "week52_low": 232.64,
+      "pct_off_52w_high": -14.35,
+      "pct_above_52w_low": 10.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:22.808609"
+  },
+  "NSE:NIFTYAXIS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 270.16,
+      "week52_high": 296.38,
+      "week52_low": 244.0,
+      "pct_off_52w_high": -8.85,
+      "pct_above_52w_low": 10.72,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:25.417176"
+  },
+  "NSE:NIFTYBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 278.16,
+      "week52_high": 302.25,
+      "week52_low": 251.7,
+      "pct_off_52w_high": -7.97,
+      "pct_above_52w_low": 10.51,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:28.045556"
+  },
+  "NSE:NIFTYBETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 270.72,
+      "week52_high": 297.48,
+      "week52_low": 244.9,
+      "pct_off_52w_high": -9.0,
+      "pct_above_52w_low": 10.54,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:30.625819"
+  },
+  "NSE:NIFTYBETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 251.27,
+      "week52_high": 279.99,
+      "week52_low": 227.01,
+      "pct_off_52w_high": -10.26,
+      "pct_above_52w_low": 10.69,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:33.380280"
+  },
+  "NSE:NIFTYCASE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 9.78,
+      "week52_high": 11.4,
+      "week52_low": 8.84,
+      "pct_off_52w_high": -14.21,
+      "pct_above_52w_low": 10.63,
+      "candle_count": 202
+    },
+    "fetched_at": "2026-08-13T17:21:36.144492"
+  },
+  "NSE:NIFTYETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 265.33,
+      "week52_high": 289.05,
+      "week52_low": 239.81,
+      "pct_off_52w_high": -8.21,
+      "pct_above_52w_low": 10.64,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:38.788756"
+  },
+  "NSE:NIFTYIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 276.76,
+      "week52_high": 328.24,
+      "week52_low": 250.4,
+      "pct_off_52w_high": -15.68,
+      "pct_above_52w_low": 10.53,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:41.651055"
+  },
+  "NSE:NIFTYQLITY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 21.94,
+      "week52_high": 23.03,
+      "week52_low": 18.95,
+      "pct_off_52w_high": -4.73,
+      "pct_above_52w_low": 15.78,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:44.352569"
+  },
+  "NSE:NPBET-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 283.17,
+      "week52_high": 307.0,
+      "week52_low": 246.26,
+      "pct_off_52w_high": -7.76,
+      "pct_above_52w_low": 14.99,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:47.284080"
+  },
+  "NSE:NV20-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 14.15,
+      "week52_high": 16.87,
+      "week52_low": 12.62,
+      "pct_off_52w_high": -16.12,
+      "pct_above_52w_low": 12.12,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:49.935451"
+  },
+  "NSE:NV20BEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 141.39,
+      "week52_high": 160.0,
+      "week52_low": 122.02,
+      "pct_off_52w_high": -11.63,
+      "pct_above_52w_low": 15.87,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:52.546488"
+  },
+  "NSE:NV20IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 13.78,
+      "week52_high": 16.0,
+      "week52_low": 12.5,
+      "pct_off_52w_high": -13.88,
+      "pct_above_52w_low": 10.24,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:55.154716"
+  },
+  "NSE:OILIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 11.38,
+      "week52_high": 14.0,
+      "week52_low": 9.8,
+      "pct_off_52w_high": -18.71,
+      "pct_above_52w_low": 16.12,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:21:57.825983"
+  },
+  "NSE:PHARMABEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 27.45,
+      "week52_high": 28.01,
+      "week52_low": 21.46,
+      "pct_off_52w_high": -2.0,
+      "pct_above_52w_low": 27.91,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:00.493460"
+  },
+  "NSE:PSUBANK-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 87.84,
+      "week52_high": 101.0,
+      "week52_low": 66.26,
+      "pct_off_52w_high": -13.03,
+      "pct_above_52w_low": 32.57,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:03.119399"
+  },
+  "NSE:PSUBANKADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 88.42,
+      "week52_high": 99.88,
+      "week52_low": 67.8,
+      "pct_off_52w_high": -11.47,
+      "pct_above_52w_low": 30.41,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:05.708328"
+  },
+  "NSE:PSUBNKBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 98.11,
+      "week52_high": 110.4,
+      "week52_low": 74.31,
+      "pct_off_52w_high": -11.13,
+      "pct_above_52w_low": 32.03,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:09.652692"
+  },
+  "NSE:PSUBNKIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 88.78,
+      "week52_high": 104.0,
+      "week52_low": 67.86,
+      "pct_off_52w_high": -14.63,
+      "pct_above_52w_low": 30.83,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:12.753495"
+  },
+  "NSE:PVTBANIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 27.63,
+      "week52_high": 30.32,
+      "week52_low": 24.18,
+      "pct_off_52w_high": -8.87,
+      "pct_above_52w_low": 14.27,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:15.377203"
+  },
+  "NSE:PVTBANK-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 27.49,
+      "week52_high": 28.33,
+      "week52_low": 27.01,
+      "pct_off_52w_high": -2.97,
+      "pct_above_52w_low": 1.78,
+      "candle_count": 17
+    },
+    "fetched_at": "2026-08-13T17:22:17.958591"
+  },
+  "NSE:PVTBANKADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 27.65,
+      "week52_high": 31.88,
+      "week52_low": 24.02,
+      "pct_off_52w_high": -13.27,
+      "pct_above_52w_low": 15.11,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:20.540049"
+  },
+  "NSE:PVTBKGROWW-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 27.48,
+      "week52_high": 29.57,
+      "week52_low": 25.45,
+      "pct_off_52w_high": -7.07,
+      "pct_above_52w_low": 7.98,
+      "candle_count": 56
+    },
+    "fetched_at": "2026-08-13T17:22:23.321258"
+  },
+  "NSE:QGOLDHALF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 126.52,
+      "week52_high": 149.69,
+      "week52_low": 80.09,
+      "pct_off_52w_high": -15.48,
+      "pct_above_52w_low": 57.97,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:25.985106"
+  },
+  "NSE:QNIFTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 268.41,
+      "week52_high": 291.19,
+      "week52_low": 243.2,
+      "pct_off_52w_high": -7.82,
+      "pct_above_52w_low": 10.37,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:28.844682"
+  },
+  "NSE:QUAL30IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 21.66,
+      "week52_high": 23.0,
+      "week52_low": 18.0,
+      "pct_off_52w_high": -5.83,
+      "pct_above_52w_low": 20.33,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:31.536796"
+  },
+  "NSE:QUALITY30-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 21.25,
+      "week52_high": 23.18,
+      "week52_low": 18.09,
+      "pct_off_52w_high": -8.33,
+      "pct_above_52w_low": 17.47,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:34.131234"
+  },
+  "NSE:SBIBPB-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 50.73,
+      "week52_high": 58.27,
+      "week52_low": 38.53,
+      "pct_off_52w_high": -12.94,
+      "pct_above_52w_low": 31.66,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:36.947420"
+  },
+  "NSE:SBIETFCON-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 125.61,
+      "week52_high": 133.97,
+      "week52_low": 100.0,
+      "pct_off_52w_high": -6.24,
+      "pct_above_52w_low": 25.61,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:39.557851"
+  },
+  "NSE:SBIETFIT-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 350.65,
+      "week52_high": 439.27,
+      "week52_low": 285.0,
+      "pct_off_52w_high": -20.17,
+      "pct_above_52w_low": 23.04,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:42.250738"
+  },
+  "NSE:SBIETFPB-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 279.31,
+      "week52_high": 304.58,
+      "week52_low": 244.18,
+      "pct_off_52w_high": -8.3,
+      "pct_above_52w_low": 14.39,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:45.575014"
+  },
+  "NSE:SBIETFQLTY-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 228.78,
+      "week52_high": 247.28,
+      "week52_low": 194.0,
+      "pct_off_52w_high": -7.48,
+      "pct_above_52w_low": 17.93,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:48.787858"
+  },
+  "NSE:SBILIQETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 1051.57,
+      "week52_high": 1087.09,
+      "week52_low": 984.99,
+      "pct_off_52w_high": -3.27,
+      "pct_above_52w_low": 6.76,
+      "candle_count": 245
+    },
+    "fetched_at": "2026-08-13T17:22:51.301776"
+  },
+  "NSE:SBIMIDMOM-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 64.5,
+      "week52_high": 67.74,
+      "week52_low": 53.86,
+      "pct_off_52w_high": -4.78,
+      "pct_above_52w_low": 19.75,
+      "candle_count": 108
+    },
+    "fetched_at": "2026-08-13T17:22:53.886095"
+  },
+  "NSE:SBINEQWETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 33.9,
+      "week52_high": 36.4,
+      "week52_low": 29.64,
+      "pct_off_52w_high": -6.87,
+      "pct_above_52w_low": 14.37,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:22:56.640545"
+  },
+  "NSE:SBINMID150-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 23.56,
+      "week52_high": 24.06,
+      "week52_low": 19.81,
+      "pct_off_52w_high": -2.08,
+      "pct_above_52w_low": 18.93,
+      "candle_count": 90
+    },
+    "fetched_at": "2026-08-13T17:22:59.296830"
+  },
+  "NSE:SBISILVER-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 226.31,
+      "week52_high": 362.0,
+      "week52_low": 109.32,
+      "pct_off_52w_high": -37.48,
+      "pct_above_52w_low": 107.02,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:01.838655"
+  },
+  "NSE:SBISMLETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 18.39,
+      "week52_high": 18.97,
+      "week52_low": 16.53,
+      "pct_off_52w_high": -3.06,
+      "pct_above_52w_low": 11.25,
+      "candle_count": 57
+    },
+    "fetched_at": "2026-08-13T17:23:04.905275"
+  },
+  "NSE:SBIVALETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 14.96,
+      "week52_high": 17.7,
+      "week52_low": 14.43,
+      "pct_off_52w_high": -15.48,
+      "pct_above_52w_low": 3.67,
+      "candle_count": 57
+    },
+    "fetched_at": "2026-08-13T17:23:07.606465"
+  },
+  "NSE:SELECTIPO-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 48.74,
+      "week52_high": 57.75,
+      "week52_low": 37.8,
+      "pct_off_52w_high": -15.6,
+      "pct_above_52w_low": 28.94,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:11.156053"
+  },
+  "NSE:SENSEXADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 80.18,
+      "week52_high": 88.2,
+      "week52_low": 73.27,
+      "pct_off_52w_high": -9.09,
+      "pct_above_52w_low": 9.43,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:13.985971"
+  },
+  "NSE:SENSEXAXIS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 81.23,
+      "week52_high": 91.35,
+      "week52_low": 73.52,
+      "pct_off_52w_high": -11.08,
+      "pct_above_52w_low": 10.49,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:16.661470"
+  },
+  "NSE:SENSEXBETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 863.06,
+      "week52_high": 952.91,
+      "week52_low": 785.0,
+      "pct_off_52w_high": -9.43,
+      "pct_above_52w_low": 9.94,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:19.212632"
+  },
+  "NSE:SENSEXETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 80.3,
+      "week52_high": 88.7,
+      "week52_low": 73.33,
+      "pct_off_52w_high": -9.47,
+      "pct_above_52w_low": 9.5,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:22.400011"
+  },
+  "NSE:SENSEXIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 897.03,
+      "week52_high": 999.84,
+      "week52_low": 731.0,
+      "pct_off_52w_high": -10.28,
+      "pct_above_52w_low": 22.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:25.165350"
+  },
+  "NSE:SETF10GILT-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 266.84,
+      "week52_high": 272.31,
+      "week52_low": 250.37,
+      "pct_off_52w_high": -2.01,
+      "pct_above_52w_low": 6.58,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:27.814724"
+  },
+  "NSE:SETFGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 129.54,
+      "week52_high": 153.95,
+      "week52_low": 82.51,
+      "pct_off_52w_high": -15.86,
+      "pct_above_52w_low": 57.0,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:30.536682"
+  },
+  "NSE:SETFNIF50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 262.84,
+      "week52_high": 287.33,
+      "week52_low": 237.9,
+      "pct_off_52w_high": -8.52,
+      "pct_above_52w_low": 10.48,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:33.131131"
+  },
+  "NSE:SETFNIFBK-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 592.87,
+      "week52_high": 646.11,
+      "week52_low": 465.64,
+      "pct_off_52w_high": -8.24,
+      "pct_above_52w_low": 27.32,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:35.665334"
+  },
+  "NSE:SETFNN50-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 801.14,
+      "week52_high": 840.0,
+      "week52_low": 636.01,
+      "pct_off_52w_high": -4.63,
+      "pct_above_52w_low": 25.96,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:38.469023"
+  },
+  "NSE:SHARIABEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 471.45,
+      "week52_high": 534.61,
+      "week52_low": 433.68,
+      "pct_off_52w_high": -11.81,
+      "pct_above_52w_low": 8.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:41.087844"
+  },
+  "NSE:SILVER-EQ": {
+    "fundamentals": {
+      "company_name": "SILVER TOUCH TECHNOLOGIES LTD",
+      "current_price": 206.32,
+      "market_cap_cr": 2612.28,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 341.99,
+      "net_profit_cr": 35.73,
+      "eps": 2.82,
+      "pe_ratio": 73.22,
+      "roe_pct": 21.06,
+      "debt_to_equity": 0.195,
+      "opm_pct": 17.99,
+      "sales_cagr_pct": 12.04
+    },
+    "price_levels": {
+      "latest_close": 230.94,
+      "week52_high": 371.89,
+      "week52_low": 111.2,
+      "pct_off_52w_high": -37.9,
+      "pct_above_52w_low": 107.68,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:44.760549"
+  },
+  "NSE:SILVER1-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 22.4,
+      "week52_high": 38.8,
+      "week52_low": 10.8,
+      "pct_off_52w_high": -42.27,
+      "pct_above_52w_low": 107.41,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:47.572043"
+  },
+  "NSE:SILVER360-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 227.32,
+      "week52_high": 358.0,
+      "week52_low": 110.1,
+      "pct_off_52w_high": -36.5,
+      "pct_above_52w_low": 106.47,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:50.239683"
+  },
+  "NSE:SILVERADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 222.78,
+      "week52_high": 390.0,
+      "week52_low": 107.09,
+      "pct_off_52w_high": -42.88,
+      "pct_above_52w_low": 108.03,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:53.010192"
+  },
+  "NSE:SILVERAG-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 225.21,
+      "week52_high": 380.0,
+      "week52_low": 108.5,
+      "pct_off_52w_high": -40.73,
+      "pct_above_52w_low": 107.57,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:55.722523"
+  },
+  "NSE:SILVERAXIS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 229.98,
+      "week52_high": 390.01,
+      "week52_low": 110.75,
+      "pct_off_52w_high": -41.03,
+      "pct_above_52w_low": 107.66,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:23:58.396447"
+  },
+  "NSE:SILVERBEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 220.97,
+      "week52_high": 360.0,
+      "week52_low": 106.64,
+      "pct_off_52w_high": -38.62,
+      "pct_above_52w_low": 107.21,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:01.439386"
+  },
+  "NSE:SILVERBETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 223.17,
+      "week52_high": 379.66,
+      "week52_low": 107.8,
+      "pct_off_52w_high": -41.22,
+      "pct_above_52w_low": 107.02,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:04.135718"
+  },
+  "NSE:SILVERBND-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 231.79,
+      "week52_high": 389.0,
+      "week52_low": 180.0,
+      "pct_off_52w_high": -40.41,
+      "pct_above_52w_low": 28.77,
+      "candle_count": 165
+    },
+    "fetched_at": "2026-08-13T17:24:06.656642"
+  },
+  "NSE:SILVERCASE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 23.44,
+      "week52_high": 38.01,
+      "week52_low": 11.34,
+      "pct_off_52w_high": -38.33,
+      "pct_above_52w_low": 106.7,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:09.388370"
+  },
+  "NSE:SILVERIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 230.87,
+      "week52_high": 373.5,
+      "week52_low": 111.17,
+      "pct_off_52w_high": -38.19,
+      "pct_above_52w_low": 107.67,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:12.244040"
+  },
+  "NSE:SMALL250-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 18.38,
+      "week52_high": 19.95,
+      "week52_low": 14.16,
+      "pct_off_52w_high": -7.87,
+      "pct_above_52w_low": 29.8,
+      "candle_count": 186
+    },
+    "fetched_at": "2026-08-13T17:24:14.831640"
+  },
+  "NSE:SMALLADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 18.49,
+      "week52_high": 19.5,
+      "week52_low": 14.01,
+      "pct_off_52w_high": -5.18,
+      "pct_above_52w_low": 31.98,
+      "candle_count": 161
+    },
+    "fetched_at": "2026-08-13T17:24:17.532599"
+  },
+  "NSE:SMALLCAP-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 48.61,
+      "week52_high": 54.5,
+      "week52_low": 37.34,
+      "pct_off_52w_high": -10.81,
+      "pct_above_52w_low": 30.18,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:20.172531"
+  },
+  "NSE:SMALLGROWW-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 48.89,
+      "week52_high": 49.8,
+      "week52_low": 45.0,
+      "pct_off_52w_high": -1.83,
+      "pct_above_52w_low": 8.64,
+      "candle_count": 40
+    },
+    "fetched_at": "2026-08-13T17:24:22.895939"
+  },
+  "NSE:SMALLIETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 18.49,
+      "week52_high": 18.74,
+      "week52_low": 17.43,
+      "pct_off_52w_high": -1.33,
+      "pct_above_52w_low": 6.08,
+      "candle_count": 36
+    },
+    "fetched_at": "2026-08-13T17:24:25.398766"
+  },
+  "NSE:SML100CASE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 11.27,
+      "week52_high": 11.74,
+      "week52_low": 8.5,
+      "pct_off_52w_high": -4.0,
+      "pct_above_52w_low": 32.59,
+      "candle_count": 227
+    },
+    "fetched_at": "2026-08-13T17:24:28.026279"
+  },
+  "NSE:SNXT30BEES-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 43.41,
+      "week52_high": 44.2,
+      "week52_low": 36.83,
+      "pct_off_52w_high": -1.79,
+      "pct_above_52w_low": 17.87,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:30.753183"
+  },
+  "NSE:SNXT50BETA-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 96.85,
+      "week52_high": 102.25,
+      "week52_low": 77.11,
+      "pct_off_52w_high": -5.28,
+      "pct_above_52w_low": 25.6,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:33.446739"
+  },
+  "NSE:TATAGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 14.74,
+      "week52_high": 17.7,
+      "week52_low": 9.45,
+      "pct_off_52w_high": -16.72,
+      "pct_above_52w_low": 55.98,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:36.075364"
+  },
+  "NSE:TATSILV-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 22.41,
+      "week52_high": 35.1,
+      "week52_low": 10.56,
+      "pct_off_52w_high": -36.15,
+      "pct_above_52w_low": 112.22,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:38.957925"
+  },
+  "NSE:TECH-EQ": {
+    "fundamentals": {
+      "company_name": "TECH MAHINDRA LTD",
+      "current_price": 1639.0,
+      "market_cap_cr": 160635.9,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 56815.4,
+      "net_profit_cr": 4810.9,
+      "eps": 49.1,
+      "pe_ratio": 33.38,
+      "roe_pct": 16.24,
+      "debt_to_equity": 0.074,
+      "opm_pct": 15.9,
+      "sales_cagr_pct": 7.7
+    },
+    "price_levels": {
+      "latest_close": 34.34,
+      "week52_high": 49.41,
+      "week52_low": 28.0,
+      "pct_off_52w_high": -30.5,
+      "pct_above_52w_low": 22.64,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:42.336835"
+  },
+  "NSE:TNIDETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 91.13,
+      "week52_high": 103.26,
+      "week52_low": 74.5,
+      "pct_off_52w_high": -11.75,
+      "pct_above_52w_low": 22.32,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:44.875481"
+  },
+  "NSE:TOP100CASE-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.74,
+      "week52_high": 11.57,
+      "week52_low": 9.48,
+      "pct_off_52w_high": -7.17,
+      "pct_above_52w_low": 13.29,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:47.423901"
+  },
+  "NSE:TOP10ADD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 88.46,
+      "week52_high": 103.04,
+      "week52_low": 83.05,
+      "pct_off_52w_high": -14.15,
+      "pct_above_52w_low": 6.51,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:50.145721"
+  },
+  "NSE:TOP15IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 10.04,
+      "week52_high": 11.36,
+      "week52_low": 9.15,
+      "pct_off_52w_high": -11.62,
+      "pct_above_52w_low": 9.73,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:24:52.971852"
+  },
+  "NSE:TOP20-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 9.07,
+      "week52_high": 9.99,
+      "week52_low": 8.0,
+      "pct_off_52w_high": -9.21,
+      "pct_above_52w_low": 13.38,
+      "candle_count": 160
+    },
+    "fetched_at": "2026-08-13T17:24:56.074513"
+  },
+  "NSE:TWCGOLDETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 151.42,
+      "week52_high": 187.98,
+      "week52_low": 123.31,
+      "pct_off_52w_high": -19.45,
+      "pct_above_52w_low": 22.8,
+      "candle_count": 151
+    },
+    "fetched_at": "2026-08-13T17:24:58.672151"
+  },
+  "NSE:UNIONGOLD-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 148.55,
+      "week52_high": 177.0,
+      "week52_low": 95.55,
+      "pct_off_52w_high": -16.07,
+      "pct_above_52w_low": 55.47,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:25:02.151319"
+  },
+  "NSE:VAL30IETF-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 15.48,
+      "week52_high": 17.7,
+      "week52_low": 12.27,
+      "pct_off_52w_high": -12.54,
+      "pct_above_52w_low": 26.16,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:25:04.837713"
+  },
+  "NSE:VALUE-EQ": {
+    "fundamentals": {
+      "company_name": "VALUE 360 COMMUNICATIONS LTD",
+      "current_price": 79.0,
+      "market_cap_cr": 127.11,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 68.96,
+      "net_profit_cr": 9.9,
+      "eps": 8.05,
+      "pe_ratio": 9.82,
+      "roe_pct": 26.27,
+      "debt_to_equity": 0.505,
+      "opm_pct": 27.16,
+      "sales_cagr_pct": 13.6
+    },
+    "price_levels": {
+      "latest_close": 16.34,
+      "week52_high": 19.69,
+      "week52_low": 14.83,
+      "pct_off_52w_high": -17.01,
+      "pct_above_52w_low": 10.18,
+      "candle_count": 94
+    },
+    "fetched_at": "2026-08-13T17:25:07.851656"
+  },
+  "NSE:VALUEAXIS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 33.28,
+      "week52_high": 39.0,
+      "week52_low": 22.84,
+      "pct_off_52w_high": -14.67,
+      "pct_above_52w_low": 45.71,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T17:25:10.362136"
   }
 }
