@@ -1,19 +1,19 @@
 """
-backend/fundamentals/test_price_levels.py
+backend/test_price_levels.py
 
 Quick live test of price_levels.py against one real symbol -- run this
 BEFORE trusting it for a full run across the whole NSE list.
 
-IMPORTANT: run this from backend/ (NOT from inside fundamentals/), so
-the `from screener.fyers_client import get_history` import inside
-price_levels.py can find the screener package as a sibling folder:
+Lives directly in backend/ (NOT inside fundamentals/) on purpose: when
+Python runs a script directly, it only adds the script's OWN folder to
+the import path, not the folder you launched it from. From inside
+fundamentals/, that means the fundamentals package itself (one level
+up) isn't visible. Sitting in backend/ instead, right next to both
+fundamentals/ and screener/, sidesteps that entirely -- both import
+correctly with no special flags needed.
 
     cd backend
-    python fundamentals/test_price_levels.py
-
-Running it from inside fundamentals/ itself will fail to find the
-screener package -- this is different from symbol_master.py, which
-doesn't need that import at all.
+    python test_price_levels.py
 """
 from fundamentals.price_levels import get_52week_range
 
