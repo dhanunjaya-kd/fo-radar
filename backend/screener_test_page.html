@@ -11,7 +11,7 @@
 
     <!-- plausible -->
     <script defer
-            event-user="unregistered"
+            event-user="free"
             
             
             data-domain="screener.in"
@@ -127,9 +127,9 @@
   
     <li class="">
       <a href="/">
-        <i class="icon-home"></i>
+        <i class="icon-news"></i>
         <br>
-        Home
+        Feed
       </a>
     </li>
   
@@ -161,11 +161,11 @@
 
   
     <li class="">
-      <a href="/register/?">
-        <i class="icon-user-plus"></i>
+      <button class="button-plain" onclick="Modal.showInModal('#nav-user-menu')">
+        <i class="icon-user"></i>
         <br>
-        Login
-      </a>
+        Account
+      </button>
     </li>
   
 </ul>
@@ -189,7 +189,7 @@
       <div class="desktop-links" style="margin-left: 48px">
         <a href="/">
           
-            Home
+            Feed
           
         </a>
         <a href="/explore/">Screens</a>
@@ -307,14 +307,57 @@
 </div>
 
       
-        <div class="flex flex-gap-8" style="margin: 4px">
-          <a class="button account"
-             href="/login/?">
+        <div id="account-dropdown" class="dropdown-menu">
+          <button class="account" type="button" onclick="Utils.toggleDropdown(event)">
             <i class="icon-user-line blue-icon"></i>
-            Login
-          </a>
-          <a class="button account button-secondary"
-             href="/register/?">Get free account</a>
+            Dhanunjaya
+            
+            <i class="icon-down"></i>
+          </button>
+
+          <div class="dropdown-content flex-column font-size-14 font-weight-500"
+               style="right: 0;
+                      width: 154px"
+               id="nav-user-menu">
+            <a href="/user/account/">
+              <i class="icon-settings"></i>
+              Profile
+            </a>
+            <a href="/alerts/">
+              <i class="icon-bell"></i>
+              Alerts
+            </a>
+            <a href="/notebook/">
+              <i class="icon-book-open"></i>
+              Notebook
+            </a>
+            
+            
+              <a href="/premium/?driver=user-nav-dropdown">
+                <i class="icon-crown"></i>
+                Upgrade
+              </a>
+            
+            
+              
+                <a href="/ai/?driver=user-nav-dropdown">
+                  <i class="icon-chat-ai"></i>
+                  Screener AI
+                </a>
+              
+            
+            <hr class="no-hover">
+            <form action="/logout/" method="post" style="padding: 0">
+              <input type="hidden" name="csrfmiddlewaretoken" value="WuVEqrLjCd2FRoB3yMxWnofa3y73SrgP0wuz1FqaTaM403y9GwI1GgHXwhpnhk6K">
+              <button type="submit"
+                      class="button-plain"
+                      style="width: 100%;
+                             padding: 4px 16px">
+                <i class="icon-off"></i>
+                Logout
+              </button>
+            </form>
+          </div>
         </div>
       
     </div>
@@ -331,7 +374,7 @@
       <h1 class="h2 shrink-text" style="margin: 0.5em 0">Reliance Industries Ltd</h1>
       <div class="flex flex-align-center gap-8">
         <button type="button"
-        class="a sub plausible-event-name=Notebook plausible-event-user=unregistered"
+        class="a sub plausible-event-name=Notebook plausible-event-user=free"
         onclick="Modal.openInModal(event)"
         data-url="/notebook/2726/"
         data-title="Reliance Industries Ltd"
@@ -381,7 +424,7 @@
         </div>
         <div class="sub-nav-actions show-from-tablet-landscape">
           <button type="button"
-        class="a sub plausible-event-name=Notebook plausible-event-user=unregistered"
+        class="a sub plausible-event-name=Notebook plausible-event-user=free"
         onclick="Modal.openInModal(event)"
         data-url="/notebook/2726/"
         data-title="Reliance Industries Ltd"
@@ -420,6 +463,13 @@
 
 
   
+    
+    
+    
+
+    
+    
+  
 
 
 
@@ -433,7 +483,7 @@
         
   <div data-company-id="2726"
        data-warehouse-id="6598251"
-       
+       data-user-is-registered="true"
        data-consolidated="true"
        id="company-info"></div>
 
@@ -447,11 +497,11 @@
         </div>
         <div class="font-size-18 strong line-height-14">
           <div class="flex flex-align-center">
-            <span>₹ 1,311</span>
+            <span>₹ 1,312</span>
             
               <span class="font-size-12 down margin-left-4">
                 <i class="icon-circle-down"></i>
-                -1.21%
+                -1.13%
               </span>
             
           </div>
@@ -459,7 +509,7 @@
             
               13 Aug
               
-                11:13 a.m.
+                11:19 a.m.
               
             
           </div>
@@ -467,11 +517,11 @@
       </div>
 
       <form method="post" class="flex margin-0" style="align-items: center">
-        <input type="hidden" name="csrfmiddlewaretoken" value="ujUyhCixFcOhlxSqYWI1yRWFes1EmnokXJqSeuTEQdTGyC28SeQzfOMLqXZzur96">
+        <input type="hidden" name="csrfmiddlewaretoken" value="WuVEqrLjCd2FRoB3yMxWnofa3y73SrgP0wuz1FqaTaM403y9GwI1GgHXwhpnhk6K">
         <input type="hidden" name="next" value="/company/RELIANCE/consolidated/">
 
         
-          <button class="margin-right-8 plausible-event-name=Excel+Company plausible-event-user=unregistered"
+          <button class="margin-right-8 plausible-event-name=Excel+Company plausible-event-user=free"
                   formaction="/user/company/export/6598251/"
                   aria-label="Export to Excel">
             <i class="icon-download"></i>
@@ -599,7 +649,7 @@
     
       <span class="nowrap value">
         ₹
-        <span class="number">17,74,115</span>
+        <span class="number">17,75,536</span>
         
           Cr.
         
@@ -617,7 +667,7 @@
     
       <span class="nowrap value">
         ₹
-        <span class="number">1,311</span>
+        <span class="number">1,312</span>
         
       </span>
     
@@ -645,7 +695,7 @@
     
       <span class="nowrap value">
         
-        <span class="number">23.7</span>
+        <span class="number">23.8</span>
         
       </span>
     
@@ -810,7 +860,7 @@
       
 
         
-          <button class="plausible-event-name=Chart+Metric plausible-event-user=unregistered plausible-event-metric=Price"
+          <button class="plausible-event-name=Chart+Metric plausible-event-user=free plausible-event-metric=Price"
                   onclick="CompanyChart.setActive(event)"
                   name="metrics"
                   value="Price-DMA50-DMA200-Volume"
@@ -820,7 +870,7 @@
       
 
         
-          <button class="plausible-event-name=Chart+Metric plausible-event-user=unregistered plausible-event-metric=PE"
+          <button class="plausible-event-name=Chart+Metric plausible-event-user=free plausible-event-metric=PE"
                   onclick="CompanyChart.setActive(event)"
                   name="metrics"
                   value="Price to Earning-Median PE-EPS"
@@ -869,7 +919,7 @@
 
             
               <li>
-                <button class="a u-full-width plausible-event-name=Chart+Metric plausible-event-user=unregistered plausible-event-metric=Sales"
+                <button class="a u-full-width plausible-event-name=Chart+Metric plausible-event-user=free plausible-event-metric=Sales"
                         style="padding: 4px 12px"
                         onclick="CompanyChart.setActive(event)"
                         name="metrics"
@@ -882,7 +932,7 @@
 
             
               <li>
-                <button class="a u-full-width plausible-event-name=Chart+Metric plausible-event-user=unregistered plausible-event-metric=EV-EBITDA"
+                <button class="a u-full-width plausible-event-name=Chart+Metric plausible-event-user=free plausible-event-metric=EV-EBITDA"
                         style="padding: 4px 12px"
                         onclick="CompanyChart.setActive(event)"
                         name="metrics"
@@ -895,7 +945,7 @@
 
             
               <li>
-                <button class="a u-full-width plausible-event-name=Chart+Metric plausible-event-user=unregistered plausible-event-metric=PBV"
+                <button class="a u-full-width plausible-event-name=Chart+Metric plausible-event-user=free plausible-event-metric=PBV"
                         style="padding: 4px 12px"
                         onclick="CompanyChart.setActive(event)"
                         name="metrics"
@@ -908,7 +958,7 @@
 
             
               <li>
-                <button class="a u-full-width plausible-event-name=Chart+Metric plausible-event-user=unregistered plausible-event-metric=Market+Cap+to+Sales"
+                <button class="a u-full-width plausible-event-name=Chart+Metric plausible-event-user=free plausible-event-metric=Market+Cap+to+Sales"
                         style="padding: 4px 12px"
                         onclick="CompanyChart.setActive(event)"
                         name="metrics"
@@ -1328,7 +1378,7 @@
       
         <button data-segment-button="1"
                 onclick="Segment.showSegment('quarters', '1')"
-                class="button-small button-secondary plausible-event-name=Segment+Results plausible-event-user=unregistered">
+                class="button-small button-secondary plausible-event-name=Segment+Results plausible-event-user=free">
           <i class="icon-chart-pie"></i>
           Product Segments
         </button>
@@ -2446,7 +2496,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2456,7 +2506,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2466,7 +2516,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2476,7 +2526,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2486,7 +2536,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2496,7 +2546,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2506,7 +2556,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2516,7 +2566,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2526,7 +2576,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2536,7 +2586,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2546,7 +2596,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2556,7 +2606,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2566,7 +2616,7 @@
                  target="_blank"
                  rel="noopener noreferrer"
                  aria-label="Raw PDF"
-                 class="plausible-event-name=Quarterly+PDF plausible-event-user=unregistered">
+                 class="plausible-event-name=Quarterly+PDF plausible-event-user=free">
                 <i class="icon-file-pdf ink-600-link"></i>
               </a>
             </td>
@@ -2604,7 +2654,7 @@
       <button data-url="/results/rpt/2726/consolidated/"
               data-title="Related Party Transactions"
               onclick="Modal.openInModal(event)"
-              class="button-small button-secondary plausible-event-name=Related+party plausible-event-user=unregistered">
+              class="button-small button-secondary plausible-event-name=Related+party plausible-event-user=free">
         <i class="small icon-users"></i>
         Related Party
       </button>
@@ -2621,7 +2671,7 @@
       
         <button data-segment-button="1"
                 onclick="Segment.showSegment('profit-loss', '1')"
-                class="button-small button-secondary plausible-event-name=Segment+Results plausible-event-user=unregistered">
+                class="button-small button-secondary plausible-event-name=Segment+Results plausible-event-user=free">
           <i class="icon-chart-pie"></i>
           Product Segments
         </button>
@@ -3941,7 +3991,7 @@
 
     
       <button type="button"
-              class="button-small button-secondary plausible-event-name=Corporate+Actions plausible-event-user=unregistered"
+              class="button-small button-secondary plausible-event-name=Corporate+Actions plausible-event-user=free"
               onclick="Modal.openInModal(event)"
               data-title="Corporate actions"
               data-url="/company/actions/2726/">Corporate actions</button>
@@ -6180,7 +6230,7 @@
     <h2 class="margin-0">Insights</h2>
     <span class="badge">In beta</span>
 
-    <button class="a font-size-12 font-weight-500 sub plausible-event-name=Flag+Insight+Error plausible-event-user=unregistered"
+    <button class="a font-size-12 font-weight-500 sub plausible-event-name=Flag+Insight+Error plausible-event-user=free"
             onclick="Company.openInsightsFlagModal(event)"
             data-url="/insights/company/2726/flag/"
             data-title="Reliance Industries - Flag insight"
@@ -6685,10 +6735,15 @@
 
               <div class="position-absolute inset-0 flex flex-center text-align-center"><div class="bg-base padding-16 radius-6 box-shadow-drop">
   
-    <p class="larger font-weight-500 margin-0">Log in to view insights</p>
-    <p class="sub">Please log in to see hidden values.</p>
-    <a href="/login/?next=/company/RELIANCE/consolidated/"
-       class="button button-secondary icon-lock button-small">Login</a>
+    <p class="larger font-weight-500 margin-0">Unlock insights</p>
+    <p class="sub">Free users can unlock up to 5 insights tables within the last 30 days.</p>
+    <button onclick="Company.unlockInsights(event)"
+            data-url="/insights/company/2726/year/?is_consolidated=1"
+            data-tab-id="yearly-insights"
+            type="button"
+            class="button button-secondary icon-lock button-small plausible-event-name=Unlock+Company+Insights plausible-event-user=">
+      Unlock
+    </button>
   
 </div>
 </div>
@@ -6798,7 +6853,7 @@
         
           <tr class="stripe">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=promoters plausible-event-period=quarterly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=promoters plausible-event-period=quarterly"
                       onclick="Company.showShareholders('promoters', 'quarterly', this)">
                 Promoters&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -6832,7 +6887,7 @@
         
           <tr class="">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=foreign_institutions plausible-event-period=quarterly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=foreign_institutions plausible-event-period=quarterly"
                       onclick="Company.showShareholders('foreign_institutions', 'quarterly', this)">
                 FIIs&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -6866,7 +6921,7 @@
         
           <tr class="stripe">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=domestic_institutions plausible-event-period=quarterly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=domestic_institutions plausible-event-period=quarterly"
                       onclick="Company.showShareholders('domestic_institutions', 'quarterly', this)">
                 DIIs&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -6900,7 +6955,7 @@
         
           <tr class="">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=government plausible-event-period=quarterly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=government plausible-event-period=quarterly"
                       onclick="Company.showShareholders('government', 'quarterly', this)">
                 Government&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -6934,7 +6989,7 @@
         
           <tr class="stripe">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=public plausible-event-period=quarterly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=public plausible-event-period=quarterly"
                       onclick="Company.showShareholders('public', 'quarterly', this)">
                 Public&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -6992,7 +7047,7 @@
         
           <tr class="stripe">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=promoters plausible-event-period=yearly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=promoters plausible-event-period=yearly"
                       onclick="Company.showShareholders('promoters', 'yearly', this)">
                 Promoters&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -7024,7 +7079,7 @@
         
           <tr class="">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=foreign_institutions plausible-event-period=yearly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=foreign_institutions plausible-event-period=yearly"
                       onclick="Company.showShareholders('foreign_institutions', 'yearly', this)">
                 FIIs&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -7056,7 +7111,7 @@
         
           <tr class="stripe">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=domestic_institutions plausible-event-period=yearly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=domestic_institutions plausible-event-period=yearly"
                       onclick="Company.showShareholders('domestic_institutions', 'yearly', this)">
                 DIIs&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -7088,7 +7143,7 @@
         
           <tr class="">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=government plausible-event-period=yearly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=government plausible-event-period=yearly"
                       onclick="Company.showShareholders('government', 'yearly', this)">
                 Government&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -7120,7 +7175,7 @@
         
           <tr class="stripe">
             <td class="text">
-              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=unregistered plausible-event-classification=public plausible-event-period=yearly"
+              <button class="button-plain plausible-event-name=View+Shareholders plausible-event-user=free plausible-event-classification=public plausible-event-period=yearly"
                       onclick="Company.showShareholders('public', 'yearly', this)">
                 Public&nbsp;<span class="blue-icon">+</span>
               </button>
@@ -7313,7 +7368,7 @@ Dematerialisation (Demat) Of Physical Shares
 <ul class="list-links">
 
   <li>
-    <a href="https://www.bseindia.com/xml-data/corpfiling/AttachHis/cc08294f-ec68-4f15-aaa4-c14a3c4bdfb2.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/xml-data/corpfiling/AttachHis/cc08294f-ec68-4f15-aaa4-c14a3c4bdfb2.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2026
       <div class="ink-600 smaller">
         from bse
@@ -7322,7 +7377,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/xml-data/corpfiling/AttachHis/468b09a3-a212-4066-bbaa-4b0ba524d2ce.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/xml-data/corpfiling/AttachHis/468b09a3-a212-4066-bbaa-4b0ba524d2ce.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2025
       <div class="ink-600 smaller">
         from bse
@@ -7331,7 +7386,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/xml-data/corpfiling/AttachHis/d473280d-1c2b-4037-8ff9-dfbb82aa2c7e.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/xml-data/corpfiling/AttachHis/d473280d-1c2b-4037-8ff9-dfbb82aa2c7e.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2024
       <div class="ink-600 smaller">
         from bse
@@ -7340,7 +7395,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/xml-data/corpfiling/AttachHis/b55b5dfc-a3bf-4f24-9d7f-ca09774a1dd9.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/xml-data/corpfiling/AttachHis/b55b5dfc-a3bf-4f24-9d7f-ca09774a1dd9.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2023
       <div class="ink-600 smaller">
         from bse
@@ -7349,7 +7404,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/74185500325.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/74185500325.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2022
       <div class="ink-600 smaller">
         from bse
@@ -7358,7 +7413,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/68509500325.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/68509500325.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2021
       <div class="ink-600 smaller">
         from bse
@@ -7367,7 +7422,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250320.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250320.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2020
       <div class="ink-600 smaller">
         from bse
@@ -7376,7 +7431,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250319.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250319.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2019
       <div class="ink-600 smaller">
         from bse
@@ -7385,7 +7440,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250318.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250318.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2018
       <div class="ink-600 smaller">
         from bse
@@ -7394,7 +7449,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250317.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250317.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2017
       <div class="ink-600 smaller">
         from bse
@@ -7403,7 +7458,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250316.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250316.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2016
       <div class="ink-600 smaller">
         from bse
@@ -7412,7 +7467,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250315.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250315.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2015
       <div class="ink-600 smaller">
         from bse
@@ -7421,7 +7476,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250314.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250314.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2014
       <div class="ink-600 smaller">
         from bse
@@ -7430,7 +7485,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://archives.nseindia.com/annual_reports/AR_19_RELIANCE_2012_2013_08052013171218.zip" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://archives.nseindia.com/annual_reports/AR_19_RELIANCE_2012_2013_08052013171218.zip" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2013
       <div class="ink-600 smaller">
         from nse
@@ -7439,7 +7494,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250313.pdf" class="plausible-event-name=Annual+Report plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.bseindia.com/bseplus/AnnualReport/500325/5003250313.pdf" class="plausible-event-name=Annual+Report plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Financial Year 2013
       <div class="ink-600 smaller">
         from bse
@@ -7464,7 +7519,7 @@ Dematerialisation (Demat) Of Physical Shares
 <ul class="list-links">
 
   <li>
-    <a href="https://www.careratings.com/upload/CompanyFiles/PR/202607120725_Reliance_Industries_Limited.pdf" class="plausible-event-name=Credit+Rating plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.careratings.com/upload/CompanyFiles/PR/202607120725_Reliance_Industries_Limited.pdf" class="plausible-event-name=Credit+Rating plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Rating update
       <div class="ink-600 smaller">
         3 Jul from care
@@ -7473,7 +7528,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.crisil.com/mnt/winshare/Ratings/RatingList/RatingDocs/RelianceIndustriesLimited_March 30_ 2026_RR_392495.html" class="plausible-event-name=Credit+Rating plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.crisil.com/mnt/winshare/Ratings/RatingList/RatingDocs/RelianceIndustriesLimited_March 30_ 2026_RR_392495.html" class="plausible-event-name=Credit+Rating plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Rating update
       <div class="ink-600 smaller">
         30 Mar from crisil
@@ -7482,7 +7537,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.crisil.com/mnt/winshare/Ratings/RatingList/RatingDocs/FirstBusinessReceivablesTrust_January 30_ 2026_RR_387316.html" class="plausible-event-name=Credit+Rating plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.crisil.com/mnt/winshare/Ratings/RatingList/RatingDocs/FirstBusinessReceivablesTrust_January 30_ 2026_RR_387316.html" class="plausible-event-name=Credit+Rating plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Rating update
       <div class="ink-600 smaller">
         30 Jan from crisil
@@ -7491,7 +7546,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.icra.in/Rationale/ShowRationaleReport/?Id=140636" class="plausible-event-name=Credit+Rating plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.icra.in/Rationale/ShowRationaleReport/?Id=140636" class="plausible-event-name=Credit+Rating plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Rating update
       <div class="ink-600 smaller">
         29 Jan from icra
@@ -7500,7 +7555,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.crisil.com/mnt/winshare/Ratings/RatingList/RatingDocs/RelianceIndustriesLimited_October 30_ 2025_RR_379987.html" class="plausible-event-name=Credit+Rating plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.crisil.com/mnt/winshare/Ratings/RatingList/RatingDocs/RelianceIndustriesLimited_October 30_ 2025_RR_379987.html" class="plausible-event-name=Credit+Rating plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Rating update
       <div class="ink-600 smaller">
         30 Oct 2025 from crisil
@@ -7509,7 +7564,7 @@ Dematerialisation (Demat) Of Physical Shares
   </li>
 
   <li>
-    <a href="https://www.crisil.com/mnt/winshare/Ratings/RatingList/RatingDocs/FirstBusinessReceivablesTrust_July 30_ 2025_RR_374300.html" class="plausible-event-name=Credit+Rating plausible-event-user=unregistered" target="_blank" rel="noopener noreferrer">
+    <a href="https://www.crisil.com/mnt/winshare/Ratings/RatingList/RatingDocs/FirstBusinessReceivablesTrust_July 30_ 2025_RR_374300.html" class="plausible-event-name=Credit+Rating plausible-event-user=free" target="_blank" rel="noopener noreferrer">
       Rating update
       <div class="ink-600 smaller">
         30 Jul 2025 from crisil
@@ -7553,7 +7608,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/23248165/"
                 onclick="Modal.openInModal(event)"
@@ -7584,7 +7639,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/23147154/"
                 onclick="Modal.openInModal(event)"
@@ -7615,7 +7670,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/23068282/"
                 onclick="Modal.openInModal(event)"
@@ -7643,7 +7698,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/23068296/"
                 onclick="Modal.openInModal(event)"
@@ -7679,7 +7734,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/23041167/"
                 onclick="Modal.openInModal(event)"
@@ -7733,7 +7788,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=recording"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=recording"
                 type="button"
                 data-url="/concalls/summary/23038091/"
                 onclick="Modal.openInModal(event)"
@@ -7766,7 +7821,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/23018504/"
                 onclick="Modal.openInModal(event)"
@@ -7797,7 +7852,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/22993912/"
                 onclick="Modal.openInModal(event)"
@@ -7825,7 +7880,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/22993911/"
                 onclick="Modal.openInModal(event)"
@@ -7861,7 +7916,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/22972026/"
                 onclick="Modal.openInModal(event)"
@@ -7889,7 +7944,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/22972025/"
                 onclick="Modal.openInModal(event)"
@@ -7920,7 +7975,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/22949407/"
                 onclick="Modal.openInModal(event)"
@@ -7973,7 +8028,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/22929497/"
                 onclick="Modal.openInModal(event)"
@@ -8004,7 +8059,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/22010117/"
                 onclick="Modal.openInModal(event)"
@@ -8040,7 +8095,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/18520636/"
                 onclick="Modal.openInModal(event)"
@@ -8071,7 +8126,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/15579504/"
                 onclick="Modal.openInModal(event)"
@@ -8124,7 +8179,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/12406467/"
                 onclick="Modal.openInModal(event)"
@@ -8155,7 +8210,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/9464587/"
                 onclick="Modal.openInModal(event)"
@@ -8186,7 +8241,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/6910417/"
                 onclick="Modal.openInModal(event)"
@@ -8217,7 +8272,7 @@ Dematerialisation (Demat) Of Physical Shares
       
 
       
-        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=unregistered plausible-event-source=transcript"
+        <button class="concall-link plausible-event-name=Concall+Notes plausible-event-user=free plausible-event-source=transcript"
                 type="button"
                 data-url="/concalls/summary/4539079/"
                 onclick="Modal.openInModal(event)"
@@ -8769,7 +8824,7 @@ Dematerialisation (Demat) Of Physical Shares
         
       </div>
     </section>
-    <!-- cache time 2026-08-13 03:07:01 -->
+    <!-- cache time 2026-08-13 11:27:01 -->
     
   
 
