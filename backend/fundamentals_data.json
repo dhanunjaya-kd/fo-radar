@@ -23459,5 +23459,992 @@
       "candle_count": 247
     },
     "fetched_at": "2026-08-13T16:03:46.481583"
+  },
+  "NSE:JGCHEM-EQ": {
+    "fundamentals": {
+      "company_name": "J.G.CHEMICALS LTD",
+      "current_price": 613.9,
+      "market_cap_cr": 2405.65,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 972.93,
+      "net_profit_cr": 65.88,
+      "eps": 16.81,
+      "pe_ratio": 36.53,
+      "roe_pct": 12.47,
+      "debt_to_equity": 0.012,
+      "opm_pct": 8.43,
+      "sales_cagr_pct": 16.05
+    },
+    "price_levels": {
+      "latest_close": 613.0,
+      "week52_high": 654.0,
+      "week52_low": 298.4,
+      "pct_off_52w_high": -6.27,
+      "pct_above_52w_low": 105.43,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:03:49.977804"
+  },
+  "NSE:JHS-EQ": {
+    "fundamentals": {
+      "company_name": "JHS SVENDGAARD LABORATORIES LTD",
+      "current_price": 8.8,
+      "market_cap_cr": 76.9,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 101.69,
+      "net_profit_cr": -1.92,
+      "eps": -0.22,
+      "pe_ratio": -40.06,
+      "roe_pct": -1.1,
+      "debt_to_equity": 0.085,
+      "opm_pct": 2.58,
+      "sales_cagr_pct": -0.27
+    },
+    "price_levels": {
+      "latest_close": 8.61,
+      "week52_high": 13.9,
+      "week52_low": 6.26,
+      "pct_off_52w_high": -38.06,
+      "pct_above_52w_low": 37.54,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:03:53.752215"
+  },
+  "NSE:JINDALPHOT-EQ": {
+    "fundamentals": {
+      "company_name": "JINDAL PHOTO LTD",
+      "current_price": 1079.0,
+      "market_cap_cr": 1106.88,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 12.58,
+      "net_profit_cr": -22.79,
+      "eps": -22.13,
+      "pe_ratio": -48.77,
+      "roe_pct": -2.23,
+      "debt_to_equity": 0.063,
+      "opm_pct": -115.9,
+      "sales_cagr_pct": 51.71
+    },
+    "price_levels": {
+      "latest_close": 1074.2,
+      "week52_high": 1616.6,
+      "week52_low": 796.0,
+      "pct_off_52w_high": -33.55,
+      "pct_above_52w_low": 34.95,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:03:59.920022"
+  },
+  "NSE:JINDALPOLY-EQ": {
+    "fundamentals": {
+      "company_name": "JINDAL POLY FILMS LTD",
+      "current_price": 649.0,
+      "market_cap_cr": 2841.75,
+      "latest_year": "2025-03-31 00:00:00",
+      "sales_cr": 5334.94,
+      "net_profit_cr": 109.79,
+      "eps": 25.07,
+      "pe_ratio": 25.89,
+      "roe_pct": 2.67,
+      "debt_to_equity": 1.073,
+      "opm_pct": 5.08,
+      "sales_cagr_pct": -3.31
+    },
+    "price_levels": {
+      "latest_close": 651.5,
+      "week52_high": 1026.45,
+      "week52_low": 365.0,
+      "pct_off_52w_high": -36.53,
+      "pct_above_52w_low": 78.49,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:03.120936"
+  },
+  "NSE:JINDALSAW-EQ": {
+    "fundamentals": {
+      "company_name": "JINDAL SAW LTD",
+      "current_price": 264.6,
+      "market_cap_cr": 16921.39,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 17895.17,
+      "net_profit_cr": 973.35,
+      "eps": 15.22,
+      "pe_ratio": 17.38,
+      "roe_pct": 7.74,
+      "debt_to_equity": 0.373,
+      "opm_pct": 12.46,
+      "sales_cagr_pct": 10.87
+    },
+    "price_levels": {
+      "latest_close": 264.4,
+      "week52_high": 281.0,
+      "week52_low": 153.0,
+      "pct_off_52w_high": -5.91,
+      "pct_above_52w_low": 72.81,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:06.288601"
+  },
+  "NSE:JINDALSTEL-EQ": {
+    "fundamentals": {
+      "company_name": "JINDAL STEEL LTD",
+      "current_price": 1094.4,
+      "market_cap_cr": 111638.46,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 53454.85,
+      "net_profit_cr": 3367.38,
+      "eps": 33.01,
+      "pe_ratio": 33.15,
+      "roe_pct": 6.62,
+      "debt_to_equity": 0.444,
+      "opm_pct": 18.15,
+      "sales_cagr_pct": 10.59
+    },
+    "price_levels": {
+      "latest_close": 1099.9,
+      "week52_high": 1306.2,
+      "week52_low": 943.3,
+      "pct_off_52w_high": -15.79,
+      "pct_above_52w_low": 16.6,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:11.293802"
+  },
+  "NSE:JINDRILL-EQ": {
+    "fundamentals": {
+      "company_name": "JINDAL DRILLING & INDUSTRIES LTD",
+      "current_price": 594.7,
+      "market_cap_cr": 1723.43,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 996.57,
+      "net_profit_cr": 210.6,
+      "eps": 72.62,
+      "pe_ratio": 8.19,
+      "roe_pct": 11.57,
+      "debt_to_equity": 0.051,
+      "opm_pct": 35.04,
+      "sales_cagr_pct": 11.58
+    },
+    "price_levels": {
+      "latest_close": 596.4,
+      "week52_high": 693.5,
+      "week52_low": 440.1,
+      "pct_off_52w_high": -14.0,
+      "pct_above_52w_low": 35.51,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:14.846172"
+  },
+  "NSE:JINDWORLD-EQ": {
+    "fundamentals": {
+      "company_name": "JINDAL WORLDWIDE LTD",
+      "current_price": 35.85,
+      "market_cap_cr": 3594.35,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2285.54,
+      "net_profit_cr": 69.81,
+      "eps": 0.7,
+      "pe_ratio": 51.49,
+      "roe_pct": 8.11,
+      "debt_to_equity": 0.649,
+      "opm_pct": 5.99,
+      "sales_cagr_pct": 7.85
+    },
+    "price_levels": {
+      "latest_close": 35.78,
+      "week52_high": 42.4,
+      "week52_low": 17.85,
+      "pct_off_52w_high": -15.61,
+      "pct_above_52w_low": 100.45,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:18.458064"
+  },
+  "NSE:JIOFIN-EQ": {
+    "fundamentals": {
+      "company_name": "JIO FINANCIAL SERVICES LTD",
+      "current_price": 255.0,
+      "market_cap_cr": 168380.09,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3520.81,
+      "net_profit_cr": 1560.9,
+      "eps": 2.46,
+      "pe_ratio": 103.79,
+      "roe_pct": 1.17,
+      "debt_to_equity": 0.163,
+      "opm_pct": 65.68,
+      "sales_cagr_pct": 328.21
+    },
+    "price_levels": {
+      "latest_close": 255.6,
+      "week52_high": 333.7,
+      "week52_low": 223.3,
+      "pct_off_52w_high": -23.4,
+      "pct_above_52w_low": 14.46,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:21.453604"
+  },
+  "NSE:JISLDVREQS-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 20.95,
+      "week52_high": 35.48,
+      "week52_low": 18.5,
+      "pct_off_52w_high": -40.95,
+      "pct_above_52w_low": 13.24,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:24.252426"
+  },
+  "NSE:JISLJALEQS-EQ": {
+    "fundamentals": {
+      "company_name": "JAIN IRRIGATION SYSTEMS LTD",
+      "current_price": 27.09,
+      "market_cap_cr": 1976.53,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6399.52,
+      "net_profit_cr": -24.61,
+      "eps": -0.34,
+      "pe_ratio": -78.66,
+      "roe_pct": -0.42,
+      "debt_to_equity": 0.736,
+      "opm_pct": 12.52,
+      "sales_cagr_pct": -0.53
+    },
+    "price_levels": {
+      "latest_close": 27.08,
+      "week52_high": 59.0,
+      "week52_low": 26.85,
+      "pct_off_52w_high": -54.1,
+      "pct_above_52w_low": 0.86,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:27.484614"
+  },
+  "NSE:JITFINFRA-EQ": {
+    "fundamentals": {
+      "company_name": "JITF INFRA LOGISTICS LTD",
+      "current_price": 334.95,
+      "market_cap_cr": 860.97,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2808.02,
+      "net_profit_cr": -48.13,
+      "eps": -18.73,
+      "pe_ratio": -17.89,
+      "roe_pct": 9.38,
+      "debt_to_equity": -7.688,
+      "opm_pct": 19.89,
+      "sales_cagr_pct": 20.03
+    },
+    "price_levels": {
+      "latest_close": 332.9,
+      "week52_high": 478.0,
+      "week52_low": 222.35,
+      "pct_off_52w_high": -30.36,
+      "pct_above_52w_low": 49.72,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:30.605316"
+  },
+  "NSE:JKCEMENT-EQ": {
+    "fundamentals": {
+      "company_name": "J K CEMENTS LTD",
+      "current_price": 5345.5,
+      "market_cap_cr": 41303.76,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 13722.3,
+      "net_profit_cr": 992.49,
+      "eps": 128.39,
+      "pe_ratio": 41.63,
+      "roe_pct": 14.1,
+      "debt_to_equity": 0.879,
+      "opm_pct": 17.33,
+      "sales_cagr_pct": 14.65
+    },
+    "price_levels": {
+      "latest_close": 5348.5,
+      "week52_high": 7565.5,
+      "week52_low": 4671.5,
+      "pct_off_52w_high": -29.3,
+      "pct_above_52w_low": 14.49,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:34.349025"
+  },
+  "NSE:JKIL-EQ": {
+    "fundamentals": {
+      "company_name": "J KUMAR INFRAPROJECTS LTD",
+      "current_price": 499.0,
+      "market_cap_cr": 3775.72,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5693.89,
+      "net_profit_cr": 383.55,
+      "eps": 50.67,
+      "pe_ratio": 9.85,
+      "roe_pct": 11.41,
+      "debt_to_equity": 0.175,
+      "opm_pct": 14.38,
+      "sales_cagr_pct": 15.11
+    },
+    "price_levels": {
+      "latest_close": 498.3,
+      "week52_high": 685.4,
+      "week52_low": 425.0,
+      "pct_off_52w_high": -27.3,
+      "pct_above_52w_low": 17.25,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:37.600275"
+  },
+  "NSE:JKIPL-EQ": {
+    "fundamentals": {
+      "company_name": "JINKUSHAL INDUSTRIES LTD",
+      "current_price": 99.15,
+      "market_cap_cr": 380.59,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 357.56,
+      "net_profit_cr": 12.09,
+      "eps": 3.15,
+      "pe_ratio": 31.49,
+      "roe_pct": 6.23,
+      "debt_to_equity": 0.519,
+      "opm_pct": 5.81,
+      "sales_cagr_pct": 22.42
+    },
+    "price_levels": {
+      "latest_close": 99.46,
+      "week52_high": 126.95,
+      "week52_low": 45.4,
+      "pct_off_52w_high": -21.65,
+      "pct_above_52w_low": 119.07,
+      "candle_count": 213
+    },
+    "fetched_at": "2026-08-13T16:04:40.589598"
+  },
+  "NSE:JKLAKSHMI-EQ": {
+    "fundamentals": {
+      "company_name": "JK LAKSHMI CEMENT LTD",
+      "current_price": 549.25,
+      "market_cap_cr": 6818.65,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6762.63,
+      "net_profit_cr": 412.05,
+      "eps": 33.2,
+      "pe_ratio": 16.54,
+      "roe_pct": 10.6,
+      "debt_to_equity": 0.665,
+      "opm_pct": 14.79,
+      "sales_cagr_pct": 9.77
+    },
+    "price_levels": {
+      "latest_close": 549.2,
+      "week52_high": 989.8,
+      "week52_low": 542.95,
+      "pct_off_52w_high": -44.51,
+      "pct_above_52w_low": 1.15,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:43.943224"
+  },
+  "NSE:JKPAPER-EQ": {
+    "fundamentals": {
+      "company_name": "JK PAPER LTD",
+      "current_price": 392.0,
+      "market_cap_cr": 7107.63,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 7076.03,
+      "net_profit_cr": 265.84,
+      "eps": 14.66,
+      "pe_ratio": 26.73,
+      "roe_pct": 4.82,
+      "debt_to_equity": 0.467,
+      "opm_pct": 13.06,
+      "sales_cagr_pct": 11.63
+    },
+    "price_levels": {
+      "latest_close": 393.55,
+      "week52_high": 444.8,
+      "week52_low": 304.85,
+      "pct_off_52w_high": -11.52,
+      "pct_above_52w_low": 29.1,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:47.306697"
+  },
+  "NSE:JKTYRE-EQ": {
+    "fundamentals": {
+      "company_name": "JK TYRE & INDUSTRIES LTD",
+      "current_price": 383.8,
+      "market_cap_cr": 11064.62,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 16326.65,
+      "net_profit_cr": 776.09,
+      "eps": 26.92,
+      "pe_ratio": 14.26,
+      "roe_pct": 12.81,
+      "debt_to_equity": 0.805,
+      "opm_pct": 12.44,
+      "sales_cagr_pct": 8.73
+    },
+    "price_levels": {
+      "latest_close": 383.5,
+      "week52_high": 611.9,
+      "week52_low": 311.0,
+      "pct_off_52w_high": -37.33,
+      "pct_above_52w_low": 23.31,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:50.603620"
+  },
+  "NSE:JLHL-EQ": {
+    "fundamentals": {
+      "company_name": "JUPITER LIFE LINE HOSPITALS LTD",
+      "current_price": 312.55,
+      "market_cap_cr": 10246.36,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1499.79,
+      "net_profit_cr": 194.01,
+      "eps": 5.92,
+      "pe_ratio": 52.81,
+      "roe_pct": 12.56,
+      "debt_to_equity": 0.378,
+      "opm_pct": 22.9,
+      "sales_cagr_pct": 21.64
+    },
+    "price_levels": {
+      "latest_close": 316.0,
+      "week52_high": 340.0,
+      "week52_low": 235.6,
+      "pct_off_52w_high": -7.06,
+      "pct_above_52w_low": 34.13,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:53.971648"
+  },
+  "NSE:JMA-EQ": {
+    "fundamentals": {
+      "company_name": "JULLUNDUR MOTOR AGENCY (DELHI) LTD",
+      "current_price": 89.6,
+      "market_cap_cr": 204.68,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 621.9,
+      "net_profit_cr": 29.71,
+      "eps": 13.03,
+      "pe_ratio": 6.88,
+      "roe_pct": 10.82,
+      "debt_to_equity": 0.0,
+      "opm_pct": 5.26,
+      "sales_cagr_pct": 5.4
+    },
+    "price_levels": {
+      "latest_close": 89.6,
+      "week52_high": 98.0,
+      "week52_low": 70.25,
+      "pct_off_52w_high": -8.57,
+      "pct_above_52w_low": 27.54,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:04:57.169607"
+  },
+  "NSE:JMFINANCIL-EQ": {
+    "fundamentals": {
+      "company_name": "JM FINANCIAL LTD",
+      "current_price": 129.25,
+      "market_cap_cr": 12368.79,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4222.63,
+      "net_profit_cr": 1201.97,
+      "eps": 12.57,
+      "pe_ratio": 10.28,
+      "roe_pct": 11.28,
+      "debt_to_equity": 1.092,
+      "opm_pct": 62.55,
+      "sales_cagr_pct": 6.68
+    },
+    "price_levels": {
+      "latest_close": 129.37,
+      "week52_high": 199.8,
+      "week52_low": 112.0,
+      "pct_off_52w_high": -35.25,
+      "pct_above_52w_low": 15.51,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:00.457580"
+  },
+  "NSE:JNKINDIA-EQ": {
+    "fundamentals": {
+      "company_name": "JNK INDIA LTD",
+      "current_price": 413.0,
+      "market_cap_cr": 2310.89,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 818.55,
+      "net_profit_cr": 64.95,
+      "eps": 11.6,
+      "pe_ratio": 35.61,
+      "roe_pct": 11.44,
+      "debt_to_equity": 0.16,
+      "opm_pct": 11.23,
+      "sales_cagr_pct": 42.83
+    },
+    "price_levels": {
+      "latest_close": 413.15,
+      "week52_high": 558.0,
+      "week52_low": 200.92,
+      "pct_off_52w_high": -25.96,
+      "pct_above_52w_low": 105.63,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:03.518706"
+  },
+  "NSE:JNPR-EQ": {
+    "fundamentals": {
+      "company_name": "JUNIPER GREEN ENERGY LTD",
+      "current_price": 250.45,
+      "market_cap_cr": 14250.64,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 718.93,
+      "net_profit_cr": 40.46,
+      "eps": 0.83,
+      "pe_ratio": 302.69,
+      "roe_pct": 1.18,
+      "debt_to_equity": 4.019,
+      "opm_pct": 84.59,
+      "sales_cagr_pct": 43.29
+    },
+    "price_levels": {
+      "latest_close": 249.89,
+      "week52_high": 264.72,
+      "week52_low": 232.11,
+      "pct_off_52w_high": -5.6,
+      "pct_above_52w_low": 7.66,
+      "candle_count": 6
+    },
+    "fetched_at": "2026-08-13T16:05:06.517164"
+  },
+  "NSE:JPOLYINVST-EQ": {
+    "fundamentals": {
+      "company_name": "JINDAL POLY INVESTMENT & FINANCE COMPANY LTD",
+      "current_price": 1060.0,
+      "market_cap_cr": 1114.03,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1036.54,
+      "net_profit_cr": 857.51,
+      "eps": 816.68,
+      "pe_ratio": 1.3,
+      "roe_pct": 53.43,
+      "debt_to_equity": 0.015,
+      "opm_pct": 97.27,
+      "sales_cagr_pct": -3.96
+    },
+    "price_levels": {
+      "latest_close": 1063.1,
+      "week52_high": 1487.7,
+      "week52_low": 716.05,
+      "pct_off_52w_high": -28.54,
+      "pct_above_52w_low": 48.47,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:09.759231"
+  },
+  "NSE:JPPOWER-EQ": {
+    "fundamentals": {
+      "company_name": "JAIPRAKASH POWER VENTURES LTD",
+      "current_price": 17.54,
+      "market_cap_cr": 12020.93,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5563.46,
+      "net_profit_cr": 450.63,
+      "eps": 0.66,
+      "pe_ratio": 26.68,
+      "roe_pct": 3.54,
+      "debt_to_equity": 0.266,
+      "opm_pct": 24.57,
+      "sales_cagr_pct": 1.99
+    },
+    "price_levels": {
+      "latest_close": 17.54,
+      "week52_high": 24.5,
+      "week52_low": 13.15,
+      "pct_off_52w_high": -28.41,
+      "pct_above_52w_low": 33.38,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:12.865584"
+  },
+  "NSE:JSFB-EQ": {
+    "fundamentals": {
+      "company_name": "JANA SMALL FINANCE BANK LTD",
+      "current_price": 570.05,
+      "market_cap_cr": 6026.28,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5352.87,
+      "net_profit_cr": 326.43,
+      "eps": 31.0,
+      "pe_ratio": 18.39,
+      "roe_pct": 7.36,
+      "debt_to_equity": 9.311,
+      "opm_pct": 38.56,
+      "sales_cagr_pct": 16.71
+    },
+    "price_levels": {
+      "latest_close": 571.15,
+      "week52_high": 593.0,
+      "week52_low": 330.0,
+      "pct_off_52w_high": -3.68,
+      "pct_above_52w_low": 73.08,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:15.880560"
+  },
+  "NSE:JSL-EQ": {
+    "fundamentals": {
+      "company_name": "JSL INDUSTRIES LTD",
+      "current_price": 865.0,
+      "market_cap_cr": 101.54,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 55.85,
+      "net_profit_cr": 3.29,
+      "eps": 27.42,
+      "pe_ratio": 31.55,
+      "roe_pct": 7.04,
+      "debt_to_equity": 0.045,
+      "opm_pct": 7.45,
+      "sales_cagr_pct": 2.56
+    },
+    "price_levels": {
+      "latest_close": 735.4,
+      "week52_high": 884.0,
+      "week52_low": 652.25,
+      "pct_off_52w_high": -16.81,
+      "pct_above_52w_low": 12.75,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:19.060752"
+  },
+  "NSE:JSLL-EQ": {
+    "fundamentals": {
+      "company_name": "JEENA SIKHO LIFECARE LTD",
+      "current_price": 526.15,
+      "market_cap_cr": 6540.08,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 801.35,
+      "net_profit_cr": 222.18,
+      "eps": 17.87,
+      "pe_ratio": 29.44,
+      "roe_pct": 47.54,
+      "debt_to_equity": 0.272,
+      "opm_pct": 43.63,
+      "sales_cagr_pct": 33.57
+    },
+    "price_levels": {
+      "latest_close": 529.35,
+      "week52_high": 849.5,
+      "week52_low": 492.0,
+      "pct_off_52w_high": -37.69,
+      "pct_above_52w_low": 7.59,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:22.328870"
+  },
+  "NSE:JSWCEMENT-EQ": {
+    "fundamentals": {
+      "company_name": "JSW CEMENT LTD",
+      "current_price": 131.05,
+      "market_cap_cr": 17866.92,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 6501.28,
+      "net_profit_cr": -756.32,
+      "eps": -5.55,
+      "pe_ratio": -23.62,
+      "roe_pct": -11.55,
+      "debt_to_equity": 0.682,
+      "opm_pct": 19.1,
+      "sales_cagr_pct": 14.42
+    },
+    "price_levels": {
+      "latest_close": 131.08,
+      "week52_high": 162.15,
+      "week52_low": 106.65,
+      "pct_off_52w_high": -19.16,
+      "pct_above_52w_low": 22.91,
+      "candle_count": 246
+    },
+    "fetched_at": "2026-08-13T16:05:25.383759"
+  },
+  "NSE:JSWDULUX-EQ": {
+    "fundamentals": {
+      "company_name": "JSW DULUX LTD",
+      "current_price": 3123.5,
+      "market_cap_cr": 14224.55,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 3599.2,
+      "net_profit_cr": 1973.8,
+      "eps": 433.8,
+      "pe_ratio": 7.2,
+      "roe_pct": 80.51,
+      "debt_to_equity": 0.032,
+      "opm_pct": 14.15,
+      "sales_cagr_pct": 3.8
+    },
+    "price_levels": {
+      "latest_close": 3123.5,
+      "week52_high": 3745.0,
+      "week52_low": 2658.7,
+      "pct_off_52w_high": -16.6,
+      "pct_above_52w_low": 17.48,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:28.679180"
+  },
+  "NSE:JSWENERGY-EQ": {
+    "fundamentals": {
+      "company_name": "JSW ENERGY LTD",
+      "current_price": 556.1,
+      "market_cap_cr": 101959.97,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 18901.13,
+      "net_profit_cr": 2239.31,
+      "eps": 12.74,
+      "pe_ratio": 43.64,
+      "roe_pct": 7.28,
+      "debt_to_equity": 2.502,
+      "opm_pct": 53.27,
+      "sales_cagr_pct": 9.63
+    },
+    "price_levels": {
+      "latest_close": 558.6,
+      "week52_high": 617.35,
+      "week52_low": 427.75,
+      "pct_off_52w_high": -9.52,
+      "pct_above_52w_low": 30.59,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:31.937685"
+  },
+  "NSE:JSWHL-EQ": {
+    "fundamentals": {
+      "company_name": "JSW HOLDINGS LTD",
+      "current_price": 11634.0,
+      "market_cap_cr": 12913.73,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 179.45,
+      "net_profit_cr": 121.59,
+      "eps": 109.54,
+      "pe_ratio": 106.21,
+      "roe_pct": 0.38,
+      "debt_to_equity": 0.0,
+      "opm_pct": 92.18,
+      "sales_cagr_pct": 12.26
+    },
+    "price_levels": {
+      "latest_close": 11670.0,
+      "week52_high": 22790.0,
+      "week52_low": 10530.0,
+      "pct_off_52w_high": -48.79,
+      "pct_above_52w_low": 10.83,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:35.106124"
+  },
+  "NSE:JSWINFRA-EQ": {
+    "fundamentals": {
+      "company_name": "JSW INFRASTRUCTURE LTD",
+      "current_price": 341.3,
+      "market_cap_cr": 79522.95,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 5361.44,
+      "net_profit_cr": 1523.31,
+      "eps": 7.25,
+      "pe_ratio": 47.05,
+      "roe_pct": 14.0,
+      "debt_to_equity": 0.634,
+      "opm_pct": 48.57,
+      "sales_cagr_pct": 22.12
+    },
+    "price_levels": {
+      "latest_close": 341.35,
+      "week52_high": 355.8,
+      "week52_low": 233.42,
+      "pct_off_52w_high": -4.06,
+      "pct_above_52w_low": 46.24,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:38.218929"
+  },
+  "NSE:JSWSTEEL-EQ": {
+    "fundamentals": {
+      "company_name": "JSW STEEL LTD",
+      "current_price": 1276.0,
+      "market_cap_cr": 312039.92,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 185470.0,
+      "net_profit_cr": 22316.0,
+      "eps": 91.25,
+      "pe_ratio": 13.98,
+      "roe_pct": 22.3,
+      "debt_to_equity": 0.993,
+      "opm_pct": 15.89,
+      "sales_cagr_pct": 14.32
+    },
+    "price_levels": {
+      "latest_close": 1275.0,
+      "week52_high": 1335.0,
+      "week52_low": 1022.3,
+      "pct_off_52w_high": -4.49,
+      "pct_above_52w_low": 24.72,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:41.479436"
+  },
+  "NSE:JTEKTINDIA-EQ": {
+    "fundamentals": {
+      "company_name": "JTEKT INDIA LTD",
+      "current_price": 133.25,
+      "market_cap_cr": 3696.35,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2665.58,
+      "net_profit_cr": 76.89,
+      "eps": 2.77,
+      "pe_ratio": 48.07,
+      "roe_pct": 6.48,
+      "debt_to_equity": 0.287,
+      "opm_pct": 7.52,
+      "sales_cagr_pct": 9.64
+    },
+    "price_levels": {
+      "latest_close": 133.32,
+      "week52_high": 188.5,
+      "week52_low": 117.01,
+      "pct_off_52w_high": -29.27,
+      "pct_above_52w_low": 13.94,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:44.703931"
+  },
+  "NSE:JTLIND-EQ": {
+    "fundamentals": {
+      "company_name": "JTL INDUSTRIES LTD",
+      "current_price": 76.71,
+      "market_cap_cr": 2930.63,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 2136.36,
+      "net_profit_cr": 98.47,
+      "eps": 2.58,
+      "pe_ratio": 29.76,
+      "roe_pct": 6.62,
+      "debt_to_equity": 0.164,
+      "opm_pct": 7.23,
+      "sales_cagr_pct": 37.45
+    },
+    "price_levels": {
+      "latest_close": 76.64,
+      "week52_high": 87.2,
+      "week52_low": 40.25,
+      "pct_off_52w_high": -12.11,
+      "pct_above_52w_low": 90.41,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:47.741641"
+  },
+  "NSE:JUBLCPL-EQ": {
+    "fundamentals": {
+      "company_name": "JUBILANT AGRI & CONSUMER PRODUCTS LTD",
+      "current_price": 2327.25,
+      "market_cap_cr": 3526.37,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 1828.78,
+      "net_profit_cr": 127.87,
+      "eps": 84.12,
+      "pe_ratio": 27.66,
+      "roe_pct": 27.8,
+      "debt_to_equity": 0.111,
+      "opm_pct": 10.84,
+      "sales_cagr_pct": 21.25
+    },
+    "price_levels": {
+      "latest_close": 2322.6,
+      "week52_high": 3013.4,
+      "week52_low": 1460.0,
+      "pct_off_52w_high": -22.92,
+      "pct_above_52w_low": 59.08,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:50.798904"
+  },
+  "NSE:JUBLFOOD-EQ": {
+    "fundamentals": {
+      "company_name": "JUBILANT FOODWORKS LTD",
+      "current_price": 492.0,
+      "market_cap_cr": 32464.27,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 9512.51,
+      "net_profit_cr": 428.48,
+      "eps": 6.49,
+      "pe_ratio": 75.76,
+      "roe_pct": 18.69,
+      "debt_to_equity": 2.139,
+      "opm_pct": 20.0,
+      "sales_cagr_pct": 15.58
+    },
+    "price_levels": {
+      "latest_close": 491.55,
+      "week52_high": 670.45,
+      "week52_low": 408.55,
+      "pct_off_52w_high": -26.68,
+      "pct_above_52w_low": 20.32,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:54.412064"
+  },
+  "NSE:JUBLINGREA-EQ": {
+    "fundamentals": {
+      "company_name": "JUBILANT INGREVIA LTD",
+      "current_price": 736.9,
+      "market_cap_cr": 11737.41,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4388.07,
+      "net_profit_cr": 277.9,
+      "eps": 17.45,
+      "pe_ratio": 42.24,
+      "roe_pct": 8.89,
+      "debt_to_equity": 0.253,
+      "opm_pct": 12.94,
+      "sales_cagr_pct": 45.02
+    },
+    "price_levels": {
+      "latest_close": 736.3,
+      "week52_high": 795.0,
+      "week52_low": 537.3,
+      "pct_off_52w_high": -7.38,
+      "pct_above_52w_low": 37.04,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:05:57.954306"
+  },
+  "NSE:JUBLPHARMA-EQ": {
+    "fundamentals": {
+      "company_name": "JUBILANT PHARMOVA LTD",
+      "current_price": 890.9,
+      "market_cap_cr": 14192.09,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 8279.6,
+      "net_profit_cr": 398.5,
+      "eps": 25.02,
+      "pe_ratio": 35.61,
+      "roe_pct": 5.62,
+      "debt_to_equity": 0.51,
+      "opm_pct": 15.21,
+      "sales_cagr_pct": 3.91
+    },
+    "price_levels": {
+      "latest_close": 890.5,
+      "week52_high": 1184.8,
+      "week52_low": 786.05,
+      "pct_off_52w_high": -24.84,
+      "pct_above_52w_low": 13.29,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T16:06:01.053610"
   }
 }
