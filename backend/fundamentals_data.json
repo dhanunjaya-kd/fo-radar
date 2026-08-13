@@ -1,0 +1,114 @@
+{
+  "NSE:20MICRONS-EQ": {
+    "fundamentals": {
+      "company_name": "20 MICRONS LTD",
+      "current_price": 184.75,
+      "market_cap_cr": 651.92,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 953.83,
+      "net_profit_cr": 66.83,
+      "eps": 18.93,
+      "pe_ratio": 9.76,
+      "roe_pct": 13.82,
+      "debt_to_equity": 0.323,
+      "opm_pct": 12.84,
+      "sales_cagr_pct": 10.38
+    },
+    "price_levels": {
+      "latest_close": 184.2,
+      "week52_high": 246.61,
+      "week52_low": 129.61,
+      "pct_off_52w_high": -25.31,
+      "pct_above_52w_low": 42.12,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T12:22:41.071626"
+  },
+  "NSE:21STCENMGM-EQ": {
+    "fundamentals": null,
+    "price_levels": {
+      "latest_close": 42.56,
+      "week52_high": 57.98,
+      "week52_low": 28.25,
+      "pct_off_52w_high": -26.6,
+      "pct_above_52w_low": 50.65,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T12:22:44.549528"
+  },
+  "NSE:360ONE-EQ": {
+    "fundamentals": {
+      "company_name": "360 ONE WAM LTD",
+      "current_price": 1172.1,
+      "market_cap_cr": 47691.47,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 4361.62,
+      "net_profit_cr": 1216.17,
+      "eps": 29.95,
+      "pe_ratio": 39.14,
+      "roe_pct": 12.37,
+      "debt_to_equity": 1.62,
+      "opm_pct": 62.06,
+      "sales_cagr_pct": 12.46
+    },
+    "price_levels": {
+      "latest_close": 1173.7,
+      "week52_high": 1236.2,
+      "week52_low": 906.05,
+      "pct_off_52w_high": -5.06,
+      "pct_above_52w_low": 29.54,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T12:22:47.709672"
+  },
+  "NSE:3BBLACKBIO-EQ": {
+    "fundamentals": {
+      "company_name": "3B BLACKBIO DX LTD",
+      "current_price": 1241.5,
+      "market_cap_cr": 1065.54,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 141.92,
+      "net_profit_cr": 58.59,
+      "eps": 68.13,
+      "pe_ratio": 18.22,
+      "roe_pct": 18.06,
+      "debt_to_equity": 0.01,
+      "opm_pct": 40.01,
+      "sales_cagr_pct": 27.3
+    },
+    "price_levels": {
+      "latest_close": 1239.0,
+      "week52_high": 1441.5,
+      "week52_low": 1085.0,
+      "pct_off_52w_high": -14.05,
+      "pct_above_52w_low": 14.19,
+      "candle_count": 81
+    },
+    "fetched_at": "2026-08-13T12:22:51.153759"
+  },
+  "NSE:3IINFOLTD-EQ": {
+    "fundamentals": {
+      "company_name": "3I INFOTECH LTD",
+      "current_price": 27.01,
+      "market_cap_cr": 560.19,
+      "latest_year": "2026-03-31 00:00:00",
+      "sales_cr": 693.36,
+      "net_profit_cr": 35.46,
+      "eps": 1.71,
+      "pe_ratio": 15.8,
+      "roe_pct": 9.3,
+      "debt_to_equity": 0.162,
+      "opm_pct": -2.59,
+      "sales_cagr_pct": -4.03
+    },
+    "price_levels": {
+      "latest_close": 27.01,
+      "week52_high": 27.8,
+      "week52_low": 12.68,
+      "pct_off_52w_high": -2.84,
+      "pct_above_52w_low": 113.01,
+      "candle_count": 247
+    },
+    "fetched_at": "2026-08-13T12:22:54.353114"
+  }
+}

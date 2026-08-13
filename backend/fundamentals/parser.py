@@ -84,7 +84,15 @@ def parse_fundamentals(xlsx_bytes):
     if len(valid_sales) >= 2:
         (i0, v0), (i1, v1) = valid_sales[0], valid_sales[-1]
         years = i1 - i0
-        if years > 0 and v0 > 0:
+        # CAGR is only mathematically defined for positive start/end
+        # values. A negative v1 (happened live for a real stock) makes
+        # (v1/v0) negative, and raising a negative number to a
+        # fractional power (1/years) doesn't raise a normal math
+        # error in Python -- it silently returns a COMPLEX number,
+        # which only surfaces as a crash later when round() refuses
+        # to accept one. Guarding both here means an honest None
+        # instead, not a crash and not a fake number.
+        if years > 0 and v0 > 0 and v1 > 0:
             sales_cagr_pct = ((v1 / v0) ** (1 / years) - 1) * 100
 
     return {
