@@ -1126,6 +1126,27 @@ class IndexBacktestView(APIView):
         return Response(clean_json({"index": name, "horizons": by_horizon}))
 
 
+class CASAuctionMovesView(APIView):
+    """
+    Day-by-day price move specifically attributable to the CAS
+    auction window (3:15-3:35 PM): last reading before it starts vs
+    first reading after it resolves, isolating the auction's real
+    effect from ordinary intraday movement. NIFTY/BANKNIFTY only --
+    CAS is an NSE cash-market mechanism, doesn't apply to commodities.
+    Days before the market_hours.py fix (Aug 13, 2026) won't have a
+    valid post-auction reading and are correctly excluded rather than
+    guessed at -- real data only accumulates from today forward.
+    GET /api/cas-auction-moves/<NIFTY|BANKNIFTY>/
+    """
+    def get(self, request, index_name):
+        from .index_tracker import compute_cas_auction_moves
+        name = index_name.upper()
+        if name not in ("NIFTY", "BANKNIFTY"):
+            return Response({"error": "index_name must be NIFTY or BANKNIFTY -- CAS doesn't apply to commodities"}, status=400)
+        moves = compute_cas_auction_moves(name)
+        return Response(clean_json({"index": name, "moves": moves}))
+
+
 class IndexBacktestExportView(APIView):
     """Download the day-wise backtest as an Excel file, one row per
     date+bias with a Hit% and sample count column per horizon.
