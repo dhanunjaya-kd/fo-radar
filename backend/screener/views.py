@@ -763,6 +763,7 @@ def _build_all():
 
 def _background_worker():
     from .market_hours import is_market_hours
+    last_closed_log = 0
     while True:
         try:
             if is_market_hours():
@@ -770,12 +771,22 @@ def _background_worker():
                 print(f"[{datetime.now()}] Background refresh complete. Stocks: {len(_stock_cache)}, Signals: {len(_signal_cache)}")
                 time.sleep(90)
             else:
-                # Market closed -- no point re-checking every 90s or
-                # burning Fyers API calls on stale data. Check every 5
-                # min instead until it's open, so an overnight/weekend
-                # run doesn't spam identical log lines for no reason.
-                print(f"[{datetime.now()}] Market closed -- waiting.")
-                time.sleep(300)
+                # Checking is_market_hours() itself costs nothing -- it's
+                # a local time comparison, not a Fyers API call. So check
+                # often (every 20s) for near-instant market-open detection
+                # instead of the previous flat 300s sleep, which could
+                # leave "market just opened" undetected for up to 5
+                # minutes worst case (confirmed live: banner still
+                # showing zeros 2+ min after open). Only the LOG LINE is
+                # throttled to roughly every 5 min -- that was the actual
+                # point of the old 300s interval (not spamming identical
+                # lines all night), and this keeps that without also
+                # slowing down detection.
+                now = time.time()
+                if now - last_closed_log >= 300:
+                    print(f"[{datetime.now()}] Market closed -- waiting.")
+                    last_closed_log = now
+                time.sleep(20)
         except Exception as e:
             print(f"[{datetime.now()}] Background error: {e}")
             time.sleep(90)
@@ -813,6 +824,7 @@ def _index_snapshot_worker():
     """
     from .market_hours import is_market_hours
     from .index_tracker import snapshot_all, snapshot_all_commodities, is_mcx_hours
+    last_closed_log = 0
     while True:
         try:
             nse_open = is_market_hours()
@@ -828,7 +840,22 @@ def _index_snapshot_worker():
                     vix=vix.get("price"),
                 )
             snapshot_all_commodities()
-            time.sleep(60 if (nse_open or is_mcx_hours()) else 300)
+            mcx_open = is_mcx_hours()
+            if nse_open or mcx_open:
+                time.sleep(60)
+            else:
+                # Same fast-check/slow-log split as _background_worker()
+                # above -- checking costs nothing, only the log line needs
+                # throttling. In practice MCX opens at 9 AM, before NSE's
+                # 9:15, so this loop is normally already on the fast 60s
+                # cadence well before NSE opens -- this only matters for
+                # the narrower case of a restart happening before EITHER
+                # market has opened yet (e.g. very early morning).
+                now = time.time()
+                if now - last_closed_log >= 300:
+                    print(f"[{datetime.now()}] NSE and MCX both closed -- waiting.")
+                    last_closed_log = now
+                time.sleep(20)
         except Exception as e:
             print(f"[{datetime.now()}] Index snapshot worker error: {e}")
             time.sleep(60)
