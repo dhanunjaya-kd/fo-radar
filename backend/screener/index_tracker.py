@@ -253,25 +253,67 @@ def _derive_bias(pcr, oi_buildup):
     while price moves, just triggers less often now that Bias itself
     is more sensitive.
 
-    STILL OPEN (Aug 14 2026): `oi_buildup` is accepted but still not
-    used below -- confirmed via real backtest data that Bias's accuracy
-    is weak-to-below-coin-flip generally, which is what put this back
-    on the table, but wiring it in for real needs to see what shape
-    options_analytics.py's oi_buildup actually is (a label? a score?)
-    before it can be used safely rather than guessed at. Don't add
-    speculative handling here without that.
+    Aug 14 2026 -- oi_buildup now actually used. It's a plain label from
+    options_analytics.analyze_option_chain(): 'CE writing dominant
+    (bearish)', 'PE writing dominant (bullish)', or 'Mixed / no clear
+    dominance' -- computed from TODAY's chain-wide OI change (fresh
+    writing activity since market open), which is a meaningfully
+    DIFFERENT signal from PCR (the current absolute OI level, built up
+    over however many prior days). PCR can stay "Bullish" purely on old
+    put OI that's just sitting there while today's actual writing is
+    going the other way -- that gap is exactly what real backtest data
+    (Aug 10-14 2026) showed: PCR-alone accuracy was weak-to-below-
+    coin-flip. This does NOT touch the PCR tier boundaries above --
+    only refines the result using oi_buildup, and only when oi_buildup
+    has a clear read:
+      - PCR says Neutral, but today's flow leans one way -> surface
+        that as a plain (non-Strong) directional read instead of
+        staying silent on a real signal, same spirit as the existing
+        "Neutral but falling/rising" price-based flag, one layer
+        earlier (about OI flow here, not price).
+      - PCR is directional but today's flow actively disagrees ->
+        soften to Neutral rather than keep asserting a confident
+        directional call two of the app's own signals disagree on.
+      - Both agree, or oi_buildup is 'Mixed'/None -> PCR's tier is
+        used unchanged, Strong included.
+
+    HONEST LIMITATION: oi_buildup itself was never a logged column
+    historically (only the ATM-only Put/Call OI Chg columns were), so
+    this specific change can't be retroactively verified against past
+    data the way the _price_confirms_bias rewrite was -- it can only
+    be watched going forward from here.
     """
     if pcr is None:
         return "Neutral"
     if pcr > 1.6:
-        return "Bullish (Strong)"
-    if pcr > 1.05:
-        return "Bullish"
-    if pcr < 0.5:
-        return "Bearish (Strong)"
-    if pcr < 0.95:
-        return "Bearish"
-    return "Neutral"
+        pcr_bias = "Bullish (Strong)"
+    elif pcr > 1.05:
+        pcr_bias = "Bullish"
+    elif pcr < 0.5:
+        pcr_bias = "Bearish (Strong)"
+    elif pcr < 0.95:
+        pcr_bias = "Bearish"
+    else:
+        pcr_bias = "Neutral"
+
+    oi_direction = None
+    if oi_buildup == "PE writing dominant (bullish)":
+        oi_direction = "bullish"
+    elif oi_buildup == "CE writing dominant (bearish)":
+        oi_direction = "bearish"
+    # 'Mixed / no clear dominance', None, or anything unrecognized -->
+    # no clear fresh-flow read to weigh in with, use PCR's tier as-is.
+    if oi_direction is None:
+        return pcr_bias
+
+    if pcr_bias == "Neutral":
+        return "Bullish" if oi_direction == "bullish" else "Bearish"
+
+    pcr_direction = "bullish" if pcr_bias.startswith("Bullish") else "bearish"
+    if pcr_direction != oi_direction:
+        return "Neutral"
+
+    return pcr_bias
 
 
 def _status_label(oi_chg):
