@@ -165,11 +165,17 @@ _lock = threading.Lock()
 _last_snapshot = {}  # {index_name: {'ce_oi': int, 'pe_oi': int}}
 
 
+def _date_path(index_name, date_str):
+    """Same file-naming pattern used for daily logging, for any date --
+    read-only, doesn't create the directory (a missing folder just
+    means nothing was logged that date, not an error)."""
+    return os.path.join(LOG_DIR, date_str, f"index_tracker_{index_name}_{date_str}.xlsx")
+
+
 def _today_path(index_name):
     today = datetime.now().strftime("%Y-%m-%d")
-    day_dir = os.path.join(LOG_DIR, today)
-    os.makedirs(day_dir, exist_ok=True)
-    return os.path.join(day_dir, f"index_tracker_{index_name}_{today}.xlsx")
+    os.makedirs(os.path.join(LOG_DIR, today), exist_ok=True)  # only the write path needs to create the folder
+    return _date_path(index_name, today)
 
 
 def _get_workbook(path):
@@ -555,34 +561,52 @@ def snapshot_all_commodities():
     return results
 
 
-def get_today_snapshots(index_name, limit=100):
-    """Read today's logged rows for the frontend table (most recent
-    first). Returns [] if nothing logged yet today."""
+def get_snapshots_for_date(index_name, date_str, limit=100):
+    """Read logged rows for a specific date (YYYY-MM-DD), most recent
+    first. Returns [] if nothing was logged that date (a weekend, a
+    holiday, or before this started running) rather than erroring."""
     if not OPENPYXL_AVAILABLE or index_name not in TRACKABLE_NAMES:
         return []
-    path = _today_path(index_name)
+    path = _date_path(index_name, date_str)
     if not os.path.exists(path):
         return []
     try:
         wb = load_workbook(path)
         ws = wb["Snapshots"]
         # Zip against the file's OWN header row, not the current in-memory
-        # COLUMNS constant -- a column added mid-day (like this one) means
-        # an already-written file's real column order can legitimately
-        # differ from what COLUMNS says right now. Zipping against the
-        # constant silently shifted every value after the change point
-        # onto the wrong new label for any row written before the change
-        # (caught live: PCR/ATM Strike/VIX/etc. all showing garbage after
-        # Fut OI / Fut OI Chg % were inserted). Reading the file's actual
-        # header keeps older rows correctly labeled regardless.
+        # COLUMNS constant -- a column added since that date's file was
+        # written means an already-written file's real column order can
+        # legitimately differ from what COLUMNS says right now. Zipping
+        # against the constant silently shifted every value after the
+        # change point onto the wrong new label for older rows (caught
+        # live). Reading the file's actual header keeps old rows correct.
         file_columns = [c.value for c in ws[1]]
         rows = []
         for r in ws.iter_rows(min_row=2, values_only=True):
             rows.append(dict(zip(file_columns, r)))
         return list(reversed(rows))[:limit]
     except Exception as e:
-        print(f"[IndexTracker] Failed to read {index_name} snapshots: {e}")
+        print(f"[IndexTracker] Failed to read {index_name} snapshots for {date_str}: {e}")
         return []
+
+
+def get_today_snapshots(index_name, limit=100):
+    """Read today's logged rows for the frontend table (most recent
+    first). Returns [] if nothing logged yet today."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    return get_snapshots_for_date(index_name, today, limit=limit)
+
+
+def list_available_dates(index_name):
+    """Which dates actually have logged data for this index, newest
+    first -- scans signal_logs/ for date-named subfolders containing
+    this index's file, rather than assuming every date since logging
+    started has data (weekends, holidays, and days before the server
+    was running won't)."""
+    if not os.path.isdir(LOG_DIR):
+        return []
+    dates = [d for d in os.listdir(LOG_DIR) if os.path.exists(_date_path(index_name, d))]
+    return sorted(dates, reverse=True)
 
 
 def get_today_log_path(index_name):
