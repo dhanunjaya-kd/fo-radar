@@ -350,17 +350,89 @@ def _fyers_history_df(symbol, days=100):
     return df
 
 
-def _calc_tech(symbol):
+# Day-scoped cache: {symbol: {'date': 'YYYY-MM-DD', 'df': historical_df}}.
+# Aug 14 2026 addition -- _calc_tech() used to re-fetch 100 days of daily
+# candles from Fyers for every one of the day's ~30 top movers, EVERY
+# cycle, even though 99 of those 100 days are identical to two minutes
+# ago -- only today's candle moves. This caches everything except the
+# most recent (today's) row once per symbol per day; _calc_tech appends
+# a fresh "today" row built from the quote data _fetch_all_stocks()
+# already pulled this cycle, so most cycles now cost ZERO extra Fyers
+# calls here, not 30.
+_history_cache = {}
+
+
+def _cached_history_df(symbol, days=100):
+    """
+    Returns cached daily-candle history for `symbol`, EXCLUDING the most
+    recent row -- _calc_tech always replaces that row with a fresh one
+    built from this cycle's already-fetched live quote instead. Only
+    hits Fyers once per symbol per day; every other call this trading
+    day is a pure in-memory lookup.
+
+    Drops the fetched response's LAST row unconditionally, rather than
+    trying to identify "today" by comparing dates -- Fyers' candle
+    timestamps are raw epoch seconds, and doing that comparison
+    correctly needs careful timezone handling (this function runs in the
+    machine's local time; naive epoch-to-date conversion defaults to
+    UTC) that's easy to get subtly wrong, especially near midnight IST.
+    Dropping the last row and replacing it with a definitely-current
+    live quote sidesteps that entirely -- and it's consistent with how
+    the rest of this file already works: every indicator in
+    _compute_indicators reads .iloc[-1] as "today", so the code already
+    assumes ascending chronological order with the most recent day last.
+    This isn't a new assumption, just acting on the one already baked in.
+    """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _history_cache.get(symbol)
+    if cached and cached.get('date') == today_str:
+        return cached['df']
+
+    df = _fyers_history_df(symbol, days=days)
+    if df is None or df.empty or len(df) < 2:
+        return None
+
+    historical = df.iloc[:-1].reset_index(drop=True)
+    _history_cache[symbol] = {'date': today_str, 'df': historical}
+    return historical
+
+
+def _calc_tech(symbol, live_quote=None):
     """
     Technical indicators for a stock, sourced from Fyers only. No Yahoo/
     yfinance fallback -- if Fyers isn't authenticated or has no usable
     history for this symbol, returns None (caller skips the stock for
     this cycle) rather than pulling from Yahoo.
+
+    `live_quote` (optional): this cycle's already-fetched quote dict for
+    this symbol (from _fetch_all_stocks -- has open/high/low/price/
+    volume). When given, today's candle is built from THIS instead of a
+    second Fyers history call that would otherwise also include today --
+    the quotes call already happened this cycle regardless, so reusing
+    it here is genuinely free. Falls back to the original, slower path
+    (a full history fetch that includes today, no caching) when not
+    given, so any other caller keeps working exactly as before.
     """
     try:
         if not is_authenticated():
             return None
-        df = _fyers_history_df(symbol, days=100)
+
+        if live_quote is not None:
+            historical = _cached_history_df(symbol, days=100)
+            if historical is None:
+                return None
+            today_row = pd.DataFrame([{
+                'ts': int(datetime.now().timestamp()),
+                'Open': live_quote.get('open') or live_quote.get('price'),
+                'High': live_quote.get('high') or live_quote.get('price'),
+                'Low': live_quote.get('low') or live_quote.get('price'),
+                'Close': live_quote.get('price'),
+                'Volume': live_quote.get('volume', 0),
+            }])
+            df = pd.concat([historical, today_row], ignore_index=True)
+        else:
+            df = _fyers_history_df(symbol, days=100)
+
         if df is None or len(df) < 20:
             return None
         return _compute_indicators(df['Close'], df['High'], df['Low'], df['Volume'])
@@ -423,7 +495,7 @@ def _build_all():
     
     for stock in movers:
         sym = stock['symbol']
-        tech = _calc_tech(sym)
+        tech = _calc_tech(sym, live_quote=stock)
         if not tech:
             continue
         techs[sym] = tech
@@ -993,7 +1065,7 @@ class StockDetailView(APIView):
             if not q:
                 return Response({"error": "Symbol not found"}, status=404)
         
-        tech = _calc_tech(sym)
+        tech = _calc_tech(sym, live_quote=q)
         return Response({
             **q,
             "ohlc": {"open": q["open"], "high": q["high"], "low": q["low"], "close": q["close"]},
