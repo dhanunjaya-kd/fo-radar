@@ -310,11 +310,28 @@ function IndexSection({ indexName, showBacktest = true }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(''); // '' means today
+  const [availableDates, setAvailableDates] = useState([]);
+
+  // Fetched once -- which past dates actually have logged data, so the
+  // dropdown only ever offers real choices instead of letting someone
+  // pick a date with nothing behind it.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/index-tracker/${indexName}/dates/`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setAvailableDates(d.dates || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [indexName]);
 
   useEffect(() => {
     let cancelled = false;
     const load = () => {
-      fetch(`${API_BASE}/api/index-tracker/${indexName}/`)
+      const url = selectedDate
+        ? `${API_BASE}/api/index-tracker/${indexName}/?date=${selectedDate}`
+        : `${API_BASE}/api/index-tracker/${indexName}/`;
+      fetch(url)
         .then(r => r.json())
         .then(data => {
           if (cancelled) return;
@@ -324,22 +341,43 @@ function IndexSection({ indexName, showBacktest = true }) {
         .catch(e => { if (!cancelled) setError(e.message); })
         .finally(() => { if (!cancelled) setLoading(false); });
     };
+    setLoading(true);
     load();
-    const interval = setInterval(load, 60000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [indexName]);
+    // Only auto-refresh when viewing today -- a past date's data is
+    // finished and won't change, so polling it every minute would just
+    // be wasted requests.
+    if (!selectedDate) {
+      const interval = setInterval(load, 60000);
+      return () => { cancelled = true; clearInterval(interval); };
+    }
+    return () => { cancelled = true; };
+  }, [indexName, selectedDate]);
 
   return (
     <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-        <h3 className="text-sm font-bold text-white">{DISPLAY_NAME[indexName] || indexName}</h3>
-        <a
-          href={`${API_BASE}/api/index-tracker/${indexName}/export/`}
-          className="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-lg hover:bg-emerald-500/20 transition-colors"
-          download
-        >
-          📥 Export
-        </a>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 gap-3">
+        <h3 className="text-sm font-bold text-white whitespace-nowrap">{DISPLAY_NAME[indexName] || indexName}</h3>
+        <div className="flex items-center gap-2">
+          {availableDates.length > 0 && (
+            <select
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="text-[11px] bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:border-slate-500"
+            >
+              <option value="">Today</option>
+              {availableDates.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          )}
+          <a
+            href={`${API_BASE}/api/index-tracker/${indexName}/export/`}
+            className="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-lg hover:bg-emerald-500/20 transition-colors whitespace-nowrap"
+            download
+          >
+            📥 Export
+          </a>
+        </div>
       </div>
 
       <div className="p-4">
@@ -348,7 +386,9 @@ function IndexSection({ indexName, showBacktest = true }) {
         )}
         {!loading && rows.length === 0 && !error && (
           <div className="py-8 text-center text-slate-500 text-sm">
-            No snapshots logged yet today. A new one is taken every scan cycle once Fyers is live.
+            {selectedDate
+              ? `Nothing logged on ${selectedDate}.`
+              : 'No snapshots logged yet today. A new one is taken every scan cycle once Fyers is live.'}
           </div>
         )}
         {error && <div className="py-4 text-center text-rose-400 text-sm">⚠ {error}</div>}
