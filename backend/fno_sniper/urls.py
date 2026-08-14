@@ -8,7 +8,7 @@ from screener.views import (
     SignalExcelExportView, IndexTrackerView, IndexTrackerExportView,
     SignalExportDatesView, SignalExcelExportByDateView,
     IndexBacktestView, IndexBacktestExportView, WeeklyReportView,
-    FundamentalsWatchlistView, CASAuctionMovesView
+    FundamentalsWatchlistView, CASAuctionMovesView, IndexTrackerAvailableDatesView
 )
 
 urlpatterns = [
@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/signals/export/dates/', SignalExportDatesView.as_view(), name='signals_export_dates'),
     path('api/signals/export/<str:date_str>/', SignalExcelExportByDateView.as_view(), name='signals_export_by_date'),
     path('api/index-tracker/<str:index_name>/', IndexTrackerView.as_view(), name='index_tracker'),
+    path('api/index-tracker/<str:index_name>/dates/', IndexTrackerAvailableDatesView.as_view(), name='index_tracker_dates'),
     path('api/index-tracker/<str:index_name>/export/', IndexTrackerExportView.as_view(), name='index_tracker_export'),
     path('api/index-backtest/<str:index_name>/', IndexBacktestView.as_view(), name='index_backtest'),
     path('api/index-backtest/<str:index_name>/export/', IndexBacktestExportView.as_view(), name='index_backtest_export'),

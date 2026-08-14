@@ -1099,15 +1099,30 @@ class SignalExcelExportByDateView(APIView):
 
 
 class IndexTrackerView(APIView):
-    """Today's NIFTY/BANKNIFTY/crude-oil intraday OI snapshot history,
-    most recent first. GET /api/index-tracker/<NIFTY|BANKNIFTY|CRUDEOIL|CRUDEOILM>/"""
+    """Intraday OI snapshot history for one index/commodity, most recent
+    first -- today's by default, or a specific past date via ?date=.
+    GET /api/index-tracker/<NIFTY|BANKNIFTY|CRUDEOIL|CRUDEOILM>/?date=2026-08-12"""
     def get(self, request, index_name):
-        from .index_tracker import get_today_snapshots, TRACKABLE_NAMES
+        from .index_tracker import get_today_snapshots, get_snapshots_for_date, TRACKABLE_NAMES
         name = index_name.upper()
         if name not in TRACKABLE_NAMES:
             return Response({"error": f"index_name must be one of {TRACKABLE_NAMES}"}, status=400)
-        rows = get_today_snapshots(name)
-        return Response(clean_json({"index": name, "snapshots": rows}))
+        date_str = request.GET.get("date")
+        rows = get_snapshots_for_date(name, date_str) if date_str else get_today_snapshots(name)
+        return Response(clean_json({"index": name, "date": date_str, "snapshots": rows}))
+
+
+class IndexTrackerAvailableDatesView(APIView):
+    """Which dates actually have logged snapshot data for one index --
+    lets the frontend offer a real, populated date picker rather than
+    letting someone guess at a date that has nothing behind it.
+    GET /api/index-tracker/<NIFTY|BANKNIFTY|CRUDEOIL|CRUDEOILM>/dates/"""
+    def get(self, request, index_name):
+        from .index_tracker import list_available_dates, TRACKABLE_NAMES
+        name = index_name.upper()
+        if name not in TRACKABLE_NAMES:
+            return Response({"error": f"index_name must be one of {TRACKABLE_NAMES}"}, status=400)
+        return Response({"index": name, "dates": list_available_dates(name)})
 
 
 class IndexBacktestView(APIView):
