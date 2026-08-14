@@ -2247,3 +2247,4 @@
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/profile","Error":{"s":"error","code":-353,"message":"API Limit exceeded per day"}},"timestamp":"2026-08-14 17:14:56,871+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/profile","Error":{"s":"error","code":-353,"message":"API Limit exceeded per day"}},"timestamp":"2026-08-14 17:15:47,304+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/profile","Error":{"s":"error","code":-353,"message":"API Limit exceeded per day"}},"timestamp":"2026-08-14 17:16:47,174+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/profile","Error":{"s":"error","code":-353,"message":"API Limit exceeded per day"}},"timestamp":"2026-08-14 17:17:47,738+0530","service":"FyersAPI"}
