@@ -312,9 +312,9 @@ class Command(BaseCommand):
 
             d += timedelta(days=1)
 
-        self._write_complete_report(report_rows, options["start"], options["end"])
+        self._write_complete_report(report_rows, options["start"], options["end"], dry_run)
 
-    def _write_complete_report(self, report_rows, start_str, end_str):
+    def _write_complete_report(self, report_rows, start_str, end_str, dry_run):
         wb = Workbook()
         ws = wb.active
         ws.title = "Complete Report"
@@ -352,3 +352,23 @@ class Command(BaseCommand):
             self.stdout.write(f"  Avg P&L% (of {len(pnl_values)} rows with a computable figure): {avg_pnl:+.2f}%, {wins}/{len(pnl_values)} positive")
         self.stdout.write(f"  Saved: {path}")
         self.stdout.write(f"{'=' * 60}")
+
+        if dry_run:
+            self.stdout.write("  (dry run -- not sending to Telegram; the signal logs weren't actually updated either)")
+            return
+
+        try:
+            from trading.telegram_bot import TelegramBot
+            bot = TelegramBot()
+            caption = (
+                f"📊 <b>F&O Radar — Backfill Complete Report</b>\n"
+                f"{os.path.basename(path)}\n"
+                f"{len(report_rows)} signals, {resolved} resolved, {unresolved} unresolved"
+            )
+            result = bot.send_document(path, caption=caption)
+            if result and result.get("ok"):
+                self.stdout.write(self.style.SUCCESS("Sent to Telegram."))
+            else:
+                self.stdout.write(self.style.WARNING(f"Report saved but Telegram send didn't confirm success: {result}"))
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"Report saved but Telegram send failed: {e}"))
