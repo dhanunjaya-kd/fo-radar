@@ -484,24 +484,46 @@ export default function CrudeOilTracker() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(''); // '' means today
+  const [availableDates, setAvailableDates] = useState([]);
 
   const contractLabel = CONTRACTS.find(c => c.id === contractId)?.label || contractId;
+
+  // Fetched whenever the contract changes -- which past dates actually
+  // have logged data for THIS contract specifically (CRUDEOIL and
+  // CRUDEOILM log separately, so their available dates can differ).
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/index-tracker/${contractId}/dates/`)
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setAvailableDates(d.dates || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [contractId]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setShowHistory(false);
     const load = () => {
-      fetch(`${API_BASE}/api/index-tracker/${contractId}/`)
+      const url = selectedDate
+        ? `${API_BASE}/api/index-tracker/${contractId}/?date=${selectedDate}`
+        : `${API_BASE}/api/index-tracker/${contractId}/`;
+      fetch(url)
         .then(r => r.json())
         .then(data => { if (!cancelled) { setRows(data.snapshots || []); setError(null); } })
         .catch(e => { if (!cancelled) setError(e.message); })
         .finally(() => { if (!cancelled) setLoading(false); });
     };
     load();
-    const interval = setInterval(load, 60000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [contractId]);
+    // Only auto-refresh when viewing today -- a past date's data is
+    // finished and won't change.
+    if (!selectedDate) {
+      const interval = setInterval(load, 60000);
+      return () => { cancelled = true; clearInterval(interval); };
+    }
+    return () => { cancelled = true; };
+  }, [contractId, selectedDate]);
 
   return (
     <div className="space-y-4">
@@ -513,7 +535,7 @@ export default function CrudeOilTracker() {
 
       <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl w-fit">
         {CONTRACTS.map(c => (
-          <button key={c.id} onClick={() => setContractId(c.id)}
+          <button key={c.id} onClick={() => { setContractId(c.id); setSelectedDate(''); }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${contractId === c.id ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>
             {c.label}
           </button>
@@ -521,17 +543,35 @@ export default function CrudeOilTracker() {
       </div>
 
       <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-          <h3 className="text-sm font-bold text-white">{contractLabel}</h3>
-          <a href={`${API_BASE}/api/index-tracker/${contractId}/export/`}
-            className="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-lg hover:bg-emerald-500/20 transition-colors" download>
-            📥 Export
-          </a>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 gap-3">
+          <h3 className="text-sm font-bold text-white whitespace-nowrap">{contractLabel}</h3>
+          <div className="flex items-center gap-2">
+            {availableDates.length > 0 && (
+              <select
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+                className="text-[11px] bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:border-slate-500"
+              >
+                <option value="">Today</option>
+                {availableDates.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            )}
+            <a href={`${API_BASE}/api/index-tracker/${contractId}/export/`}
+              className="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 px-2.5 py-1 rounded-lg hover:bg-emerald-500/20 transition-colors whitespace-nowrap" download>
+              📥 Export
+            </a>
+          </div>
         </div>
         <div className="p-4">
           {loading && rows.length === 0 && <div className="py-8 text-center text-slate-500 text-sm">Loading {contractLabel} snapshots...</div>}
           {!loading && rows.length === 0 && !error && (
-            <div className="py-8 text-center text-slate-500 text-sm">No snapshots logged yet today. A new one is taken roughly every minute while MCX is open.</div>
+            <div className="py-8 text-center text-slate-500 text-sm">
+              {selectedDate
+                ? `Nothing logged on ${selectedDate}.`
+                : 'No snapshots logged yet today. A new one is taken roughly every minute while MCX is open.'}
+            </div>
           )}
           {error && <div className="py-4 text-center text-rose-400 text-sm">⚠ {error}</div>}
           {rows.length > 0 && (
