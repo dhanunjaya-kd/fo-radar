@@ -164,6 +164,20 @@ _lock = threading.Lock()
 # idea as the reference table's "(High Vol)"/"unwinding" annotations.
 _last_snapshot = {}  # {index_name: {'ce_oi': int, 'pe_oi': int}}
 
+# Rolling in-memory price history, used by _price_confirms_bias() via
+# _record_and_get_recent_change_pct() below -- REPLACES the old
+# previous-close-based Change % as that function's input. {name:
+# [(datetime, price), ...]}, oldest first, pruned to _RECENT_WINDOW_
+# MINUTES on every write. Real production data (Aug 10-14 2026) showed
+# why this was needed: the old day-cumulative check missed a genuine
+# ~55-65pt NIFTY intraday move because the day's NET change (from
+# previous close) happened to be small -- a real divergence during a
+# real swing, invisible to a check that only sees where the day nets
+# out. Resets on restart -- same honest "no comparison yet" window as
+# Put/Call OI Chg already has on the first row after any (re)start.
+_recent_prices = {}
+_RECENT_WINDOW_MINUTES = 15  # matches the shortest horizon already used by the Bias backtest (backtest_index_bias.py)
+
 
 def _date_path(index_name, date_str):
     """Same file-naming pattern used for daily logging, for any date --
@@ -238,6 +252,14 @@ def _derive_bias(pcr, oi_buildup):
     useful for the narrower window where PCR sits exactly in 0.95-1.05
     while price moves, just triggers less often now that Bias itself
     is more sensitive.
+
+    STILL OPEN (Aug 14 2026): `oi_buildup` is accepted but still not
+    used below -- confirmed via real backtest data that Bias's accuracy
+    is weak-to-below-coin-flip generally, which is what put this back
+    on the table, but wiring it in for real needs to see what shape
+    options_analytics.py's oi_buildup actually is (a label? a score?)
+    before it can be used safely rather than guessed at. Don't add
+    speculative handling here without that.
     """
     if pcr is None:
         return "Neutral"
@@ -260,37 +282,89 @@ def _status_label(oi_chg):
     return "Writing" if oi_chg > 0 else "Unwinding" if oi_chg < 0 else "Flat"
 
 
-def _price_confirms_bias(change_percent, bias):
+def _record_and_get_recent_change_pct(name, price, now=None):
+    """
+    Appends (now, price) to `name`'s rolling window, prunes anything
+    older than _RECENT_WINDOW_MINUTES, and returns the %% change from
+    the OLDEST reading still in that window to the price just passed
+    in -- None if there isn't at least one reading old enough yet
+    (freshly (re)started, or fewer than _RECENT_WINDOW_MINUTES since
+    market open) to compare against. None is the correct "not enough
+    data" signal here -- _price_confirms_bias() already treats a None
+    input as "—" (no verdict), same as it always has.
+
+    Always records the price first, even when returning None, so the
+    window starts filling in from the very first call rather than
+    waiting for some later trigger.
+    """
+    if price is None:
+        return None
+    now = now or datetime.now()
+    with _lock:
+        history = _recent_prices.setdefault(name, [])
+        cutoff = now - timedelta(minutes=_RECENT_WINDOW_MINUTES)
+        while history and history[0][0] < cutoff:
+            history.pop(0)
+        oldest = history[0] if history else None
+        history.append((now, price))
+    if oldest is None:
+        return None
+    oldest_price = oldest[1]
+    if not oldest_price:
+        return None
+    return round((price - oldest_price) / oldest_price * 100, 3)
+
+
+def _price_confirms_bias(recent_change_pct, bias):
     """Same confirmation concept already used for individual stock
     signals (Round 3), applied here: does the index's actual price move
     agree with what the OI positioning implies? This is the extra
     confirmation layer -- OI can say 'Bullish' while price is actually
     falling (a real warning sign, not a contradiction to ignore).
 
-    Also flags the Neutral case specifically: PCR sitting in the wide
-    middle band (0.7-1.3) doesn't mean price itself is standing still --
-    a real, sustained move can happen while OI positioning just hasn't
+    Aug 14 2026: `recent_change_pct` is now a ROLLING ~15-MINUTE window
+    (see _record_and_get_recent_change_pct above), not the day's
+    cumulative Change % from previous close. Real production data
+    showed the previous-close version could miss a genuine, sizable
+    intraday divergence whenever the day happened to net out small --
+    a swing that was real and checkable got invisible simply because
+    price round-tripped back near its open. A rolling window catches
+    the swing itself, not just where the day ends up relative to
+    yesterday.
+
+    Also flags the Neutral case specifically: PCR sitting in the
+    Neutral band doesn't mean price itself is standing still -- a
+    real, sustained move can happen while OI positioning just hasn't
     caught up yet. Uses a wider +-0.3% threshold than the +-0.05% used
     for Bullish/Bearish confirmation above, on purpose -- this is meant
-    to catch a genuinely notable divergence (a sustained slide/rally),
-    not flag on every few-minute wobble while Bias sits Neutral, which
-    would fire constantly and stop being useful. 0.3% is a judgment
-    call, not a rigorously derived number -- adjust it if it fires too
-    often or too rarely once it's been watched in practice.
+    to catch a genuinely notable divergence, not flag on every
+    few-minute wobble while Bias sits Neutral, which would fire
+    constantly and stop being useful.
+
+    Both thresholds (0.05% / 0.3%) are carried over UNCHANGED from the
+    previous-close version -- they were already judgment calls, not
+    rigorously derived numbers, and there's no data yet on what they
+    should be against a 15-minute window specifically (likely more
+    sensitive for the 0.05% Bullish/Bearish check now, since a 15-min
+    move clears 0.05% more easily than a full day used to; the 0.3%
+    Neutral-divergence check may now under-fire, since 0.3% inside 15
+    minutes is a much bigger ask than 0.3% across a whole day). Watch
+    both in practice and retune -- same approach already taken with
+    the original Neutral-band width elsewhere in this file.
     """
-    if change_percent is None or bias is None:
+    if recent_change_pct is None or bias is None:
         return "—"
-    if change_percent > 0.05 and bias.startswith("Bullish"):
+    if recent_change_pct > 0.05 and bias.startswith("Bullish"):
         return "✓ Confirmed"
-    if change_percent < -0.05 and bias.startswith("Bearish"):
+    if recent_change_pct < -0.05 and bias.startswith("Bearish"):
         return "✓ Confirmed"
-    if change_percent > 0.05 and bias.startswith("Bearish"):
+    if recent_change_pct > 0.05 and bias.startswith("Bearish"):
         return "⚠ Conflict"
-    if change_percent < -0.05 and bias.startswith("Bullish"):
+    if recent_change_pct < -0.05 and bias.startswith("Bullish"):
         return "⚠ Conflict"
-    if bias == "Neutral" and change_percent <= -0.3:
+    if bias == "Neutral" and recent_change_pct <= -0.3:
         return "⚠ Neutral but falling"
-    if bias == "Neutral" and change_percent >= 0.3:
+    if bias == "Neutral" and recent_change_pct >= 0.3:
         return "⚠ Neutral but rising"
     return "—"
 
@@ -367,7 +441,14 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         _last_snapshot[index_name] = {"pe_oi": pe_oi, "ce_oi": ce_oi}
 
     bias = _derive_bias(oi.get("pcr"), oi.get("oi_buildup"))
-    confirms = _price_confirms_bias(change_percent, bias)
+    # Recent ~15-min momentum, NOT the day-cumulative change_percent --
+    # see _price_confirms_bias()'s docstring for why. Spot specifically
+    # (not Fut), matching the same choice already made in
+    # compute_cas_auction_moves() for the same reason: Fut trades
+    # through the CAS window differently and isn't the number this
+    # confirmation check is meant to be about.
+    recent_change_pct = _record_and_get_recent_change_pct(index_name, oi.get("spot"))
+    confirms = _price_confirms_bias(recent_change_pct, bias)
     # Flagged separately rather than suppressing/altering Change % or
     # Price Confirms Bias -- those numbers are real, computed the same
     # way regardless of when the snapshot was taken. This just gives
@@ -507,7 +588,12 @@ def snapshot_commodity(name, base):
         _last_snapshot[name] = {"pe_oi": pe_oi, "ce_oi": ce_oi}
 
     bias = _derive_bias(oi.get("pcr"), oi.get("oi_buildup"))
-    confirms = _price_confirms_bias(change_percent, bias)
+    # Recent ~15-min momentum, same as snapshot_index() -- but Fut here,
+    # not Spot, since commodities have no separate spot/cash index (the
+    # futures contract IS the underlying, same reasoning as everywhere
+    # else in this function).
+    recent_change_pct = _record_and_get_recent_change_pct(name, fut_price)
+    confirms = _price_confirms_bias(recent_change_pct, bias)
 
     row = {
         "Time": datetime.now().strftime("%H:%M:%S"),
