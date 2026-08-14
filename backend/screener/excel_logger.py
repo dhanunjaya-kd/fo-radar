@@ -66,6 +66,7 @@ _row_index = {}
 # still useful to know the premium kept running).
 _open_positions = {}
 _current_date = None
+_initialized_today = False
 
 
 def _today_path():
@@ -116,12 +117,105 @@ def _get_workbook(path):
     return wb
 
 
-def _reset_if_new_day(today):
-    global _current_date, _row_index, _open_positions
+def _ensure_fresh():
+    """
+    Called by all 4 state-touching consumer functions (log_new_signal,
+    mark_exited, sync_active_signals, check_outcomes) before their own
+    early-exit checks -- replaces the old _reset_if_new_day().
+
+    That old version wiped _row_index/_open_positions to empty on ANY
+    process restart, not just a genuine day change -- because
+    _current_date is a fresh None on every process start, the very
+    first call after any restart looked identical to a real day
+    rollover. Confirmed live (2026-08-10): a same-day restart silently
+    orphaned several already-open positions from outcome-tracking, and
+    duplicate-logged them on reappearance since get_locked_plan() also
+    reads from the wiped _open_positions.
+
+    This version rebuilds both dicts FROM today's existing Excel file
+    the first time it's called in a process, instead of discarding
+    what's already logged. Cheap after that first call (returns
+    immediately once _initialized_today is set), so no behavior change
+    for the common case of a server that just keeps running.
+    """
+    global _current_date, _row_index, _open_positions, _initialized_today
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    if _current_date == today and _initialized_today:
+        return  # already up to date for today in this process, nothing to do
+
     if _current_date != today:
-        _current_date = today
+        # Genuine day change (or the very first call ever) -- nothing
+        # from a previous day carries over regardless of what's rebuilt
+        # below.
         _row_index = {}
         _open_positions = {}
+        _current_date = today
+
+    _initialized_today = True
+
+    path, _ = _today_path()
+    if not os.path.exists(path):
+        return  # nothing logged yet today -- empty dicts are already correct
+
+    try:
+        wb = load_workbook(path)
+        ws = wb["Signals"]
+        headers = [c.value for c in ws[1]]
+        if headers != COLUMNS:
+            return  # schema mismatch -- _get_workbook will archive+start fresh on next write; nothing usable to rebuild from
+        col = {name: i + 1 for i, name in enumerate(headers)}
+
+        rebuilt_open = 0
+        for row_num in range(2, ws.max_row + 1):
+            symbol = ws.cell(row=row_num, column=col["Symbol"]).value
+            action = ws.cell(row=row_num, column=col["Action"]).value
+            if not symbol or not action:
+                continue
+            key = (symbol, action)
+
+            exited_raw = ws.cell(row=row_num, column=col["Exited At"]).value
+            exited_at = None
+            if exited_raw:
+                try:
+                    exited_at = datetime.strptime(str(exited_raw), "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    exited_at = None
+            _row_index[key] = {"row": row_num, "exited_at": exited_at}
+
+            # Same "stops being tracked" rule as check_outcomes(): once SL
+            # is hit, or the furthest target (3) is reached, this position
+            # is done -- don't resurrect it into _open_positions.
+            sl_hit_already = bool(ws.cell(row=row_num, column=col["SL Hit At"]).value)
+            furthest_target = 0
+            for n in (3, 2, 1):
+                if ws.cell(row=row_num, column=col[f"Target {n} Hit At"]).value:
+                    furthest_target = n
+                    break
+            if sl_hit_already or furthest_target >= 3:
+                continue
+
+            opt_symbol = ws.cell(row=row_num, column=col["Option Symbol"]).value
+            sl = ws.cell(row=row_num, column=col["SL"]).value
+            t1 = ws.cell(row=row_num, column=col["Target 1"]).value
+            t2 = ws.cell(row=row_num, column=col["Target 2"]).value
+            t3 = ws.cell(row=row_num, column=col["Target 3"]).value
+            if opt_symbol and None not in (sl, t1, t2, t3):
+                _open_positions[key] = {
+                    "row": row_num, "option_symbol": opt_symbol,
+                    "entry": ws.cell(row=row_num, column=col["Entry (Premium)"]).value,
+                    "strike": ws.cell(row=row_num, column=col["Strike"]).value,
+                    "quantity": ws.cell(row=row_num, column=col["Qty"]).value,
+                    "risk_reward": ws.cell(row=row_num, column=col["R:R"]).value,
+                    "sl": sl, "t1": t1, "t2": t2, "t3": t3,
+                    "sl_hit": False, "furthest_target": furthest_target,
+                }
+                rebuilt_open += 1
+
+        print(f"[ExcelLog] Rebuilt state from {os.path.basename(path)}: "
+              f"{len(_row_index)} row(s) indexed, {rebuilt_open} still open and being watched.")
+    except Exception as e:
+        print(f"[ExcelLog] Failed to rebuild state from {path}: {e}")
 
 
 def _write_new_row(ws, signal):
@@ -210,7 +304,7 @@ def log_new_signal(signal):
 
     with _lock:
         path, today = _today_path()
-        _reset_if_new_day(today)
+        _ensure_fresh()
 
         existing = _row_index.get(key)
         if existing and existing["exited_at"] is None:
@@ -252,7 +346,7 @@ def mark_exited(symbol, action):
 
     with _lock:
         path, today = _today_path()
-        _reset_if_new_day(today)
+        _ensure_fresh()
         existing = _row_index.get(key)
         if existing is None or existing["exited_at"] is not None:
             return  # wasn't logged today, or already marked exited
@@ -287,7 +381,7 @@ def sync_active_signals(current_signals):
 
     with _lock:
         path, today = _today_path()
-        _reset_if_new_day(today)
+        _ensure_fresh()
         previously_active = {k for k, v in _row_index.items() if v["exited_at"] is None}
 
     # New signals this cycle (not currently marked active in memory)
@@ -327,7 +421,7 @@ def check_outcomes(get_quotes_fn):
         return
     with _lock:
         path, today = _today_path()
-        _reset_if_new_day(today)
+        _ensure_fresh()
         open_now = dict(_open_positions)  # snapshot; network call happens outside the lock
 
     symbols_to_check = {v["option_symbol"]: k for k, v in open_now.items() if v.get("option_symbol")}
