@@ -1,4 +1,4 @@
-# F&O Radar — Full Stack
+## F&O Radar — Full Stack
 
 Full-stack NSE F&O options scanner: WARRENER-style dark UI, live signal scoring, day-wise SL/Target outcome tracking, a day-wise Bias-accuracy backtest for NIFTY/BANKNIFTY, paper trading, PnL tracking, and 1–3 day price predictions.
 
