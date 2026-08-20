@@ -164,6 +164,7 @@ COLUMNS = [
     "Highest Call OI Strike", "Highest Call OI Value",
     "IV %", "VIX", "Support", "Resistance", "Max Pain", "Max Pain Dist %",
     "OI Buildup", "Bias", "Price Confirms Bias",
+    "Confirms 5min", "Confirms 30min", "Confirms 60min", "Horizons Confirming",
 ]
 
 _lock = threading.Lock()
@@ -190,18 +191,36 @@ _last_direction = {}
 _last_bias_string = {}
 
 # Rolling in-memory price history, used by _price_confirms_bias() via
-# _record_and_get_recent_change_pct() below -- REPLACES the old
+# _record_and_get_multi_horizon_changes() below -- REPLACES the old
 # previous-close-based Change % as that function's input. {name:
-# [(datetime, price), ...]}, oldest first, pruned to _RECENT_WINDOW_
-# MINUTES on every write. Real production data (Aug 10-14 2026) showed
-# why this was needed: the old day-cumulative check missed a genuine
-# ~55-65pt NIFTY intraday move because the day's NET change (from
-# previous close) happened to be small -- a real divergence during a
-# real swing, invisible to a check that only sees where the day nets
-# out. Resets on restart -- same honest "no comparison yet" window as
-# Put/Call OI Chg already has on the first row after any (re)start.
+# [(datetime, price), ...]}, oldest first, pruned to _MAX_WINDOW_MINUTES
+# on every write. Real production data (Aug 10-14 2026) showed why this
+# was needed: the old day-cumulative check missed a genuine ~55-65pt
+# NIFTY intraday move because the day's NET change (from previous
+# close) happened to be small -- a real divergence during a real swing,
+# invisible to a check that only sees where the day nets out. Resets on
+# restart -- same honest "no comparison yet" window as Put/Call OI Chg
+# already has on the first row after any (re)start.
 _recent_prices = {}
-_RECENT_WINDOW_MINUTES = 15  # matches the shortest horizon already used by the Bias backtest (backtest_index_bias.py)
+
+# Aug 20 2026: multi-horizon confirmation (accuracy backlog #5). Instead
+# of one ~15-min price-vs-Bias check, compute the SAME confirmation at
+# several lookback windows and show them together -- a move that agrees
+# across the fast AND slow horizon is real signal; a move that only
+# shows up on the fastest horizon and vanishes on longer ones is noise,
+# not a genuine trend. Directly answers a real question raised live:
+# does a faster snapshot cadence give "more accuracy" than a slower one
+# (no to both, on their own -- same underlying live data either way,
+# just more exposed to noise at short intervals or more lag at long
+# ones). Multi-horizon gets the benefit of both without picking one
+# cadence over the other.
+#
+# 15min is kept as its own unchanged "Price Confirms Bias" column (same
+# thresholds, same calculation as before) so the Aug 14 backtest
+# baseline stays directly comparable -- the new horizons are additions
+# alongside it, not a replacement.
+CONFIRMATION_HORIZONS = [5, 15, 30, 60]  # minutes
+_MAX_WINDOW_MINUTES = max(CONFIRMATION_HORIZONS)  # how much history to retain -- covers every horizon above
 
 
 def _date_path(index_name, date_str):
@@ -424,37 +443,83 @@ def _log_flip_if_changed(wb, name, bias, price, confirms, oi_buildup, date_str, 
         _last_bias_string[name] = bias
 
 
-def _record_and_get_recent_change_pct(name, price, now=None):
+def _record_and_get_multi_horizon_changes(name, price, now=None):
     """
     Appends (now, price) to `name`'s rolling window, prunes anything
-    older than _RECENT_WINDOW_MINUTES, and returns the %% change from
-    the OLDEST reading still in that window to the price just passed
-    in -- None if there isn't at least one reading old enough yet
-    (freshly (re)started, or fewer than _RECENT_WINDOW_MINUTES since
-    market open) to compare against. None is the correct "not enough
-    data" signal here -- _price_confirms_bias() already treats a None
-    input as "—" (no verdict), same as it always has.
+    older than _MAX_WINDOW_MINUTES, and returns the %% change for EVERY
+    horizon in CONFIRMATION_HORIZONS at once -- {5: pct_or_None,
+    15: pct_or_None, 30: pct_or_None, 60: pct_or_None}. A horizon reads
+    None until there's at least one reading that old still in the
+    window (freshly (re)started, or fewer than that many minutes since
+    market open) -- same honest "not enough data yet" signal
+    _price_confirms_bias() already treats as "--", now per-horizon
+    instead of just once.
 
-    Always records the price first, even when returning None, so the
-    window starts filling in from the very first call rather than
-    waiting for some later trigger.
+    One retained history list per name serves every horizon -- 60min of
+    retention covers the 5/15/30min windows as shorter slices of the
+    exact same data, not four separate lists to maintain.
+
+    HONEST LIMITATION, same growing-window behavior the original single-
+    window version always had: each horizon compares against the OLDEST
+    reading still on file within that horizon's cutoff, not a reading
+    that's genuinely that many minutes old. Early in a session (right
+    after market open or a restart), that means the 5/15/30/60min
+    horizons can all end up comparing against the same single oldest
+    entry and read similarly, since there simply isn't enough real
+    history yet to tell them apart -- they diverge into genuinely
+    different, meaningful readings as the session goes on and real
+    5-min-old, 15-min-old, etc. data actually accumulates. Not a bug;
+    same tradeoff the 15min-only version already accepted, just visible
+    across 4 horizons now instead of 1.
+
+    Always records the price first, even when every horizon returns
+    None, so each window starts filling in from the very first call
+    rather than waiting for some later trigger.
     """
     if price is None:
-        return None
+        return {h: None for h in CONFIRMATION_HORIZONS}
     now = now or datetime.now()
     with _lock:
         history = _recent_prices.setdefault(name, [])
-        cutoff = now - timedelta(minutes=_RECENT_WINDOW_MINUTES)
+        cutoff = now - timedelta(minutes=_MAX_WINDOW_MINUTES)
         while history and history[0][0] < cutoff:
             history.pop(0)
-        oldest = history[0] if history else None
+        # Snapshot BEFORE appending the current reading -- each horizon's
+        # "oldest reading in window" must come from readings already on
+        # file, never the point we're computing change FOR. Matches the
+        # original single-horizon function's exact ordering (capture
+        # oldest, THEN append) -- getting this backwards was caught live
+        # by this feature's own test: it made the very first-ever reading
+        # compare against itself (0.0% instead of the correct None).
+        snapshot = list(history)
         history.append((now, price))
-    if oldest is None:
-        return None
-    oldest_price = oldest[1]
-    if not oldest_price:
-        return None
-    return round((price - oldest_price) / oldest_price * 100, 3)
+
+    changes = {}
+    for horizon in CONFIRMATION_HORIZONS:
+        horizon_cutoff = now - timedelta(minutes=horizon)
+        oldest = next((entry for entry in snapshot if entry[0] >= horizon_cutoff), None)
+        if oldest is None or not oldest[1]:
+            changes[horizon] = None
+        else:
+            changes[horizon] = round((price - oldest[1]) / oldest[1] * 100, 3)
+    return changes
+
+
+def _multi_horizon_confirms(changes_by_horizon, bias):
+    """Applies the existing single-horizon _price_confirms_bias() check
+    to each horizon separately (same thresholds, same verdicts -- this
+    doesn't change what "confirms" means, just checks it at more than
+    one lookback window), plus a plain "X/Y" summary of how many
+    horizons that HAD enough data actually confirmed. Horizons that
+    read "--" (not enough history yet) are excluded from the Y count
+    too, not treated as a non-confirm -- an honest "still filling in"
+    rather than a false negative early in the day or right after a
+    restart."""
+    per_horizon = {h: _price_confirms_bias(changes_by_horizon.get(h), bias) for h in CONFIRMATION_HORIZONS}
+    with_data = [v for v in per_horizon.values() if v != "—"]
+    confirming = [v for v in with_data if v == "✓ Confirmed"]
+    summary = f"{len(confirming)}/{len(with_data)}" if with_data else "—"
+    return per_horizon, summary
 
 
 def _price_confirms_bias(recent_change_pct, bias):
@@ -464,8 +529,8 @@ def _price_confirms_bias(recent_change_pct, bias):
     confirmation layer -- OI can say 'Bullish' while price is actually
     falling (a real warning sign, not a contradiction to ignore).
 
-    Aug 14 2026: `recent_change_pct` is now a ROLLING ~15-MINUTE window
-    (see _record_and_get_recent_change_pct above), not the day's
+    Aug 14 2026: `recent_change_pct` is now a ROLLING window (see
+    _record_and_get_multi_horizon_changes above), not the day's
     cumulative Change % from previous close. Real production data
     showed the previous-close version could miss a genuine, sizable
     intraday divergence whenever the day happened to net out small --
@@ -473,6 +538,13 @@ def _price_confirms_bias(recent_change_pct, bias):
     price round-tripped back near its open. A rolling window catches
     the swing itself, not just where the day ends up relative to
     yesterday.
+
+    Aug 20 2026: this function itself is unchanged -- still one
+    threshold check against one recent_change_pct value. What changed
+    is the caller: snapshot_index()/snapshot_commodity() now call this
+    once per horizon (5/15/30/60min) instead of once, via
+    _multi_horizon_confirms() below, so the same verdict logic applies
+    at every horizon rather than just the original 15min.
 
     Also flags the Neutral case specifically: PCR sitting in the
     Neutral band doesn't mean price itself is standing still -- a
@@ -583,14 +655,15 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         _last_snapshot[index_name] = {"pe_oi": pe_oi, "ce_oi": ce_oi}
 
     bias = _derive_bias(oi.get("pcr"), oi.get("oi_buildup"))
-    # Recent ~15-min momentum, NOT the day-cumulative change_percent --
+    # Multi-horizon momentum, NOT the day-cumulative change_percent --
     # see _price_confirms_bias()'s docstring for why. Spot specifically
     # (not Fut), matching the same choice already made in
     # compute_cas_auction_moves() for the same reason: Fut trades
     # through the CAS window differently and isn't the number this
     # confirmation check is meant to be about.
-    recent_change_pct = _record_and_get_recent_change_pct(index_name, oi.get("spot"))
-    confirms = _price_confirms_bias(recent_change_pct, bias)
+    horizon_changes = _record_and_get_multi_horizon_changes(index_name, oi.get("spot"))
+    confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
+    per_horizon_confirms, horizons_summary = _multi_horizon_confirms(horizon_changes, bias)
     # Flagged separately rather than suppressing/altering Change % or
     # Price Confirms Bias -- those numbers are real, computed the same
     # way regardless of when the snapshot was taken. This just gives
@@ -623,6 +696,10 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "Max Pain": oi.get("max_pain"), "Max Pain Dist %": oi.get("max_pain_dist_pct"),
         "OI Buildup": oi.get("oi_buildup"),
         "Bias": bias, "Price Confirms Bias": confirms,
+        "Confirms 5min": per_horizon_confirms[5],
+        "Confirms 30min": per_horizon_confirms[30],
+        "Confirms 60min": per_horizon_confirms[60],
+        "Horizons Confirming": horizons_summary,
     }
 
     try:
@@ -732,12 +809,13 @@ def snapshot_commodity(name, base):
         _last_snapshot[name] = {"pe_oi": pe_oi, "ce_oi": ce_oi}
 
     bias = _derive_bias(oi.get("pcr"), oi.get("oi_buildup"))
-    # Recent ~15-min momentum, same as snapshot_index() -- but Fut here,
+    # Multi-horizon momentum, same as snapshot_index() -- but Fut here,
     # not Spot, since commodities have no separate spot/cash index (the
     # futures contract IS the underlying, same reasoning as everywhere
     # else in this function).
-    recent_change_pct = _record_and_get_recent_change_pct(name, fut_price)
-    confirms = _price_confirms_bias(recent_change_pct, bias)
+    horizon_changes = _record_and_get_multi_horizon_changes(name, fut_price)
+    confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
+    per_horizon_confirms, horizons_summary = _multi_horizon_confirms(horizon_changes, bias)
 
     row = {
         "Time": datetime.now().strftime("%H:%M:%S"),
@@ -759,6 +837,10 @@ def snapshot_commodity(name, base):
         "Max Pain": oi.get("max_pain"), "Max Pain Dist %": oi.get("max_pain_dist_pct"),
         "OI Buildup": oi.get("oi_buildup"),
         "Bias": bias, "Price Confirms Bias": confirms,
+        "Confirms 5min": per_horizon_confirms[5],
+        "Confirms 30min": per_horizon_confirms[30],
+        "Confirms 60min": per_horizon_confirms[60],
+        "Horizons Confirming": horizons_summary,
     }
 
     try:
