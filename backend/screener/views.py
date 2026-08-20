@@ -179,7 +179,20 @@ def _fetch_index(name, fallbacks=None):
     """Index quote (NIFTY/BANKNIFTY/VIX) via Fyers only. No yfinance
     fallback -- if Fyers isn't authenticated or doesn't return this
     index, we return a zeroed placeholder instead of quietly pulling
-    from Yahoo."""
+    from Yahoo.
+
+    Aug 20 2026: this used to fall through to the zeroed placeholder
+    completely silently whenever Fyers responded but with resp['s'] !=
+    'ok' (not an exception -- a real response Fyers just didn't mark as
+    ok), or responded 'ok' with no usable item inside. That's a
+    different, narrower failure than is_authenticated() itself being
+    false (which already logs) -- confirmed live: indices sat at 0.00
+    across multiple fresh-restart cycles with NEITHER the auth-gate log
+    below NOR an exception ever printing, meaning execution was reaching
+    here through one of these two silent paths. Now both log the actual
+    Fyers response so the real reason is visible next time instead of
+    just "it's zero, no idea why."
+    """
     fyers_symbol = FYERS_INDEX_SYMBOLS.get(name)
     if fyers_symbol and is_authenticated():
         try:
@@ -196,6 +209,9 @@ def _fetch_index(name, fallbacks=None):
                             'change': round(v.get('ch', 0) or 0, 2),
                             'change_percent': round(v.get('chp', 0) or 0, 2),
                         }
+                print(f"[Fyers] Index fetch {name}: response was 'ok' but no usable price in it -- {resp}")
+            else:
+                print(f"[Fyers] Index fetch {name}: response not ok -- {resp}")
         except Exception as e:
             print(f"[Fyers] Index fetch error {name}: {e}")
     else:
@@ -211,6 +227,17 @@ def _fetch_all_quotes_fyers(symbols):
     source now. Returns {symbol: stock_dict} for whatever came back OK;
     silently drops anything that failed or came back with a NaN/zero
     price rather than raising.
+
+    Aug 20 2026: the whole-batch "resp['s'] != 'ok'" case used to fall
+    through with zero logging, same silent-failure shape as
+    _fetch_index() above and confirmed live the same way -- the whole
+    208-stock scan came back empty across multiple fresh-restart cycles
+    with no exception and no batch-error print anywhere, while OTHER
+    Fyers endpoints (option chains, Index Tracker's Market Depth calls)
+    kept working at the same moment. This points at Fyers' plain
+    /quotes endpoint specifically, not a broad auth/connectivity
+    problem -- now logs the actual response so that's visible instead
+    of assumed.
     """
     results = {}
     fyers_symbols = [f"NSE:{s}-EQ" for s in symbols]
@@ -222,6 +249,7 @@ def _fetch_all_quotes_fyers(symbols):
             print(f"[Fyers] Quotes batch error: {e}")
             continue
         if not resp or resp.get('s') != 'ok':
+            print(f"[Fyers] Quotes batch {i}-{i + len(batch)}: response not ok -- {resp}")
             continue
         for item in resp.get('d', []):
             if item.get('s') != 'ok':
