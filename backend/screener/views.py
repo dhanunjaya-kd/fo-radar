@@ -40,6 +40,12 @@ except ImportError:
 # ============================================================
 _stock_cache = {}
 _index_cache = {}
+_index_cache_updated_at = 0.0  # Aug 20 2026: lets _build_all() below reuse whatever
+# _index_snapshot_worker's faster 60s loop already fetched instead of
+# independently re-fetching the same NIFTY/BANKNIFTY/VIX quotes -- see
+# both functions for why this mattered (confirmed live 429 rate-limiting
+# on Fyers' /quotes endpoint, and this redundant double-fetch was a real,
+# substantial, previously-accepted-as-lightweight contributor to that).
 _signal_cache = []
 _tech_cache = {}
 _cache_lock = threading.Lock()
@@ -475,19 +481,31 @@ def _calc_tech(symbol, live_quote=None):
 
 def _build_all():
     """Fetch everything: indices, stocks, signals. Cache all."""
-    global _stock_cache, _index_cache, _signal_cache, _tech_cache, _last_fetch
-    
-    # 1. Fetch indices FIRST (most important)
-    nifty = _fetch_index("NIFTY 50", ["^NSEI", "NSEI.NS", "^NSEI.NS"])
-    bank = _fetch_index("BANKNIFTY", ["^NSEBANK", "NSEBANK.NS", "NIFTY_BANK.NS", "^NSEBANK.NS"])
-    vix = _fetch_index("INDIA VIX", ["^INDIAVIX", "INDIAVIX.NS", "^INDIAVIX.NS"])
-    
+    global _stock_cache, _index_cache, _index_cache_updated_at, _signal_cache, _tech_cache, _last_fetch
+
+    # 1. Indices -- Aug 20 2026: reuse _index_snapshot_worker's fetch if
+    # it's recent (that loop runs every 60s specifically for this, and
+    # independently re-fetching the identical 3 symbols here was
+    # confirmed to meaningfully add to real Fyers /quotes rate-limiting,
+    # not just a "lightweight" duplicate as originally assumed). Falls
+    # back to fetching directly if the shared cache is empty or older
+    # than 90s (covers cold start, before the snapshot worker's first
+    # cycle completes, and the case where that worker's thread has died).
     with _cache_lock:
-        _index_cache = {
-            "nifty50": nifty,
-            "banknifty": bank,
-            "india_vix": vix,
-        }
+        cache_age = time.time() - _index_cache_updated_at
+        cached_indices = dict(_index_cache) if _index_cache else None
+
+    if cached_indices and cache_age < 90:
+        nifty = cached_indices.get("nifty50", {'price': 0, 'change': 0, 'change_percent': 0})
+        bank = cached_indices.get("banknifty", {'price': 0, 'change': 0, 'change_percent': 0})
+        vix = cached_indices.get("india_vix", {'price': 0, 'change': 0, 'change_percent': 0})
+    else:
+        nifty = _fetch_index("NIFTY 50", ["^NSEI", "NSEI.NS", "^NSEI.NS"])
+        bank = _fetch_index("BANKNIFTY", ["^NSEBANK", "NSEBANK.NS", "NIFTY_BANK.NS", "^NSEBANK.NS"])
+        vix = _fetch_index("INDIA VIX", ["^INDIAVIX", "INDIAVIX.NS", "^INDIAVIX.NS"])
+        with _cache_lock:
+            _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix}
+            _index_cache_updated_at = time.time()
     
     # 2. Fetch all stock prices -- Fyers only, no Yahoo involved at all.
     results = _fetch_all_stocks(FNO_STOCKS)
@@ -905,12 +923,14 @@ def _index_snapshot_worker():
     fetch is cheap enough to run on its own much faster ~60s cadence
     without meaningfully adding to Fyers API load the way re-running
     the whole stock scan that often would. Calls _fetch_index directly
-    each cycle for genuinely fresh data, not a stale cached value --
-    the tradeoff is a small amount of duplicate quote-fetching between
-    this and _build_all() (both still fetch NIFTY/BANKNIFTY/VIX
-    independently, since _build_all() also needs them for the top
-    banner), but that's lightweight quote calls, not full option
-    chains, so it's a reasonable price for decoupling the two cadences.
+    each cycle for genuinely fresh data, not a stale cached value, and
+    now also WRITES that fetch into the shared _index_cache (see
+    _build_all() above) so that function reuses it instead of
+    independently re-fetching the same 3 symbols. That duplication used
+    to be accepted as "lightweight enough not to matter" -- confirmed
+    Aug 20 2026 that it was a real, meaningful contributor to hitting an
+    actual Fyers 429 rate limit on /quotes, not just a lightweight
+    quote-call tradeoff, so it's eliminated now rather than accepted.
 
     Also snapshots commodities (crude oil) every cycle now --
     snapshot_all_commodities() gates itself internally via
@@ -932,6 +952,10 @@ def _index_snapshot_worker():
                 nifty = _fetch_index("NIFTY 50", ["^NSEI", "NSEI.NS", "^NSEI.NS"])
                 bank = _fetch_index("BANKNIFTY", ["^NSEBANK", "NSEBANK.NS", "NIFTY_BANK.NS", "^NSEBANK.NS"])
                 vix = _fetch_index("INDIA VIX", ["^INDIAVIX", "INDIAVIX.NS", "^INDIAVIX.NS"])
+                global _index_cache, _index_cache_updated_at
+                with _cache_lock:
+                    _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix}
+                    _index_cache_updated_at = time.time()
                 snapshot_all(
                     change_percents={
                         "NIFTY": nifty.get("change_percent"),
