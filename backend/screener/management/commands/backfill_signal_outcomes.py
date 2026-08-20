@@ -242,8 +242,22 @@ class Command(BaseCommand):
                     if entry_dt:
                         checked += 1
                         candles, err = _fetch_candles(opt_symbol, date_str)
-                        if not candles:
-                            self.stdout.write(f"  row {row_num} ({opt_symbol}): no history ({err or 'empty'}) -- likely expired/invalid, skipped")
+                        if candles is None:
+                            # Real fetch failure -- expired/invalid symbol, bad request, etc.
+                            # Genuinely nothing to backfill from; left blank as before.
+                            self.stdout.write(f"  row {row_num} ({opt_symbol}): fetch failed ({err or 'no response'}) -- likely expired/invalid, skipped")
+                        elif not candles:
+                            # Fyers responded fine but with zero candles -- the contract had
+                            # no trades after entry (e.g. entered on a burst of volume that
+                            # never repeated that day). There's no OHLC to estimate a close
+                            # from, so this can't get a real EOD-estimate price -- but it
+                            # shouldn't sit silently blank forever either.
+                            note = "No trade data after entry (0 candles) -- likely zero volume, unresolved"
+                            self.stdout.write(f"  row {row_num} ({opt_symbol}): {note}")
+                            if not dry_run:
+                                ws.cell(row=row_num, column=col["Outcome"]).value = note
+                            changed += 1
+                            outcome = note
                         else:
                             result = _replay(candles, entry_dt, sl, t1, t2, t3)
 
