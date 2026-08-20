@@ -23,6 +23,18 @@ function fmtPct(n, digits = 2) {
   return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}%`;
 }
 
+// Aug 20 2026: same shared badge as IndexTracker.jsx's ConfirmMark --
+// duplicated here rather than imported, for the same reason every other
+// shared piece in this file is duplicated (see the top-of-file note).
+// Same known carried-over limitation too: a "⚠ Neutral but falling/
+// rising" verdict currently falls through to the plain "—" dash, same
+// as the original 15min column always has.
+function ConfirmMark({ value }) {
+  const color = value === '✓ Confirmed' ? 'text-emerald-400' : value === '⚠ Conflict' ? 'text-rose-400' : 'text-slate-600';
+  const mark = value === '✓ Confirmed' ? '✓' : value === '⚠ Conflict' ? '⚠' : '—';
+  return <span className={color}>{mark}</span>;
+}
+
 const BIAS_STYLE = {
   'Bullish (Strong)': 'text-emerald-400 bg-emerald-500/15',
   'Bullish': 'text-emerald-400 bg-emerald-500/10',
@@ -122,7 +134,11 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
             <th className="text-right px-2.5 py-2 font-medium">Put Wall</th>
             <th className="text-right px-2.5 py-2 font-medium">Call Wall</th>
             <th className="text-center px-2.5 py-2 font-medium">Bias</th>
-            <th className="text-center px-2.5 py-2 font-medium">Confirms?</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="15-minute horizon (unchanged from before)">Confirms?</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="5-minute horizon">5min</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="30-minute horizon">30min</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="60-minute horizon">60min</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="How many horizons with enough data actually confirm">Horizons</th>
           </tr>
         </thead>
         <tbody>
@@ -146,9 +162,19 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                   </span>
                 </td>
                 <td className="px-2.5 py-2 text-center">
-                  <span className={confirms === '✓ Confirmed' ? 'text-emerald-400' : confirms === '⚠ Conflict' ? 'text-rose-400' : 'text-slate-600'}>
-                    {confirms === '✓ Confirmed' ? '✓' : confirms === '⚠ Conflict' ? '⚠' : '—'}
-                  </span>
+                  <ConfirmMark value={confirms} />
+                </td>
+                <td className="px-2.5 py-2 text-center">
+                  <ConfirmMark value={r['Confirms 5min']} />
+                </td>
+                <td className="px-2.5 py-2 text-center">
+                  <ConfirmMark value={r['Confirms 30min']} />
+                </td>
+                <td className="px-2.5 py-2 text-center">
+                  <ConfirmMark value={r['Confirms 60min']} />
+                </td>
+                <td className="px-2.5 py-2 text-center text-slate-300 font-mono whitespace-nowrap">
+                  {r['Horizons Confirming'] || '—'}
                 </td>
               </tr>
             );
