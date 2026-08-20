@@ -2585,3 +2585,6 @@
 {"level":"ERROR","location":"[get_call:188] fyersModel","message":{"API":"/quotes","error":"Expecting value: line 1 column 1 (char 0)"},"timestamp":"2026-08-20 12:07:07,627+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:188] fyersModel","message":{"API":"/quotes","error":"Expecting value: line 1 column 1 (char 0)"},"timestamp":"2026-08-20 12:07:08,060+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:188] fyersModel","message":{"API":"/quotes","error":"Expecting value: line 1 column 1 (char 0)"},"timestamp":"2026-08-20 12:07:08,513+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:188] fyersModel","message":{"API":"/quotes","error":"Expecting value: line 1 column 1 (char 0)"},"timestamp":"2026-08-20 12:08:12,181+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:188] fyersModel","message":{"API":"/quotes","error":"Expecting value: line 1 column 1 (char 0)"},"timestamp":"2026-08-20 12:08:12,666+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:188] fyersModel","message":{"API":"/quotes","error":"Expecting value: line 1 column 1 (char 0)"},"timestamp":"2026-08-20 12:08:13,789+0530","service":"FyersAPI"}
