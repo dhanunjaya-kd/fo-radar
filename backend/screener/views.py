@@ -750,7 +750,15 @@ def _build_all():
             qty = locked['quantity'] or max(1, int(50000 / entry)) if entry else 1
             rr = locked['risk_reward'] or 1.5
             option_symbol = locked['option_symbol']
+            # Already-tracked outcome status for this locked plan -- see
+            # get_locked_plan()'s Aug 20 update. A genuinely fresh signal
+            # (the else branch below) hasn't had a chance to hit anything
+            # yet, so it starts at sl_hit=False / furthest_target_hit=0.
+            sl_hit = locked.get('sl_hit', False)
+            furthest_target_hit = locked.get('furthest_target_hit', 0)
         else:
+            sl_hit = False
+            furthest_target_hit = 0
             # --- Convert the stock-side move into REAL option-premium terms ---
             # This used to just reuse the STOCK price as entry/SL/target (e.g.
             # "Entry ₹1,141.20" for what's supposed to be an options trade) --
@@ -820,6 +828,12 @@ def _build_all():
             "strike": strike,
             "recommendation": f"{action} {opt_side} — ₹{strike} STRIKE",
             "timestamp": datetime.now().isoformat(),
+            "sl_hit": sl_hit,
+            "furthest_target_hit": furthest_target_hit,
+            "outcome_status": (
+                "SL Hit" if sl_hit
+                else (f"Target {furthest_target_hit} Hit" if furthest_target_hit else "Open")
+            ),
             **signal_extra,
         })
     
@@ -1198,6 +1212,50 @@ class SignalExcelExportView(APIView):
             return JsonResponse({"error": "No signals logged yet today."}, status=404)
         filename = os.path.basename(path)
         return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
+
+
+class SignalWatchlistCsvView(APIView):
+    """Today's active qualifying signals as a Fyers-Watchlist-importable
+    CSV. There is no Fyers API endpoint to push directly into a Watchlist
+    (checked Aug 20 2026 -- watchlist write access isn't part of
+    fyers-apiv3's exposed surface, only manual add/CSV-import via Fyers
+    Web/App). Fyers Web DOES support Watchlist -> Import from a CSV with
+    a single 'Symbol' column, so this is the closest real automation:
+    generate the file in that exact importable shape, using the real
+    Fyers option_symbol string already attached to each signal (the same
+    one Fyers' own option-chain response returned -- not reconstructed),
+    so the daily manual step becomes 'download, then Import in Fyers
+    Web' instead of typing each strike by hand.
+    GET /api/signals/watchlist-csv/"""
+    def get(self, request):
+        from django.http import HttpResponse, JsonResponse
+        import csv
+        import io
+
+        with _cache_lock:
+            signals = list(_signal_cache)
+
+        seen = set()
+        rows = []
+        for s in signals:
+            sym = s.get("option_symbol")
+            if sym and sym not in seen:
+                rows.append(sym)
+                seen.add(sym)
+
+        if not rows:
+            return JsonResponse({"error": "No active signals with a confirmed option symbol right now."}, status=404)
+
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["Symbol"])
+        for sym in rows:
+            writer.writerow([sym])
+
+        response = HttpResponse(buffer.getvalue(), content_type="text/csv")
+        filename = f"sniper_watchlist_{datetime.now().strftime('%Y-%m-%d_%H%M')}.csv"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
 
 
 class SignalExportDatesView(APIView):
