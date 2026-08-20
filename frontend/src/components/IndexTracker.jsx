@@ -31,6 +31,21 @@ function fmtPct(n, digits = 2) {
   return `${n >= 0 ? '+' : ''}${n.toFixed(digits)}%`;
 }
 
+// Aug 20 2026: shared by the existing 15min "Confirms?" column and the
+// 3 new horizon columns below (multi-horizon confirmation, accuracy
+// backlog #5) -- same simple ✓/⚠/— rendering everywhere rather than a
+// different treatment for the new ones. Known carried-over limitation:
+// a "⚠ Neutral but falling/rising" verdict from the backend currently
+// falls through to the plain "—" no-data dash here, same as the
+// original 15min column always has -- not something this change
+// touches, just flagging it since it now applies to 4 columns instead
+// of 1.
+function ConfirmMark({ value }) {
+  const color = value === '✓ Confirmed' ? 'text-emerald-400' : value === '⚠ Conflict' ? 'text-rose-400' : 'text-slate-600';
+  const mark = value === '✓ Confirmed' ? '✓' : value === '⚠ Conflict' ? '⚠' : '—';
+  return <span className={color}>{mark}</span>;
+}
+
 // One dense table instead of 3 separate cards plus a differently-
 // formatted history table below them -- easier to scan across a row
 // than to jump between visually separated boxes to piece together the
@@ -61,7 +76,11 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
             <th className="text-right px-2.5 py-2 font-medium">Put OI</th>
             <th className="text-right px-2.5 py-2 font-medium">Call OI</th>
             <th className="text-center px-2.5 py-2 font-medium">Bias</th>
-            <th className="text-center px-2.5 py-2 font-medium">Confirms?</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="15-minute horizon (unchanged from before)">Confirms?</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="5-minute horizon">5min</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="30-minute horizon">30min</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="60-minute horizon">60min</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="How many horizons with enough data actually confirm">Horizons</th>
             <th className="text-right px-2.5 py-2 font-medium">Support</th>
             <th className="text-right px-2.5 py-2 font-medium">Resistance</th>
             <th className="text-right px-2.5 py-2 font-medium">ATM Strike</th>
@@ -105,9 +124,19 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                   </span>
                 </td>
                 <td className="px-2.5 py-2 text-center">
-                  <span className={confirms === '✓ Confirmed' ? 'text-emerald-400' : confirms === '⚠ Conflict' ? 'text-rose-400' : 'text-slate-600'}>
-                    {confirms === '✓ Confirmed' ? '✓' : confirms === '⚠ Conflict' ? '⚠' : '—'}
-                  </span>
+                  <ConfirmMark value={confirms} />
+                </td>
+                <td className="px-2.5 py-2 text-center">
+                  <ConfirmMark value={r['Confirms 5min']} />
+                </td>
+                <td className="px-2.5 py-2 text-center">
+                  <ConfirmMark value={r['Confirms 30min']} />
+                </td>
+                <td className="px-2.5 py-2 text-center">
+                  <ConfirmMark value={r['Confirms 60min']} />
+                </td>
+                <td className="px-2.5 py-2 text-center text-slate-300 font-mono whitespace-nowrap">
+                  {r['Horizons Confirming'] || '—'}
                 </td>
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r.Support)}</td>
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r.Resistance)}</td>
