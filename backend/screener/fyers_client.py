@@ -6,6 +6,7 @@ Usage:
     data = fyers.quotes({"symbols": "NSE:RELIANCE-EQ"})
 """
 import os
+import time
 from datetime import datetime
 from fyers_apiv3 import fyersModel
 
@@ -73,14 +74,50 @@ def get_fyers_client():
     )
 
 
+# Aug 20 2026: is_authenticated() used to hit Fyers' /profile endpoint --
+# a real network round-trip -- EVERY single time it was called. views.py
+# alone calls it up to ~35 times in one _build_all() scan cycle (3x for
+# the indices, once for the stock-quotes gate, once for PCR, once per
+# top mover inside _calc_tech() -- up to 30 more). Any ONE of those 35
+# identical calls hitting a transient hiccup or a rate limit specific to
+# /profile would silently zero out whatever it was gating, even while
+# OTHER Fyers endpoints (quotes, option chains) kept working fine at the
+# exact same moment -- confirmed as the real cause of a live incident
+# where indices and the whole stock scan came back empty ("Stocks: 0,
+# Signals: 0") while the Index Tracker and individual option-chain
+# fetches, which don't gate on this check, stayed populated. Caching
+# this for a short TTL cuts ~35 real network calls/cycle down to at
+# most 1 -- short enough (30s) that re-authenticating mid-day (e.g.
+# running get_fyers_token.py again) is picked up quickly, not stale for
+# the rest of the day.
+_auth_cache = {"value": None, "checked_at": 0.0}
+_AUTH_CACHE_TTL = 30  # seconds
+
+
 def is_authenticated():
-    """Check if token exists and is valid by fetching profile."""
+    """Check if token exists and is valid by fetching profile. Cached
+    for _AUTH_CACHE_TTL seconds -- see the comment above for why. Also
+    now logs WHY on failure instead of silently swallowing it, so a
+    future failure shows up in the terminal instead of just quietly
+    returning nothing."""
+    now = time.time()
+    if _auth_cache["value"] is not None and (now - _auth_cache["checked_at"]) < _AUTH_CACHE_TTL:
+        return _auth_cache["value"]
+
+    result = False
     try:
         fyers = get_fyers_client()
         resp = fyers.get_profile()
-        return resp.get("s") == "ok"
-    except Exception:
-        return False
+        result = resp.get("s") == "ok"
+        if not result:
+            print(f"[Fyers] is_authenticated(): profile check returned not-ok: {resp}")
+    except Exception as e:
+        print(f"[Fyers] is_authenticated(): profile check failed: {e}")
+        result = False
+
+    _auth_cache["value"] = result
+    _auth_cache["checked_at"] = now
+    return result
 
 
 def get_quotes(symbols):
