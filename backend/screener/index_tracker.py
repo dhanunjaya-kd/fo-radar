@@ -164,6 +164,23 @@ _lock = threading.Lock()
 # idea as the reference table's "(High Vol)"/"unwinding" annotations.
 _last_snapshot = {}  # {index_name: {'ce_oi': int, 'pe_oi': int}}
 
+# Direction memory for the flip log below -- {index_name: 'up'|'down'}.
+# Same no-explicit-day-reset convention as _last_snapshot above: relies
+# on the daily process restart to naturally clear it, exactly like that
+# cache already does. In the rare case the server runs across a
+# midnight boundary without restarting, the very first flip check of
+# the new day compares against the previous day's last direction --
+# same accepted tradeoff _last_snapshot already has, not a new one.
+_last_direction = {}
+# Exact previous Bias STRING (not just direction) per name -- purely
+# for an accurate "From Bias" label in the Flips sheet (e.g. "Bearish
+# (Strong)", not just "Bearish"). Updated on the same condition as
+# _last_direction above (directional readings only, Neutral doesn't
+# overwrite it) so the two stay in sync -- "From Bias" always shows the
+# last real directional reading, not an intervening Neutral dip that
+# happened to sit between it and the actual flip.
+_last_bias_string = {}
+
 # Rolling in-memory price history, used by _price_confirms_bias() via
 # _record_and_get_recent_change_pct() below -- REPLACES the old
 # previous-close-based Change % as that function's input. {name:
@@ -190,6 +207,38 @@ def _today_path(index_name):
     today = datetime.now().strftime("%Y-%m-%d")
     os.makedirs(os.path.join(LOG_DIR, today), exist_ok=True)  # only the write path needs to create the folder
     return _date_path(index_name, today)
+
+
+FLIPS_COLUMNS = ["Date", "Time", "From Bias", "To Bias", "Price", "Price Confirms Bias", "OI Buildup"]
+
+
+def _ensure_flips_sheet(wb):
+    """
+    Aug 20 2026: persistent flip/state-change log, one row per genuine
+    directional change (Bullish-family <-> Bearish-family, or Neutral
+    into a direction) -- NOT every Bias string change (Bullish ->
+    Bullish (Strong) is an intensity change, not a flip, same
+    distinction backtest_index_bias.py's DIRECTIONAL_BIASES/direction()
+    logic already draws). Replaces having to reconstruct this by hand
+    from raw snapshots (done manually via a one-off script earlier this
+    project) with something that's just there going forward, and feeds
+    directly into re-testing the flip-reversal hypothesis once enough
+    real flips accumulate.
+
+    Called from _get_workbook() so this sheet exists in all three cases
+    that function handles: a brand new file, a schema-migrated fresh
+    file, and -- importantly -- a file that already existed from BEFORE
+    this feature shipped, which would otherwise have a valid Snapshots
+    sheet but no Flips sheet, and crash the first time something tries
+    to read it.
+    """
+    if "Flips" in wb.sheetnames:
+        return
+    ws = wb.create_sheet("Flips")
+    ws.append(FLIPS_COLUMNS)
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
 
 
 def _get_workbook(path):
@@ -219,6 +268,8 @@ def _get_workbook(path):
             for cell in ws[1]:
                 cell.font = Font(bold=True, color="FFFFFF")
                 cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+        _ensure_flips_sheet(wb)
+        _ensure_flips_sheet(wb)
         return wb
     wb = Workbook()
     ws = wb.active
@@ -227,6 +278,7 @@ def _get_workbook(path):
     for cell in ws[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+    _ensure_flips_sheet(wb)
     return wb
 
 
@@ -322,6 +374,46 @@ def _status_label(oi_chg):
     if oi_chg is None:
         return "—"
     return "Writing" if oi_chg > 0 else "Unwinding" if oi_chg < 0 else "Flat"
+
+
+def _bias_direction(bias):
+    """Same direction-only reading backtest_index_bias.py's flip
+    analysis already uses -- Bullish/Bullish (Strong) -> 'up',
+    Bearish/Bearish (Strong) -> 'down', Neutral/None -> None. Deliberately
+    collapses Strong vs plain into the same direction, since a tier
+    change within one direction (Bullish -> Bullish (Strong)) is an
+    intensity change, not a flip."""
+    if not bias:
+        return None
+    if bias.startswith("Bullish"):
+        return "up"
+    if bias.startswith("Bearish"):
+        return "down"
+    return None
+
+
+def _log_flip_if_changed(wb, name, bias, price, confirms, oi_buildup, date_str, time_str):
+    """
+    Appends one row to the Flips sheet only when direction genuinely
+    changed since the last reading for this name -- Neutral readings
+    don't overwrite the remembered direction (same as
+    backtest_index_bias.py's flip counting: a dip to Neutral and back
+    to the same direction isn't two flips, it's zero). Writes nothing
+    on the very first reading for a name in this process (nothing to
+    compare against yet) or when the direction is unchanged.
+    """
+    global _last_direction, _last_bias_string
+    new_dir = _bias_direction(bias)
+    prev_dir = _last_direction.get(name)
+    prev_bias_str = _last_bias_string.get(name)
+
+    if new_dir is not None and new_dir != prev_dir and prev_dir is not None:
+        ws = wb["Flips"]
+        ws.append([date_str, time_str, prev_bias_str, bias, price, confirms, oi_buildup])
+
+    if new_dir is not None:
+        _last_direction[name] = new_dir
+        _last_bias_string[name] = bias
 
 
 def _record_and_get_recent_change_pct(name, price, now=None):
@@ -530,6 +622,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         wb = _get_workbook(path)
         ws = wb["Snapshots"]
         ws.append([row[c] for c in COLUMNS])
+        _log_flip_if_changed(wb, index_name, bias, row.get("Spot"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"])
         wb.save(path)
     except Exception as e:
         print(f"[IndexTracker] Failed to log {index_name} snapshot: {e}")
@@ -665,6 +758,7 @@ def snapshot_commodity(name, base):
         wb = _get_workbook(path)
         ws = wb["Snapshots"]
         ws.append([row[c] for c in COLUMNS])
+        _log_flip_if_changed(wb, name, bias, row.get("Fut"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"])
         wb.save(path)
     except Exception as e:
         print(f"[IndexTracker] Failed to log {name} snapshot: {e}")
