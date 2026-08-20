@@ -155,7 +155,7 @@ COLUMNS = [
     "Highest Put OI Strike", "Highest Put OI Value",
     "Highest Call OI Strike", "Highest Call OI Value",
     "IV %", "VIX", "Support", "Resistance", "Max Pain", "Max Pain Dist %",
-    "Bias", "Price Confirms Bias",
+    "OI Buildup", "Bias", "Price Confirms Bias",
 ]
 
 _lock = threading.Lock()
@@ -521,6 +521,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "IV %": oi.get("iv"), "VIX": vix,
         "Support": oi.get("support"), "Resistance": oi.get("resistance"),
         "Max Pain": oi.get("max_pain"), "Max Pain Dist %": oi.get("max_pain_dist_pct"),
+        "OI Buildup": oi.get("oi_buildup"),
         "Bias": bias, "Price Confirms Bias": confirms,
     }
 
@@ -655,6 +656,7 @@ def snapshot_commodity(name, base):
         "IV %": oi.get("iv"), "VIX": None,  # India VIX is an equity-index concept, not applicable here
         "Support": oi.get("support"), "Resistance": oi.get("resistance"),
         "Max Pain": oi.get("max_pain"), "Max Pain Dist %": oi.get("max_pain_dist_pct"),
+        "OI Buildup": oi.get("oi_buildup"),
         "Bias": bias, "Price Confirms Bias": confirms,
     }
 
