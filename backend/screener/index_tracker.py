@@ -116,12 +116,20 @@ def _front_month_commodity_symbol(base):
     ~19th-20th most months, a few working days ahead of the NYMEX WTI
     contract it tracks). A fixed day-of-month is not a real MCX
     holiday-aware expiry calendar, but it's safe in the sense that it
-    rolls AFTER crude oil's contract has actually expired, not before --
-    confirmed against this month's real expiry (17-Aug-2026 per the live
-    option chain). Re-verify if a different commodity is ever added
-    here, since gold/silver/etc. don't share crude oil's expiry timing."""
+    rolls AFTER crude oil's contract has actually expired, not before.
+
+    Aug 20 2026: was hardcoded to 20 based on "usually the 19th-20th" --
+    but THIS month's real, confirmed expiry was 17-Aug-2026, three days
+    earlier than that generic assumption. That gap meant Crude showed
+    zero for three real days (18th-20th) -- the code kept requesting
+    the already-expired August contract, which Fyers correctly returns
+    nothing for. Moved the threshold to 17 to match what's now actually
+    confirmed. This is still a per-month approximation, not a real MCX
+    holiday-aware calendar -- re-check next month whether 17 still
+    holds or needs adjusting again, same as this comment already said
+    for a different commodity."""
     today = datetime.now()
-    if today.day > 20:
+    if today.day > 17:
         y, m = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
     else:
         y, m = today.year, today.month
