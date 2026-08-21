@@ -46,22 +46,22 @@ function ConfirmMark({ value }) {
   return <span className={color}>{mark}</span>;
 }
 
-// Aug 21 2026: ATM Put/Call OI direction -- the backend has always
-// computed this (Put Status / Call Status, from _status_label() in
-// index_tracker.py: "Writing" when OI is building up, "Unwinding" when
-// it's coming off), it just never got wired into the table until now.
-// Writing = ↑, Unwinding = ↓, Flat/no data = no arrow at all rather
-// than a misleading → for something that didn't actually move.
-function OiWithArrow({ value, status, valueColor }) {
-  const arrow = status === 'Writing' ? <span className="text-emerald-400 ml-1">↑</span>
-    : status === 'Unwinding' ? <span className="text-rose-400 ml-1">↓</span>
-    : null;
-  return (
-    <span className={valueColor}>
-      {fmtOi(value)}
-      {arrow}
-    </span>
-  );
+// Aug 21 2026: unified with MarketView.jsx's own Arrow component --
+// this table previously used a DIFFERENT arrow source just for ATM
+// Put/Call OI (Put Status/Call Status, backend-computed "Writing"/
+// "Unwinding" labels). Replaced with the same row-to-row delta
+// comparison MarketView.jsx already uses for every column, so both
+// tables behave identically rather than running two separate arrow
+// systems that could subtly disagree. Directional arrow comparing
+// this row's value to the PREVIOUS row's (chronologically earlier --
+// since rows are most-recent-first, that's the next array index). No
+// arrow if there's nothing earlier to compare against, or the value
+// is unchanged.
+function Arrow({ value }) {
+  if (value === null || value === undefined) return null;
+  if (value > 0) return <span className="text-emerald-400 ml-0.5">↑</span>;
+  if (value < 0) return <span className="text-rose-400 ml-0.5">↓</span>;
+  return <span className="text-slate-500 ml-0.5">→</span>;
 }
 
 // One dense table instead of 3 separate cards plus a differently-
@@ -111,10 +111,18 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
           {visible.map((r, i) => {
             const isUp = (r['Change %'] || 0) >= 0;
             const confirms = r['Price Confirms Bias'];
+            // rows[i+1], not visible[i+1] -- the chronologically-earlier
+            // reference row must come from the FULL fetched set, not just
+            // what's currently displayed. When collapsed (showAll=false),
+            // visible only has 1 row, but rows still has up to 100 -- this
+            // keeps the top row's arrow correct even when older rows
+            // aren't shown at all, same reasoning MarketView.jsx documents.
+            const prev = rows[i + 1];
+            const delta = (key) => (prev && r[key] != null && prev[key] != null ? r[key] - prev[key] : null);
             return (
               <tr key={i} className={`border-t border-slate-800/40 ${i === 0 ? 'bg-slate-800/30' : 'hover:bg-slate-800/20'}`}>
                 <td className="px-2.5 py-2 text-slate-500 font-mono whitespace-nowrap">{r.Time}</td>
-                <td className="px-2.5 py-2 text-right text-white font-semibold whitespace-nowrap">{fmt(r.Spot)}</td>
+                <td className="px-2.5 py-2 text-right text-white font-semibold whitespace-nowrap">{fmt(r.Spot)}<Arrow value={delta('Spot')} /></td>
                 <td className={`px-2.5 py-2 text-right whitespace-nowrap ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Change %'])}</td>
                 <td className="px-2.5 py-2 text-center">
                   {r['CAS Auction'] ? (
@@ -128,24 +136,20 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                     <span className="text-slate-600">—</span>
                   )}
                 </td>
-                <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmt(r.Fut)}</td>
-                <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmtOi(r['Fut OI'])}</td>
+                <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmt(r.Fut)}<Arrow value={delta('Fut')} /></td>
+                <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmtOi(r['Fut OI'])}<Arrow value={delta('Fut OI')} /></td>
                 <td className={`px-2.5 py-2 text-right whitespace-nowrap ${(r['Fut OI Chg %'] || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Fut OI Chg %'])}</td>
-                <td className="px-2.5 py-2 text-right text-orange-400 whitespace-nowrap">{r.VIX != null ? r.VIX.toFixed(2) : '—'}</td>
-                <td className="px-2.5 py-2 text-right text-amber-400 whitespace-nowrap">{r['IV %'] != null ? `${r['IV %'].toFixed(1)}%` : '—'}</td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{r['IV %ile'] != null ? `${r['IV %ile']}` : '—'}</td>
-                <td className="px-2.5 py-2 text-right text-indigo-400 whitespace-nowrap">{r.PCR != null ? r.PCR.toFixed(2) : '—'}</td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r['Max Pain'])}</td>
-                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmt(r['Highest Put OI Strike'])}</td>
-                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmt(r['Highest Call OI Strike'])}</td>
-                <td className="px-2.5 py-2 text-right whitespace-nowrap">
-                  <OiWithArrow value={r['Put OI (ATM)']} status={r['Put Status']} valueColor="text-emerald-400" />
-                </td>
-                <td className="px-2.5 py-2 text-right whitespace-nowrap">
-                  <OiWithArrow value={r['Call OI (ATM)']} status={r['Call Status']} valueColor="text-rose-400" />
-                </td>
-                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmtOi(r['Total Put OI'])}</td>
-                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmtOi(r['Total Call OI'])}</td>
+                <td className="px-2.5 py-2 text-right text-orange-400 whitespace-nowrap">{r.VIX != null ? r.VIX.toFixed(2) : '—'}<Arrow value={delta('VIX')} /></td>
+                <td className="px-2.5 py-2 text-right text-amber-400 whitespace-nowrap">{r['IV %'] != null ? `${r['IV %'].toFixed(1)}%` : '—'}<Arrow value={delta('IV %')} /></td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{r['IV %ile'] != null ? `${r['IV %ile']}` : '—'}<Arrow value={delta('IV %ile')} /></td>
+                <td className="px-2.5 py-2 text-right text-indigo-400 whitespace-nowrap">{r.PCR != null ? r.PCR.toFixed(2) : '—'}<Arrow value={delta('PCR')} /></td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r['Max Pain'])}<Arrow value={delta('Max Pain')} /></td>
+                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmt(r['Highest Put OI Strike'])}<Arrow value={delta('Highest Put OI Strike')} /></td>
+                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmt(r['Highest Call OI Strike'])}<Arrow value={delta('Highest Call OI Strike')} /></td>
+                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmtOi(r['Put OI (ATM)'])}<Arrow value={delta('Put OI (ATM)')} /></td>
+                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmtOi(r['Call OI (ATM)'])}<Arrow value={delta('Call OI (ATM)')} /></td>
+                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmtOi(r['Total Put OI'])}<Arrow value={delta('Total Put OI')} /></td>
+                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmtOi(r['Total Call OI'])}<Arrow value={delta('Total Call OI')} /></td>
                 <td className="px-2.5 py-2 text-center">
                   <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${BIAS_STYLE[r.Bias] || 'text-slate-400 bg-slate-700/30'}`}>
                     {r.Bias || '—'}
@@ -166,9 +170,9 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                 <td className="px-2.5 py-2 text-center text-slate-300 font-mono whitespace-nowrap">
                   {r['Horizons Confirming'] || '—'}
                 </td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r.Support)}</td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r.Resistance)}</td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r['ATM Strike'])}</td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r.Support)}<Arrow value={delta('Support')} /></td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r.Resistance)}<Arrow value={delta('Resistance')} /></td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r['ATM Strike'])}<Arrow value={delta('ATM Strike')} /></td>
               </tr>
             );
           })}
