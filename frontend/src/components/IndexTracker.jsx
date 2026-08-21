@@ -46,6 +46,24 @@ function ConfirmMark({ value }) {
   return <span className={color}>{mark}</span>;
 }
 
+// Aug 21 2026: ATM Put/Call OI direction -- the backend has always
+// computed this (Put Status / Call Status, from _status_label() in
+// index_tracker.py: "Writing" when OI is building up, "Unwinding" when
+// it's coming off), it just never got wired into the table until now.
+// Writing = ↑, Unwinding = ↓, Flat/no data = no arrow at all rather
+// than a misleading → for something that didn't actually move.
+function OiWithArrow({ value, status, valueColor }) {
+  const arrow = status === 'Writing' ? <span className="text-emerald-400 ml-1">↑</span>
+    : status === 'Unwinding' ? <span className="text-rose-400 ml-1">↓</span>
+    : null;
+  return (
+    <span className={valueColor}>
+      {fmtOi(value)}
+      {arrow}
+    </span>
+  );
+}
+
 // One dense table instead of 3 separate cards plus a differently-
 // formatted history table below them -- easier to scan across a row
 // than to jump between visually separated boxes to piece together the
@@ -69,12 +87,15 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
             <th className="text-right px-2.5 py-2 font-medium">Fut OI Chg%</th>
             <th className="text-right px-2.5 py-2 font-medium">VIX</th>
             <th className="text-right px-2.5 py-2 font-medium">IV%</th>
+            <th className="text-right px-2.5 py-2 font-medium" title="Where today's IV ranks against recent history">IV %ile</th>
             <th className="text-right px-2.5 py-2 font-medium">PCR</th>
             <th className="text-right px-2.5 py-2 font-medium">Max Pain</th>
             <th className="text-right px-2.5 py-2 font-medium">Put Wall</th>
             <th className="text-right px-2.5 py-2 font-medium">Call Wall</th>
-            <th className="text-right px-2.5 py-2 font-medium">Put OI</th>
-            <th className="text-right px-2.5 py-2 font-medium">Call OI</th>
+            <th className="text-right px-2.5 py-2 font-medium">ATM Put OI</th>
+            <th className="text-right px-2.5 py-2 font-medium">ATM Call OI</th>
+            <th className="text-right px-2.5 py-2 font-medium" title="Total across the whole chain, not just ATM">Total Put OI</th>
+            <th className="text-right px-2.5 py-2 font-medium" title="Total across the whole chain, not just ATM">Total Call OI</th>
             <th className="text-center px-2.5 py-2 font-medium">Bias</th>
             <th className="text-center px-2.5 py-2 font-medium" title="15-minute horizon (unchanged from before)">Confirms?</th>
             <th className="text-center px-2.5 py-2 font-medium" title="5-minute horizon">5min</th>
@@ -112,10 +133,17 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                 <td className={`px-2.5 py-2 text-right whitespace-nowrap ${(r['Fut OI Chg %'] || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Fut OI Chg %'])}</td>
                 <td className="px-2.5 py-2 text-right text-orange-400 whitespace-nowrap">{r.VIX != null ? r.VIX.toFixed(2) : '—'}</td>
                 <td className="px-2.5 py-2 text-right text-amber-400 whitespace-nowrap">{r['IV %'] != null ? `${r['IV %'].toFixed(1)}%` : '—'}</td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{r['IV %ile'] != null ? `${r['IV %ile']}` : '—'}</td>
                 <td className="px-2.5 py-2 text-right text-indigo-400 whitespace-nowrap">{r.PCR != null ? r.PCR.toFixed(2) : '—'}</td>
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r['Max Pain'])}</td>
                 <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmt(r['Highest Put OI Strike'])}</td>
                 <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmt(r['Highest Call OI Strike'])}</td>
+                <td className="px-2.5 py-2 text-right whitespace-nowrap">
+                  <OiWithArrow value={r['Put OI (ATM)']} status={r['Put Status']} valueColor="text-emerald-400" />
+                </td>
+                <td className="px-2.5 py-2 text-right whitespace-nowrap">
+                  <OiWithArrow value={r['Call OI (ATM)']} status={r['Call Status']} valueColor="text-rose-400" />
+                </td>
                 <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmtOi(r['Total Put OI'])}</td>
                 <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmtOi(r['Total Call OI'])}</td>
                 <td className="px-2.5 py-2 text-center">
