@@ -204,6 +204,113 @@ def backtest_by_day(index_name, horizon_minutes):
     return dict(sorted(by_day.items(), reverse=True))
 
 
+def _confirmation_bucket(horizons_confirming_str):
+    """
+    Buckets a "Horizons Confirming" value (e.g. "3/4", "0/2", "—") into
+    one of three groups: 'Strong' (every horizon that had a real
+    verdict agreed with Bias), 'Mixed' (some agreed, some conflicted),
+    'Conflict' (every horizon that had a real verdict disagreed).
+
+    Returns None for "—" or anything unparseable -- no real verdict to
+    bucket yet, same "skip rather than guess" treatment backtest() already
+    gives a missing Spot/Fut. This also correctly and silently excludes
+    every row logged before Aug 21 2026 -- those files' headers never had
+    a "Horizons Confirming" column at all (this feature didn't exist
+    yet), so load_all_snapshots()'s dict(zip(headers, row)) never puts
+    the key there, and .get() on a dict with no such key already returns
+    None on its own -- nothing extra needed to handle that case.
+
+    The denominator in "X/Y" only counts horizons that returned a real
+    ✓/⚠ verdict (see _multi_horizon_confirms() in index_tracker.py) --
+    flat/no-data horizons are excluded from Y already, so this ratio is
+    "of the horizons with something real to say, how many agreed,"
+    not diluted by ones that had nothing to say either way.
+    """
+    if not horizons_confirming_str or horizons_confirming_str == "—":
+        return None
+    try:
+        num_str, denom_str = horizons_confirming_str.split("/")
+        num, denom = int(num_str), int(denom_str)
+    except (ValueError, AttributeError):
+        return None
+    if denom == 0:
+        return None
+    if num == denom:
+        return "Strong (all horizons agree)"
+    if num == 0:
+        return "Conflict (all horizons disagree)"
+    return "Mixed (some agree, some don't)"
+
+
+def backtest_by_confirmation_level(index_name, horizon_minutes):
+    """
+    Same method and the same non-overlapping-sample rule as backtest()
+    above -- but this answers a DIFFERENT question: not "does Bias
+    predict price," but "does the Aug 20 multi-horizon confirmation
+    feature (Confirms 5min/30min/60min -> Horizons Confirming) actually
+    separate the good Bias reads from the noisy ones?" If 'Strong'
+    confirmation rows hit meaningfully higher than 'Conflict' rows, the
+    feature is doing real work. If they land about the same, it isn't
+    adding predictive value yet regardless of how it looks on screen --
+    that's a real, useful, possibly disappointing answer either way, and
+    the whole point of building this rather than trusting the feature
+    on faith.
+
+    Only counts rows with a real confirmation verdict (see
+    _confirmation_bucket) -- meaning this will have a noticeably smaller
+    sample than backtest()'s total, since every snapshot logged before
+    Aug 21 2026 has nothing to bucket here at all.
+
+    Returns {(bias_label, confirmation_bucket): {'correct', 'total', 'hit_rate'}}
+    """
+    rows = load_all_snapshots(index_name)
+    results = {}
+    next_eligible_time = None
+
+    for i, row in enumerate(rows):
+        bias = row.get("Bias")
+        if bias not in DIRECTIONAL_BIASES:
+            continue
+        if next_eligible_time is not None and row["_datetime"] < next_eligible_time:
+            continue
+        bucket = _confirmation_bucket(row.get("Horizons Confirming"))
+        if bucket is None:
+            continue  # no real confirmation verdict yet for this row -- can't bucket it, don't guess
+
+        spot_now = row.get("Spot")
+        if spot_now is None:
+            spot_now = row.get("Fut")
+        if spot_now is None:
+            continue
+
+        target_time = row["_datetime"] + timedelta(minutes=horizon_minutes)
+        future_row = next((r for r in rows[i + 1:] if r["_datetime"] >= target_time), None)
+        if future_row is None:
+            continue
+        spot_future = future_row.get("Spot")
+        if spot_future is None:
+            spot_future = future_row.get("Fut")
+        if spot_future is None:
+            continue
+
+        key = (bias, bucket)
+        if key not in results:
+            results[key] = {"correct": 0, "total": 0}
+
+        predicted_up = bias.startswith("Bullish")
+        actual_up = spot_future > spot_now
+        results[key]["total"] += 1
+        if predicted_up == actual_up:
+            results[key]["correct"] += 1
+        next_eligible_time = target_time
+
+    for key in results:
+        t = results[key]["total"]
+        results[key]["hit_rate"] = round(100 * results[key]["correct"] / t, 1) if t else None
+
+    return results
+
+
 def write_backtest_report(index_name, horizons=(15, 30, 60)):
     """
     Builds a day-wise backtest Excel report for one index, one row per
@@ -255,6 +362,83 @@ def write_backtest_report(index_name, horizons=(15, 30, 60)):
     return path
 
 
+def write_confirmation_report(index_name, horizons=(15, 30, 60)):
+    """
+    Same shape as write_backtest_report() above, but for the multi-
+    horizon confirmation breakdown -- one row per (Bias, confirmation
+    level), columns for each look-ahead horizon. Saved separately to
+    signal_logs/backtest_reports/confirmation_backtest_<INDEX>_<today>.xlsx
+    so it doesn't disturb the existing, already-trusted backtest report.
+    Returns the path.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    results_per_horizon = {h: backtest_by_confirmation_level(index_name, h) for h in horizons}
+    all_keys = sorted({k for h in horizons for k in results_per_horizon[h]})
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Confirmation Backtest"
+
+    headers = ["Bias", "Confirmation Level"]
+    for h in horizons:
+        headers += [f"{h}min Hit%", f"{h}min Samples"]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.fill = PatternFill("solid", fgColor="DDDDDD")
+
+    for key in all_keys:
+        bias, bucket = key
+        row = [bias, bucket]
+        has_any_sample = False
+        for h in horizons:
+            r = results_per_horizon[h].get(key, {"correct": 0, "total": 0, "hit_rate": None})
+            if r["total"] > 0:
+                has_any_sample = True
+            row += [r["hit_rate"] if r["hit_rate"] is not None else "—", r["total"]]
+        if has_any_sample:
+            ws.append(row)
+
+    for col in ws.columns:
+        max_len = max(len(str(c.value)) for c in col)
+        ws.column_dimensions[col[0].column_letter].width = max(max_len + 2, 10)
+
+    out_dir = os.path.join(LOG_DIR, "backtest_reports")
+    os.makedirs(out_dir, exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    path = os.path.join(out_dir, f"confirmation_backtest_{index_name}_{today}.xlsx")
+    wb.save(path)
+    return path
+
+
+def print_confirmation_report(index_name, horizons=(15, 30, 60)):
+    print(f"\n{'=' * 60}")
+    print(f"  {index_name} — does multi-horizon confirmation actually help?")
+    print(f"{'=' * 60}")
+    print("(Segments the same Bias hit-rate test above by how many of the")
+    print(" Aug 20 confirmation horizons agreed at the time. Strong should")
+    print(" beat Conflict if this is adding real signal, not just noise.")
+    print(" Only counts snapshots logged Aug 21 2026 onward -- the")
+    print(" confirmation columns didn't exist before that.)")
+    print()
+
+    for horizon in horizons:
+        results = backtest_by_confirmation_level(index_name, horizon)
+        total_bucketed = sum(r["total"] for r in results.values())
+        print(f"--- Look-ahead: {horizon} minutes  ({total_bucketed} bucketed samples) ---")
+        if not results:
+            print("  no bucketed samples yet")
+            print()
+            continue
+        for (bias, bucket), r in sorted(results.items()):
+            if r["total"] == 0:
+                continue
+            print(f"  {bias:18s} | {bucket:28s}: {r['hit_rate']:5.1f}% correct  ({r['correct']}/{r['total']} samples)")
+        print()
+
+
 def print_report(index_name, horizons=(15, 30, 60)):
     print(f"\n{'=' * 60}")
     print(f"  {index_name} — Bias backtest")
@@ -283,7 +467,17 @@ if __name__ == "__main__":
     if load_workbook is None:
         print("openpyxl not installed -- pip install openpyxl")
     else:
-        print_report("NIFTY")
-        print_report("BANKNIFTY")
-        print_report("CRUDEOIL")
-        print_report("CRUDEOILM")
+        # Aug 20 2026: Gold/Silver joined the tracked instruments tonight
+        # (see index_tracker.py) -- this script already worked for any
+        # index_name generically, so just extending the list run here
+        # rather than anything about the method changing.
+        instruments = ("NIFTY", "BANKNIFTY", "CRUDEOIL", "CRUDEOILM", "GOLD", "GOLDM", "SILVER", "SILVERM")
+
+        for idx in instruments:
+            print_report(idx)
+
+        print("\n" + "#" * 60)
+        print("# Multi-horizon confirmation breakdown -- Aug 21 2026+ data only")
+        print("#" * 60)
+        for idx in instruments:
+            print_confirmation_report(idx)
