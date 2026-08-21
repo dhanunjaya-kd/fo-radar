@@ -133,6 +133,8 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
             <th className="text-right px-2.5 py-2 font-medium">Max Pain</th>
             <th className="text-right px-2.5 py-2 font-medium">Put Wall</th>
             <th className="text-right px-2.5 py-2 font-medium">Call Wall</th>
+            <th className="text-right px-2.5 py-2 font-medium">IV%</th>
+            <th className="text-right px-2.5 py-2 font-medium" title="Where today's IV ranks against recent history">IV %ile</th>
             <th className="text-center px-2.5 py-2 font-medium">Bias</th>
             <th className="text-center px-2.5 py-2 font-medium" title="15-minute horizon (unchanged from before)">Confirms?</th>
             <th className="text-center px-2.5 py-2 font-medium" title="5-minute horizon">5min</th>
@@ -156,6 +158,8 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r['Max Pain'])}</td>
                 <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmt(r['Highest Put OI Strike'])}</td>
                 <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmt(r['Highest Call OI Strike'])}</td>
+                <td className="px-2.5 py-2 text-right text-amber-400 whitespace-nowrap">{r['IV %'] != null ? `${r['IV %'].toFixed(1)}%` : '—'}</td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{r['IV %ile'] != null ? `${r['IV %ile']}` : '—'}</td>
                 <td className="px-2.5 py-2 text-center">
                   <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${BIAS_STYLE[r.Bias] || 'text-slate-400 bg-slate-700/30'}`}>
                     {r.Bias || '—'}
