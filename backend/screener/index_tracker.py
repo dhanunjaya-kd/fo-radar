@@ -67,13 +67,32 @@ INDEX_SYMBOLS = {
 # Commodities (MCX) work differently from the indices above -- there's
 # no separate spot/cash index symbol to give an option chain; the
 # front-month FUTURES contract IS the underlying. So this is just the
-# base name to build that rolling symbol from (see
-# _front_month_commodity_symbol below), not a static Fyers symbol like
-# INDEX_SYMBOLS holds.
+# base name to build that rolling symbol from, not a static Fyers
+# symbol like INDEX_SYMBOLS holds.
 COMMODITY_BASES = {
     "CRUDEOIL": "CRUDEOIL",
     "CRUDEOILM": "CRUDEOILM",
+    "GOLD": "GOLD",
+    "GOLDM": "GOLDM",
+    "SILVER": "SILVER",
+    "SILVERM": "SILVERM",
 }
+
+# Aug 20 2026: Crude trades in (almost) every calendar month, so a
+# simple day-of-month rollover works for it (_front_month_commodity_
+# symbol below). Gold/Silver do NOT -- confirmed empirically via
+# check_gold_silver_symbols.py against live Fyers data, same day:
+#   GOLD:    Oct/Dec live, Aug/Sep/Nov not  -- roughly bi-monthly
+#   GOLDM:   Sep/Oct/Nov/Dec all live       -- roughly monthly
+#   SILVER:  Sep/Dec live, Aug/Oct/Nov not  -- irregular
+#   SILVERM: Aug/Nov live, Sep/Oct/Dec not  -- irregular, different
+#            pattern from SILVER despite the name similarity
+# None of the four match Crude's pattern, and SILVER/SILVERM don't even
+# match each other -- a static "valid months" table would need separate,
+# hand-confirmed entries per base and would still go stale exactly like
+# Crude's hardcoded threshold did. _front_month_bullion_symbol() below
+# probes live Fyers data instead of guessing.
+_NEAR_MONTHLY_BASES = {"CRUDEOIL", "CRUDEOILM"}
 
 # Every name the frontend/views.py is allowed to ask this module about --
 # single source of truth so a new commodity/index added here doesn't
@@ -138,6 +157,64 @@ def _front_month_commodity_symbol(base):
     return f"MCX:{base}{yy}{mon}FUT"
 
 
+_bullion_symbol_cache = {}  # {base: {'date': 'YYYY-MM-DD', 'symbol': str|None}}
+
+
+def _front_month_bullion_symbol(base):
+    """
+    GOLD/GOLDM/SILVER/SILVERM front-month resolution -- structurally
+    different from _front_month_commodity_symbol() above because these
+    don't trade in every calendar month (see COMMODITY_BASES' comment
+    for the real confirmed data). A day-of-month threshold can't
+    represent "this month simply has no contract at all," so this
+    probes candidate months forward from today via a real Fyers
+    get_market_depth() call and uses whichever is actually confirmed
+    live -- empirical, not guessed.
+
+    Cached per base for the rest of the calendar day (contract-month
+    validity doesn't change intraday, so there's no need to re-probe on
+    every snapshot cycle -- same spirit as every other cache in this
+    file, just keyed by date instead of a TTL). Tries up to 6 months
+    forward before giving up; that comfortably covers every gap seen in
+    the real Aug 20 2026 data (the widest was GOLD's Aug-to-Oct, a
+    2-month gap).
+
+    Returns None (not a guessed symbol) if nothing live turns up in
+    that window -- callers must treat None as "can't snapshot this
+    right now," never invent a placeholder price.
+    """
+    from .fyers_client import get_market_depth
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _bullion_symbol_cache.get(base)
+    if cached and cached.get("date") == today_str:
+        return cached.get("symbol")
+
+    today = datetime.now()
+    y, m = today.year, today.month
+    for _ in range(6):
+        yy = str(y)[2:]
+        mon = datetime(y, m, 1).strftime("%b").upper()
+        candidate = f"MCX:{base}{yy}{mon}FUT"
+        try:
+            resp = get_market_depth(candidate)
+            if resp and resp.get("s") == "ok":
+                d = (resp.get("d", {}) or {}).get(candidate, {})
+                if d.get("ltp"):
+                    _bullion_symbol_cache[base] = {"date": today_str, "symbol": candidate}
+                    return candidate
+        except Exception as e:
+            print(f"[IndexTracker] {base} front-month probe failed for {candidate}: {e}")
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+
+    print(f"[IndexTracker] {base}: no live contract found in the next 6 months -- "
+          f"re-run check_gold_silver_symbols.py to confirm what's actually listed")
+    _bullion_symbol_cache[base] = {"date": today_str, "symbol": None}
+    return None
+
+
 def is_mcx_hours():
     """MCX commodities trade well past NSE's close -- roughly 9 AM to
     11:30 PM, vs NSE F&O's 9:15 AM-3:30 PM. Deliberately a separate,
@@ -162,7 +239,7 @@ COLUMNS = [
     "Total Put OI", "Total Call OI",
     "Highest Put OI Strike", "Highest Put OI Value",
     "Highest Call OI Strike", "Highest Call OI Value",
-    "IV %", "VIX", "Support", "Resistance", "Max Pain", "Max Pain Dist %",
+    "IV %", "IV %ile", "VIX", "Support", "Resistance", "Max Pain", "Max Pain Dist %",
     "OI Buildup", "Bias", "Price Confirms Bias",
     "Confirms 5min", "Confirms 30min", "Confirms 60min", "Horizons Confirming",
 ]
@@ -673,6 +750,10 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     # correctly rather than mistaken for a normal intraday move.
     cas_auction = is_cas_auction_window()
 
+    # See compute_iv_percentile()'s docstring for the real, honest
+    # limitation here -- thin sample until more real days accumulate.
+    iv_percentile, _iv_sample_size = compute_iv_percentile(index_name, oi.get("iv"))
+
     row = {
         "Time": datetime.now().strftime("%H:%M:%S"),
         "Spot": oi.get("spot"),
@@ -691,7 +772,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "Total Put OI": oi.get("pe_oi"), "Total Call OI": oi.get("ce_oi"),
         "Highest Put OI Strike": highest_put_strike, "Highest Put OI Value": highest_put_value,
         "Highest Call OI Strike": highest_call_strike, "Highest Call OI Value": highest_call_value,
-        "IV %": oi.get("iv"), "VIX": vix,
+        "IV %": oi.get("iv"), "IV %ile": iv_percentile, "VIX": vix,
         "Support": oi.get("support"), "Resistance": oi.get("resistance"),
         "Max Pain": oi.get("max_pain"), "Max Pain Dist %": oi.get("max_pain_dist_pct"),
         "OI Buildup": oi.get("oi_buildup"),
@@ -764,7 +845,16 @@ def snapshot_commodity(name, base):
         return None
 
     from .fyers_client import get_option_analytics, get_market_depth
-    fut_symbol = _front_month_commodity_symbol(base)
+    # Crude uses the simple day-of-month rollover (near-monthly
+    # contracts); Gold/Silver use the probe-based resolver instead,
+    # since they skip calendar months entirely -- see COMMODITY_BASES'
+    # comment and _front_month_bullion_symbol()'s docstring for why.
+    if base in _NEAR_MONTHLY_BASES:
+        fut_symbol = _front_month_commodity_symbol(base)
+    else:
+        fut_symbol = _front_month_bullion_symbol(base)
+        if fut_symbol is None:
+            return None  # no live contract found in the probe window -- nothing to snapshot, not a guess
 
     fut_price = None
     fut_oi = None
@@ -817,6 +907,9 @@ def snapshot_commodity(name, base):
     confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
     per_horizon_confirms, horizons_summary = _multi_horizon_confirms(horizon_changes, bias)
 
+    # See compute_iv_percentile()'s docstring for the honest limitation.
+    iv_percentile, _iv_sample_size = compute_iv_percentile(name, oi.get("iv"))
+
     row = {
         "Time": datetime.now().strftime("%H:%M:%S"),
         "Spot": None,  # no separate spot/cash index for a commodity -- left blank, not faked
@@ -832,7 +925,7 @@ def snapshot_commodity(name, base):
         "Total Put OI": oi.get("pe_oi"), "Total Call OI": oi.get("ce_oi"),
         "Highest Put OI Strike": highest_put_strike, "Highest Put OI Value": highest_put_value,
         "Highest Call OI Strike": highest_call_strike, "Highest Call OI Value": highest_call_value,
-        "IV %": oi.get("iv"), "VIX": None,  # India VIX is an equity-index concept, not applicable here
+        "IV %": oi.get("iv"), "IV %ile": iv_percentile, "VIX": None,  # India VIX is an equity-index concept, not applicable here
         "Support": oi.get("support"), "Resistance": oi.get("resistance"),
         "Max Pain": oi.get("max_pain"), "Max Pain Dist %": oi.get("max_pain_dist_pct"),
         "OI Buildup": oi.get("oi_buildup"),
@@ -926,6 +1019,55 @@ def list_available_dates(index_name):
 def get_today_log_path(index_name):
     path = _today_path(index_name)
     return path if os.path.exists(path) else None
+
+
+def compute_iv_percentile(index_name, current_iv, lookback_days=30):
+    """
+    IV Percentile: what percentage of the last `lookback_days` trading
+    days had a closing IV LOWER than today's current IV. Standard
+    definition (not IV Rank, which instead measures where today sits
+    between the lookback's min/max) -- this is what "IV%ile" means on
+    the reference tool this column was matched against. Tells a trader
+    whether current IV is cheap or expensive relative to its OWN recent
+    history -- something the raw IV number alone can't say.
+
+    Uses each day's LAST logged snapshot as that day's closing IV.
+    Reads real logged history via list_available_dates() +
+    get_snapshots_for_date() -- the exact same historical-read pattern
+    already used by compute_cas_auction_moves() and the Bias backtest.
+    No new Fyers calls, no new data source.
+
+    HONEST LIMITATION: IV Percentile conventionally uses ~252 trading
+    days (about a year). This project has only been logging Index
+    Tracker snapshots for a few weeks. Returns (percentile,
+    sample_size) so the caller can see exactly how thin the sample
+    still is, rather than a young number presented with false
+    confidence -- same "don't trust a thin sample" pattern this
+    project's backtest work already follows throughout. Will keep
+    becoming more meaningful as more real trading days accumulate;
+    nothing to fix, just needs time.
+    """
+    if current_iv is None:
+        return None, 0
+
+    dates = list_available_dates(index_name)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    past_dates = [d for d in dates if d != today_str][:lookback_days]
+
+    closing_ivs = []
+    for d in past_dates:
+        day_rows = get_snapshots_for_date(index_name, d, limit=1)  # most-recent-first -- [0] is that day's closing snapshot
+        if day_rows:
+            iv = day_rows[0].get("IV %")
+            if iv is not None:
+                closing_ivs.append(iv)
+
+    if not closing_ivs:
+        return None, 0
+
+    below = sum(1 for iv in closing_ivs if iv < current_iv)
+    percentile = round(100 * below / len(closing_ivs), 1)
+    return percentile, len(closing_ivs)
 
 
 def compute_cas_auction_moves(index_name):
