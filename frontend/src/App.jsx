@@ -6,15 +6,16 @@ import SignalList from './components/SignalList';
 import Watchlist from './components/Watchlist';
 import Analytics from './components/Analytics';
 import IndexTracker from './components/IndexTracker';
+import MarketView from './components/MarketView';
 import CrudeOilTracker from './components/CrudeOilTracker';
 import BullionTracker from './components/BullionTracker';
 import NewsFeed from './components/NewsFeed';
 import FundamentalsWatchlist from './components/FundamentalsWatchlist';
 
-// The 8 valid tab ids -- used to validate whatever's in localStorage
+// The 9 valid tab ids -- used to validate whatever's in localStorage
 // so a stale/unrecognized value (e.g. from an older version of the
 // app) can't leave activeTab pointing at nothing and rendering blank.
-const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'crude', 'bullion', 'news', 'value'];
+const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -44,6 +45,7 @@ export default function App() {
     { id: 'watchlist', label: 'Watchlist', count: watchlistCount },
     { id: 'oi', label: 'OI Analytics', count: null },
     { id: 'index', label: 'Index Tracker', count: null },
+    { id: 'market', label: 'Market View', count: null },
     { id: 'crude', label: 'Crude Oil', count: null },
     { id: 'bullion', label: 'Gold & Silver', count: null },
     { id: 'news', label: 'News', count: null },
@@ -117,6 +119,7 @@ export default function App() {
               {tab.id === 'watchlist' && '👁'}
               {tab.id === 'oi' && '📊'}
               {tab.id === 'index' && '📈'}
+              {tab.id === 'market' && '📋'}
               {tab.id === 'crude' && '🛢️'}
               {tab.id === 'bullion' && '🥇'}
               {tab.id === 'news' && '📰'}
@@ -140,6 +143,7 @@ export default function App() {
         {activeTab === 'watchlist' && <Watchlist />}
         {activeTab === 'oi' && <Analytics />}
         {activeTab === 'index' && <IndexTracker />}
+        {activeTab === 'market' && <MarketView />}
         {activeTab === 'crude' && <CrudeOilTracker />}
         {activeTab === 'bullion' && <BullionTracker />}
         {activeTab === 'news' && <NewsFeed />}
