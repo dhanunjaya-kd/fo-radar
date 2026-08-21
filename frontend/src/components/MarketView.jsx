@@ -50,6 +50,39 @@ function Arrow({ value }) {
   return <span className="text-slate-500 ml-0.5">→</span>;
 }
 
+// Aug 21 2026: he explicitly wants this tab at the reference tool's own
+// ~30-min cadence, not the full ~60s logging density -- Index Tracker
+// already covers full density; this is deliberately the sparser view.
+// Rows come back most-recent-first from the API; walk chronologically
+// (oldest first) and greedily keep a row only once at least
+// intervalMinutes has passed since the last KEPT row, then reverse back
+// to most-recent-first for display. Greedy-since-last-kept (not a fixed
+// clock-aligned bucket like :00/:30) so it's robust to the real
+// snapshot cadence drifting a little cycle to cycle, same as it visibly
+// does in his own screenshots (13:04:17, 13:03:11, 13:02:06 -- not
+// exactly 60s apart).
+function parseTimeToMinutes(timeStr) {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function downsampleToInterval(rows, intervalMinutes = 30) {
+  const chronological = [...rows].reverse();
+  const kept = [];
+  let lastKeptMinutes = null;
+  for (const row of chronological) {
+    const t = parseTimeToMinutes(row.Time);
+    if (t === null) continue;
+    if (lastKeptMinutes === null || t - lastKeptMinutes >= intervalMinutes) {
+      kept.push(row);
+      lastKeptMinutes = t;
+    }
+  }
+  return kept.reverse();
+}
+
 function MarketViewTable({ rows }) {
   return (
     <div className="overflow-x-auto">
@@ -177,7 +210,7 @@ function MarketViewSection({ indexName }) {
           </div>
         )}
         {error && <div className="py-4 text-center text-rose-400 text-sm">⚠ {error}</div>}
-        {rows.length > 0 && <MarketViewTable rows={rows} />}
+        {rows.length > 0 && <MarketViewTable rows={downsampleToInterval(rows, 30)} />}
       </div>
     </div>
   );
@@ -187,8 +220,9 @@ export default function MarketView() {
   return (
     <div className="space-y-4">
       <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300">
-        Clean market view — same live data as Index Tracker, just the core columns only. Arrows show the
-        change from the previous snapshot.
+        Clean market view — same live data as Index Tracker, just the core columns only, thinned to a
+        ~30-minute cadence (Index Tracker still shows every snapshot at full density). Arrows show the
+        change from the previous row shown here, not necessarily the immediately-prior raw snapshot.
       </div>
       <MarketViewSection indexName="NIFTY" />
       <MarketViewSection indexName="BANKNIFTY" />
