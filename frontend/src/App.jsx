@@ -94,7 +94,7 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen bg-slate-950 text-white overflow-x-hidden">
       {/* Top Section */}
       <div className="px-4 pt-4 pb-2">
         <MarketBanner />
@@ -102,12 +102,12 @@ export default function App() {
 
       {/* Tabs */}
       <div className="px-4 mb-4">
-        <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl w-fit">
+        <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl overflow-x-auto max-w-full">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id
                   ? 'bg-slate-700 text-white shadow-lg'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
