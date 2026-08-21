@@ -7,13 +7,14 @@ import Watchlist from './components/Watchlist';
 import Analytics from './components/Analytics';
 import IndexTracker from './components/IndexTracker';
 import CrudeOilTracker from './components/CrudeOilTracker';
+import BullionTracker from './components/BullionTracker';
 import NewsFeed from './components/NewsFeed';
 import FundamentalsWatchlist from './components/FundamentalsWatchlist';
 
-// The 7 valid tab ids -- used to validate whatever's in localStorage
+// The 8 valid tab ids -- used to validate whatever's in localStorage
 // so a stale/unrecognized value (e.g. from an older version of the
 // app) can't leave activeTab pointing at nothing and rendering blank.
-const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'crude', 'news', 'value'];
+const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'crude', 'bullion', 'news', 'value'];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -44,6 +45,7 @@ export default function App() {
     { id: 'oi', label: 'OI Analytics', count: null },
     { id: 'index', label: 'Index Tracker', count: null },
     { id: 'crude', label: 'Crude Oil', count: null },
+    { id: 'bullion', label: 'Gold & Silver', count: null },
     { id: 'news', label: 'News', count: null },
     { id: 'value', label: 'Value Watchlist', count: null },
   ];
@@ -116,6 +118,7 @@ export default function App() {
               {tab.id === 'oi' && '📊'}
               {tab.id === 'index' && '📈'}
               {tab.id === 'crude' && '🛢️'}
+              {tab.id === 'bullion' && '🥇'}
               {tab.id === 'news' && '📰'}
               {tab.id === 'value' && '💎'}
               {tab.label}
@@ -138,6 +141,7 @@ export default function App() {
         {activeTab === 'oi' && <Analytics />}
         {activeTab === 'index' && <IndexTracker />}
         {activeTab === 'crude' && <CrudeOilTracker />}
+        {activeTab === 'bullion' && <BullionTracker />}
         {activeTab === 'news' && <NewsFeed />}
         {activeTab === 'value' && <FundamentalsWatchlist />}
       </div>
