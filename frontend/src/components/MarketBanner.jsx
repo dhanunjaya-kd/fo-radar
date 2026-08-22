@@ -166,6 +166,9 @@ export default function MarketBanner() {
           <p className="text-xs text-slate-400 font-mono">
             {new Date(data.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
           </p>
+          <p className="text-[10px] text-slate-500 font-mono">
+            {new Date(data.timestamp).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+          </p>
           <p className="text-[10px] text-slate-600">Last updated</p>
         </div>
       </div>
