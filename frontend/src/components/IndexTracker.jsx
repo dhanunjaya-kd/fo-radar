@@ -122,7 +122,7 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
             return (
               <tr key={i} className={`border-t border-slate-800/40 ${i === 0 ? 'bg-slate-800/30' : 'hover:bg-slate-800/20'}`}>
                 <td className="px-2.5 py-2 text-slate-500 font-mono whitespace-nowrap">{r.Time}</td>
-                <td className="px-2.5 py-2 text-right text-white font-semibold whitespace-nowrap">{fmt(r.Spot)}<Arrow value={delta('Spot')} /></td>
+                <td className="px-2.5 py-2 text-right text-white font-semibold whitespace-nowrap"><span className="tier-critical">{fmt(r.Spot)}</span><Arrow value={delta('Spot')} /></td>
                 <td className={`px-2.5 py-2 text-right whitespace-nowrap ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Change %'])}</td>
                 <td className="px-2.5 py-2 text-center">
                   {r['CAS Auction'] ? (
@@ -136,20 +136,20 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                     <span className="text-slate-600">—</span>
                   )}
                 </td>
-                <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmt(r.Fut)}<Arrow value={delta('Fut')} /></td>
-                <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap">{fmtOi(r['Fut OI'])}<Arrow value={delta('Fut OI')} /></td>
+                <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap"><span className="tier-secondary">{fmt(r.Fut)}</span><Arrow value={delta('Fut')} /></td>
+                <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap"><span className="tier-secondary">{fmtOi(r['Fut OI'])}</span><Arrow value={delta('Fut OI')} /></td>
                 <td className={`px-2.5 py-2 text-right whitespace-nowrap ${(r['Fut OI Chg %'] || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Fut OI Chg %'])}</td>
-                <td className="px-2.5 py-2 text-right text-orange-400 whitespace-nowrap">{r.VIX != null ? r.VIX.toFixed(2) : '—'}<Arrow value={delta('VIX')} /></td>
-                <td className="px-2.5 py-2 text-right text-amber-400 whitespace-nowrap">{r['IV %'] != null ? `${r['IV %'].toFixed(1)}%` : '—'}<Arrow value={delta('IV %')} /></td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{r['IV %ile'] != null ? `${r['IV %ile']}` : '—'}<Arrow value={delta('IV %ile')} /></td>
-                <td className="px-2.5 py-2 text-right text-indigo-400 whitespace-nowrap">{r.PCR != null ? r.PCR.toFixed(2) : '—'}<Arrow value={delta('PCR')} /></td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r['Max Pain'])}<Arrow value={delta('Max Pain')} /></td>
-                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmt(r['Highest Put OI Strike'])}<Arrow value={delta('Highest Put OI Strike')} /></td>
-                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmt(r['Highest Call OI Strike'])}<Arrow value={delta('Highest Call OI Strike')} /></td>
-                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmtOi(r['Put OI (ATM)'])}<Arrow value={delta('Put OI (ATM)')} /></td>
-                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmtOi(r['Call OI (ATM)'])}<Arrow value={delta('Call OI (ATM)')} /></td>
-                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap">{fmtOi(r['Total Put OI'])}<Arrow value={delta('Total Put OI')} /></td>
-                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap">{fmtOi(r['Total Call OI'])}<Arrow value={delta('Total Call OI')} /></td>
+                <td className="px-2.5 py-2 text-right text-orange-400 whitespace-nowrap"><span className="tier-important">{r.VIX != null ? r.VIX.toFixed(2) : '—'}</span><Arrow value={delta('VIX')} /></td>
+                <td className="px-2.5 py-2 text-right text-amber-400 whitespace-nowrap"><span className="tier-important">{r['IV %'] != null ? `${r['IV %'].toFixed(1)}%` : '—'}</span><Arrow value={delta('IV %')} /></td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap"><span className="tier-secondary">{r['IV %ile'] != null ? `${r['IV %ile']}` : '—'}</span><Arrow value={delta('IV %ile')} /></td>
+                <td className="px-2.5 py-2 text-right text-indigo-400 whitespace-nowrap"><span className="tier-important">{r.PCR != null ? r.PCR.toFixed(2) : '—'}</span><Arrow value={delta('PCR')} /></td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap"><span className="tier-important">{fmt(r['Max Pain'])}</span><Arrow value={delta('Max Pain')} /></td>
+                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap"><span className="tier-secondary">{fmt(r['Highest Put OI Strike'])}</span><Arrow value={delta('Highest Put OI Strike')} /></td>
+                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap"><span className="tier-secondary">{fmt(r['Highest Call OI Strike'])}</span><Arrow value={delta('Highest Call OI Strike')} /></td>
+                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap"><span className="tier-secondary">{fmtOi(r['Put OI (ATM)'])}</span><Arrow value={delta('Put OI (ATM)')} /></td>
+                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap"><span className="tier-secondary">{fmtOi(r['Call OI (ATM)'])}</span><Arrow value={delta('Call OI (ATM)')} /></td>
+                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap"><span className="tier-secondary">{fmtOi(r['Total Put OI'])}</span><Arrow value={delta('Total Put OI')} /></td>
+                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap"><span className="tier-secondary">{fmtOi(r['Total Call OI'])}</span><Arrow value={delta('Total Call OI')} /></td>
                 <td className="px-2.5 py-2 text-center">
                   <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${BIAS_STYLE[r.Bias] || 'text-slate-400 bg-slate-700/30'}`}>
                     {r.Bias || '—'}
@@ -170,9 +170,9 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                 <td className="px-2.5 py-2 text-center text-slate-300 font-mono whitespace-nowrap">
                   {r['Horizons Confirming'] || '—'}
                 </td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r.Support)}<Arrow value={delta('Support')} /></td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r.Resistance)}<Arrow value={delta('Resistance')} /></td>
-                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r['ATM Strike'])}<Arrow value={delta('ATM Strike')} /></td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap"><span className="tier-important">{fmt(r.Support)}</span><Arrow value={delta('Support')} /></td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap"><span className="tier-important">{fmt(r.Resistance)}</span><Arrow value={delta('Resistance')} /></td>
+                <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap"><span className="tier-secondary">{fmt(r['ATM Strike'])}</span><Arrow value={delta('ATM Strike')} /></td>
               </tr>
             );
           })}
