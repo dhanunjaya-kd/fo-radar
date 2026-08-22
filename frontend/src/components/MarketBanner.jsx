@@ -70,7 +70,7 @@ export default function MarketBanner() {
 
     const inner = (
       <div className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 ${fyersSymbol ? 'hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group' : ''}`}>
-        <div className={`w-2 h-2 rounded-full ${bgDot}`} />
+        <div className={`w-2 h-2 rounded-full ${bgDot} animate-pulse`} />
         <div className="flex-1">
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1">
             {label}
@@ -118,7 +118,7 @@ export default function MarketBanner() {
       {/* VIX */}
       <a href={fyersChartUrl("NSE:INDIAVIX-INDEX")} target="_blank" rel="noopener noreferrer" title="Open INDIA VIX chart on Fyers"
         className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group">
-        <div className="w-2 h-2 rounded-full bg-amber-500" />
+        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
         <div>
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1">
             INDIA VIX
@@ -133,7 +133,7 @@ export default function MarketBanner() {
 
       {/* PCR */}
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
-        <div className="w-2 h-2 rounded-full bg-purple-500" />
+        <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
         <div>
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">PCR</p>
           <p className="text-lg font-bold text-white tabular-nums">{pcr.value ? pcr.value.toFixed(2) : 'N/A'}</p>
@@ -150,7 +150,7 @@ export default function MarketBanner() {
           in a few weeks. Price + Change% only, same as what the Index
           Tracker table itself shows for this row. */}
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
-        <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+        <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
         <div>
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">CRUDE OIL</p>
           <p className="text-lg font-bold text-white tabular-nums">{fmt(crudePrice)}</p>

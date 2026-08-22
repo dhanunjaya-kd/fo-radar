@@ -96,3 +96,29 @@
 .light .marquee-wrapper { background: #ffffff !important; border-bottom-color: #e2e8f0 !important; }
 .light .ticker-symbol { color: #0f172a !important; }
 .light .ticker-price { color: #334155 !important; }
+
+/* ---- Aug 22 2026: animations, added while the market's closed for
+   the weekend -- purposeful, not decorative:
+   1. Smooth color transition on EVERY element -- switching light/
+      dark/system now fades instead of snapping. Applies globally via
+      *, same reasoning as the color overrides above: works across
+      every component without editing them individually.
+   2. Tab-switch fade-in -- content gently appears instead of an
+      abrupt swap. Applied via a .tab-fade-in class + a remount key in
+      App.jsx (see App.jsx's Aug 22 comment for how it's triggered).
+   Deliberately did NOT animate: numbers/prices themselves (a real
+   price should feel instant and trustworthy, not eased/delayed --
+   animating the CONTAINER around it, never the trading data inside
+   it, keeps that honest). */
+* {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-fade-in {
+  animation: tabFadeIn 0.2s ease;
+}
