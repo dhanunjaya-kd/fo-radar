@@ -143,7 +143,12 @@ function AppShell() {
       </div>
 
       {/* Content Area — ONLY ONE TAB VISIBLE */}
-      <div className="px-4 pb-8">
+      {/* Aug 22 2026: key={activeTab} forces React to remount this div
+          on every tab switch (rather than just re-rendering the same
+          node in place) -- that remount is what makes the CSS
+          animation actually replay each time, instead of only firing
+          once on the very first load. */}
+      <div key={activeTab} className="px-4 pb-8 tab-fade-in">
         {activeTab === 'signals' && <SignalList />}
         {activeTab === 'watchlist' && <Watchlist />}
         {activeTab === 'oi' && <Analytics />}
