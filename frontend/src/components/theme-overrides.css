@@ -1,0 +1,98 @@
+/* Aug 21 2026: light-mode overrides for the Tailwind utility classes
+   already used throughout this app. Targets class NAMES directly
+   (not CSS variables), scoped under a .light class on the app root --
+   this means it works across every component, including files this
+   session has never seen, without editing them individually. Dark
+   mode (the app's original design) needs zero changes and stays
+   exactly as-is when .light isn't present.
+
+   Deliberately skips translucent (/5, /10, /15, /20 opacity) color
+   classes -- those are already just subtle tints blending with
+   whatever's underneath, and read fine as a soft color wash on either
+   a white or near-black background without needing per-class
+   overrides.
+
+   HONEST LIMITATION: covers every SOLID color class found across the
+   7 component files available this session (App.jsx, Header.jsx,
+   MarketBanner.jsx, IndexTracker.jsx, CrudeOilTracker.jsx,
+   BullionTracker.jsx, MarketView.jsx). A component not yet seen might
+   use a color class not listed here -- it'll just stay dark-toned in
+   light mode until that file is available and this list gets
+   extended. Given how consistently this app reuses the same small
+   slate/emerald/rose/amber/indigo palette across every table built
+   tonight, coverage should already be high. */
+
+/* ---- Backgrounds (near-black -> near-white) ---- */
+.light .bg-slate-950 { background-color: #ffffff !important; }
+.light .bg-slate-900 { background-color: #f8fafc !important; }
+.light .bg-slate-900\/50 { background-color: #f1f5f9 !important; }
+.light .bg-slate-800 { background-color: #e2e8f0 !important; }
+.light .bg-slate-800\/20 { background-color: rgba(226, 232, 240, 0.5) !important; }
+.light .bg-slate-800\/30 { background-color: rgba(226, 232, 240, 0.6) !important; }
+.light .bg-slate-800\/50 { background-color: rgba(226, 232, 240, 0.7) !important; }
+.light .bg-slate-800\/60 { background-color: rgba(226, 232, 240, 0.8) !important; }
+.light .bg-slate-700 { background-color: #cbd5e1 !important; }
+.light .bg-slate-700\/30 { background-color: rgba(203, 213, 225, 0.5) !important; }
+.light .bg-slate-700\/50 { background-color: rgba(203, 213, 225, 0.6) !important; }
+.light .bg-slate-500 { background-color: #94a3b8 !important; }
+
+/* ---- Borders ---- */
+.light .border-slate-800 { border-color: #e2e8f0 !important; }
+.light .border-slate-800\/40 { border-color: rgba(226, 232, 240, 0.6) !important; }
+.light .border-slate-800\/60 { border-color: rgba(226, 232, 240, 0.7) !important; }
+.light .border-slate-700 { border-color: #cbd5e1 !important; }
+.light .border-slate-700\/50 { border-color: rgba(203, 213, 225, 0.6) !important; }
+.light .border-slate-500 { border-color: #94a3b8 !important; }
+.light .border-blue-400 { border-color: #60a5fa !important; }
+
+/* ---- Primary text (bright on dark -> dark on light) ---- */
+.light .text-white { color: #0f172a !important; }
+.light .text-slate-200 { color: #1e293b !important; }
+.light .text-slate-300 { color: #334155 !important; }
+.light .text-slate-400 { color: #475569 !important; }
+.light .text-slate-500 { color: #64748b !important; }
+.light .text-slate-600 { color: #64748b !important; }
+
+/* ---- Semantic accent colors -- kept recognizable, darkened for
+   contrast against a white background instead of a near-black one ---- */
+.light .text-emerald-400 { color: #059669 !important; }
+.light .text-emerald-400\/80 { color: rgba(5, 150, 105, 0.8) !important; }
+.light .text-rose-400 { color: #e11d48 !important; }
+.light .text-rose-400\/80 { color: rgba(225, 29, 72, 0.8) !important; }
+.light .text-amber-400 { color: #b45309 !important; }
+.light .text-indigo-300 { color: #4338ca !important; }
+.light .text-indigo-400 { color: #4338ca !important; }
+.light .text-blue-300 { color: #1d4ed8 !important; }
+.light .text-blue-400 { color: #1d4ed8 !important; }
+.light .text-orange-400 { color: #c2410c !important; }
+.light .text-purple-400 { color: #7e22ce !important; }
+
+.light .bg-emerald-400 { background-color: #10b981 !important; }
+.light .bg-emerald-500 { background-color: #10b981 !important; }
+.light .bg-rose-400 { background-color: #f43f5e !important; }
+.light .bg-rose-500 { background-color: #f43f5e !important; }
+.light .bg-amber-400 { background-color: #f59e0b !important; }
+.light .bg-blue-500 { background-color: #3b82f6 !important; }
+
+/* ---- Custom "sniper-*" theme tokens (Header.jsx) -- UNCONFIRMED
+   exact values, this project's tailwind.config.js was never
+   available to check (Header.jsx also isn't currently rendered
+   anywhere in App.jsx, so this may not even be live -- included
+   anyway since it's harmless if unused). Best-guess approximations
+   matching how these are used alongside the slate palette elsewhere;
+   correct these precisely if/when that config file is sent. ---- */
+.light .border-sniper-border { border-color: #e2e8f0 !important; }
+.light .text-sniper-text { color: #0f172a !important; }
+.light .text-sniper-muted { color: #475569 !important; }
+
+/* ---- MarketBanner.css / MarqueeTicker.css -- bespoke CSS files, not
+   Tailwind utility classes, so they need their own selector-based
+   overrides rather than class-name overrides. ---- */
+.light .market-banner { background: #ffffff !important; border-bottom-color: #e2e8f0 !important; }
+.light .banner-item .label { color: #64748b !important; }
+.light .banner-item .value { color: #0f172a !important; }
+.light .banner-time { color: #64748b !important; }
+
+.light .marquee-wrapper { background: #ffffff !important; border-bottom-color: #e2e8f0 !important; }
+.light .ticker-symbol { color: #0f172a !important; }
+.light .ticker-price { color: #334155 !important; }
