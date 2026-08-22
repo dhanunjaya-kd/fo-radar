@@ -76,7 +76,7 @@ export default function MarketBanner() {
             {label}
             {fyersSymbol && <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400">↗ chart</span>}
           </p>
-          <p className="text-lg font-bold text-white tabular-nums">{fmt(price)}</p>
+          <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(price)}</p>
           <p className={`text-xs font-medium ${textColor}`}>
             {arrow} {isPos ? '+' : ''}{fmt(change)} ({isPos ? '+' : ''}{fmt(changePercent)}%)
           </p>
@@ -124,7 +124,7 @@ export default function MarketBanner() {
             INDIA VIX
             <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400">↗ chart</span>
           </p>
-          <p className="text-lg font-bold text-white tabular-nums">{fmt(vix.price || vix.value)}</p>
+          <p className="text-lg font-bold text-white tabular-nums tier-important">{fmt(vix.price || vix.value)}</p>
           <p className={`text-xs font-medium ${(vix.change || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {(vix.change || 0) >= 0 ? '↗ +' : '↘ '}{fmt(vix.change)}
           </p>
@@ -136,7 +136,7 @@ export default function MarketBanner() {
         <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
         <div>
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">PCR</p>
-          <p className="text-lg font-bold text-white tabular-nums">{pcr.value ? pcr.value.toFixed(2) : 'N/A'}</p>
+          <p className="text-lg font-bold text-white tabular-nums tier-important">{pcr.value ? pcr.value.toFixed(2) : 'N/A'}</p>
           <p className="text-xs font-medium text-purple-400">{pcr.sentiment || 'N/A'}</p>
         </div>
       </div>
@@ -153,7 +153,7 @@ export default function MarketBanner() {
         <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
         <div>
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">CRUDE OIL</p>
-          <p className="text-lg font-bold text-white tabular-nums">{fmt(crudePrice)}</p>
+          <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice)}</p>
           <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
             {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}
           </p>

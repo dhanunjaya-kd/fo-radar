@@ -122,3 +122,39 @@
 .tab-fade-in {
   animation: tabFadeIn 0.2s ease;
 }
+
+/* ---- Aug 22 2026: three-tier visual hierarchy --
+   Level 1 (Critical) -- numbers someone actually trades off: spot
+   price, signal grade/action, market regime, breakout calls.
+   Level 2 (Important) -- context that shapes a decision: PCR, OI
+   totals, IV, Max Pain, support/resistance walls.
+   Level 3 (Secondary) -- granular detail: per-strike IV/Volume,
+   individual OI values, anything there for completeness rather than
+   at-a-glance decision-making.
+
+   Deliberately uses size/weight, not opacity, to build the hierarchy
+   -- washing out red/green with opacity would make a real down-move
+   harder to read at a glance, which defeats the whole point. Applied
+   with !important since these classes sit ALONGSIDE each element's
+   existing Tailwind classes, not replacing them -- needs to win the
+   specificity fight against whatever size/weight Tailwind already set.
+
+   HONEST SCOPE: applied tonight to MarketBanner.jsx (top dashboard)
+   and Analytics.jsx (Options Analytics), since those are where it's
+   most visible and where the tiers genuinely have clean, obvious
+   real-world members. The dense multi-column tables (IndexTracker.jsx/
+   CrudeOilTracker.jsx/BullionTracker.jsx) are a bigger, natural next
+   step -- 20+ columns each, worth its own focused pass rather than a
+   rushed one squeezed in here. */
+.tier-critical {
+  font-weight: 800 !important;
+  font-size: 1.15em !important;
+}
+.tier-important {
+  font-weight: 600 !important;
+}
+.tier-secondary {
+  font-weight: 400 !important;
+  font-size: 0.9em !important;
+  opacity: 0.75;
+}

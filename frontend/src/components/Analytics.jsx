@@ -195,7 +195,7 @@ const Analytics = ({ stock, onStockSelect }) => {
             <div>
               <h2 className="text-xl font-bold text-white">Options Analytics</h2>
               <p className="text-sm text-slate-500">
-                {oiData.symbol} • Spot: ₹{spot.toFixed(2)}
+                {oiData.symbol} • Spot: <span className="tier-critical text-white">₹{spot.toFixed(2)}</span>
               </p>
             </div>
           </div>
@@ -295,7 +295,7 @@ const Analytics = ({ stock, onStockSelect }) => {
                         <div className={`w-2 h-2 rounded-full ${ceOiUp ? 'bg-emerald-400' : 'bg-rose-400'}`} />
                         <div>
                           <div className="text-emerald-400 font-medium">{oiData.symbol} CE {ce.strike}</div>
-                          <div className="text-[10px] text-slate-600">IV: {ce.iv}% | Vol: {(ce.volume/1000).toFixed(0)}K</div>
+                          <div className="text-[10px] text-slate-600 tier-secondary">IV: {ce.iv}% | Vol: {(ce.volume/1000).toFixed(0)}K</div>
                         </div>
                       </div>
                     </td>
@@ -323,7 +323,7 @@ const Analytics = ({ stock, onStockSelect }) => {
                       <div className="flex items-center justify-end gap-2">
                         <div>
                           <div className="text-rose-400 font-medium">{oiData.symbol} PE {pe.strike}</div>
-                          <div className="text-[10px] text-slate-600">IV: {pe.iv}% | Vol: {(pe.volume/1000).toFixed(0)}K</div>
+                          <div className="text-[10px] text-slate-600 tier-secondary">IV: {pe.iv}% | Vol: {(pe.volume/1000).toFixed(0)}K</div>
                         </div>
                         <div className={`w-2 h-2 rounded-full ${peOiUp ? 'bg-emerald-400' : 'bg-rose-400'}`} />
                       </div>
@@ -360,7 +360,7 @@ const Analytics = ({ stock, onStockSelect }) => {
                     <div className={`text-[10px] flex items-center gap-1 mt-0.5 ${ceOiUp ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {ceOiUp ? <IconTrendingUp /> : <IconTrendingDown />}{ce.oiChg}%
                     </div>
-                    <div className="text-[10px] text-slate-600 mt-1">IV {ce.iv}% · Vol {(ce.volume/1000).toFixed(0)}K</div>
+                    <div className="text-[10px] text-slate-600 mt-1 tier-secondary">IV {ce.iv}% · Vol {(ce.volume/1000).toFixed(0)}K</div>
                   </div>
                   <div className="bg-rose-500/5 border border-rose-500/20 rounded p-2 text-right">
                     <div className="text-[10px] text-rose-400 font-semibold mb-1">PUT (PE)</div>
@@ -369,7 +369,7 @@ const Analytics = ({ stock, onStockSelect }) => {
                     <div className={`text-[10px] flex items-center justify-end gap-1 mt-0.5 ${peOiUp ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {peOiUp ? <IconTrendingUp /> : <IconTrendingDown />}{pe.oiChg}%
                     </div>
-                    <div className="text-[10px] text-slate-600 mt-1">IV {pe.iv}% · Vol {(pe.volume/1000).toFixed(0)}K</div>
+                    <div className="text-[10px] text-slate-600 mt-1 tier-secondary">IV {pe.iv}% · Vol {(pe.volume/1000).toFixed(0)}K</div>
                   </div>
                 </div>
               </div>
@@ -446,9 +446,9 @@ const MarketPositionBar = ({ spot, support, resistance }) => {
     <div className="bg-slate-800/30 rounded-lg p-4 mb-6 border border-slate-700/50">
       <h3 className="text-sm font-semibold text-white mb-3">Market Position</h3>
       <div className="flex items-center justify-between text-xs mb-2 flex-wrap gap-1">
-        <span className="text-emerald-400 font-semibold">🛡 PUT WALL ₹{support}</span>
+        <span className="text-emerald-400 font-semibold tier-important">🛡 PUT WALL ₹{support}</span>
         <span className="text-white font-bold">SPOT ₹{spot.toFixed(2)}</span>
-        <span className="text-rose-400 font-semibold">🧱 CALL WALL ₹{resistance}</span>
+        <span className="text-rose-400 font-semibold tier-important">🧱 CALL WALL ₹{resistance}</span>
       </div>
       <div className="relative h-2 rounded-full bg-gradient-to-r from-emerald-500/40 via-slate-600 to-rose-500/40">
         <div
@@ -519,7 +519,7 @@ const MetricCard = ({ label, value, description, color }) => {
   return (
     <div className={`border rounded-lg p-4 ${colors[color]}`}>
       <div className="text-xs text-slate-500 mb-1">{label}</div>
-      <div className={`text-2xl font-bold ${textColors[color]} mb-1`}>{value}</div>
+      <div className={`text-2xl font-bold ${textColors[color]} mb-1 tier-important`}>{value}</div>
       <div className="text-[10px] text-slate-600 leading-tight">{description}</div>
     </div>
   );
