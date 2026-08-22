@@ -225,6 +225,26 @@ const Analytics = ({ stock, onStockSelect }) => {
 
         <MarketPositionBar spot={spot} support={oiData.support} resistance={oiData.resistance} />
 
+        {/* Aug 22 2026: moved here from the bottom of the page -- he
+            pointed out the summary/interpretation content shouldn't
+            require scrolling past the entire strike-by-strike table
+            first. This is the "quick read" -- OI Buildup + the
+            Interpretation panel -- now sitting right after Market
+            Position, before the detailed table and the Greeks. */}
+        <div className="bg-slate-900 rounded-lg border border-slate-800 p-6 mb-6">
+          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <span className="text-purple-400"><IconActivity /></span>
+            OI Buildup Analysis
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <BuildupCard title="CE OI Buildup" value={`${(oiData.totalCeOi/100000).toFixed(1)}L`} trend="up" interpretation="High CE OI at resistance = Strong wall. Breakout above this level is powerful." color="emerald" />
+            <BuildupCard title="PE OI Buildup" value={`${(oiData.totalPeOi/100000).toFixed(1)}L`} trend="up" interpretation="High PE OI at support = Floor established. Bounce likely from this zone." color="rose" />
+            <BuildupCard title="Net OI Change" value={parseFloat(pcr) > 1 ? 'PE Heavy' : 'CE Heavy'} trend={parseFloat(pcr) > 1 ? 'down' : 'up'} interpretation={parseFloat(pcr) > 1 ? 'Writers are selling more Puts = Bullish stance (support expected)' : 'Writers are selling more Calls = Bearish stance (resistance expected)'} color={parseFloat(pcr) > 1 ? 'emerald' : 'rose'} />
+          </div>
+        </div>
+
+        <OptionsInterpretation oiData={oiData} />
+
         <div className="bg-slate-800/30 rounded-lg p-4 mb-6 border border-slate-700/50">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-blue-400"><IconInfo /></span>
@@ -411,20 +431,6 @@ const Analytics = ({ stock, onStockSelect }) => {
           )}
         </div>
       </div>
-
-      <div className="bg-slate-900 rounded-lg border border-slate-800 p-6">
-        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-          <span className="text-purple-400"><IconActivity /></span>
-          OI Buildup Analysis
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <BuildupCard title="CE OI Buildup" value={`${(oiData.totalCeOi/100000).toFixed(1)}L`} trend="up" interpretation="High CE OI at resistance = Strong wall. Breakout above this level is powerful." color="emerald" />
-          <BuildupCard title="PE OI Buildup" value={`${(oiData.totalPeOi/100000).toFixed(1)}L`} trend="up" interpretation="High PE OI at support = Floor established. Bounce likely from this zone." color="rose" />
-          <BuildupCard title="Net OI Change" value={parseFloat(pcr) > 1 ? 'PE Heavy' : 'CE Heavy'} trend={parseFloat(pcr) > 1 ? 'down' : 'up'} interpretation={parseFloat(pcr) > 1 ? 'Writers are selling more Puts = Bullish stance (support expected)' : 'Writers are selling more Calls = Bearish stance (resistance expected)'} color={parseFloat(pcr) > 1 ? 'emerald' : 'rose'} />
-        </div>
-      </div>
-
-      <OptionsInterpretation oiData={oiData} />
     </div>
   );
 };
@@ -479,7 +485,7 @@ const OptionsInterpretation = ({ oiData }) => {
     : 'text-amber-400';
 
   return (
-    <div className="bg-slate-900 rounded-lg border border-slate-800 p-6 mt-6">
+    <div className="bg-slate-900 rounded-lg border border-slate-800 p-6 mb-6">
       <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
         🧠 Options Interpretation
       </h3>
