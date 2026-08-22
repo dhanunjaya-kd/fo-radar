@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { fyersSocket } from './services/fyersSocket';
 import api from './services/api';
+import { ThemeProvider, useTheme } from './components/ThemeContext';
+import ThemeToggle from './components/ThemeToggle';
+import './components/theme-overrides.css';
 import MarketBanner from './components/MarketBanner';
 import SignalList from './components/SignalList';
 import Watchlist from './components/Watchlist';
@@ -17,7 +20,8 @@ import FundamentalsWatchlist from './components/FundamentalsWatchlist';
 // app) can't leave activeTab pointing at nothing and rendering blank.
 const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value'];
 
-export default function App() {
+function AppShell() {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const stored = localStorage.getItem('fo-radar-active-tab');
@@ -96,14 +100,14 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white overflow-x-hidden">
+    <div className={`min-h-screen bg-slate-950 text-white overflow-x-hidden ${theme === 'light' ? 'light' : ''}`}>
       {/* Top Section */}
       <div className="px-4 pt-4 pb-2">
         <MarketBanner />
       </div>
 
       {/* Tabs */}
-      <div className="px-4 mb-4">
+      <div className="px-4 mb-4 flex items-center gap-3">
         <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl overflow-x-auto max-w-full">
           {tabs.map(tab => (
             <button
@@ -135,6 +139,7 @@ export default function App() {
             </button>
           ))}
         </div>
+        <ThemeToggle />
       </div>
 
       {/* Content Area — ONLY ONE TAB VISIBLE */}
@@ -150,5 +155,13 @@ export default function App() {
         {activeTab === 'value' && <FundamentalsWatchlist />}
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppShell />
+    </ThemeProvider>
   );
 }
