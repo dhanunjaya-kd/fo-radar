@@ -90,8 +90,6 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
             <th className="text-right px-2.5 py-2 font-medium" title="Where today's IV ranks against recent history">IV %ile</th>
             <th className="text-right px-2.5 py-2 font-medium">PCR</th>
             <th className="text-right px-2.5 py-2 font-medium">Max Pain</th>
-            <th className="text-right px-2.5 py-2 font-medium">Put Wall</th>
-            <th className="text-right px-2.5 py-2 font-medium">Call Wall</th>
             <th className="text-right px-2.5 py-2 font-medium">ATM Put OI</th>
             <th className="text-right px-2.5 py-2 font-medium">ATM Call OI</th>
             <th className="text-right px-2.5 py-2 font-medium" title="Total across the whole chain, not just ATM">Total Put OI</th>
@@ -144,8 +142,6 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap"><span className="tier-secondary">{r['IV %ile'] != null ? `${r['IV %ile']}` : '—'}</span><Arrow value={delta('IV %ile')} /></td>
                 <td className="px-2.5 py-2 text-right text-indigo-400 whitespace-nowrap"><span className="tier-important">{r.PCR != null ? r.PCR.toFixed(2) : '—'}</span><Arrow value={delta('PCR')} /></td>
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap"><span className="tier-important">{fmt(r['Max Pain'])}</span><Arrow value={delta('Max Pain')} /></td>
-                <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap"><span className="tier-secondary">{fmt(r['Highest Put OI Strike'])}</span><Arrow value={delta('Highest Put OI Strike')} /></td>
-                <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap"><span className="tier-secondary">{fmt(r['Highest Call OI Strike'])}</span><Arrow value={delta('Highest Call OI Strike')} /></td>
                 <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap"><span className="tier-secondary">{fmtOi(r['Put OI (ATM)'])}</span><Arrow value={delta('Put OI (ATM)')} /></td>
                 <td className="px-2.5 py-2 text-right text-rose-400 whitespace-nowrap"><span className="tier-secondary">{fmtOi(r['Call OI (ATM)'])}</span><Arrow value={delta('Call OI (ATM)')} /></td>
                 <td className="px-2.5 py-2 text-right text-emerald-400 whitespace-nowrap"><span className="tier-secondary">{fmtOi(r['Total Put OI'])}</span><Arrow value={delta('Total Put OI')} /></td>
