@@ -223,6 +223,8 @@ const Analytics = ({ stock, onStockSelect }) => {
           <MetricCard label="ATM Strike" value={`₹${atmStrike}`} description="Nearest strike to current spot price" color="purple" />
         </div>
 
+        <MarketPositionBar spot={spot} support={oiData.support} resistance={oiData.resistance} />
+
         <div className="bg-slate-800/30 rounded-lg p-4 mb-6 border border-slate-700/50">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-blue-400"><IconInfo /></span>
@@ -421,6 +423,79 @@ const Analytics = ({ stock, onStockSelect }) => {
           <BuildupCard title="Net OI Change" value={parseFloat(pcr) > 1 ? 'PE Heavy' : 'CE Heavy'} trend={parseFloat(pcr) > 1 ? 'down' : 'up'} interpretation={parseFloat(pcr) > 1 ? 'Writers are selling more Puts = Bullish stance (support expected)' : 'Writers are selling more Calls = Bearish stance (resistance expected)'} color={parseFloat(pcr) > 1 ? 'emerald' : 'rose'} />
         </div>
       </div>
+
+      <OptionsInterpretation oiData={oiData} />
+    </div>
+  );
+};
+
+// Aug 22 2026: the two new pieces -- both PURE presentation. support,
+// resistance, and oiBuildup have been flowing into oiData since this
+// file was first built (they come straight from options_analytics.py's
+// analyze_option_chain(), same as pcr/maxPain/atmIv above them) --
+// they just never got rendered anywhere. No new backend work, no new
+// API call, no new computation here at all.
+
+const MarketPositionBar = ({ spot, support, resistance }) => {
+  if (support == null || resistance == null || spot == null || resistance <= support) return null;
+  // Spot's position as a % between the put wall (0%) and call wall
+  // (100%), clamped so a spot that's currently outside the wall range
+  // still renders sensibly instead of the marker flying off the bar.
+  const pct = Math.max(0, Math.min(100, ((spot - support) / (resistance - support)) * 100));
+  return (
+    <div className="bg-slate-800/30 rounded-lg p-4 mb-6 border border-slate-700/50">
+      <h3 className="text-sm font-semibold text-white mb-3">Market Position</h3>
+      <div className="flex items-center justify-between text-xs mb-2 flex-wrap gap-1">
+        <span className="text-emerald-400 font-semibold">🛡 PUT WALL ₹{support}</span>
+        <span className="text-white font-bold">SPOT ₹{spot.toFixed(2)}</span>
+        <span className="text-rose-400 font-semibold">🧱 CALL WALL ₹{resistance}</span>
+      </div>
+      <div className="relative h-2 rounded-full bg-gradient-to-r from-emerald-500/40 via-slate-600 to-rose-500/40">
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2 border-blue-400 shadow"
+          style={{ left: `calc(${pct}% - 6px)` }}
+          title={`Spot is ${pct.toFixed(0)}% of the way from put wall to call wall`}
+        />
+      </div>
+    </div>
+  );
+};
+
+const OptionsInterpretation = ({ oiData }) => {
+  const { oiBuildup, pcr, support, resistance, spot, symbol } = oiData;
+  if (!oiBuildup) return null;
+
+  // Reuses the exact same OI-buildup string options_analytics.py
+  // already computes (e.g. "CE writing dominant (bearish)") -- this
+  // is the more timely signal (fresh OI CHANGE, not just the static
+  // PCR level the metric card above already covers separately), so
+  // it drives the headline verdict rather than recomputing a second,
+  // possibly-conflicting one from PCR alone.
+  const pressureLabel = oiBuildup.includes('bearish') ? 'Bearish pressure detected'
+    : oiBuildup.includes('bullish') ? 'Bullish pressure detected'
+    : 'Mixed signals — no clear pressure';
+  const pressureColor = oiBuildup.includes('bearish') ? 'text-rose-400'
+    : oiBuildup.includes('bullish') ? 'text-emerald-400'
+    : 'text-amber-400';
+
+  return (
+    <div className="bg-slate-900 rounded-lg border border-slate-800 p-6 mt-6">
+      <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+        🧠 Options Interpretation
+      </h3>
+      <div className="space-y-2 text-sm">
+        <p className={`font-bold ${pressureColor}`}>{pressureLabel}</p>
+        <p className="text-slate-300">CE OI concentration at ₹{resistance ?? '—'}</p>
+        <p className="text-slate-300">PE support concentrated at ₹{support ?? '—'}</p>
+        <p className="text-slate-300">PCR {pcr}</p>
+        <p className="text-slate-300">Spot ₹{spot != null ? spot.toFixed(2) : '—'}</p>
+        {support != null && resistance != null && (
+          <p className="text-slate-300">Key range: ₹{support}–₹{resistance}</p>
+        )}
+      </div>
+      <p className="text-[11px] text-slate-600 mt-3 pt-3 border-t border-slate-800">
+        Derived from live OI buildup, PCR, and OI-wall positioning for {symbol} — not investment advice, a summary of what the option chain itself is showing.
+      </p>
     </div>
   );
 };
