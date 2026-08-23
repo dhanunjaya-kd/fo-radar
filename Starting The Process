@@ -1,0 +1,152 @@
+## Complete Daily Startup Commands
+
+## GITHUB PULL 
+
+python auto_sync.py
+
+## if we forgot to sync the Github this is the process to sync everything upto date 
+
+git add -A
+git commit -m "Aug 20 upgrades"
+git push
+
+## Terminal 1 — Django Backend (Keep Running)
+
+cd C:\Users\FixAdmin\Downloads\fo-sniper-fullstack\backend
+venv\Scripts\activate
+python manage.py runserver 
+
+Wait for: Starting development server at http://127.0.0.1:8000/
+
+## Terminal 2 — React Frontend (Keep Running)
+
+cd C:\Users\FixAdmin\Downloads\fo-sniper-fullstack\frontend
+npm run dev
+Wait for: Local: http://localhost:5173/
+
+## Terminal 3 — Fyers API Auth (Daily, One Time)
+
+cd C:\Users\FixAdmin\Downloads\fo-sniper-fullstack\backend
+venv\Scripts\activate
+python get_fyers_token.py
+
+## verifying PNL every week 
+
+cd backend
+venv\Scripts\activate
+python -m screener.backtest_signal_pnl
+
+## EXCEL VALUES FILLING
+
+python manage.py backfill_signal_outcomes --start 2026-08-01 --end 2026-08-23
+
+## Backtest Postional Index
+
+cd backend
+venv\Scripts\activate
+python -m screener.backtest_index_positional
+
+Then:
+Browser opens → Login → Continue
+Copy full URL from address bar
+Paste URL in Terminal 3 → Press Enter
+✅ Token saved
+
+
+## Verify Everything
+
+| Check           | URL                                         |
+| --------------- | ------------------------------------------- |
+| Django running  | `http://127.0.0.1:8000/api/fyers/profile/`  |
+| Frontend        | `http://localhost:5173`                     |
+| Market data API | `http://127.0.0.1:8000/api/market-summary/` |
+| Stock list API  | `http://127.0.0.1:8000/api/stocks/fo-list/` |
+
+
+## Stop Everything (End of Day)
+
+| Terminal            | Key        |
+| ------------------- | ---------- |
+| Terminal 1 (Django) | `Ctrl + C` |
+| Terminal 2 (React)  | `Ctrl + C` |
+
+
+## What We Built: 
+
+| Component             | Status                                           |
+| --------------------- | ------------------------------------------------ |
+| Fyers API v3 Auth     | ✅ Working                                        |
+| Django Live Endpoints | ✅ `/api/market-summary/`, `/api/stocks/fo-list/` |
+| Frontend Live Data    | ✅ MarketBanner fetches from Django               |
+| Daily Token Refresh   | ✅ `get_fyers_token.py`                           |
+
+
+
+
+cd C:\Users\FixAdmin\Downloads\fo-sniper-fullstack\backend
+venv\Scripts\activate
+python find_futures_symbol.py
+
+
+cd C:\Users\FixAdmin\Downloads\fo-sniper-fullstack\backend
+venv\Scripts\activate
+python -m screener.backtest_index_bias
+
+
+## GIT
+
+To close it (stop watching):
+Click into that PowerShell window and press Ctrl+C. That's it — stops instantly, nothing is lost, everything up to that point is already safely on GitHub. Closing the window with the X does the same thing.
+
+To open it again (start watching):
+
+Open File Explorer → go into the fo-sniper-fullstack folder
+Hold Shift, right-click empty space → "Open PowerShell window here" (or "Open in Terminal")
+Type "python auto_sync.py" and press Enter
+Leave that window open while you work — that's the only requirement
+
+That's the whole cycle: open a terminal there, run that one command, close with Ctrl+C when you're done for the day. No pip install needed again — that was one-time.
+
+
+
+## What We Built — Full Status (Updated Aug 10, 2026)
+
+### Core: Data & Signals
+| Component | Status |
+|---|---|
+| Fyers API v3 Auth | ✅ Working (daily token refresh via `get_fyers_token.py`) |
+| Live signal scanning | ✅ ~200 F&O stocks scanned, scored, SNIPER signals generated |
+| Django live endpoints | ✅ `/api/sniper-only/`, `/api/market-summary/`, `/api/signals/`, `/api/index-tracker/<index>/`, `/api/option-analytics/<symbol>/` |
+| Frontend live data | ✅ MarketBanner, Live Signals, Watchlist, OI Analytics, Index Tracker all pulling real data |
+| Market-hours gating | ✅ Scanner now only runs 9:15 AM–3:30 PM weekdays — no more stale pre/post-market data logged as if real |
+
+### Logging & History
+| Component | Status |
+|---|---|
+| Excel signal logging | ✅ Daily `signals_*.xlsx`, entry/SL/Target/outcome tracked, organized in dated folders |
+| SL/Target outcome checking | ✅ Fires from any open tab (not just Live Signals) |
+| Past-day signal browsing | ✅ Date picker on Live Signals — download any past day's sheet |
+| Index Tracker snapshots | ✅ NIFTY/BANKNIFTY, now on their own faster ~60s cadence, independent of the stock scan |
+
+### Alerts & Reports
+| Component | Status |
+|---|---|
+| Telegram bot | ✅ `FORadar_bot` configured — new-signal alerts, trade-close alerts, daily summary |
+| Weekly report | ✅ Auto-generates Mon–Fri rollup, sent via Telegram, schedulable in Task Scheduler |
+| Bias backtest (NIFTY/BANKNIFTY) | ✅ Day-wise, viewable in-app, downloadable |
+
+### Infrastructure
+| Component | Status |
+|---|---|
+| GitHub | ✅ Private repo, `auto_sync.py` pushes on every file save |
+| Mobile access (Tailscale) | ✅ Confirmed working from phone over mobile data, all 4 tabs |
+| Project rename | ✅ F&O Sniper Scanner v3.0 → F&O Radar, applied everywhere |
+| README | ✅ Corrected to match actual reality (no more false claims) |
+
+### UI
+| Component | Status |
+|---|---|
+| Index Tracker layout | ✅ Unified dense table (reverted from cards after real-use feedback) |
+| Tab persistence | ✅ Page reload stays on the same tab now |
+| Mobile/narrow-screen | ✅ Checked and fixed across all 4 tabs |
+| Icons | ✅ Emoji → consistent SVG icon set, all tabs |
