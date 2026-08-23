@@ -214,6 +214,9 @@ def load_all_trades(capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
 
             trades.append({
                 "symbol": row.get("Symbol"), "action": row.get("Action"), "grade": row.get("Grade"),
+                "sector": row.get("Sector") or "Unknown",
+                "oi_confirmation": row.get("OI Confirmation") or "Unknown",
+                "pattern": row.get("Pattern") or "None",
                 "entry_dt": entry_dt, "exit_dt": exit_dt,
                 "entry": entry, "exit_price": exit_price, "qty": qty,
                 "pnl": pnl, "pnl_pct": pnl_pct, "exit_reason": reason,
@@ -334,6 +337,45 @@ def compute_monthly_pnl(trades):
     for v in monthly.values():
         v["pnl"] = round(v["pnl"], 2)
     return dict(sorted(monthly.items()))
+
+
+def compute_segment_breakdown(trades, segment_key):
+    """
+    Groups trades by a field (grade / sector / oi_confirmation / pattern)
+    and computes basic per-segment stats. This is the real next step
+    after noticing an overall win rate or Sharpe that doesn't say WHY --
+    shows whether losses are concentrated in one Grade/Sector/pattern or
+    genuinely spread evenly, which is a real, data-backed lead rather
+    than a guess about what to fix.
+
+    Returns a list of dicts sorted by net P&L descending (best segment
+    first): {segment, count, wins, losses, win_rate_pct, net_pnl,
+    avg_pnl, profit_factor}. profit_factor is None (not a fabricated
+    infinity) when a segment has zero losing trades, same rule
+    compute_metrics() already follows for the whole-portfolio version.
+    """
+    groups = defaultdict(list)
+    for t in trades:
+        groups[t.get(segment_key) or "Unknown"].append(t)
+
+    results = []
+    for seg, seg_trades in groups.items():
+        wins = [t for t in seg_trades if t["pnl"] > 0]
+        losses = [t for t in seg_trades if t["pnl"] < 0]
+        net_pnl = round(sum(t["pnl"] for t in seg_trades), 2)
+        gross_profit = sum(t["pnl"] for t in wins)
+        gross_loss = sum(t["pnl"] for t in losses)
+        results.append({
+            "segment": seg,
+            "count": len(seg_trades),
+            "wins": len(wins), "losses": len(losses),
+            "win_rate_pct": round(len(wins) / len(seg_trades) * 100, 1) if seg_trades else None,
+            "net_pnl": net_pnl,
+            "avg_pnl": round(net_pnl / len(seg_trades), 2) if seg_trades else None,
+            "profit_factor": round(gross_profit / abs(gross_loss), 2) if gross_loss != 0 else None,
+        })
+    results.sort(key=lambda r: r["net_pnl"], reverse=True)
+    return results
 
 
 def compute_metrics(trades, capital_base):
@@ -817,6 +859,60 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
             "How far below the highest point reached so far the account was at each moment, as a %. Always zero or "
             "negative -- 0 means sitting at a new high, a deep dip means a real losing stretch that hadn't recovered yet."), caption))
         story.append(RLImage(dd_png, width=180 * mm, height=180 * mm * (2.6 / 9)))
+
+        story.append(PageBreak())
+
+        # ---- Performance by Segment -- the real answer to "why does
+        # the overall number look the way it does." Shows whether
+        # losses are concentrated in one Grade/Sector/OI-state/Pattern
+        # or genuinely spread evenly, using real data rather than a
+        # guess about what to fix. ----
+        story.append(Paragraph(_esc("Performance by Segment"), h2))
+        story.append(Paragraph(_esc(
+            "The same trades, split by Grade, Sector, OI Confirmation, and Pattern -- shows WHERE performance is "
+            "concentrated instead of one blended number. A segment with very few trades (2-3) isn't a reliable "
+            "read yet, even if its win rate looks extreme -- same small-sample caution as everywhere else in this report."), caption))
+
+        def _segment_table(title, rows, max_rows=None):
+            story.append(Paragraph(_esc(title), ParagraphStyle("seg_h3", fontName="Helvetica-Bold", fontSize=10, textColor=rl_colors.HexColor("#374151"), spaceBefore=8, spaceAfter=3)))
+            if not rows:
+                story.append(Paragraph(_esc("No data."), caption))
+                return
+            shown = rows[:max_rows] if max_rows else rows
+            table_rows = [["Segment", "Trades", "Win Rate", "Net P&L (Rs)", "Profit Factor"]]
+            for r in shown:
+                table_rows.append([
+                    str(r["segment"]), str(r["count"]), f"{r['win_rate_pct']}%",
+                    f"{r['net_pnl']:,.0f}", na(r["profit_factor"]),
+                ])
+            t = Table(table_rows, colWidths=[45*mm, 22*mm, 22*mm, 35*mm, 30*mm])
+            style_cmds = [
+                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+            ]
+            for i, r in enumerate(shown, start=1):
+                bg = "#DCFCE7" if r["net_pnl"] > 0 else ("#FEE2E2" if r["net_pnl"] < 0 else "#F3F4F6")
+                style_cmds.append(("BACKGROUND", (3, i), (3, i), rl_colors.HexColor(bg)))
+            t.setStyle(TableStyle(style_cmds))
+            story.append(t)
+            story.append(Spacer(1, 4 * mm))
+
+        _segment_table("By Grade", compute_segment_breakdown(trades, "grade"))
+        _segment_table("By OI Confirmation", compute_segment_breakdown(trades, "oi_confirmation"))
+        _segment_table("By Pattern", compute_segment_breakdown(trades, "pattern"))
+
+        sector_results = compute_segment_breakdown(trades, "sector")
+        if len(sector_results) > 20:
+            # Genuinely top 10 + bottom 10 by net P&L, not just the
+            # first 10 in sorted order -- the title says top/bottom,
+            # this makes that actually true rather than misleading.
+            sector_shown = sector_results[:10] + sector_results[-10:]
+            _segment_table(f"By Sector (top 10 and bottom 10 of {len(sector_results)} by net P&L)", sector_shown)
+        else:
+            _segment_table("By Sector", sector_results)
 
         story.append(PageBreak())
 
