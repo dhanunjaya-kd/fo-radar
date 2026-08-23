@@ -378,6 +378,45 @@ def compute_segment_breakdown(trades, segment_key):
     return results
 
 
+def generate_key_findings(trades, min_trades_for_a_finding=10):
+    """
+    Plain-language callouts for the standout segment in each category --
+    the thing that's easy to miss buried in 4 separate tables (like
+    Grade C quietly outperforming Grade A). Deliberately factual and
+    narrow: names the best/worst segment and its real numbers, never a
+    speculative WHY -- this project doesn't have enough signal yet to
+    say why Grade C wins, only that it does. A segment with fewer than
+    min_trades_for_a_finding trades is never surfaced as a finding, even
+    if its win rate looks extreme -- same small-sample rule as
+    everywhere else here, just enforced automatically instead of relying
+    on someone reading the caution note.
+
+    Returns a list of plain sentences (strings), empty if nothing in the
+    real data clears the minimum sample size.
+    """
+    findings = []
+    labels = {"grade": "Grade", "oi_confirmation": "OI Confirmation", "pattern": "Pattern"}
+    for key, label in labels.items():
+        segs = [s for s in compute_segment_breakdown(trades, key) if s["count"] >= min_trades_for_a_finding]
+        if len(segs) < 2:
+            continue  # need at least 2 real segments to compare -- one segment alone isn't a "best vs worst" finding
+        best, worst = segs[0], segs[-1]
+        if best["segment"] == worst["segment"]:
+            continue
+        if worst["net_pnl"] < 0 <= best["net_pnl"]:
+            findings.append(
+                f"{label} \"{best['segment']}\" is your best performer (Rs {best['net_pnl']:,.0f} net, "
+                f"{best['win_rate_pct']}% win rate, {best['count']} trades) while \"{worst['segment']}\" is "
+                f"actually losing money (Rs {worst['net_pnl']:,.0f} net, {worst['count']} trades)."
+            )
+        else:
+            findings.append(
+                f"{label} \"{best['segment']}\" outperforms \"{worst['segment']}\" by Rs {best['net_pnl'] - worst['net_pnl']:,.0f} "
+                f"net ({best['count']} vs {worst['count']} trades)."
+            )
+    return findings
+
+
 def compute_metrics(trades, capital_base):
     """The full statistics suite, modeled on the reference TradeTron
     report. Every ratio that can legitimately divide by zero (Calmar
@@ -520,7 +559,7 @@ def _chart_equity_curve(metrics, out_path):
     x = list(range(1, len(curve) + 1))
     y = [p["equity"] for p in curve]
 
-    fig, ax = plt.subplots(figsize=(9, 3.4), dpi=100)
+    fig, ax = plt.subplots(figsize=(9, 3.4), dpi=80)
     ax.plot(x, y, color="#2563EB", linewidth=2, solid_capstyle="round")
     ax.fill_between(x, y, metrics["capital_base"], where=[v >= metrics["capital_base"] for v in y],
                      color="#2563EB", alpha=0.08, interpolate=True)
@@ -550,7 +589,7 @@ def _chart_drawdown(metrics, out_path):
         running_peak = max(running_peak, p["equity"])
         dd_pct.append(round((p["equity"] - running_peak) / running_peak * 100, 2))
 
-    fig, ax = plt.subplots(figsize=(9, 2.6), dpi=100)
+    fig, ax = plt.subplots(figsize=(9, 2.6), dpi=80)
     ax.fill_between(x, dd_pct, 0, color="#DC2626", alpha=0.25)
     ax.plot(x, dd_pct, color="#DC2626", linewidth=1.2)
     ax.set_xlabel("Trade #", color="#6B7280", fontsize=9)
@@ -573,7 +612,7 @@ def _chart_daily_histogram(metrics, out_path):
         return False
     colors = ["#DC2626" if float(lbl.rstrip('%')) < 0 else "#16A34A" for lbl in bin_labels]
 
-    fig, ax = plt.subplots(figsize=(9, 3), dpi=100)
+    fig, ax = plt.subplots(figsize=(9, 3), dpi=80)
     ax.bar(range(len(bin_counts)), bin_counts, color=colors, width=0.85)
     ax.set_xticks(range(len(bin_labels)))
     ax.set_xticklabels(bin_labels, rotation=45, ha="right", fontsize=7)
@@ -598,7 +637,7 @@ def _chart_monthly_pnl(metrics, out_path):
         return False
     colors = ["#16A34A" if p >= 0 else "#DC2626" for p in pnls]
 
-    fig, ax = plt.subplots(figsize=(9, 2.8), dpi=100)
+    fig, ax = plt.subplots(figsize=(9, 2.8), dpi=80)
     ax.bar(months, pnls, color=colors, width=0.6)
     ax.set_ylabel("Rs", color="#6B7280", fontsize=9)
     ax.tick_params(axis="x", rotation=0)
@@ -873,6 +912,21 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
             "concentrated instead of one blended number. A segment with very few trades (2-3) isn't a reliable "
             "read yet, even if its win rate looks extreme -- same small-sample caution as everywhere else in this report."), caption))
 
+        key_findings = generate_key_findings(trades)
+        if key_findings:
+            findings_style = ParagraphStyle("finding", fontName="Helvetica", fontSize=9, textColor=rl_colors.HexColor("#1E3A8A"), leading=13, spaceAfter=4)
+            finding_rows = [[Paragraph(_esc(f"\u2022 {f}"), findings_style)] for f in key_findings]
+            findings_table = Table(finding_rows, colWidths=[180 * mm])
+            findings_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#EFF6FF")),
+                ("BOX", (0, 0), (-1, -1), 1, rl_colors.HexColor("#BFDBFE")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10), ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]))
+            story.append(Spacer(1, 2 * mm))
+            story.append(findings_table)
+        story.append(Spacer(1, 4 * mm))
+
         def _segment_table(title, rows, max_rows=None):
             story.append(Paragraph(_esc(title), ParagraphStyle("seg_h3", fontName="Helvetica-Bold", fontSize=10, textColor=rl_colors.HexColor("#374151"), spaceBefore=8, spaceAfter=3)))
             if not rows:
@@ -998,15 +1052,39 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 7),
             ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+            # Aug 23 2026: was 1 BACKGROUND style command PER TRADE here
+            # (210 of them on his real data) -- that count grows every
+            # single day as more trades resolve, and was very likely the
+            # dominant real cause of "the PDF is very very laggy," more
+            # than the charts. ROWBACKGROUNDS is a single native command
+            # that alternates row shading regardless of table size --
+            # same visual readability, cost doesn't scale with trade
+            # count anymore. The Profit vs Loss Breakdown and Performance
+            # by Segment pages already carry the green/red semantic
+            # coloring; this table's job is complete reference detail,
+            # not a second pass at visual pattern-scanning.
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
         ]
-        for i, t in enumerate(reversed(trades), start=1):
-            bg = "#DCFCE7" if t["pnl"] > 0 else ("#FEE2E2" if t["pnl"] < 0 else "#F3F4F6")
-            style_cmds.append(("BACKGROUND", (7, i), (7, i), rl_colors.HexColor(bg)))
         trade_table.setStyle(TableStyle(style_cmds))
         story.append(trade_table)
 
         doc = SimpleDocTemplate(pdf_path, pagesize=A4, topMargin=12*mm, bottomMargin=12*mm, leftMargin=15*mm, rightMargin=15*mm)
-        doc.build(story)
+        try:
+            doc.build(story)
+        except PermissionError:
+            # Windows locks a file that's open in a viewer (Acrobat/Edge/
+            # etc) against being overwritten -- a very real, very likely
+            # thing to hit given the natural workflow here is regenerating
+            # this same file repeatedly while keeping the previous version
+            # open to compare against. Rather than crash and lose all the
+            # real computation that already succeeded above, fall back to
+            # a timestamped filename instead.
+            alt_path = os.path.join(out_dir, f"signal_pnl_backtest_{today}_{datetime.now().strftime('%H%M%S')}.pdf")
+            print(f"'{os.path.basename(pdf_path)}' is locked (probably still open in a PDF viewer) -- "
+                  f"writing to '{os.path.basename(alt_path)}' instead.")
+            doc = SimpleDocTemplate(alt_path, pagesize=A4, topMargin=12*mm, bottomMargin=12*mm, leftMargin=15*mm, rightMargin=15*mm)
+            doc.build(story)
+            pdf_path = alt_path
 
     return pdf_path
 
