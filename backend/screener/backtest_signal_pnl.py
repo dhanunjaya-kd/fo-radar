@@ -368,8 +368,21 @@ def compute_metrics(trades, capital_base):
 
     ending_equity = capital_base + net_pnl
     cagr = None
-    if total_days >= 7 and capital_base > 0 and ending_equity > 0:  # need at least a genuine week -- annualizing a 1-2 day sample produces meaningless, wildly inflated numbers
-        cagr = round(((ending_equity / capital_base) ** (365.0 / total_days) - 1) * 100, 2)
+    # A week wasn't nearly enough -- confirmed by a real test case: a
+    # genuinely strong 17-day run (68% period return) annualized to
+    # 6,812,180%. That's the CAGR formula working exactly as defined,
+    # not a bug in the math -- exponential annualization of a short,
+    # punchy window is inherently unstable, not just "needs a bigger
+    # day-count floor." Two guards now: a real month minimum before
+    # attempting it at all, AND treating a result that's still absurd
+    # even past that floor as equally untrustworthy as too-little-data
+    # -- None either way, same "don't show a number you can't stand
+    # behind" rule this whole engine already follows for Sharpe/Sortino/
+    # Calmar/Profit Factor.
+    if total_days >= 30 and capital_base > 0 and ending_equity > 0:
+        raw_cagr = ((ending_equity / capital_base) ** (365.0 / total_days) - 1) * 100
+        if abs(raw_cagr) <= 500:  # beyond this, a short/volatile window is being over-extrapolated, not genuinely measured
+            cagr = round(raw_cagr, 2)
 
     sharpe = sortino = None
     if len(daily_returns_pct) >= 2:
@@ -433,6 +446,413 @@ def _bin_daily_returns(daily_pnl, capital_base, num_bins=12):
         counts[idx] += 1
     labels = [f"{(lo + i * width):.2f}%" for i in range(num_bins)]
     return labels, counts
+
+
+def _mpl_style_axes(ax, spine_color="#E5E7EB"):
+    """Shared cleanup applied to every chart -- removes the boxed-in
+    look matplotlib defaults to, keeps only light horizontal gridlines,
+    matches the airy, uncluttered feel of the reference report rather
+    than a default matplotlib figure."""
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.spines["bottom"].set_color(spine_color)
+    ax.tick_params(colors="#6B7280", labelsize=9)
+    ax.yaxis.grid(True, color="#F3F4F6", linewidth=1)
+    ax.set_axisbelow(True)
+    ax.xaxis.set_ticks_position("none")
+    ax.yaxis.set_ticks_position("none")
+
+
+def _chart_equity_curve(metrics, out_path):
+    """Equity curve with a soft gradient fill underneath, matching the
+    reference report's look -- a smooth blue line, light fill below it,
+    a dashed reference line at the starting capital so a glance shows
+    whether the account is above or below where it started."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    curve = metrics["equity_curve"]
+    x = list(range(1, len(curve) + 1))
+    y = [p["equity"] for p in curve]
+
+    fig, ax = plt.subplots(figsize=(9, 3.4), dpi=150)
+    ax.plot(x, y, color="#2563EB", linewidth=2, solid_capstyle="round")
+    ax.fill_between(x, y, metrics["capital_base"], where=[v >= metrics["capital_base"] for v in y],
+                     color="#2563EB", alpha=0.08, interpolate=True)
+    ax.fill_between(x, y, metrics["capital_base"], where=[v < metrics["capital_base"] for v in y],
+                     color="#DC2626", alpha=0.08, interpolate=True)
+    ax.axhline(metrics["capital_base"], color="#9CA3AF", linewidth=1, linestyle="--")
+    ax.set_xlabel("Trade #", color="#6B7280", fontsize=9)
+    ax.set_ylabel("Equity (Rs)", color="#6B7280", fontsize=9)
+    _mpl_style_axes(ax)
+    fig.tight_layout()
+    fig.savefig(out_path, facecolor="white")
+    plt.close(fig)
+
+
+def _chart_drawdown(metrics, out_path):
+    """Underwater/drawdown chart -- filled red area below zero, same
+    visual language as the reference's own drawdown panel."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    curve = metrics["equity_curve"]
+    x = list(range(1, len(curve) + 1))
+    running_peak = metrics["capital_base"]
+    dd_pct = []
+    for p in curve:
+        running_peak = max(running_peak, p["equity"])
+        dd_pct.append(round((p["equity"] - running_peak) / running_peak * 100, 2))
+
+    fig, ax = plt.subplots(figsize=(9, 2.6), dpi=150)
+    ax.fill_between(x, dd_pct, 0, color="#DC2626", alpha=0.25)
+    ax.plot(x, dd_pct, color="#DC2626", linewidth=1.2)
+    ax.set_xlabel("Trade #", color="#6B7280", fontsize=9)
+    ax.set_ylabel("% from peak", color="#6B7280", fontsize=9)
+    _mpl_style_axes(ax)
+    fig.tight_layout()
+    fig.savefig(out_path, facecolor="white")
+    plt.close(fig)
+
+
+def _chart_daily_histogram(metrics, out_path):
+    """Daily return distribution -- green bars for winning days, red
+    for losing days, matching the reference's own red/green split."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    bin_labels, bin_counts = _bin_daily_returns(metrics["daily_pnl"], metrics["capital_base"])
+    if not bin_counts:
+        return False
+    colors = ["#DC2626" if float(lbl.rstrip('%')) < 0 else "#16A34A" for lbl in bin_labels]
+
+    fig, ax = plt.subplots(figsize=(9, 3), dpi=150)
+    ax.bar(range(len(bin_counts)), bin_counts, color=colors, width=0.85)
+    ax.set_xticks(range(len(bin_labels)))
+    ax.set_xticklabels(bin_labels, rotation=45, ha="right", fontsize=7)
+    ax.set_ylabel("Days", color="#6B7280", fontsize=9)
+    ax.set_xlabel("Daily return, % of capital", color="#6B7280", fontsize=9)
+    _mpl_style_axes(ax)
+    fig.tight_layout()
+    fig.savefig(out_path, facecolor="white")
+    plt.close(fig)
+    return True
+
+
+def _chart_monthly_pnl(metrics, out_path):
+    """Monthly P&L bars, green/red by sign."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    months = list(metrics["monthly_pnl"].keys())
+    pnls = [v["pnl"] for v in metrics["monthly_pnl"].values()]
+    if not months:
+        return False
+    colors = ["#16A34A" if p >= 0 else "#DC2626" for p in pnls]
+
+    fig, ax = plt.subplots(figsize=(9, 2.8), dpi=150)
+    ax.bar(months, pnls, color=colors, width=0.6)
+    ax.set_ylabel("Rs", color="#6B7280", fontsize=9)
+    ax.tick_params(axis="x", rotation=0)
+    _mpl_style_axes(ax)
+    fig.tight_layout()
+    fig.savefig(out_path, facecolor="white")
+    plt.close(fig)
+    return True
+
+
+def _esc(text):
+    """reportlab's Paragraph parses its text as a small XML/HTML-like
+    markup language -- a raw & is interpreted as the start of an entity
+    reference (which is why "P&L" rendered as "P&L;" with a stray
+    semicolon in an early test, confirmed both in extracted PDF text
+    and the actual rendered page before this fix). Every string that
+    goes into a Paragraph needs this, not just the ones with an
+    obviously visible & -- applied at every call site below, not just
+    the ones a quick grep for a literal & would catch (label/
+    explanation strings get built dynamically and passed as
+    parameters, which a source-text grep misses entirely -- exactly
+    how the "Net P&L" KPI card label slipped through the first pass)."""
+    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _kpi_card(label, value_str, explanation, bg_hex, text_hex):
+    """One color-coded KPI card as a small nested reportlab Table --
+    label, big value, one-line plain-language explanation. Several of
+    these get arranged side by side in an outer table to form the
+    dashboard grid."""
+    from reportlab.platypus import Table, TableStyle, Paragraph
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib import colors as rl_colors
+    from reportlab.lib.units import mm
+
+    label_style = ParagraphStyle("kpi_label", fontName="Helvetica-Bold", fontSize=8, textColor=rl_colors.HexColor(text_hex))
+    value_style = ParagraphStyle("kpi_value", fontName="Helvetica-Bold", fontSize=17, textColor=rl_colors.HexColor(text_hex), spaceBefore=2, spaceAfter=2)
+    exp_style = ParagraphStyle("kpi_exp", fontName="Helvetica-Oblique", fontSize=6.5, textColor=rl_colors.HexColor(text_hex), leading=8)
+
+    inner = Table(
+        [[Paragraph(_esc(label.upper()), label_style)],
+         [Paragraph(_esc(value_str), value_style)],
+         [Paragraph(_esc(explanation), exp_style)]],
+        colWidths=[41 * mm],
+    )
+    inner.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor(bg_hex)),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, 0), 8),
+        ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    return inner
+
+
+def _rating_hex(value, good_threshold, ok_threshold, higher_is_better=True):
+    GREEN, GREEN_T = "#DCFCE7", "#166534"
+    AMBER, AMBER_T = "#FEF9C3", "#854D0E"
+    RED, RED_T = "#FEE2E2", "#991B1B"
+    GREY, GREY_T = "#F3F4F6", "#4B5563"
+    if value is None:
+        return GREY, GREY_T
+    good = value >= good_threshold if higher_is_better else value <= good_threshold
+    ok = value >= ok_threshold if higher_is_better else value <= ok_threshold
+    if good:
+        return GREEN, GREEN_T
+    if ok:
+        return AMBER, AMBER_T
+    return RED, RED_T
+
+
+def _pos_neg_hex(value):
+    if value is None:
+        return "#F3F4F6", "#4B5563"
+    if value > 0:
+        return "#DCFCE7", "#166534"
+    if value < 0:
+        return "#FEE2E2", "#991B1B"
+    return "#F3F4F6", "#374151"
+
+
+def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
+    """
+    Builds the full PDF report -- styled toward the TradeTron reference
+    he shared: smooth gradient-filled equity curve, a red underwater/
+    drawdown chart, color-coded KPI cards with plain-language
+    explanations, a daily-return histogram, monthly performance, worst
+    drawdowns, and the full trade log. Charts are matplotlib PNGs
+    embedded into a reportlab Platypus document -- reportlab alone
+    can't produce chart-quality graphics, matplotlib alone can't lay
+    out a multi-page document, so this uses each for what it's
+    actually good at.
+
+    Saved to signal_logs/backtest_reports/signal_pnl_backtest_<today>.pdf.
+    Returns the path, or None if there's nothing to report yet.
+    """
+    import tempfile
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors as rl_colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+                                     Image as RLImage, PageBreak)
+
+    if metrics is None:
+        return None
+
+    def na(v, suffix=""):
+        return "N/A" if v is None else f"{v}{suffix}"
+
+    out_dir = os.path.join(LOG_DIR, "backtest_reports")
+    os.makedirs(out_dir, exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    pdf_path = os.path.join(out_dir, f"signal_pnl_backtest_{today}.pdf")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        eq_png = os.path.join(tmp, "equity.png")
+        dd_png = os.path.join(tmp, "drawdown.png")
+        hist_png = os.path.join(tmp, "histogram.png")
+        monthly_png = os.path.join(tmp, "monthly.png")
+
+        _chart_equity_curve(metrics, eq_png)
+        _chart_drawdown(metrics, dd_png)
+        has_hist = _chart_daily_histogram(metrics, hist_png)
+        has_monthly = _chart_monthly_pnl(metrics, monthly_png)
+
+        styles = getSampleStyleSheet()
+        h1 = ParagraphStyle("h1", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=20, textColor=rl_colors.white, spaceAfter=2)
+        sub = ParagraphStyle("sub", fontName="Helvetica", fontSize=9, textColor=rl_colors.HexColor("#9CA3AF"))
+        h2 = ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=13, textColor=rl_colors.HexColor("#111827"), spaceBefore=14, spaceAfter=6)
+        caption = ParagraphStyle("caption", fontName="Helvetica-Oblique", fontSize=8, textColor=rl_colors.HexColor("#6B7280"), spaceAfter=6)
+        warn = ParagraphStyle("warn", fontName="Helvetica-Oblique", fontSize=8.5, textColor=rl_colors.HexColor("#854D0E"), backColor=rl_colors.HexColor("#FEF9C3"))
+
+        story = []
+
+        # ---- Header banner ----
+        header_tbl = Table(
+            [[Paragraph(_esc("F&O Sniper -- Signal P&L Backtest"), h1)],
+             [Paragraph(_esc(f"Capital base Rs {metrics['capital_base']:,.0f}  |  {metrics['total_trades']} resolved trades "
+                        f"({metrics['wins']}W / {metrics['losses']}L / {metrics['flats']} flat)  |  "
+                        f"{metrics['total_days_span']} day span  |  generated {today}"), sub)]],
+            colWidths=[180 * mm],
+        )
+        header_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#1F2937")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 12), ("TOPPADDING", (0, 0), (-1, 0), 10),
+            ("BOTTOMPADDING", (0, -1), (-1, -1), 10),
+        ]))
+        story.append(header_tbl)
+        story.append(Spacer(1, 4 * mm))
+
+        if metrics["total_trades"] < 20:
+            story.append(Paragraph(_esc(
+                "⚠ Small sample -- treat everything below as a rough first look, not a verified edge. "
+                "Same caution as every other backtest in this project."), warn))
+            story.append(Spacer(1, 3 * mm))
+
+        # ---- KPI card grid, 4 across, 2 rows ----
+        pf_bg, pf_t = _rating_hex(metrics["profit_factor"], 1.5, 1.0)
+        wr_bg, wr_t = _rating_hex(metrics["win_rate_pct"], 60, 45)
+        dd_bg, dd_t = ("#FEE2E2", "#991B1B") if metrics["max_drawdown"] else ("#F3F4F6", "#4B5563")
+        pnl_bg, pnl_t = _pos_neg_hex(metrics["net_pnl"])
+        sharpe_bg, sharpe_t = _rating_hex(metrics["sharpe"], 1.0, 0.0)
+        sortino_bg, sortino_t = _rating_hex(metrics["sortino"], 1.5, 0.0)
+        calmar_bg, calmar_t = _rating_hex(metrics["calmar"], 3.0, 1.0)
+        cagr_bg, cagr_t = _pos_neg_hex(metrics["cagr_pct"])
+
+        row1 = [
+            _kpi_card("Net P&L", f"Rs {metrics['net_pnl']:,.0f}",
+                      f"{na(metrics['net_pnl_pct'], '%')} of capital deployed -- the bottom line everything else here explains.",
+                      pnl_bg, pnl_t),
+            _kpi_card("Win Rate", f"{metrics['win_rate_pct']}%" if metrics['win_rate_pct'] is not None else "N/A",
+                      f"{metrics['wins']} of {metrics['total_trades']} trades profitable. A low win rate can still be profitable -- check Profit Factor too.",
+                      wr_bg, wr_t),
+            _kpi_card("Profit Factor", na(metrics["profit_factor"]),
+                      "Total Rs won / total Rs lost. Above 1 = profitable overall, above 1.5 is solid.",
+                      pf_bg, pf_t),
+            _kpi_card("Max Drawdown", f"{metrics['max_drawdown']['depth_pct']}%" if metrics['max_drawdown'] else "N/A",
+                      "The single worst peak-to-trough decline anywhere in this data -- the real pain of the roughest stretch.",
+                      dd_bg, dd_t),
+        ]
+        row2 = [
+            _kpi_card("Sharpe Ratio", na(metrics["sharpe"]),
+                      "Return per unit of total volatility. Above 1 is good, above 2 very good. Needs 2+ days of data.",
+                      sharpe_bg, sharpe_t),
+            _kpi_card("Sortino Ratio", na(metrics["sortino"]),
+                      "Like Sharpe, but only penalizes downside swings. Usually reads higher than Sharpe.",
+                      sortino_bg, sortino_t),
+            _kpi_card("Calmar Ratio", na(metrics["calmar"]),
+                      "Annual return relative to the worst drawdown -- return earned for the pain endured.",
+                      calmar_bg, calmar_t),
+            _kpi_card("CAGR (Annualised)", na(metrics["cagr_pct"], '%'),
+                      "What this rate would compound to over a year. N/A under a week of data -- too short to annualize honestly.",
+                      cagr_bg, cagr_t),
+        ]
+        grid = Table([row1, [Spacer(1, 3 * mm)] * 4, row2], colWidths=[45 * mm] * 4)
+        grid.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP")]))
+        story.append(grid)
+        story.append(Spacer(1, 6 * mm))
+
+        # ---- Equity + Drawdown charts ----
+        story.append(Paragraph(_esc("Equity Curve"), h2))
+        story.append(RLImage(eq_png, width=180 * mm, height=180 * mm * (3.4 / 9)))
+        story.append(Paragraph(_esc("Drawdown %"), h2))
+        story.append(RLImage(dd_png, width=180 * mm, height=180 * mm * (2.6 / 9)))
+
+        story.append(PageBreak())
+
+        # ---- Worst Drawdowns table ----
+        story.append(Paragraph(_esc("Worst Drawdowns"), h2))
+        story.append(Paragraph(_esc(
+            "The 5 deepest peak-to-trough declines in account value, worst first. 'Recovered' shows when "
+            "equity climbed back to the pre-drawdown peak -- '--' means it hasn't yet."), caption))
+        dd_rows = [["#", "Depth (Rs)", "Depth %", "Peak Date", "Trough Date", "Recovered", "Status"]]
+        sorted_dd = sorted(metrics["drawdown_periods"], key=lambda d: d["depth"])[:5]
+        for i, d in enumerate(sorted_dd, 1):
+            dd_rows.append([
+                str(i), f"{d['depth']:,.0f}", f"{d['depth_pct']}%",
+                d["peak_dt"].strftime("%Y-%m-%d %H:%M"), d["trough_dt"].strftime("%Y-%m-%d %H:%M"),
+                d["recovered_dt"].strftime("%Y-%m-%d %H:%M") if d["recovered_dt"] else "--",
+                d["status"],
+            ])
+        if len(dd_rows) > 1:
+            dd_table = Table(dd_rows, colWidths=[10*mm, 25*mm, 20*mm, 32*mm, 32*mm, 32*mm, 22*mm], repeatRows=1)
+            style_cmds = [
+                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+            ]
+            for i in range(1, len(dd_rows)):
+                if dd_rows[i][-1] == "Ongoing":
+                    style_cmds.append(("BACKGROUND", (-1, i), (-1, i), rl_colors.HexColor("#FEF9C3")))
+            dd_table.setStyle(TableStyle(style_cmds))
+            story.append(dd_table)
+        else:
+            story.append(Paragraph(_esc("No drawdown periods yet."), caption))
+        story.append(Spacer(1, 6 * mm))
+
+        # ---- Daily Return Distribution ----
+        if has_hist:
+            story.append(Paragraph(_esc("Daily Return Distribution"), h2))
+            story.append(RLImage(hist_png, width=180 * mm, height=180 * mm * (3 / 9)))
+
+        # ---- Monthly Performance ----
+        if has_monthly:
+            story.append(Paragraph(_esc("Monthly Performance"), h2))
+            story.append(RLImage(monthly_png, width=180 * mm, height=180 * mm * (2.8 / 9)))
+            month_rows = [["Month", "P&L (Rs)", "Trades"]]
+            for month, v in metrics["monthly_pnl"].items():
+                month_rows.append([month, f"{v['pnl']:,.0f}", str(v["trades"])])
+            month_table = Table(month_rows, colWidths=[40*mm, 40*mm, 30*mm], repeatRows=1)
+            month_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+            ]))
+            story.append(Spacer(1, 3 * mm))
+            story.append(month_table)
+
+        story.append(PageBreak())
+
+        # ---- Full Trade Log -- Platypus paginates this automatically
+        # across as many pages as needed, header repeats on each page. ----
+        story.append(Paragraph(_esc("Trade Log"), h2))
+        story.append(Paragraph(_esc(f"All {len(trades)} resolved trades, most recent first."), caption))
+        trade_rows = [["Symbol", "Action", "Entry Time", "Exit Time", "Entry", "Exit", "Qty", "P&L (Rs)", "Reason"]]
+        for t in reversed(trades):
+            trade_rows.append([
+                t["symbol"], t["action"], t["entry_dt"].strftime("%Y-%m-%d %H:%M"), t["exit_dt"].strftime("%Y-%m-%d %H:%M"),
+                f"{t['entry']:.2f}", f"{t['exit_price']:.2f}", str(t["qty"]), f"{t['pnl']:,.0f}", t["exit_reason"][:22],
+            ])
+        trade_table = Table(trade_rows, colWidths=[20*mm, 15*mm, 26*mm, 26*mm, 16*mm, 16*mm, 14*mm, 22*mm, 30*mm], repeatRows=1)
+        style_cmds = [
+            ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+        ]
+        for i, t in enumerate(reversed(trades), start=1):
+            bg = "#DCFCE7" if t["pnl"] > 0 else ("#FEE2E2" if t["pnl"] < 0 else "#F3F4F6")
+            style_cmds.append(("BACKGROUND", (7, i), (7, i), rl_colors.HexColor(bg)))
+        trade_table.setStyle(TableStyle(style_cmds))
+        story.append(trade_table)
+
+        doc = SimpleDocTemplate(pdf_path, pagesize=A4, topMargin=12*mm, bottomMargin=12*mm, leftMargin=15*mm, rightMargin=15*mm)
+        doc.build(story)
+
+    return pdf_path
 
 
 def write_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
@@ -857,5 +1277,16 @@ if __name__ == "__main__":
         metrics = compute_metrics(trades, capital_base)
         print_summary(metrics, excluded)
         if metrics:
-            path = write_report(trades, metrics)
-            print(f"\nFull report written to: {path}")
+            # Aug 23 2026: switched to PDF by default -- Excel's native
+            # chart engine has a real ceiling on how polished it can
+            # look (confirmed against his own reference screenshots),
+            # PDF (matplotlib for charts + reportlab for page layout)
+            # gets much closer. write_report() (the Excel version) is
+            # still here, just not called automatically -- swap the
+            # line below if Excel is ever wanted again.
+            try:
+                path = write_pdf_report(trades, metrics)
+                print(f"\nFull PDF report written to: {path}")
+            except ImportError as e:
+                print(f"\nPDF generation needs matplotlib and reportlab -- pip install matplotlib reportlab")
+                print(f"({e})")
