@@ -478,7 +478,7 @@ def _chart_equity_curve(metrics, out_path):
     x = list(range(1, len(curve) + 1))
     y = [p["equity"] for p in curve]
 
-    fig, ax = plt.subplots(figsize=(9, 3.4), dpi=150)
+    fig, ax = plt.subplots(figsize=(9, 3.4), dpi=100)
     ax.plot(x, y, color="#2563EB", linewidth=2, solid_capstyle="round")
     ax.fill_between(x, y, metrics["capital_base"], where=[v >= metrics["capital_base"] for v in y],
                      color="#2563EB", alpha=0.08, interpolate=True)
@@ -508,7 +508,7 @@ def _chart_drawdown(metrics, out_path):
         running_peak = max(running_peak, p["equity"])
         dd_pct.append(round((p["equity"] - running_peak) / running_peak * 100, 2))
 
-    fig, ax = plt.subplots(figsize=(9, 2.6), dpi=150)
+    fig, ax = plt.subplots(figsize=(9, 2.6), dpi=100)
     ax.fill_between(x, dd_pct, 0, color="#DC2626", alpha=0.25)
     ax.plot(x, dd_pct, color="#DC2626", linewidth=1.2)
     ax.set_xlabel("Trade #", color="#6B7280", fontsize=9)
@@ -531,7 +531,7 @@ def _chart_daily_histogram(metrics, out_path):
         return False
     colors = ["#DC2626" if float(lbl.rstrip('%')) < 0 else "#16A34A" for lbl in bin_labels]
 
-    fig, ax = plt.subplots(figsize=(9, 3), dpi=150)
+    fig, ax = plt.subplots(figsize=(9, 3), dpi=100)
     ax.bar(range(len(bin_counts)), bin_counts, color=colors, width=0.85)
     ax.set_xticks(range(len(bin_labels)))
     ax.set_xticklabels(bin_labels, rotation=45, ha="right", fontsize=7)
@@ -556,7 +556,7 @@ def _chart_monthly_pnl(metrics, out_path):
         return False
     colors = ["#16A34A" if p >= 0 else "#DC2626" for p in pnls]
 
-    fig, ax = plt.subplots(figsize=(9, 2.8), dpi=150)
+    fig, ax = plt.subplots(figsize=(9, 2.8), dpi=100)
     ax.bar(months, pnls, color=colors, width=0.6)
     ax.set_ylabel("Rs", color="#6B7280", fontsize=9)
     ax.tick_params(axis="x", rotation=0)
@@ -758,10 +758,64 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         story.append(grid)
         story.append(Spacer(1, 6 * mm))
 
+        # ---- Profit vs Loss Breakdown -- Net P&L above only shows the
+        # NETTED number. This makes both sides explicit: how much was
+        # actually won vs actually lost, not just the difference between
+        # them, plus the single best/worst trade and day either way. ----
+        story.append(Paragraph(_esc("Profit vs Loss Breakdown"), h2))
+        story.append(Paragraph(_esc(
+            "Net P&L above is profit minus loss combined into one number. This breaks both sides out separately, "
+            "so the losses aren't hidden inside the net figure."), caption))
+
+        best_trade_str = f"Rs {metrics['best_trade']:,.0f}" if metrics['best_trade'] is not None else "N/A"
+        worst_trade_str = f"Rs {metrics['worst_trade']:,.0f}" if metrics['worst_trade'] is not None else "N/A"
+        best_day_str = f"{metrics['best_day'][0]}  Rs {metrics['best_day'][1]:,.0f}" if metrics['best_day'] else "N/A"
+        worst_day_str = f"{metrics['worst_day'][0]}  Rs {metrics['worst_day'][1]:,.0f}" if metrics['worst_day'] else "N/A"
+        underwater_str = (f"Rs {metrics['currently_underwater']['depth']:,.0f} ({metrics['currently_underwater']['depth_pct']}%) "
+                           f"since {metrics['currently_underwater']['peak_dt'].strftime('%Y-%m-%d')}") if metrics['currently_underwater'] else "No -- at or above the last peak"
+
+        breakdown_rows = [
+            ["Gross Profit (all winning trades)", f"Rs {metrics['gross_profit']:,.0f}"],
+            ["Gross Loss (all losing trades)", f"Rs {metrics['gross_loss']:,.0f}"],
+            ["Best single trade", best_trade_str],
+            ["Worst single trade", worst_trade_str],
+            ["Best single day", best_day_str],
+            ["Worst single day", worst_day_str],
+            ["Currently underwater", underwater_str],
+        ]
+        breakdown_table = Table(breakdown_rows, colWidths=[75 * mm, 105 * mm])
+        style_cmds = [
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            # Green text for the profit/best rows, red for the loss/worst rows -- the actual fix for
+            # "only showing profit" -- loss figures are now their own visible, clearly-labeled rows.
+            ("TEXTCOLOR", (1, 0), (1, 0), rl_colors.HexColor("#166534")),
+            ("TEXTCOLOR", (1, 1), (1, 1), rl_colors.HexColor("#991B1B")),
+            ("TEXTCOLOR", (1, 2), (1, 2), rl_colors.HexColor("#166534")),
+            ("TEXTCOLOR", (1, 3), (1, 3), rl_colors.HexColor("#991B1B")),
+            ("TEXTCOLOR", (1, 4), (1, 4), rl_colors.HexColor("#166534")),
+            ("TEXTCOLOR", (1, 5), (1, 5), rl_colors.HexColor("#991B1B")),
+        ]
+        if metrics["currently_underwater"]:
+            style_cmds.append(("TEXTCOLOR", (1, 6), (1, 6), rl_colors.HexColor("#854D0E")))
+        breakdown_table.setStyle(TableStyle(style_cmds))
+        story.append(breakdown_table)
+        story.append(Spacer(1, 6 * mm))
+
         # ---- Equity + Drawdown charts ----
         story.append(Paragraph(_esc("Equity Curve"), h2))
+        story.append(Paragraph(_esc(
+            "Running account value after every trade, in the order each one actually closed. The dashed line marks "
+            "where you started (the capital base above) -- above it means net ahead overall, below means net behind."), caption))
         story.append(RLImage(eq_png, width=180 * mm, height=180 * mm * (3.4 / 9)))
         story.append(Paragraph(_esc("Drawdown %"), h2))
+        story.append(Paragraph(_esc(
+            "How far below the highest point reached so far the account was at each moment, as a %. Always zero or "
+            "negative -- 0 means sitting at a new high, a deep dip means a real losing stretch that hadn't recovered yet."), caption))
         story.append(RLImage(dd_png, width=180 * mm, height=180 * mm * (2.6 / 9)))
 
         story.append(PageBreak())
@@ -802,11 +856,17 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         # ---- Daily Return Distribution ----
         if has_hist:
             story.append(Paragraph(_esc("Daily Return Distribution"), h2))
+            story.append(Paragraph(_esc(
+                "How many days landed in each return range. Red bars = losing days, green = winning days. A cluster "
+                "of tall bars near zero with a few scattered further out is normal -- most days small, a few days big."), caption))
             story.append(RLImage(hist_png, width=180 * mm, height=180 * mm * (3 / 9)))
 
         # ---- Monthly Performance ----
         if has_monthly:
             story.append(Paragraph(_esc("Monthly Performance"), h2))
+            story.append(Paragraph(_esc(
+                "Total P&L for each calendar month. A month can only show one bar even if it had both winning and "
+                "losing days inside it -- see Daily Return Distribution above for the day-by-day win/loss split."), caption))
             story.append(RLImage(monthly_png, width=180 * mm, height=180 * mm * (2.8 / 9)))
             month_rows = [["Month", "P&L (Rs)", "Trades"]]
             for month, v in metrics["monthly_pnl"].items():
