@@ -1041,10 +1041,20 @@ def snapshot_all_commodities():
     return results
 
 
-def get_snapshots_for_date(index_name, date_str, limit=100):
+def get_snapshots_for_date(index_name, date_str, limit=None):
     """Read logged rows for a specific date (YYYY-MM-DD), most recent
     first. Returns [] if nothing was logged that date (a weekend, a
-    holiday, or before this started running) rather than erroring."""
+    holiday, or before this started running) rather than erroring.
+
+    Aug 24 2026: limit used to default to 100, which silently truncated
+    to only the newest 100 snapshots -- at the real ~60s-ish logging
+    cadence, a full trading day easily logs 250+ rows, so by early
+    afternoon anything before roughly mid-morning was already being cut
+    off both here and in Index Tracker's own full-density view (both
+    read through this same function). limit=None now means "return
+    everything logged that day"; callers that genuinely want just a
+    handful (e.g. the IV-percentile lookback's limit=1 for a day's
+    closing snapshot) still pass an explicit limit."""
     if not OPENPYXL_AVAILABLE or index_name not in TRACKABLE_NAMES:
         return []
     path = _date_path(index_name, date_str)
@@ -1064,13 +1074,14 @@ def get_snapshots_for_date(index_name, date_str, limit=100):
         rows = []
         for r in ws.iter_rows(min_row=2, values_only=True):
             rows.append(dict(zip(file_columns, r)))
-        return list(reversed(rows))[:limit]
+        rows = list(reversed(rows))
+        return rows[:limit] if limit is not None else rows
     except Exception as e:
         print(f"[IndexTracker] Failed to read {index_name} snapshots for {date_str}: {e}")
         return []
 
 
-def get_today_snapshots(index_name, limit=100):
+def get_today_snapshots(index_name, limit=None):
     """Read today's logged rows for the frontend table (most recent
     first). Returns [] if nothing logged yet today."""
     today = datetime.now().strftime("%Y-%m-%d")
