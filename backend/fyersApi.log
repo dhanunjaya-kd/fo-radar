@@ -3035,3 +3035,4 @@
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/history","Error":{"code":429,"message":"request limit reached","s":"error"}},"timestamp":"2026-08-24 09:45:04,585+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-24 09:47:12,151+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/quotes","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-24 09:48:17,706+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-24 09:49:21,703+0530","service":"FyersAPI"}
