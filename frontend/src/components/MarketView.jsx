@@ -83,6 +83,70 @@ function downsampleToInterval(rows, intervalMinutes = 30) {
   return kept.reverse();
 }
 
+// Aug 24 2026: client-side download button, no backend involved -- this
+// exports exactly the rows the table is showing (post-downsample, same
+// date filter as the screen) using the same fmt/fmtOi/fmtStrikeOi
+// helpers the table itself uses, so the CSV matches what's on screen
+// rather than raw/differently-rounded backend values.
+function DownloadIcon({ className = 'w-3.5 h-3.5' }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 3v12" />
+      <path d="M7 10l5 5 5-5" />
+      <path d="M5 21h14" />
+    </svg>
+  );
+}
+
+const CSV_HEADERS = [
+  'Time', 'Spot', 'Fut', 'PCR', 'ATM',
+  'Highest Put OI (strike,L)', 'Highest Call OI (strike,L)',
+  'ATM Put OI', 'ATM Call OI', 'IV', 'IV %ile', 'VIX', 'Max Pain',
+  'Fut OI Chg', 'Bias',
+];
+
+function toCsvCell(value) {
+  if (value === null || value === undefined) return '';
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function rowToCsvValues(r) {
+  return [
+    r.Time,
+    fmt(r.Spot),
+    fmt(r.Fut),
+    r.PCR != null ? r.PCR.toFixed(2) : '',
+    fmt(r['ATM Strike'], 0),
+    fmtStrikeOi(r['Highest Put OI Strike'], r['Highest Put OI Value']),
+    fmtStrikeOi(r['Highest Call OI Strike'], r['Highest Call OI Value']),
+    fmtOi(r['Put OI (ATM)']),
+    fmtOi(r['Call OI (ATM)']),
+    r['IV %'] != null ? r['IV %'].toFixed(1) : '',
+    r['IV %ile'] != null ? r['IV %ile'] : '',
+    fmt(r.VIX, 1),
+    fmt(r['Max Pain'], 0),
+    r['Fut OI Chg %'] != null ? `${r['Fut OI Chg %'].toFixed(1)}%` : '',
+    r.Bias || '',
+  ];
+}
+
+function downloadCsv(indexName, dateLabel, rows) {
+  const lines = [CSV_HEADERS.join(',')];
+  for (const r of rows) {
+    lines.push(rowToCsvValues(r).map(toCsvCell).join(','));
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `MarketView_${indexName}_${dateLabel}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function MarketViewTable({ rows }) {
   return (
     <div className="overflow-x-auto">
@@ -186,18 +250,31 @@ function MarketViewSection({ indexName }) {
     <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 gap-3">
         <h3 className="text-sm font-bold text-white whitespace-nowrap">{DISPLAY_NAME[indexName] || indexName}</h3>
-        {availableDates.length > 0 && (
-          <select
-            value={selectedDate}
-            onChange={e => setSelectedDate(e.target.value)}
-            className="text-[11px] bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:border-slate-500"
-          >
-            <option value="">Today</option>
-            {availableDates.map(d => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        )}
+        <div className="flex items-center gap-2">
+          {rows.length > 0 && (
+            <button
+              type="button"
+              onClick={() => downloadCsv(indexName, selectedDate || new Date().toISOString().slice(0, 10), downsampleToInterval(rows, 30))}
+              title="Export this table as CSV"
+              className="flex items-center gap-1.5 text-[11px] font-medium bg-slate-900/60 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/60 rounded-full px-3 py-1.5 transition-colors"
+            >
+              <DownloadIcon />
+              <span>Export</span>
+            </button>
+          )}
+          {availableDates.length > 0 && (
+            <select
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="text-[11px] bg-slate-800 border border-slate-700 text-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:border-slate-500"
+            >
+              <option value="">Today</option>
+              {availableDates.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       <div className="p-4">
