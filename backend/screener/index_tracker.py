@@ -330,6 +330,39 @@ _last_direction = {}
 # happened to sit between it and the actual flip.
 _last_bias_string = {}
 
+# Aug 24 2026: latest commodity day-change% per base, populated at the
+# end of snapshot_commodity() below. Feeds _get_cross_asset_snapshot()
+# so a NIFTY/BANKNIFTY flip can log what Crude/Gold/Silver were doing
+# at that moment -- an approximation of "global cues" using data this
+# project already fetches live, since true external data (SGX/Dow
+# futures) isn't available on this Fyers account (see
+# check_gift_nifty.py, built Aug 23, never yet run). Same
+# no-explicit-day-reset convention as _last_snapshot/_last_direction
+# above.
+_last_commodity_readings = {}  # {base: {'change_pct': float, 'fut': float}}
+_CROSS_ASSET_BASES = ["CRUDEOIL", "GOLD", "SILVER"]  # Standard contracts only -- the Mini variants (CRUDEOILM/GOLDM/SILVERM) track the same underlying price, so they'd just duplicate this signal
+
+
+def _get_cross_asset_snapshot():
+    """
+    Latest logged day-change% for Crude/Gold/Silver, read from this
+    process's own in-memory cache -- NOT a fresh Fyers fetch. Log-only
+    consumer (see _log_flip_if_changed): a NIFTY/BANKNIFTY flip records
+    whatever's in this cache at that instant, nothing gates on it yet.
+
+    Staleness note: snapshot_all() (NIFTY/BANKNIFTY) and
+    snapshot_all_commodities() run back-to-back in the same
+    _index_snapshot_worker() cycle (views.py), commodities second -- so
+    the FIRST flip logged after a restart may still see empty/stale
+    commodity readings from the previous ~60s cycle, same reuse-not-
+    refetch tradeoff already accepted for `vix` being passed into
+    snapshot_index() rather than re-fetched. Returns None per base if
+    nothing's been snapshotted yet this process (right after a restart,
+    or genuinely outside MCX hours).
+    """
+    with _lock:
+        return {base: _last_commodity_readings.get(base, {}).get("change_pct") for base in _CROSS_ASSET_BASES}
+
 # Rolling in-memory price history, used by _price_confirms_bias() via
 # _record_and_get_multi_horizon_changes() below -- REPLACES the old
 # previous-close-based Change % as that function's input. {name:
@@ -376,7 +409,7 @@ def _today_path(index_name):
     return _date_path(index_name, today)
 
 
-FLIPS_COLUMNS = ["Date", "Time", "From Bias", "To Bias", "Price", "Price Confirms Bias", "OI Buildup"]
+FLIPS_COLUMNS = ["Date", "Time", "From Bias", "To Bias", "Price", "Price Confirms Bias", "OI Buildup", "Crude Chg %", "Gold Chg %", "Silver Chg %"]
 
 
 def _ensure_flips_sheet(wb):
@@ -398,9 +431,34 @@ def _ensure_flips_sheet(wb):
     this feature shipped, which would otherwise have a valid Snapshots
     sheet but no Flips sheet, and crash the first time something tries
     to read it.
+
+    Aug 24 2026: also migrates the Flips sheet IN PLACE if its own
+    header doesn't match the current FLIPS_COLUMNS (e.g. today's file
+    already has a Flips sheet from before the 3 cross-asset columns
+    were added). Deliberately does NOT go through _get_workbook()'s
+    full-workbook archive-and-reset -- that path exists for a Snapshots
+    mismatch and would ALSO wipe today's entire Snapshots history
+    (hundreds of rows by early afternoon) over an unrelated Flips-only
+    column change, silently reopening the exact history-gap this
+    project just fixed. Flips itself is tiny by comparison (real flips
+    are rare -- 1 NIFTY, 0 BANKNIFTY in the first backtest run), so
+    instead: rename the old sheet to "Flips_pre-update" (kept, not
+    discarded) and create a fresh "Flips" with the current header. Only
+    renames once per day -- if "Flips_pre-update" already exists from an
+    earlier mismatch today, the stale "Flips" is dropped rather than
+    overwriting that already-archived copy (same don't-clobber rule
+    _get_workbook's archive_path check already follows).
     """
     if "Flips" in wb.sheetnames:
-        return
+        ws = wb["Flips"]
+        existing_header = [c.value for c in ws[1]] if ws.max_row >= 1 else []
+        if existing_header == FLIPS_COLUMNS:
+            return
+        if "Flips_pre-update" not in wb.sheetnames:
+            ws.title = "Flips_pre-update"
+            print("[IndexTracker] Flips column layout changed -- archived old Flips rows to 'Flips_pre-update' sheet, starting fresh")
+        else:
+            wb.remove(ws)
     ws = wb.create_sheet("Flips")
     ws.append(FLIPS_COLUMNS)
     for cell in ws[1]:
@@ -435,7 +493,6 @@ def _get_workbook(path):
             for cell in ws[1]:
                 cell.font = Font(bold=True, color="FFFFFF")
                 cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
-        _ensure_flips_sheet(wb)
         _ensure_flips_sheet(wb)
         return wb
     wb = Workbook()
@@ -559,7 +616,7 @@ def _bias_direction(bias):
     return None
 
 
-def _log_flip_if_changed(wb, name, bias, price, confirms, oi_buildup, date_str, time_str):
+def _log_flip_if_changed(wb, name, bias, price, confirms, oi_buildup, date_str, time_str, cross_asset=None):
     """
     Appends one row to the Flips sheet only when direction genuinely
     changed since the last reading for this name -- Neutral readings
@@ -568,6 +625,17 @@ def _log_flip_if_changed(wb, name, bias, price, confirms, oi_buildup, date_str, 
     to the same direction isn't two flips, it's zero). Writes nothing
     on the very first reading for a name in this process (nothing to
     compare against yet) or when the direction is unchanged.
+
+    Aug 24 2026: also logs Crude/Gold/Silver's own day change% at the
+    moment of the flip (cross_asset, from _get_cross_asset_snapshot())
+    -- LOG-ONLY, nothing reads or gates on this yet. First step toward
+    testing whether these (this project's stand-in for "global cues",
+    since true SGX/Dow data isn't available here) actually correlate
+    with which flips hold vs. reverse. Real flips are still rare (1
+    NIFTY, 0 BANKNIFTY as of the first backtest run Aug 23) -- needs
+    real accumulated flips before backtest_index_positional.py can be
+    meaningfully re-run with vs. without this as a filter, not
+    something a thin sample can answer yet.
     """
     global _last_direction, _last_bias_string
     new_dir = _bias_direction(bias)
@@ -576,7 +644,11 @@ def _log_flip_if_changed(wb, name, bias, price, confirms, oi_buildup, date_str, 
 
     if new_dir is not None and new_dir != prev_dir and prev_dir is not None:
         ws = wb["Flips"]
-        ws.append([date_str, time_str, prev_bias_str, bias, price, confirms, oi_buildup])
+        cross_asset = cross_asset or {}
+        ws.append([
+            date_str, time_str, prev_bias_str, bias, price, confirms, oi_buildup,
+            cross_asset.get("CRUDEOIL"), cross_asset.get("GOLD"), cross_asset.get("SILVER"),
+        ])
 
     if new_dir is not None:
         _last_direction[name] = new_dir
@@ -851,7 +923,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         wb = _get_workbook(path)
         ws = wb["Snapshots"]
         ws.append([row[c] for c in COLUMNS])
-        _log_flip_if_changed(wb, index_name, bias, row.get("Spot"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"])
+        _log_flip_if_changed(wb, index_name, bias, row.get("Spot"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
         wb.save(path)
     except Exception as e:
         print(f"[IndexTracker] Failed to log {index_name} snapshot: {e}")
@@ -1009,12 +1081,19 @@ def snapshot_commodity(name, base):
         "Horizons Confirming": horizons_summary,
     }
 
+    # Aug 24 2026: feeds _get_cross_asset_snapshot() -- see that
+    # function's docstring. Updated here (not just used) so a
+    # NIFTY/BANKNIFTY flip later in the same or a following cycle can
+    # read what this commodity was doing.
+    with _lock:
+        _last_commodity_readings[name] = {"change_pct": row.get("Change %"), "fut": row.get("Fut")}
+
     try:
         path = _today_path(name)
         wb = _get_workbook(path)
         ws = wb["Snapshots"]
         ws.append([row[c] for c in COLUMNS])
-        _log_flip_if_changed(wb, name, bias, row.get("Fut"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"])
+        _log_flip_if_changed(wb, name, bias, row.get("Fut"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
         wb.save(path)
     except Exception as e:
         print(f"[IndexTracker] Failed to log {name} snapshot: {e}")
