@@ -37,15 +37,28 @@ from datetime import datetime
 
 
 def is_market_hours(now=None):
-    """True only Mon-Fri, 9:15 AM - 3:40 PM (updated for CAS -- see
-    module docstring). Doesn't account for NSE holidays -- those still
-    need to be manually avoided (or the app just left off) same as
-    always; this only handles the daily/weekend boundary and the
-    post-CAS close time."""
+    """True only Mon-Fri, 9:00 AM - 3:40 PM.
+
+    Aug 24 2026: start moved from 9:15 to 9:00 AM at his explicit
+    request. Worth knowing: 9:00-9:15 is NSE's actual pre-open
+    session (a call auction 9:00-9:08, then a quiet 9:08-9:15
+    transition), not continuous trading -- structurally similar in
+    spirit to the CAS auction window this file already treats
+    specially at the close. Quotes fetched in this window may look
+    frozen or reflect indicative pre-open pricing rather than genuine
+    live trades, same general caution as is_cas_auction_window()
+    below, just not given its own explicit flag/window function --
+    this was a direct request to widen the gate, not a claim that
+    9:00-9:15 behaves identically to normal continuous trading.
+
+    Doesn't account for NSE holidays -- those still need to be
+    manually avoided (or the app just left off) same as always; this
+    only handles the daily/weekend boundary and the post-CAS close
+    time."""
     now = now or datetime.now()
     if now.weekday() >= 5:  # Saturday=5, Sunday=6
         return False
-    market_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
     market_close = now.replace(hour=15, minute=40, second=0, microsecond=0)
     return market_open <= now <= market_close
 
