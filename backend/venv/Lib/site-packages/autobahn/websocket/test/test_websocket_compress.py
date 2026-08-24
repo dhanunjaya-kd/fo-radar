@@ -1,0 +1,257 @@
+###############################################################################
+#
+# The MIT License (MIT)
+#
+# Copyright (c) typedef int GmbH
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+###############################################################################
+
+# Backend-neutral: this module is NOT gated on USE_TWISTED, so it runs under
+# both the Twisted (trial) and asyncio (pytest) coverage phases. The
+# permessage-compress backends are shared code, so bounded-decompression must
+# behave identically regardless of the networking backend.
+
+import unittest
+import zlib
+
+from autobahn.exception import PayloadExceededError
+from autobahn.websocket.compress_deflate import PerMessageDeflate
+
+
+def _make_compressor_pair(name):
+    """
+    Build a (client_compressor, server_decompressor) pair for the named
+    permessage-compress extension, or return None if its optional dependency
+    is not installed. The server decompressor is created WITHOUT any
+    extension-level max_message_size, so the bounded-decompress behaviour under
+    test is driven purely by the ``max_output_len`` argument.
+
+    Concrete per-codec imports (rather than the union-typed extension registry)
+    keep the constructor call sites resolvable for the static type checker.
+    """
+    if name == "permessage-deflate":
+        return (
+            PerMessageDeflate(False, False, False, 15, 15, 8),
+            PerMessageDeflate(True, False, False, 15, 15, 8),
+        )
+    if name == "permessage-bzip2":
+        try:
+            from autobahn.websocket.compress_bzip2 import PerMessageBzip2
+        except ImportError:
+            return None
+        return (PerMessageBzip2(False, 9, 9), PerMessageBzip2(True, 9, 9))
+    if name == "permessage-snappy":
+        try:
+            from autobahn.websocket.compress_snappy import PerMessageSnappy
+        except ImportError:
+            return None
+        return (
+            PerMessageSnappy(False, False, False),
+            PerMessageSnappy(True, False, False),
+        )
+    if name == "permessage-brotli":
+        try:
+            from autobahn.websocket.compress_brotli import PerMessageBrotli
+        except ImportError:
+            return None
+        return (
+            PerMessageBrotli(False, False, False),
+            PerMessageBrotli(True, False, False),
+        )
+    return None
+
+
+# The permessage-compress extensions to exercise; unavailable ones (optional
+# dependency not installed) are skipped per-subtest.
+_CODECS = [
+    "permessage-deflate",
+    "permessage-bzip2",
+    "permessage-snappy",
+    "permessage-brotli",
+]
+
+
+class BoundedDecompressMaxOutputLenTests(unittest.TestCase):
+    """
+    ``decompress_message_data(data, max_output_len=N)`` must bound decompressed
+    output: a message that inflates beyond ``N`` is rejected cleanly with
+    ``PayloadExceededError`` (never silently truncated), an under-budget message
+    round-trips byte-exact, and no ``max_output_len`` (the default) keeps the
+    unbounded behaviour. This must hold for every compression backend.
+    """
+
+    BIG = b"x" * 4096  # inflates well beyond the small budget, compresses tiny
+    SMALL = b"y" * 64
+
+    @staticmethod
+    def _compress(compressor, payload):
+        compressor.start_compress_message()
+        body = compressor.compress_message_data(payload)
+        body += compressor.end_compress_message()
+        return body
+
+    def test_bounded_rejects_oversized(self):
+        for codec in _CODECS:
+            with self.subTest(codec=codec):
+                pair = _make_compressor_pair(codec)
+                if pair is None:
+                    continue
+                compressor, decompressor = pair
+                body = self._compress(compressor, self.BIG)
+                decompressor.start_decompress_message()
+                self.assertRaises(
+                    PayloadExceededError,
+                    decompressor.decompress_message_data,
+                    body,
+                    max_output_len=64,
+                )
+
+    def test_bounded_under_limit_roundtrips(self):
+        for codec in _CODECS:
+            with self.subTest(codec=codec):
+                pair = _make_compressor_pair(codec)
+                if pair is None:
+                    continue
+                compressor, decompressor = pair
+                body = self._compress(compressor, self.SMALL)
+                decompressor.start_decompress_message()
+                out = decompressor.decompress_message_data(
+                    body, max_output_len=4096
+                )
+                self.assertEqual(out, self.SMALL)
+                decompressor.end_decompress_message()
+
+    def test_bounded_boundary_ok(self):
+        # Inflated size exactly equal to max_output_len is accepted in full:
+        # the limit is "strictly greater", consistent across all backends.
+        payload = b"z" * 256
+        for codec in _CODECS:
+            with self.subTest(codec=codec):
+                pair = _make_compressor_pair(codec)
+                if pair is None:
+                    continue
+                compressor, decompressor = pair
+                body = self._compress(compressor, payload)
+                decompressor.start_decompress_message()
+                out = decompressor.decompress_message_data(
+                    body, max_output_len=len(payload)
+                )
+                self.assertEqual(out, payload)
+                decompressor.end_decompress_message()
+
+    def test_unbounded_default_roundtrips(self):
+        for codec in _CODECS:
+            with self.subTest(codec=codec):
+                pair = _make_compressor_pair(codec)
+                if pair is None:
+                    continue
+                compressor, decompressor = pair
+                body = self._compress(compressor, self.BIG)
+                decompressor.start_decompress_message()
+                out = decompressor.decompress_message_data(body)
+                self.assertEqual(out, self.BIG)
+                decompressor.end_decompress_message()
+
+
+class PerMessageDeflateMaxMessageSizeTests(unittest.TestCase):
+    """
+    The permessage-deflate extension-level ``max_message_size`` cap (relocated
+    here from test_websocket_frame.py so it runs under both backends). This is
+    the deflate-negotiated whole-message cap; ``max_output_len`` above is the
+    per-call cap the protocol layer passes.
+    """
+
+    @staticmethod
+    def _decoder(max_message_size=None):
+        return PerMessageDeflate(
+            is_server=False,
+            server_no_context_takeover=False,
+            client_no_context_takeover=False,
+            server_max_window_bits=15,
+            client_max_window_bits=15,
+            mem_level=8,
+            max_message_size=max_message_size,
+        )
+
+    @staticmethod
+    def _compress(payload, window_bits=15):
+        # Produce the permessage-deflate wire body for `payload`: raw
+        # DEFLATE, Z_SYNC_FLUSH, with the trailing 0x00 0x00 0xff 0xff
+        # stripped (mirrors PerMessageDeflate.end_compress_message()).
+        compressor = zlib.compressobj(
+            zlib.Z_DEFAULT_COMPRESSION, zlib.DEFLATED, -window_bits
+        )
+        return (
+            compressor.compress(payload) + compressor.flush(zlib.Z_SYNC_FLUSH)
+        )[:-4]
+
+    def test_max_size_rejects_oversized(self):
+        # A message that inflates beyond max_message_size must be rejected
+        # cleanly (PayloadExceededError), NOT silently truncated to the cap.
+        decoder = self._decoder(max_message_size=10)
+        body = self._compress(b"x" * 2000)
+        decoder.start_decompress_message()
+        self.assertRaises(
+            PayloadExceededError, decoder.decompress_message_data, body
+        )
+
+    def test_max_size_boundary_ok(self):
+        # A message whose inflated size is exactly max_message_size is
+        # accepted and returned in full (the limit is "strictly greater").
+        decoder = self._decoder(max_message_size=2000)
+        body = self._compress(b"x" * 2000)
+        decoder.start_decompress_message()
+        data = decoder.decompress_message_data(body)
+        self.assertEqual(data, b"x" * 2000)
+
+    def test_under_max_size_roundtrips_without_corruption(self):
+        # Under the cap: full data returned AND end_decompress_message()
+        # must not raise. The old truncation left the stream mid-token,
+        # so the sync-flush trailer raised zlib error -3.
+        decoder = self._decoder(max_message_size=2000)
+        payload = b"x" * 1000
+        body = self._compress(payload)
+        decoder.start_decompress_message()
+        data = decoder.decompress_message_data(body)
+        self.assertEqual(data, payload)
+        decoder.end_decompress_message()
+
+    def test_max_size_cumulative_across_frames(self):
+        # The cap bounds the whole message, not each frame: a message
+        # delivered in two frame-sized chunks whose combined inflated size
+        # exceeds the cap must be rejected, not truncated.
+        decoder = self._decoder(max_message_size=1500)
+        body = self._compress(b"x" * 2000)
+        half = len(body) // 2
+        decoder.start_decompress_message()
+
+        def feed_both():
+            decoder.decompress_message_data(body[:half])
+            decoder.decompress_message_data(body[half:])
+
+        self.assertRaises(PayloadExceededError, feed_both)
+
+    def test_no_max_size(self):
+        decoder = self._decoder(max_message_size=None)
+        body = self._compress(b"x" * 2000)
+        decoder.start_decompress_message()
+        data = decoder.decompress_message_data(body)
+        self.assertEqual(data, b"x" * 2000)
