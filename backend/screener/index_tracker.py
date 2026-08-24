@@ -915,7 +915,17 @@ def snapshot_commodity(name, base):
     if base in _NEAR_MONTHLY_BASES:
         fut_symbol = _front_month_commodity_symbol(base)
     else:
-        fut_symbol = _front_month_bullion_symbol(base)
+        # Aug 24 2026: switched from the plain _front_month_bullion_
+        # symbol() to the options-aware variant -- this function calls
+        # get_option_analytics() on fut_symbol right below and bails
+        # with None (nothing logged at all) if that comes back empty.
+        # The plain resolver validates only a futures LTP, which an
+        # EXPIRED contract can still return (confirmed live: August
+        # Gold) -- exactly why Gold's snapshot table was staying
+        # completely empty while Silver's (whose resolved contract
+        # happened to still be genuinely current) kept working. Same
+        # root cause, same fix, as OptionAnalyticsView in views.py.
+        fut_symbol = _front_month_bullion_symbol_with_options(base)
         if fut_symbol is None:
             return None  # no live contract found in the probe window -- nothing to snapshot, not a guess
 
