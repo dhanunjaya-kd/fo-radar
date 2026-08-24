@@ -1422,23 +1422,17 @@ class OptionAnalyticsView(APIView):
                 "error": "Fyers not authenticated. Run get_fyers_token.py to log in, then retry.",
             })
 
-        # Aug 24 2026: was calling _front_month_commodity_symbol() for
-        # EVERY commodity base -- that resolver uses a simple day-of-
-        # month threshold, correct only for CRUDEOIL/CRUDEOILM (which
-        # trade every calendar month). Gold/Silver skip months entirely
-        # (confirmed real data: GOLD is live Oct+Dec right now, no Sep
-        # contract exists at all) -- a day-of-month guess can only
-        # coincidentally land on a real live month for some bases and
-        # not others, which is exactly the intermittent "works for Gold
-        # Mini, fails for Gold Standard" pattern this was producing.
-        # index_tracker.py already solves this correctly with its own
-        # _NEAR_MONTHLY_BASES dispatch inside snapshot_commodity() --
-        # this mirrors that exact same real, working pattern instead of
-        # guessing at a new one.
-        from .index_tracker import COMMODITY_BASES, _front_month_commodity_symbol, _front_month_bullion_symbol, _NEAR_MONTHLY_BASES
+        # Aug 24 2026: switched to the options-aware resolver -- the
+        # plain _front_month_bullion_symbol() validates only a futures
+        # LTP, which a real live test showed can return a stale price
+        # for an ALREADY-EXPIRED contract (MCX:GOLD26AUGFUT specifically
+        # -- confirmed via the real Fyers symbol master that only Oct/
+        # Dec are actually current). This variant additionally confirms
+        # a real options chain exists for the candidate before using it.
+        from .index_tracker import COMMODITY_BASES, _front_month_commodity_symbol, _front_month_bullion_symbol_with_options, _NEAR_MONTHLY_BASES
         if sym in COMMODITY_BASES:
             base = COMMODITY_BASES[sym]
-            fyers_symbol = _front_month_commodity_symbol(base) if base in _NEAR_MONTHLY_BASES else _front_month_bullion_symbol(base)
+            fyers_symbol = _front_month_commodity_symbol(base) if base in _NEAR_MONTHLY_BASES else _front_month_bullion_symbol_with_options(base)
         else:
             fyers_symbol = f"NSE:{sym}-EQ"
 

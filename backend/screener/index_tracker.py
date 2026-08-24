@@ -215,6 +215,69 @@ def _front_month_bullion_symbol(base):
     return None
 
 
+_bullion_options_symbol_cache = {}  # {base: {'date': 'YYYY-MM-DD', 'symbol': str|None}} -- separate cache from _bullion_symbol_cache, deliberately not shared (see docstring below)
+
+
+def _front_month_bullion_symbol_with_options(base):
+    """
+    Aug 24 2026: stricter sibling of _front_month_bullion_symbol() above,
+    built after a real bug: that function's validation is "does
+    get_market_depth() return an LTP" -- which is NOT sufficient to
+    confirm a contract is genuinely tradeable. An EXPIRED contract can
+    still return a stale last-known LTP without erroring (confirmed
+    live: MCX:GOLD26AUGFUT returned LTP=145234 today even though the
+    real Fyers symbol master shows August Gold has already rolled off
+    -- only Oct/Dec are actually current). Since options chains don't
+    exist for expired futures, this was the exact root cause of
+    OptionAnalyticsView returning "No option chain returned" for GOLD/
+    GOLDM despite a "live-looking" resolved symbol.
+
+    This variant additionally requires get_option_analytics() to
+    return real rows for the SAME candidate -- not just a futures
+    price. Deliberately a SEPARATE function (not a modification of the
+    one above) because index_tracker.py's own snapshot_commodity()
+    only ever needed futures price, never options -- tightening the
+    shared resolver's validation would have been a real risk of
+    breaking that already-working caller for a problem it doesn't have.
+    Only OptionAnalyticsView (views.py), which actually needs a usable
+    options chain, should call this one.
+
+    Same cached-per-day, none-if-nothing-found contract as the sibling
+    function -- separate cache dict since a symbol valid for futures-
+    only purposes may not be valid here, and vice versa in principle.
+    """
+    from .fyers_client import get_market_depth, get_option_analytics
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _bullion_options_symbol_cache.get(base)
+    if cached and cached.get("date") == today_str:
+        return cached.get("symbol")
+
+    today = datetime.now()
+    y, m = today.year, today.month
+    for _ in range(6):
+        yy = str(y)[2:]
+        mon = datetime(y, m, 1).strftime("%b").upper()
+        candidate = f"MCX:{base}{yy}{mon}FUT"
+        try:
+            depth = get_market_depth(candidate)
+            has_ltp = bool(depth and depth.get("s") == "ok" and (depth.get("d", {}) or {}).get(candidate, {}).get("ltp"))
+            if has_ltp:
+                oi = get_option_analytics(candidate, strikecount=2)  # small strikecount -- this call only needs to confirm rows exist, not the full chain
+                if oi and oi.get("rows"):
+                    _bullion_options_symbol_cache[base] = {"date": today_str, "symbol": candidate}
+                    return candidate
+        except Exception as e:
+            print(f"[IndexTracker] {base} front-month+options probe failed for {candidate}: {e}")
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+
+    print(f"[IndexTracker] {base}: no contract with a real options chain found in the next 6 months")
+    _bullion_options_symbol_cache[base] = {"date": today_str, "symbol": None}
+    return None
+
+
 def is_mcx_hours():
     """MCX commodities trade well past NSE's close -- roughly 9 AM to
     11:30 PM, vs NSE F&O's 9:15 AM-3:30 PM. Deliberately a separate,
