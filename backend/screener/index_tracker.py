@@ -363,35 +363,6 @@ def _get_cross_asset_snapshot():
     with _lock:
         return {base: _last_commodity_readings.get(base, {}).get("change_pct") for base in _CROSS_ASSET_BASES}
 
-
-# Aug 24 2026: in-memory cache of TODAY's already-logged rows per name --
-# {'date': 'YYYY-MM-DD', 'rows': [row_dict, ...]}, most-recent-first,
-# same ordering get_snapshots_for_date() already returns. Added because
-# removing that function's old limit=100 cap (needed to actually show a
-# full day's history) meant every poll of /api/index-tracker/<name>/
-# was re-parsing the ENTIRE day's .xlsx file from disk via openpyxl --
-# fine at 100 rows, genuinely slow by afternoon at 250-400+ rows across
-# up to 8 tracked names, and that parsing competes for the same GIL as
-# the background scan/snapshot worker threads, so the slowdown wasn't
-# confined to just this one endpoint. See get_today_snapshots() and
-# _update_snapshot_cache() for how it's read and kept live.
-_snapshot_cache = {}
-
-
-def _update_snapshot_cache(index_name, row, date_str):
-    """Keeps _snapshot_cache in sync as new rows are logged, so reads
-    don't need to re-parse the file. Resets this name's cache entry if
-    the date changed (new trading day) or there's no entry yet -- same
-    no-explicit-reset-elsewhere convention as _last_snapshot etc., just
-    made explicit here via the date check rather than relying on a
-    process restart to clear it."""
-    with _lock:
-        entry = _snapshot_cache.get(index_name)
-        if entry is None or entry["date"] != date_str:
-            entry = {"date": date_str, "rows": []}
-            _snapshot_cache[index_name] = entry
-        entry["rows"].insert(0, row)  # most-recent-first, matches get_snapshots_for_date()'s ordering
-
 # Rolling in-memory price history, used by _price_confirms_bias() via
 # _record_and_get_multi_horizon_changes() below -- REPLACES the old
 # previous-close-based Change % as that function's input. {name:
@@ -952,10 +923,8 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         wb = _get_workbook(path)
         ws = wb["Snapshots"]
         ws.append([row[c] for c in COLUMNS])
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        _log_flip_if_changed(wb, index_name, bias, row.get("Spot"), confirms, row.get("OI Buildup"), today_str, row["Time"], cross_asset=_get_cross_asset_snapshot())
+        _log_flip_if_changed(wb, index_name, bias, row.get("Spot"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
         wb.save(path)
-        _update_snapshot_cache(index_name, row, today_str)
     except Exception as e:
         print(f"[IndexTracker] Failed to log {index_name} snapshot: {e}")
 
@@ -1124,10 +1093,8 @@ def snapshot_commodity(name, base):
         wb = _get_workbook(path)
         ws = wb["Snapshots"]
         ws.append([row[c] for c in COLUMNS])
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        _log_flip_if_changed(wb, name, bias, row.get("Fut"), confirms, row.get("OI Buildup"), today_str, row["Time"], cross_asset=_get_cross_asset_snapshot())
+        _log_flip_if_changed(wb, name, bias, row.get("Fut"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
         wb.save(path)
-        _update_snapshot_cache(name, row, today_str)
     except Exception as e:
         print(f"[IndexTracker] Failed to log {name} snapshot: {e}")
 
@@ -1195,37 +1162,9 @@ def get_snapshots_for_date(index_name, date_str, limit=None):
 
 def get_today_snapshots(index_name, limit=None):
     """Read today's logged rows for the frontend table (most recent
-    first). Returns [] if nothing logged yet today.
-
-    Aug 24 2026: serves from _snapshot_cache when it's already populated
-    for today, instead of re-parsing the whole .xlsx file on every
-    single poll -- see _snapshot_cache's own comment for why this
-    matters now specifically (the limit=100 removal above). Falls back
-    to one real file read only on a genuine cache miss (right after a
-    restart, or the very first request of a new day), and seeds the
-    cache from that read so every request after it is pure in-memory.
-    Live rows get inserted directly by _update_snapshot_cache() as
-    they're logged, so the cache should rarely actually miss during a
-    normal running day.
-    """
+    first). Returns [] if nothing logged yet today."""
     today = datetime.now().strftime("%Y-%m-%d")
-    with _lock:
-        entry = _snapshot_cache.get(index_name)
-        if entry is not None and entry["date"] == today:
-            rows = entry["rows"]
-            return rows[:limit] if limit is not None else list(rows)
-    rows = get_snapshots_for_date(index_name, today, limit=None)
-    with _lock:
-        # Don't clobber a newer entry a concurrent live insert may have
-        # already created while this file read was in flight -- rare
-        # (both run on ~60s cadences), and the file itself is always
-        # the real source of truth regardless, but cheap to avoid.
-        existing = _snapshot_cache.get(index_name)
-        if existing is None or existing["date"] != today:
-            _snapshot_cache[index_name] = {"date": today, "rows": rows}
-        else:
-            rows = existing["rows"]
-    return rows[:limit] if limit is not None else rows
+    return get_snapshots_for_date(index_name, today, limit=limit)
 
 
 def list_available_dates(index_name):
