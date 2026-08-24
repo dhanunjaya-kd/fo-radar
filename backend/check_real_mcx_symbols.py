@@ -2,10 +2,13 @@
 check_real_mcx_symbols.py
 
 Standalone diagnostic -- pulls Fyers' own authoritative, currently-live
-MCX symbol master file directly (the same file Fyers itself publishes
-and updates daily) and filters it down to GOLD/SILVER entries. This is
-the definitive answer to "what does Fyers actually list right now" --
-no guessing at candidate symbol strings, no trial and error.
+MCX symbol master file directly and filters it to ONLY the GOLD/GOLDM/
+SILVER/SILVERM FUTURES contracts (excludes the thousands of option
+strikes -- CE/PE -- that buried the useful rows in the first version).
+
+Writes the full match list to real_mcx_gold_silver_futures.txt
+(so nothing gets lost in terminal scrollback) AND prints a clean,
+sorted summary of just the symbol + expiry to the terminal directly.
 
 Run the same way your other check_*.py scripts run:
     python check_real_mcx_symbols.py
@@ -15,15 +18,7 @@ import csv
 import io
 
 URL = "https://public.fyers.in/sym_details/MCX_COM.csv"
-
-HEADERS = [
-    "fytoken", "symbol_details", "exchange_instrument_type", "lot_size",
-    "tick_size", "isin", "trading_session", "last_update", "expiry_date",
-    "symbol_ticker", "exchange", "segment", "scrip_code", "underlying_symbol",
-    "strike_price", "option_type", "extra1", "extra2", "extra3",
-]  # best-effort header guess -- the real file may have a slightly
-   # different column count; this script prints raw rows if parsing
-   # by name fails, so nothing gets silently lost either way.
+BASES = ("GOLD", "GOLDM", "SILVER", "SILVERM")
 
 
 def main():
@@ -31,24 +26,37 @@ def main():
     resp = requests.get(URL, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
     resp.raise_for_status()
     content = resp.text
-    print(f"Downloaded {len(content):,} bytes, {content.count(chr(10)):,} lines total.\n")
+    print(f"Downloaded {len(content):,} bytes.\n")
 
     reader = csv.reader(io.StringIO(content))
     rows = list(reader)
 
-    matches = [r for r in rows if any("GOLD" in str(cell).upper() or "SILVER" in str(cell).upper() for cell in r)]
+    # Only real FUTURES rows for these 4 bases -- symbol ticker ends in
+    # "FUT" with no strike/option suffix, excludes every CE/PE option
+    # strike (that's what buried the useful rows in the first version).
+    futures_rows = []
+    for r in rows:
+        for cell in r:
+            cell_str = str(cell).upper()
+            if cell_str.endswith("FUT") and any(cell_str.startswith(f"MCX:{b}") for b in BASES):
+                futures_rows.append((cell, r))
+                break
 
-    print(f"Found {len(matches)} rows mentioning GOLD or SILVER anywhere in the row.\n")
-    print("=" * 70)
-    for r in matches:
-        # Print the whole raw row -- safest option since the exact column
-        # order/count isn't confirmed; nothing gets hidden or misparsed.
-        print(" | ".join(str(c) for c in r))
-    print("=" * 70)
-    print(f"\n{len(matches)} real GOLD/SILVER rows currently live on Fyers' own MCX symbol master.")
-    print("Compare the symbol strings above against what check_gold_silver_symbols.py tried --")
-    print("that'll show directly whether the earlier 'no data' results were a wrong symbol")
-    print("format, or genuinely correct (contract not actually listed).")
+    with open("real_mcx_gold_silver_futures.txt", "w") as f:
+        for symbol, full_row in futures_rows:
+            f.write(" | ".join(str(c) for c in full_row) + "\n")
+
+    print(f"Found {len(futures_rows)} real FUTURES contracts (GOLD/GOLDM/SILVER/SILVERM only).")
+    print(f"Full raw rows written to: real_mcx_gold_silver_futures.txt\n")
+    print("=" * 60)
+    print("SYMBOL -> EXPIRY (sorted)")
+    print("=" * 60)
+    seen = sorted(set(symbol for symbol, _ in futures_rows))
+    for s in seen:
+        print(f"  {s}")
+    print("=" * 60)
+    print(f"\n{len(seen)} distinct real, currently-live futures symbols.")
+    print("Compare this list directly against what check_gold_silver_symbols.py tried earlier.")
 
 
 if __name__ == "__main__":
