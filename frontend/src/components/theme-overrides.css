@@ -97,6 +97,28 @@
 .light .ticker-symbol { color: #0f172a !important; }
 .light .ticker-price { color: #334155 !important; }
 
+/* ---- Aug 24 2026: found while checking SignalList.jsx against
+   existing coverage -- most of its classes were already covered, but
+   these translucent (/10, /20, /25) badge classes weren't. The
+   original "skip all opacity classes" call was reasonable in general
+   (a tint blends fine on either background), but these specific ones
+   pair a translucent BACKGROUND with a translucent-toned TEXT color on
+   top of it -- on a light background specifically, that combination
+   can read as washed-out/low-contrast in a way it didn't on dark. This
+   is a surgical, evidence-based exception, not a reversal of the
+   general skip-opacity policy -- other translucent classes elsewhere
+   remain untouched. ---- */
+.light .bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.12) !important; }
+.light .bg-amber-500\/20 { background-color: rgba(245, 158, 11, 0.18) !important; }
+.light .bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.12) !important; }
+.light .bg-emerald-500\/20 { background-color: rgba(16, 185, 129, 0.18) !important; }
+.light .border-emerald-500 { border-color: #059669 !important; }
+.light .border-emerald-500\/25 { border-color: rgba(5, 150, 105, 0.35) !important; }
+.light .border-amber-500\/20 { border-color: rgba(180, 83, 9, 0.3) !important; }
+.light .border-amber-500\/25 { border-color: rgba(180, 83, 9, 0.35) !important; }
+.light .border-slate-700\/30 { border-color: rgba(203, 213, 225, 0.5) !important; }
+.light .text-amber-500 { color: #b45309 !important; }
+
 /* ---- Aug 22 2026: animations, added while the market's closed for
    the weekend -- purposeful, not decorative:
    1. Smooth color transition on EVERY element -- switching light/
