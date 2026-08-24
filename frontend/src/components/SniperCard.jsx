@@ -117,22 +117,22 @@ export default function SniperCard({ signal }) {
         <div className="grid grid-cols-3 gap-1.5 mb-2.5">
           <div className="bg-slate-900/40 rounded-md p-1.5 text-center">
             <p className="text-[9px] text-slate-500 uppercase">CE OI</p>
-            <p className={`text-xs font-bold ${(signal.ce_oi_chg || 0) >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{fmtLakh(signal.ce_oi_chg)}</p>
+            <p className={`text-xs font-bold tier-secondary ${(signal.ce_oi_chg || 0) >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>{fmtLakh(signal.ce_oi_chg)}</p>
           </div>
           <div className="bg-slate-900/40 rounded-md p-1.5 text-center">
             <p className="text-[9px] text-slate-500 uppercase">PE OI</p>
-            <p className={`text-xs font-bold ${(signal.pe_oi_chg || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtLakh(signal.pe_oi_chg)}</p>
+            <p className={`text-xs font-bold tier-secondary ${(signal.pe_oi_chg || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtLakh(signal.pe_oi_chg)}</p>
           </div>
           <div className="bg-slate-900/40 rounded-md p-1.5 text-center">
             <p className="text-[9px] text-slate-500 uppercase">IV</p>
-            <p className="text-xs font-bold text-amber-400">{signal.iv != null ? `${signal.iv.toFixed(0)}%` : '—'}</p>
+            <p className="text-xs font-bold text-amber-400 tier-secondary">{signal.iv != null ? `${signal.iv.toFixed(0)}%` : '—'}</p>
           </div>
         </div>
 
         {/* Max Pain / PCR / Strike */}
         <div className="grid grid-cols-3 gap-1.5 mb-2.5 text-center text-[11px]">
-          <div><p className="text-slate-500">Max Pain</p><p className="text-white font-bold">₹{fmtInt(signal.max_pain)}</p></div>
-          <div><p className="text-slate-500">PCR</p><p className="text-indigo-400 font-bold">{signal.pcr != null ? signal.pcr.toFixed(2) : '—'}</p></div>
+          <div><p className="text-slate-500">Max Pain</p><p className="text-white font-bold tier-important">₹{fmtInt(signal.max_pain)}</p></div>
+          <div><p className="text-slate-500">PCR</p><p className="text-indigo-400 font-bold tier-important">{signal.pcr != null ? signal.pcr.toFixed(2) : '—'}</p></div>
           <div><p className="text-slate-500">Strike</p><p className="text-white font-bold">₹{fmtInt(signal.strike)}</p></div>
         </div>
 
@@ -151,7 +151,7 @@ export default function SniperCard({ signal }) {
         </div>
 
         {/* Action Badge */}
-        <div className={`mb-2.5 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[13px] font-bold tracking-wide ${
+        <div className={`mb-2.5 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[13px] font-bold tracking-wide tier-critical ${
           isBuy ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-rose-500/15 text-rose-400 border border-rose-500/25'
         }`}>
           {isBuy ? <IconTriangleUp size={12} /> : <IconTriangleDown size={12} />}
@@ -162,15 +162,15 @@ export default function SniperCard({ signal }) {
         <div className="grid grid-cols-3 gap-1.5 mb-1.5 text-center">
           <div className="bg-slate-900/30 rounded-md py-1.5">
             <p className="text-[9px] text-slate-500 uppercase">Entry</p>
-            <p className="text-xs font-bold text-white">₹{fmt(signal.entry)}</p>
+            <p className="text-xs font-bold text-white tier-critical">₹{fmt(signal.entry)}</p>
           </div>
           <div className="bg-slate-900/30 rounded-md py-1.5">
             <p className="text-[9px] text-slate-500 uppercase">SL</p>
-            <p className="text-xs font-bold text-rose-400">₹{fmt(signal.sl)}</p>
+            <p className="text-xs font-bold text-rose-400 tier-critical">₹{fmt(signal.sl)}</p>
           </div>
           <div className="bg-slate-900/30 rounded-md py-1.5">
             <p className="text-[9px] text-slate-500 uppercase">Target</p>
-            <p className="text-xs font-bold text-emerald-400">₹{fmt(signal.target1)}</p>
+            <p className="text-xs font-bold text-emerald-400 tier-critical">₹{fmt(signal.target1)}</p>
           </div>
         </div>
 

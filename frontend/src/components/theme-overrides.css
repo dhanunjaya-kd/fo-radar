@@ -97,28 +97,6 @@
 .light .ticker-symbol { color: #0f172a !important; }
 .light .ticker-price { color: #334155 !important; }
 
-/* ---- Aug 24 2026: found while checking SignalList.jsx against
-   existing coverage -- most of its classes were already covered, but
-   these translucent (/10, /20, /25) badge classes weren't. The
-   original "skip all opacity classes" call was reasonable in general
-   (a tint blends fine on either background), but these specific ones
-   pair a translucent BACKGROUND with a translucent-toned TEXT color on
-   top of it -- on a light background specifically, that combination
-   can read as washed-out/low-contrast in a way it didn't on dark. This
-   is a surgical, evidence-based exception, not a reversal of the
-   general skip-opacity policy -- other translucent classes elsewhere
-   remain untouched. ---- */
-.light .bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.12) !important; }
-.light .bg-amber-500\/20 { background-color: rgba(245, 158, 11, 0.18) !important; }
-.light .bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.12) !important; }
-.light .bg-emerald-500\/20 { background-color: rgba(16, 185, 129, 0.18) !important; }
-.light .border-emerald-500 { border-color: #059669 !important; }
-.light .border-emerald-500\/25 { border-color: rgba(5, 150, 105, 0.35) !important; }
-.light .border-amber-500\/20 { border-color: rgba(180, 83, 9, 0.3) !important; }
-.light .border-amber-500\/25 { border-color: rgba(180, 83, 9, 0.35) !important; }
-.light .border-slate-700\/30 { border-color: rgba(203, 213, 225, 0.5) !important; }
-.light .text-amber-500 { color: #b45309 !important; }
-
 /* ---- Aug 22 2026: animations, added while the market's closed for
    the weekend -- purposeful, not decorative:
    1. Smooth color transition on EVERY element -- switching light/
@@ -180,3 +158,65 @@
   font-size: 0.9em !important;
   opacity: 0.75;
 }
+
+/* ---- Aug 24 2026: coverage pass across the 5 remaining files that
+   had never been sent this session (FundamentalsWatchlist.jsx,
+   NewsFeed.jsx, SignalList.jsx, SniperCard.jsx, Watchlist.jsx) --
+   these are the actual "Live Signals tab looks ugly in light mode"
+   cards. Same class-name-matching approach as everywhere else in this
+   file; grouped by what each class is actually used for below rather
+   than alphabetically, since the reasoning differs by group. ---- */
+
+/* Translucent badge/pill backgrounds (OI Confirmed, SNIPER tag, grade
+   confidence badges, etc.) -- same "washed out on white" issue found
+   in SignalList's alert buttons last time, same fix: give them an
+   actual light tint instead of leaving a dark-mode-tuned rgba value
+   that reads as barely-there on a white background. */
+.light .bg-amber-500\/10 { background-color: rgba(245, 158, 11, 0.12) !important; }
+.light .bg-amber-500\/15 { background-color: rgba(245, 158, 11, 0.15) !important; }
+.light .bg-amber-500\/20 { background-color: rgba(245, 158, 11, 0.18) !important; }
+.light .bg-emerald-500\/10 { background-color: rgba(16, 185, 129, 0.12) !important; }
+.light .bg-emerald-500\/15 { background-color: rgba(16, 185, 129, 0.15) !important; }
+.light .bg-emerald-500\/20 { background-color: rgba(16, 185, 129, 0.18) !important; }
+.light .bg-rose-500\/10 { background-color: rgba(244, 63, 94, 0.12) !important; }
+.light .bg-rose-500\/15 { background-color: rgba(244, 63, 94, 0.15) !important; }
+.light .bg-indigo-500\/10 { background-color: rgba(99, 102, 241, 0.12) !important; }
+
+/* Translucent borders on those same badges. */
+.light .border-amber-500\/20 { border-color: rgba(180, 83, 9, 0.3) !important; }
+.light .border-amber-500\/25 { border-color: rgba(180, 83, 9, 0.35) !important; }
+.light .border-emerald-500 { border-color: #059669 !important; }
+.light .border-emerald-500\/25 { border-color: rgba(5, 150, 105, 0.35) !important; }
+.light .border-indigo-500\/20 { border-color: rgba(67, 56, 202, 0.3) !important; }
+.light .border-indigo-500\/25 { border-color: rgba(67, 56, 202, 0.35) !important; }
+.light .border-rose-500\/25 { border-color: rgba(225, 29, 72, 0.35) !important; }
+
+/* Solid grade-badge backgrounds (the colored circle behind a signal's
+   confidence %) -- these sit UNDER white text and need to stay vivid
+   enough for that to keep working, not softened like a background tint. */
+.light .bg-amber-600 { background-color: #d97706 !important; }
+.light .bg-emerald-600 { background-color: #059669 !important; }
+.light .bg-lime-600 { background-color: #65a30d !important; }
+.light .bg-rose-600 { background-color: #e11d48 !important; }
+
+/* Card/panel backgrounds (SniperCard itself, its inner OI/stat boxes,
+   table header rows) -- same near-black-to-near-white direction as
+   the rest of this file, just the additional opacity steps these
+   specific files happen to use. */
+.light .bg-slate-800\/70 { background-color: rgba(226, 232, 240, 0.85) !important; }
+.light .bg-slate-900\/30 { background-color: rgba(241, 245, 249, 0.6) !important; }
+.light .bg-slate-900\/40 { background-color: rgba(241, 245, 249, 0.7) !important; }
+.light .bg-slate-900\/60 { background-color: rgba(241, 245, 249, 0.85) !important; }
+.light .bg-slate-900\/80 { background-color: rgba(241, 245, 249, 0.95) !important; }
+
+.light .border-slate-600\/30 { border-color: rgba(148, 163, 184, 0.4) !important; }
+.light .border-slate-600\/60 { border-color: rgba(148, 163, 184, 0.6) !important; }
+.light .border-slate-700\/30 { border-color: rgba(203, 213, 225, 0.5) !important; }
+.light .border-slate-700\/40 { border-color: rgba(203, 213, 225, 0.6) !important; }
+
+/* Remaining solid text colors -- grade text (lime/amber), sky (symbol
+   links in the two watchlist-style tables), same darken-for-white-bg
+   pattern as every other semantic accent color in this file. */
+.light .text-amber-500 { color: #b45309 !important; }
+.light .text-lime-400 { color: #4d7c0f !important; }
+.light .text-sky-400 { color: #0369a1 !important; }
