@@ -3414,3 +3414,5 @@
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"code":-300,"message":"Please provide a valid symbol","s":"error"}},"timestamp":"2026-08-26 10:07:55,416+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"code":-300,"message":"Please provide a valid symbol","s":"error"}},"timestamp":"2026-08-26 10:09:00,784+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"code":-300,"message":"Please provide a valid symbol","s":"error"}},"timestamp":"2026-08-26 10:09:00,789+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"code":-300,"message":"Please provide a valid symbol","s":"error"}},"timestamp":"2026-08-26 10:10:06,191+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"code":-300,"message":"Please provide a valid symbol","s":"error"}},"timestamp":"2026-08-26 10:10:06,191+0530","service":"FyersAPI"}
