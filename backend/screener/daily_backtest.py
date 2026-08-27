@@ -45,9 +45,9 @@ _lock = threading.Lock()
 _last_run = {
     "started_at": None, "finished_at": None, "trigger": None,  # 'scheduled-close' | 'scheduled-morning' | 'manual'
     "backfill_range": None,
-    "stock_pdf": None, "stock_summary": None,
-    "nifty_pdf": None, "nifty_summary": None,
-    "banknifty_pdf": None, "banknifty_summary": None,
+    "stock_pdf": None, "stock_summary": None, "stock_equity_curve": None,
+    "nifty_pdf": None, "nifty_summary": None, "nifty_equity_curve": None,
+    "banknifty_pdf": None, "banknifty_summary": None, "banknifty_equity_curve": None,
     "errors": [],
 }
 
@@ -69,6 +69,20 @@ def _run_and_rename(write_fn, trades, metrics, final_name):
         os.remove(final_path)  # overwrite same-day re-run (2nd run today) or yesterday's leftover -- want the freshest
     shutil.move(raw_path, final_path)
     return final_path
+
+
+def _serialize_equity_curve(curve):
+    """Aug 27 2026: JSON-safe version of backtest_signal_pnl.py's
+    compute_equity_curve() output -- its 'dt' field is a real Python
+    datetime object there (fine for that module's own PDF/matplotlib
+    use), which Response()/clean_json() can't serialize directly for
+    an API response. Keeps every point, no downsampling -- one day's
+    (or even a few weeks') worth of trades is small enough that this
+    doesn't need the thinning Index Tracker's dense intraday logs do."""
+    return [
+        {"date": p["dt"].isoformat(), "cumulative_pnl": p["cumulative_pnl"], "equity": p["equity"]}
+        for p in curve
+    ]
 
 
 def _summarize(metrics):
@@ -119,9 +133,9 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         print(f"[DailyBacktest] backfill failed: {e}")
         errors.append(f"backfill: {e}")
 
-    stock_pdf, stock_summary = None, None
+    stock_pdf, stock_summary, stock_equity_curve = None, None, None
     try:
-        from .backtest_signal_pnl import load_all_trades, compute_capital_base, compute_metrics, write_pdf_report
+        from .backtest_signal_pnl import load_all_trades, compute_capital_base, compute_metrics, compute_equity_curve, write_pdf_report
         trades, excluded = load_all_trades()
         if trades:
             capital_base = compute_capital_base(trades)
@@ -139,6 +153,11 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
                 # try/except so a rendering-library problem only costs
                 # the download link, never the numbers themselves.
                 stock_summary = _summarize(metrics)
+                # Aug 27 2026: equity curve, same no-PDF-dependency
+                # treatment -- compute_equity_curve() is pure trade-data
+                # math (backtest_signal_pnl.py), no reportlab/matplotlib
+                # involved, so it's exposed here unconditionally too.
+                stock_equity_curve = _serialize_equity_curve(compute_equity_curve(trades, capital_base))
                 try:
                     stock_pdf = _run_and_rename(write_pdf_report, trades, metrics, f"signal_pnl_stock_{end_str}.pdf")
                 except Exception as e:
@@ -150,10 +169,10 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         print(f"[DailyBacktest] stock backtest failed: {e}")
         errors.append(f"stock backtest: {e}")
 
-    index_results = {"NIFTY": (None, None), "BANKNIFTY": (None, None)}
+    index_results = {"NIFTY": (None, None, None), "BANKNIFTY": (None, None, None)}
     try:
         from .backtest_index_positional import generate_positional_trades, DEFAULT_MARGIN_PER_LOT
-        from .backtest_signal_pnl import compute_capital_base, compute_metrics, write_pdf_report
+        from .backtest_signal_pnl import compute_capital_base, compute_metrics, compute_equity_curve, write_pdf_report
         for index_name in ("NIFTY", "BANKNIFTY"):
             try:
                 trades, excluded = generate_positional_trades(index_name)
@@ -164,15 +183,17 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
                 metrics = compute_metrics(trades, capital_base)
                 if metrics:
                     # Same decoupling as the stock section above -- summary
-                    # exposed regardless of whether PDF rendering succeeds.
+                    # AND equity curve exposed regardless of whether PDF
+                    # rendering succeeds.
                     summary = _summarize(metrics)
+                    equity_curve = _serialize_equity_curve(compute_equity_curve(trades, capital_base))
                     pdf_path = None
                     try:
                         pdf_path = _run_and_rename(write_pdf_report, trades, metrics, f"index_positional_{index_name}_{end_str}.pdf")
                     except Exception as e:
                         print(f"[DailyBacktest] {index_name} PDF generation failed (summary still available): {e}")
                         errors.append(f"{index_name} PDF: {e}")
-                    index_results[index_name] = (pdf_path, summary)
+                    index_results[index_name] = (pdf_path, summary, equity_curve)
             except Exception as e:
                 print(f"[DailyBacktest] {index_name} positional backtest failed: {e}")
                 errors.append(f"{index_name} positional: {e}")
@@ -185,9 +206,9 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         "finished_at": datetime.now().isoformat(),
         "trigger": trigger,
         "backfill_range": f"{start_str} to {end_str}",
-        "stock_pdf": stock_pdf, "stock_summary": stock_summary,
-        "nifty_pdf": index_results["NIFTY"][0], "nifty_summary": index_results["NIFTY"][1],
-        "banknifty_pdf": index_results["BANKNIFTY"][0], "banknifty_summary": index_results["BANKNIFTY"][1],
+        "stock_pdf": stock_pdf, "stock_summary": stock_summary, "stock_equity_curve": stock_equity_curve,
+        "nifty_pdf": index_results["NIFTY"][0], "nifty_summary": index_results["NIFTY"][1], "nifty_equity_curve": index_results["NIFTY"][2],
+        "banknifty_pdf": index_results["BANKNIFTY"][0], "banknifty_summary": index_results["BANKNIFTY"][1], "banknifty_equity_curve": index_results["BANKNIFTY"][2],
         "errors": errors,
     }
     with _lock:

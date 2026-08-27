@@ -16,7 +16,68 @@ const IconClock = ({ size = 13 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
 );
 
-function SummaryCard({ title, pdfKey, summary, pdfPath }) {
+// Aug 27 2026: pure SVG, no charting library dependency -- avoids any
+// risk of the app breaking on a missing npm package (same lesson as
+// today's reportlab issue, just for the frontend side). viewBox +
+// preserveAspectRatio="none" lets this scale to fill its container
+// width responsively while the internal coordinate math stays fixed
+// and simple. Coordinate transform verified against edge cases
+// (flat curve, single point, declining curve) before being wired in
+// here -- see test_equity_svg.js.
+function EquityCurveChart({ points, width = 280, height = 100 }) {
+  if (!points || points.length < 2) {
+    return (
+      <div className="h-[100px] flex items-center justify-center text-[10px] text-slate-600">
+        Not enough trades yet for a curve
+      </div>
+    );
+  }
+
+  const padding = 4;
+  const equities = points.map(p => p.equity);
+  const minEq = Math.min(...equities);
+  const maxEq = Math.max(...equities);
+  const range = maxEq - minEq || 1;
+  const usableH = height - padding * 2;
+  const stepX = width / (points.length - 1);
+
+  const coords = points.map((p, i) => {
+    const x = i * stepX;
+    const y = padding + usableH - ((p.equity - minEq) / range) * usableH;
+    return [x, y];
+  });
+
+  const linePath = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+  const areaPath = `${linePath} L ${coords[coords.length - 1][0].toFixed(1)} ${height} L 0 ${height} Z`;
+
+  const isUp = points[points.length - 1].cumulative_pnl >= 0;
+  const strokeColor = isUp ? '#34d399' : '#fb7185'; // emerald-400 / rose-400
+  const fillId = `eq-fill-${isUp ? 'up' : 'down'}-${Math.round(minEq)}`; // varies per-instance so multiple charts on one page don't share a gradient id
+
+  const firstDate = new Date(points[0].date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const lastDate = new Date(points[points.length - 1].date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+  return (
+    <div>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+        <defs>
+          <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill={`url(#${fillId})`} stroke="none" />
+        <path d={linePath} fill="none" stroke={strokeColor} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <div className="flex items-center justify-between text-[9px] text-slate-500 mt-1">
+        <span>{firstDate}</span>
+        <span>{lastDate}</span>
+      </div>
+    </div>
+  );
+}
+
+function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve }) {
   const hasData = !!summary;
   return (
     <div className="rounded-lg bg-slate-800/50 border border-slate-700/40 p-4">
@@ -33,6 +94,11 @@ function SummaryCard({ title, pdfKey, summary, pdfPath }) {
           </a>
         )}
       </div>
+      {hasData && (
+        <div className="mb-3 bg-slate-900/30 rounded-md p-2">
+          <EquityCurveChart points={equityCurve} />
+        </div>
+      )}
       {!hasData ? (
         <p className="text-xs text-slate-500">No trades yet -- not enough data resolved for this report.</p>
       ) : (
@@ -187,9 +253,9 @@ export default function DailyBacktestTab() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <SummaryCard title="Stock Signals" pdfKey="stock" summary={status.stock_summary} pdfPath={status.stock_pdf} />
-            <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={status.nifty_summary} pdfPath={status.nifty_pdf} />
-            <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={status.banknifty_summary} pdfPath={status.banknifty_pdf} />
+            <SummaryCard title="Stock Signals" pdfKey="stock" summary={status.stock_summary} pdfPath={status.stock_pdf} equityCurve={status.stock_equity_curve} />
+            <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={status.nifty_summary} pdfPath={status.nifty_pdf} equityCurve={status.nifty_equity_curve} />
+            <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={status.banknifty_summary} pdfPath={status.banknifty_pdf} equityCurve={status.banknifty_equity_curve} />
           </div>
         </>
       )}
