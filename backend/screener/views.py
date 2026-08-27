@@ -1138,6 +1138,58 @@ def _news_alert_worker():
 _news_alert_thread = threading.Thread(target=_news_alert_worker, daemon=True)
 _news_alert_thread.start()
 
+
+def _daily_backtest_worker():
+    """
+    Aug 27 2026: runs the full backtest checklist (backfill -> stock
+    P&L backtest -> NIFTY positional -> BANKNIFTY positional)
+    automatically, TWICE a day -- once shortly after market close
+    (catches the day's just-finished signals) and once again early the
+    next morning (catches anything that only fully resolved overnight,
+    and re-confirms nothing was missed before the new trading day
+    starts). Same daemon-thread pattern as the 3 workers above -- no
+    Celery/Redis needed here either. See daily_backtest.py for the
+    actual checklist logic.
+
+    Uses a per-slot 'last run date' check so each of the two daily
+    windows only fires once, even though this loop checks the clock
+    frequently -- checking is free; the actual cycle is not (real
+    Fyers history calls per unresolved row, real PDF generation).
+    Mon-Fri only, matching market_hours.py's own weekend assumption.
+    """
+    CLOSE_RUN_HOUR, CLOSE_RUN_MINUTE = 16, 0     # ~20min after CAS/derivatives close (3:40 PM)
+    MORNING_RUN_HOUR, MORNING_RUN_MINUTE = 8, 0  # well before 9:00 AM pre-open
+
+    last_close_run_date = None
+    last_morning_run_date = None
+
+    while True:
+        try:
+            now = datetime.now()
+            today_str = now.strftime("%Y-%m-%d")
+            is_weekday = now.weekday() < 5
+
+            if is_weekday and now.hour == CLOSE_RUN_HOUR and now.minute >= CLOSE_RUN_MINUTE and last_close_run_date != today_str:
+                last_close_run_date = today_str
+                print(f"[{now}] Daily backtest: running scheduled close-time cycle.")
+                from .daily_backtest import run_daily_backtest_cycle
+                run_daily_backtest_cycle(trigger="scheduled-close", backfill_days=7)
+
+            if is_weekday and now.hour == MORNING_RUN_HOUR and now.minute >= MORNING_RUN_MINUTE and last_morning_run_date != today_str:
+                last_morning_run_date = today_str
+                print(f"[{now}] Daily backtest: running scheduled morning cycle.")
+                from .daily_backtest import run_daily_backtest_cycle
+                run_daily_backtest_cycle(trigger="scheduled-morning", backfill_days=7)
+
+            time.sleep(60)
+        except Exception as e:
+            print(f"[{datetime.now()}] Daily backtest worker error: {e}")
+            time.sleep(60)
+
+_daily_backtest_thread = threading.Thread(target=_daily_backtest_worker, daemon=True)
+_daily_backtest_thread.start()
+
+
 # ============================================================
 # VIEWS — READ FROM CACHE ONLY, NO BLOCKING
 # ============================================================
@@ -1518,6 +1570,57 @@ class CommodityCurrentSymbolView(APIView):
             print(f"[CommodityCurrentSymbolView] {name} resolve failed: {e}")
             symbol = None
         return Response({"symbol": symbol})
+
+
+class DailyBacktestStatusView(APIView):
+    """
+    Aug 27 2026: latest daily-backtest cycle's results -- backfill
+    range, stock/NIFTY/BANKNIFTY summaries, PDF availability, any
+    errors. Powers a dedicated frontend tab. All fields are None/empty
+    until the first cycle has run at least once (either the scheduled
+    close/morning run, or a manual trigger via DailyBacktestRunView).
+    GET /api/daily-backtest/status/
+    """
+    def get(self, request):
+        from .daily_backtest import get_last_run
+        return Response(clean_json(get_last_run()))
+
+
+class DailyBacktestRunView(APIView):
+    """
+    Aug 27 2026: manual 'Run Now' trigger for the same daily-backtest
+    cycle the background worker runs automatically twice a day (the
+    single-click option, alongside the automatic one). Fires the real
+    checklist in a background thread and returns immediately -- the
+    full cycle can take a while (real Fyers history calls per
+    unresolved row, real PDF generation), so this doesn't hold the
+    HTTP request open for it. Poll DailyBacktestStatusView (compare
+    'started_at' against the time this was called) to see when it's
+    finished.
+    GET /api/daily-backtest/run/
+    """
+    def get(self, request):
+        from .daily_backtest import run_daily_backtest_cycle_async
+        run_daily_backtest_cycle_async(trigger="manual")
+        return Response({"started": True, "message": "Daily backtest cycle started in the background -- poll /api/daily-backtest/status/ for results."})
+
+
+class DailyBacktestReportDownloadView(APIView):
+    """Download one of the latest daily-backtest cycle's PDFs.
+    GET /api/daily-backtest/download/<stock|nifty|banknifty>/"""
+    def get(self, request, report_type):
+        from django.http import FileResponse, JsonResponse
+        from .daily_backtest import get_last_run
+        run = get_last_run()
+        key_map = {"stock": "stock_pdf", "nifty": "nifty_pdf", "banknifty": "banknifty_pdf"}
+        key = key_map.get(report_type.lower())
+        if not key:
+            return JsonResponse({"error": "report_type must be one of stock, nifty, banknifty"}, status=400)
+        path = run.get(key)
+        if not path or not os.path.exists(path):
+            return JsonResponse({"error": f"No {report_type} report available yet -- run the daily backtest first."}, status=404)
+        filename = os.path.basename(path)
+        return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
 
 
 class IndexBacktestExportView(APIView):

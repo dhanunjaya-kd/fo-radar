@@ -9,7 +9,8 @@ from screener.views import (
     SignalExportDatesView, SignalExcelExportByDateView,
     IndexBacktestView, IndexBacktestExportView, WeeklyReportView,
     FundamentalsWatchlistView, CASAuctionMovesView, IndexTrackerAvailableDatesView,
-    SignalWatchlistCsvView, IndexSignalView, CommodityCurrentSymbolView
+    SignalWatchlistCsvView, IndexSignalView, CommodityCurrentSymbolView,
+    DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView
 )
 
 urlpatterns = [
@@ -46,6 +47,11 @@ urlpatterns = [
     # commodity (Crude/Gold/Silver) -- powers MarketBanner.jsx's
     # Crude Oil chart link.
     path('api/commodity-symbol/<str:base_name>/', CommodityCurrentSymbolView.as_view(), name='commodity_symbol'),
+    # Aug 27 2026: combined daily backtest checklist (backfill + stock
+    # P&L + NIFTY/BANKNIFTY positional) -- see daily_backtest.py.
+    path('api/daily-backtest/status/', DailyBacktestStatusView.as_view(), name='daily_backtest_status'),
+    path('api/daily-backtest/run/', DailyBacktestRunView.as_view(), name='daily_backtest_run'),
+    path('api/daily-backtest/download/<str:report_type>/', DailyBacktestReportDownloadView.as_view(), name='daily_backtest_download'),
 
     # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
