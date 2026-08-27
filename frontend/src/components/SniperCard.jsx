@@ -37,6 +37,14 @@ const GRADE_STYLES = {
   'D': { bg: 'bg-rose-600', ring: 'ring-rose-500', text: 'text-rose-400' },
 };
 
+// Aug 27 2026: same helper, same corrected path, as MarketBanner.jsx --
+// confirmed against Fyers' own community forum that the real working
+// popout route is '/popout/index.html', not '/popout_chart/index.html'.
+// No shared utils module found in this project to import it from, so
+// duplicated locally the same way MarketBanner.jsx defines its own copy.
+const fyersChartUrl = (symbol) =>
+  `https://trade.fyers.in/popout/index.html?symbol=${encodeURIComponent(symbol)}&resolution=5&theme=light`;
+
 export default function SniperCard({ signal }) {
   const [showModal, setShowModal] = useState(false);
 
@@ -59,6 +67,26 @@ export default function SniperCard({ signal }) {
     const lakhs = n / 100000;
     return `${lakhs >= 0 ? '+' : ''}${lakhs.toFixed(1)}L`;
   };
+
+  // Aug 27 2026: the strike badge below is the thing that should open a
+  // Fyers chart for the EXACT option contract (e.g. WIPRO 220 CE), not
+  // the underlying stock -- signal.option_symbol is already the real
+  // Fyers symbol for that contract (comes straight from the live option
+  // chain leg in views.py's _build_all(), same field the watchlist-CSV
+  // export already uses), so no backend change was needed for this.
+  const badgeClasses = `mb-2.5 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[13px] font-bold tracking-wide tier-critical transition-colors group/strike ${
+    isBuy ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-rose-500/15 text-rose-400 border border-rose-500/25'
+  } ${signal.option_symbol ? 'hover:brightness-125 cursor-pointer' : ''}`;
+
+  const badgeContent = (
+    <>
+      {isBuy ? <IconTriangleUp size={12} /> : <IconTriangleDown size={12} />}
+      {isBuy ? 'BUY' : 'SELL'} {isBuy ? 'CE' : 'PE'} — ₹{fmtInt(signal.strike)} STRIKE
+      {signal.option_symbol && (
+        <span className="opacity-0 group-hover/strike:opacity-100 transition-opacity text-[10px] font-normal ml-1">↗ chart</span>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -150,13 +178,32 @@ export default function SniperCard({ signal }) {
           </div>
         </div>
 
-        {/* Action Badge */}
-        <div className={`mb-2.5 flex items-center justify-center gap-1.5 py-1.5 rounded-md text-[13px] font-bold tracking-wide tier-critical ${
-          isBuy ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-rose-500/15 text-rose-400 border border-rose-500/25'
-        }`}>
-          {isBuy ? <IconTriangleUp size={12} /> : <IconTriangleDown size={12} />}
-          {isBuy ? 'BUY' : 'SELL'} {isBuy ? 'CE' : 'PE'} — ₹{fmtInt(signal.strike)} STRIKE
-        </div>
+        {/* Action Badge -- Aug 27 2026: now a link to the exact option
+            contract's Fyers chart when option_symbol is available
+            (it always should be for any signal that made it this far --
+            see views.py's _build_all(), a signal is never appended
+            without a confirmed live premium/symbol). stopPropagation on
+            click so this doesn't ALSO trigger the card's own onClick
+            (which opens the OptionsDive modal) -- the two need to stay
+            independent, not fire together. Falls back to the original
+            plain (non-clickable) div on the rare chance option_symbol
+            is missing, same behavior as before this change. */}
+        {signal.option_symbol ? (
+          <a
+            href={fyersChartUrl(signal.option_symbol)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`Open ${signal.symbol} ${fmtInt(signal.strike)} ${isBuy ? 'CE' : 'PE'} chart on Fyers`}
+            onClick={(e) => e.stopPropagation()}
+            className={badgeClasses}
+          >
+            {badgeContent}
+          </a>
+        ) : (
+          <div className={badgeClasses}>
+            {badgeContent}
+          </div>
+        )}
 
         {/* Entry / SL / Target */}
         <div className="grid grid-cols-3 gap-1.5 mb-1.5 text-center">
