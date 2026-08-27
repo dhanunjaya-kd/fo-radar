@@ -1474,6 +1474,52 @@ class IndexSignalView(APIView):
         return Response(clean_json({"calls": calls, "count": len(calls)}))
 
 
+class CommodityCurrentSymbolView(APIView):
+    """
+    Aug 27 2026: the live-resolved Fyers front-month symbol for a
+    commodity (e.g. MCX:CRUDEOIL26AUGFUT) -- lets the frontend build a
+    real Fyers chart link for Crude/Gold/Silver, the same way NIFTY/
+    BANKNIFTY/VIX already can via their fixed INDEX symbols
+    (MarketBanner.jsx couldn't do this before: the contract rolls
+    monthly, and nothing exposed the CURRENT resolved string to it --
+    hardcoding today's would go quietly stale next month).
+
+    Deliberately reuses index_tracker.py's existing resolvers rather
+    than re-deriving the rollover rule in JS, which would silently
+    drift out of sync the next time either rule changes on the backend
+    (exactly the kind of duplication this project has avoided
+    elsewhere -- e.g. the two separate bullion-symbol resolvers already
+    kept intentionally separate rather than one guessing at the
+    other's job). CRUDEOIL/CRUDEOILM resolution is pure date math, no
+    Fyers call; GOLD/GOLDM/SILVER/SILVERM's resolver does call Fyers
+    but is already cached per-day (index_tracker._bullion_options_
+    symbol_cache), so this is cheap on every call after the first each
+    day. Returns {"symbol": None} rather than an error if nothing's
+    resolvable right now (e.g. bullion with no live contract found in
+    the probe window) -- same "don't guess" contract as the resolvers
+    themselves already follow.
+    GET /api/commodity-symbol/<CRUDEOIL|CRUDEOILM|GOLD|GOLDM|SILVER|SILVERM>/
+    """
+    def get(self, request, base_name):
+        from .index_tracker import (
+            COMMODITY_BASES, _NEAR_MONTHLY_BASES,
+            _front_month_commodity_symbol, _front_month_bullion_symbol_with_options,
+        )
+        name = base_name.upper()
+        if name not in COMMODITY_BASES:
+            return Response({"error": f"base_name must be one of {list(COMMODITY_BASES)}"}, status=400)
+        base = COMMODITY_BASES[name]
+        try:
+            symbol = (
+                _front_month_commodity_symbol(base) if base in _NEAR_MONTHLY_BASES
+                else _front_month_bullion_symbol_with_options(base)
+            )
+        except Exception as e:
+            print(f"[CommodityCurrentSymbolView] {name} resolve failed: {e}")
+            symbol = None
+        return Response({"symbol": symbol})
+
+
 class IndexBacktestExportView(APIView):
     """Download the day-wise backtest as an Excel file, one row per
     date+bias with a Hit% and sample count column per horizon.

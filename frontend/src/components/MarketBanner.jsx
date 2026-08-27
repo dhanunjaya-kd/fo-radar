@@ -54,6 +54,22 @@ export default function MarketBanner() {
     return () => { mounted = false; clearInterval(interval); };
   }, []);
 
+  // Aug 27 2026: the ACTUAL live-resolved Fyers symbol for crude oil's
+  // rolling front-month contract (e.g. MCX:CRUDEOIL26AUGFUT) -- powers
+  // the chart link below. Fetched ONCE on mount, not on the 30s
+  // interval the price/crudeRow fetches use: the resolved contract only
+  // changes at most once a month (see index_tracker.py's rollover
+  // rules), so there's no need to re-ask this often.
+  const [crudeSymbol, setCrudeSymbol] = useState(null);
+  useEffect(() => {
+    let mounted = true;
+    fetch(`${API_BASE}/api/commodity-symbol/CRUDEOIL/`)
+      .then(res => res.ok ? res.json() : { symbol: null })
+      .then(json => { if (mounted) setCrudeSymbol(json.symbol || null); })
+      .catch(() => { if (mounted) setCrudeSymbol(null); }); // card just won't be clickable -- not worth surfacing an error for
+    return () => { mounted = false; };
+  }, []);
+
   const fmt = (n) => {
     if (n === null || n === undefined || isNaN(n)) return '0.00';
     return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -151,23 +167,40 @@ export default function MarketBanner() {
       </div>
 
       {/* Crude Oil -- separate source (Index Tracker's endpoint, not
-          market-summary), so no fyersSymbol chart link here: the real
-          Fyers symbol rolls to a new contract every month
-          (MCX:CRUDEOIL26AUGFUT today, a different one next month), and
-          nothing currently exposes that live contract symbol to this
-          component -- hardcoding today's would just go quietly stale
-          in a few weeks. Price + Change% only, same as what the Index
-          Tracker table itself shows for this row. */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
-        <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
-        <div>
-          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">CRUDE OIL</p>
-          <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice)}</p>
-          <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}
-          </p>
+          market-summary). Chart link now wired up (Aug 27 2026) via
+          crudeSymbol, the live-resolved rolling contract fetched above
+          -- previously omitted because nothing exposed that resolved
+          string to this component and hardcoding it would go stale
+          within weeks. Falls back to a plain (non-clickable) card if
+          the resolve hasn't landed yet or came back None, same as
+          every other "don't guess" fallback in this project. */}
+      {crudeSymbol ? (
+        <a href={fyersChartUrl(crudeSymbol)} target="_blank" rel="noopener noreferrer" title="Open CRUDE OIL chart on Fyers"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group">
+          <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+          <div>
+            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1">
+              CRUDE OIL
+              <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400">↗ chart</span>
+            </p>
+            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice)}</p>
+            <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}
+            </p>
+          </div>
+        </a>
+      ) : (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+          <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+          <div>
+            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">CRUDE OIL</p>
+            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice)}</p>
+            <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Time */}
       <div className="hidden md:flex items-center justify-end px-4 py-3">
