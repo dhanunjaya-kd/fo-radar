@@ -9,7 +9,7 @@ from screener.views import (
     SignalExportDatesView, SignalExcelExportByDateView,
     IndexBacktestView, IndexBacktestExportView, WeeklyReportView,
     FundamentalsWatchlistView, CASAuctionMovesView, IndexTrackerAvailableDatesView,
-    SignalWatchlistCsvView
+    SignalWatchlistCsvView, IndexSignalView, CommodityCurrentSymbolView
 )
 
 urlpatterns = [
@@ -39,6 +39,13 @@ urlpatterns = [
     path('api/weekly-report/', WeeklyReportView.as_view(), name='weekly_report'),
     path('api/fundamentals-watchlist/', FundamentalsWatchlistView.as_view(), name='fundamentals_watchlist'),
     path('api/cas-auction-moves/<str:index_name>/', CASAuctionMovesView.as_view(), name='cas_auction_moves'),
+    # Aug 27 2026: index option calls (NIFTY/BANKNIFTY) -- see
+    # index_signal.py for the strike/SL/Target methodology.
+    path('api/index-signals/', IndexSignalView.as_view(), name='index_signals'),
+    # Aug 27 2026: live-resolved Fyers front-month symbol for a
+    # commodity (Crude/Gold/Silver) -- powers MarketBanner.jsx's
+    # Crude Oil chart link.
+    path('api/commodity-symbol/<str:base_name>/', CommodityCurrentSymbolView.as_view(), name='commodity_symbol'),
 
     # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
