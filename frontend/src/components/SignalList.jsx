@@ -242,9 +242,6 @@ export default function LiveSignals() {
             </a>
           </div>
         </div>
-        <p className="text-[11px] text-slate-500 leading-relaxed">
-          RSI 40-65 | ADX ≥25 | Vol ≥1.5x | Price &gt; VWAP | MACD Bullish | +OI confirmation for A/B grade
-        </p>
       </div>
 
       {error && (
