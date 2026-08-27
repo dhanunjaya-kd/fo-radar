@@ -393,6 +393,11 @@ def _fyers_history_df(symbol, days=100):
 # a fresh "today" row built from the quote data _fetch_all_stocks()
 # already pulled this cycle, so most cycles now cost ZERO extra Fyers
 # calls here, not 30.
+#
+# Aug 27 2026: also now shared by _cached_index_history_df() below for
+# NIFTY/BANKNIFTY's own ATR (index option calls, see index_signal.py) --
+# keyed by "NIFTY"/"BANKNIFTY", which never collides with a real F&O
+# stock ticker, so one cache dict serves both without any change here.
 _history_cache = {}
 
 
@@ -429,6 +434,78 @@ def _cached_history_df(symbol, days=100):
     historical = df.iloc[:-1].reset_index(drop=True)
     _history_cache[symbol] = {'date': today_str, 'df': historical}
     return historical
+
+
+def _cached_index_history_df(name, fyers_symbol, days=100):
+    """
+    Aug 27 2026: same caching pattern as _cached_history_df() above, but
+    for an INDEX's own daily candles -- can't reuse that function
+    directly since it hardcodes 'NSE:{symbol}-EQ', which is the wrong
+    format for an index (NSE:NIFTY50-INDEX, not NSE:NIFTY50-EQ). Written
+    as a separate function rather than modifying the working stock
+    version, same "don't risk an already-working caller" principle used
+    elsewhere in this project (e.g. index_tracker.py's two separate
+    bullion-symbol resolvers).
+
+    Shares the SAME _history_cache dict though, keyed by `name`
+    ("NIFTY"/"BANKNIFTY" -- matching index_tracker.py's own naming, not
+    FYERS_INDEX_SYMBOLS' "NIFTY 50" key, to keep this module's index
+    calls consistent with the Bias/oi data they're paired with). Never
+    collides with a real F&O stock ticker.
+
+    Unlike _cached_history_df(), does NOT drop the last row / append a
+    live-quote replacement -- this only feeds ATR (index_signal.py's
+    SL/Target sizing), which doesn't need to be augmented with today's
+    still-forming candle the way _calc_tech's fuller indicator set does.
+    One day less current than the stock engine's version; simpler, and
+    avoids sourcing a same-cycle live index quote into this function
+    just for a marginal ATR freshness gain.
+    """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _history_cache.get(name)
+    if cached and cached.get('date') == today_str:
+        return cached['df']
+
+    range_to = datetime.now().date()
+    range_from = range_to - timedelta(days=days)
+    try:
+        resp = get_history(fyers_symbol, resolution="D",
+                            range_from=str(range_from), range_to=str(range_to))
+    except Exception as e:
+        print(f"[IndexSignal] {name} history error: {e}")
+        return None
+    if not resp or resp.get('s') != 'ok' or not resp.get('candles'):
+        return None
+    df = pd.DataFrame(resp['candles'], columns=['ts', 'Open', 'High', 'Low', 'Close', 'Volume'])
+    if df.empty or len(df) < 2:
+        return None
+
+    _history_cache[name] = {'date': today_str, 'df': df}
+    return df
+
+
+def _calc_index_atr(name, fyers_symbol):
+    """
+    Aug 27 2026: ATR for an index (NIFTY/BANKNIFTY), reusing the exact
+    same _compute_indicators() math the stock engine already uses for
+    every F&O stock -- so index option calls (index_signal.py) size
+    SL/Target off the same kind of volatility measure stock calls do,
+    not a different concept invented from scratch. Returns None (not a
+    guessed number) if there isn't enough history or Fyers has nothing
+    right now -- caller (index_signal.generate_index_call) already
+    treats a None ATR as "can't generate a call yet."
+    """
+    try:
+        if not is_authenticated():
+            return None
+        df = _cached_index_history_df(name, fyers_symbol, days=100)
+        if df is None or len(df) < 20:
+            return None
+        indicators = _compute_indicators(df['Close'], df['High'], df['Low'], df['Volume'])
+        return indicators['atr'] if indicators else None
+    except Exception as e:
+        print(f"[IndexSignal] {name} ATR calc error: {e}")
+        return None
 
 
 def _calc_tech(symbol, live_quote=None):
@@ -955,9 +1032,20 @@ def _index_snapshot_worker():
     MCX hours too) even after NSE closes for the day. The sleep interval
     reflects that too -- stays on the fast 60s cadence as long as EITHER
     market is open, only drops to the slow 300s check once both are shut.
+
+    Aug 27 2026: also turns a confirmed NIFTY/BANKNIFTY Bias into an
+    actual tradeable options call -- see index_signal.py's module
+    docstring for the full reasoning (strike-at-the-OI-wall, same SL/
+    Target math as the stock engine). Uses THIS cycle's own snapshot_
+    all() result (index_tracker.get_last_oi_snapshot() -- same oi dict
+    already fetched, no second option-chain call) plus the index's own
+    ATR (fetched/cached separately, ~once/day via _calc_index_atr()).
+    Runs only when NSE is open -- an index options call doesn't apply
+    outside NSE F&O hours the way commodity snapshotting does.
     """
     from .market_hours import is_market_hours
-    from .index_tracker import snapshot_all, snapshot_all_commodities, is_mcx_hours
+    from .index_tracker import snapshot_all, snapshot_all_commodities, is_mcx_hours, get_last_oi_snapshot
+    from . import index_signal
     last_closed_log = 0
     while True:
         try:
@@ -970,13 +1058,38 @@ def _index_snapshot_worker():
                 with _cache_lock:
                     _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix}
                     _index_cache_updated_at = time.time()
-                snapshot_all(
+                index_rows = snapshot_all(
                     change_percents={
                         "NIFTY": nifty.get("change_percent"),
                         "BANKNIFTY": bank.get("change_percent"),
                     },
                     vix=vix.get("price"),
                 )
+
+                for name, fyers_symbol in (("NIFTY", "NSE:NIFTY50-INDEX"), ("BANKNIFTY", "NSE:NIFTYBANK-INDEX")):
+                    row = (index_rows or {}).get(name)
+                    oi = get_last_oi_snapshot(name)
+                    if not row or not oi:
+                        continue
+                    try:
+                        atr = _calc_index_atr(name, fyers_symbol)
+                        call = index_signal.generate_index_call(name, row.get("Bias"), oi, row.get("Spot"), atr)
+                        # Outcome check only when a call is actually locked
+                        # and we have its exact option_symbol -- one small
+                        # extra quote call per active index call, not per
+                        # cycle regardless (matches the "only fetch what's
+                        # actually needed" principle already used
+                        # throughout this project).
+                        if call and call.get("option_symbol") and is_authenticated():
+                            resp = get_quotes([call["option_symbol"]])
+                            if resp and resp.get("s") == "ok":
+                                for item in resp.get("d", []):
+                                    if item.get("s") == "ok":
+                                        ltp = (item.get("v") or {}).get("lp")
+                                        if ltp:
+                                            index_signal.check_call_outcome(name, ltp)
+                    except Exception as e:
+                        print(f"[IndexSignal] {name} call generation failed: {e}")
             snapshot_all_commodities()
             mcx_open = is_mcx_hours()
             if nse_open or mcx_open:
@@ -1342,6 +1455,23 @@ class CASAuctionMovesView(APIView):
             return Response({"error": "index_name must be NIFTY or BANKNIFTY -- CAS doesn't apply to commodities"}, status=400)
         moves = compute_cas_auction_moves(name)
         return Response(clean_json({"index": name, "moves": moves}))
+
+
+class IndexSignalView(APIView):
+    """
+    Aug 27 2026: current locked index option call(s) for NIFTY/
+    BANKNIFTY, if Index Tracker's Bias has confirmed strongly enough to
+    generate one -- see index_signal.py for the full strike-selection
+    and SL/Target methodology (strike at the OI wall the Bias just
+    confirmed, same ATR+delta math the stock Live Signals already use).
+    Empty list (not an error) when Bias is currently Neutral for both,
+    or nothing's fired yet this session.
+    GET /api/index-signals/
+    """
+    def get(self, request):
+        from . import index_signal
+        calls = [c for c in (index_signal.get_locked_call("NIFTY"), index_signal.get_locked_call("BANKNIFTY")) if c]
+        return Response(clean_json({"calls": calls, "count": len(calls)}))
 
 
 class IndexBacktestExportView(APIView):

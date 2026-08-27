@@ -313,6 +313,23 @@ _lock = threading.Lock()
 # idea as the reference table's "(High Vol)"/"unwinding" annotations.
 _last_snapshot = {}  # {index_name: {'ce_oi': int, 'pe_oi': int}}
 
+# Aug 27 2026: latest FULL option-chain analytics dict per name -- the
+# same `oi` this module already fetches every cycle in snapshot_index()/
+# snapshot_commodity() below, just also kept here so index_signal.py (a
+# separate module -- turns a confirmed Bias into an actual tradeable
+# call) can read live per-strike premium/delta data via
+# get_last_oi_snapshot() WITHOUT a second option-chain fetch. Avoids
+# exactly the kind of redundant-fetch rate-limit risk this project
+# already hit once for real (the Aug 20 2026 429 incident).
+_last_oi_snapshot = {}  # {name: oi_dict}
+
+
+def get_last_oi_snapshot(name):
+    """Read-only accessor for the latest full option-chain analytics
+    dict snapshotted this process -- None if nothing's been snapshotted
+    yet (right after a restart, or outside trading hours)."""
+    return _last_oi_snapshot.get(name)
+
 # Direction memory for the flip log below -- {index_name: 'up'|'down'}.
 # Same no-explicit-day-reset convention as _last_snapshot above: relies
 # on the daily process restart to naturally clear it, exactly like that
@@ -375,6 +392,14 @@ def _get_cross_asset_snapshot():
 # restart -- same honest "no comparison yet" window as Put/Call OI Chg
 # already has on the first row after any (re)start.
 _recent_prices = {}
+
+# Aug 27 2026: rolling in-memory VIX history, same pattern as
+# _recent_prices above but ONE shared series (not per-index) since
+# India VIX is a single market-wide number, not per-symbol. Feeds the
+# VIX-trend vote in _derive_bias() below -- see that function's
+# docstring for why this was added.
+_recent_vix = []  # [(datetime, value), ...]
+_VIX_TREND_LOOKBACK_MINUTES = 15
 
 # Aug 20 2026: multi-horizon confirmation (accuracy backlog #5). Instead
 # of one ~15-min price-vs-Bias check, compute the SAME confirmation at
@@ -506,90 +531,227 @@ def _get_workbook(path):
     return wb
 
 
-def _derive_bias(pcr, oi_buildup):
+def _record_and_get_vix_trend(vix, now=None):
     """
-    Reverted to the original tight Neutral zone (0.95-1.05) on request,
-    after a real instance where a genuine ~150-point, hours-long NIFTY
-    slide still read Neutral because PCR (0.81-0.86) sat comfortably
-    inside the wider 0.7-1.3 band that had replaced this. That wider
-    band was adopted specifically because the tight one caused Bias to
-    flip Bullish/Bearish constantly on ordinary PCR noise, not real
-    regime changes -- reverting trades that stability back for
-    sensitivity, deliberately, with that tradeoff understood.
+    Aug 27 2026: % change in VIX vs the reading from roughly
+    _VIX_TREND_LOOKBACK_MINUTES ago -- one shared rolling series for
+    the whole market (there's only one VIX number, not per-index),
+    same prune-on-write pattern as _record_and_get_multi_horizon_
+    changes() below uses for price. Rising VIX = rising fear = a
+    bearish-leaning vote; falling VIX = calm = bullish-leaning. Feeds
+    _derive_bias() as one of several independent votes -- see that
+    function's docstring for the full context on why this was added.
 
-    Only the Neutral zone itself is restored to its documented original
-    value. The Strong-tier cutoffs (1.6 / 0.5) are left exactly as they
-    were in the wide-band version -- there's no record of those ever
-    being different, so this doesn't guess at numbers nobody wrote
-    down; it only changes what's actually documented.
-
-    The "Neutral but falling/rising" flag added alongside the wide
-    bands (see _price_confirms_bias) stays in place -- it's still
-    useful for the narrower window where PCR sits exactly in 0.95-1.05
-    while price moves, just triggers less often now that Bias itself
-    is more sensitive.
-
-    Aug 14 2026 -- oi_buildup now actually used. It's a plain label from
-    options_analytics.analyze_option_chain(): 'CE writing dominant
-    (bearish)', 'PE writing dominant (bullish)', or 'Mixed / no clear
-    dominance' -- computed from TODAY's chain-wide OI change (fresh
-    writing activity since market open), which is a meaningfully
-    DIFFERENT signal from PCR (the current absolute OI level, built up
-    over however many prior days). PCR can stay "Bullish" purely on old
-    put OI that's just sitting there while today's actual writing is
-    going the other way -- that gap is exactly what real backtest data
-    (Aug 10-14 2026) showed: PCR-alone accuracy was weak-to-below-
-    coin-flip. This does NOT touch the PCR tier boundaries above --
-    only refines the result using oi_buildup, and only when oi_buildup
-    has a clear read:
-      - PCR says Neutral, but today's flow leans one way -> surface
-        that as a plain (non-Strong) directional read instead of
-        staying silent on a real signal, same spirit as the existing
-        "Neutral but falling/rising" price-based flag, one layer
-        earlier (about OI flow here, not price).
-      - PCR is directional but today's flow actively disagrees ->
-        soften to Neutral rather than keep asserting a confident
-        directional call two of the app's own signals disagree on.
-      - Both agree, or oi_buildup is 'Mixed'/None -> PCR's tier is
-        used unchanged, Strong included.
-
-    HONEST LIMITATION: oi_buildup itself was never a logged column
-    historically (only the ATM-only Put/Call OI Chg columns were), so
-    this specific change can't be retroactively verified against past
-    data the way the _price_confirms_bias rewrite was -- it can only
-    be watched going forward from here.
+    Returns None until there's a reading old enough to compare against
+    (freshly (re)started, or fewer than the lookback minutes since
+    market open) -- same honest "not enough history yet" signal every
+    other rolling-window helper in this file already gives, rather
+    than comparing against a too-recent or missing reading.
     """
+    global _recent_vix
+    if vix is None:
+        return None
+    now = now or datetime.now()
+    with _lock:
+        cutoff = now - timedelta(minutes=_VIX_TREND_LOOKBACK_MINUTES * 4)  # keep a bit more than strictly needed -- cheap, avoids edge-of-window misses
+        while _recent_vix and _recent_vix[0][0] < cutoff:
+            _recent_vix.pop(0)
+        snapshot = list(_recent_vix)
+        _recent_vix.append((now, vix))
+
+    horizon_cutoff = now - timedelta(minutes=_VIX_TREND_LOOKBACK_MINUTES)
+    oldest = next((entry for entry in snapshot if entry[0] >= horizon_cutoff), None)
+    if oldest is None or not oldest[1]:
+        return None
+    return round((vix - oldest[1]) / oldest[1] * 100, 3)
+
+
+# Aug 27 2026: margins for the vote-based Bias below. Need to LEAD by
+# at least this many votes (out of up to 7) to call a direction at all
+# -- a close split (e.g. 4 vs 3) stays Neutral rather than picking a
+# side, same principle a reference NIFTY-tracking tool was seen using
+# live (its own 7-factor vote: Bullish 3 / Bearish 4 -> Neutral, not
+# Bearish). BIAS_VOTE_MARGIN_FOR_STRONG is a second, wider threshold
+# for the "(Strong)" tag -- most votes agreeing, not just enough to
+# clear the Neutral bar.
+#
+# HONEST LIMITATION: both numbers are a reasonable first cut, not
+# empirically tuned -- same "watch and retune" status as every other
+# threshold already documented in this file (the 0.05%/0.3% price-
+# confirmation bands, the MCX day-17 rollover, etc.). The SHAPE of the
+# fix (several independent votes, Neutral on a close split) is the
+# actual correction; the exact margin numbers need real logged data
+# before they can be trusted, not a single comparison point.
+BIAS_VOTE_MARGIN_FOR_DIRECTION = 2
+BIAS_VOTE_MARGIN_FOR_STRONG = 5
+
+
+def _pcr_vote(pcr):
+    """Same tier boundaries the old single-signal version used, but
+    now just ONE vote among several rather than the sole word on
+    direction. Neutral zone (0.95-1.05) abstains rather than voting
+    either way."""
     if pcr is None:
-        return "Neutral"
-    if pcr > 1.6:
-        pcr_bias = "Bullish (Strong)"
-    elif pcr > 1.05:
-        pcr_bias = "Bullish"
-    elif pcr < 0.5:
-        pcr_bias = "Bearish (Strong)"
-    elif pcr < 0.95:
-        pcr_bias = "Bearish"
-    else:
-        pcr_bias = "Neutral"
+        return None
+    if pcr > 1.05:
+        return "bullish"
+    if pcr < 0.95:
+        return "bearish"
+    return None
 
-    oi_direction = None
+
+def _oi_buildup_vote(oi_buildup):
+    """options_analytics.analyze_option_chain()'s plain label for
+    TODAY's fresh chain-wide writing activity -- a meaningfully
+    different signal from PCR (built-up OI over however many prior
+    days) for the same reason the old version already used this as a
+    modifier: PCR can stay 'Bullish' on old put OI just sitting there
+    while today's actual writing goes the other way."""
     if oi_buildup == "PE writing dominant (bullish)":
-        oi_direction = "bullish"
-    elif oi_buildup == "CE writing dominant (bearish)":
-        oi_direction = "bearish"
-    # 'Mixed / no clear dominance', None, or anything unrecognized -->
-    # no clear fresh-flow read to weigh in with, use PCR's tier as-is.
-    if oi_direction is None:
-        return pcr_bias
+        return "bullish"
+    if oi_buildup == "CE writing dominant (bearish)":
+        return "bearish"
+    return None
 
-    if pcr_bias == "Neutral":
-        return "Bullish" if oi_direction == "bullish" else "Bearish"
 
-    pcr_direction = "bullish" if pcr_bias.startswith("Bullish") else "bearish"
-    if pcr_direction != oi_direction:
+def _atm_balance_vote(pe_oi, ce_oi):
+    """Localized read at just the ATM strike -- deliberately separate
+    from whole-chain PCR above, same 'today's flow vs built-up
+    position' spirit as the PCR-vs-oi_buildup split already had.
+    Requires a real +-10% imbalance to vote, not just any lean, so
+    this doesn't fire on noise when the two sides are close to level."""
+    if pe_oi is None or ce_oi is None or (pe_oi + ce_oi) == 0:
+        return None
+    diff_pct = (pe_oi - ce_oi) / (pe_oi + ce_oi)
+    if diff_pct > 0.10:
+        return "bullish"
+    if diff_pct < -0.10:
+        return "bearish"
+    return None
+
+
+def _max_pain_vote(price, max_pain):
+    """Price tends to gravitate toward Max Pain by expiry -- price
+    meaningfully ABOVE it implies downward pull (bearish vote),
+    meaningfully BELOW implies upward pull (bullish vote). Real
+    simplification, stated plainly: this doesn't weight by days-to-
+    expiry, even though the pull is genuinely stronger close to
+    expiry -- same everywhere in the cycle for now."""
+    if price is None or max_pain is None or max_pain == 0:
+        return None
+    dist_pct = (price - max_pain) / max_pain * 100
+    if dist_pct > 0.15:
+        return "bearish"
+    if dist_pct < -0.15:
+        return "bullish"
+    return None
+
+
+def _oi_price_combo_vote(fut_oi_chg_pct, price_change_pct):
+    """Classic long/short buildup-vs-unwinding read: OI building
+    (writing) alongside a price rise = fresh longs (bullish); OI
+    building alongside a price fall = fresh shorts (bearish); OI
+    coming off (unwinding) alongside a price rise = short covering
+    (bullish); OI coming off alongside a price fall = long unwinding
+    (bearish)."""
+    if fut_oi_chg_pct is None or price_change_pct is None:
+        return None
+    if fut_oi_chg_pct > 0 and price_change_pct > 0:
+        return "bullish"
+    if fut_oi_chg_pct > 0 and price_change_pct < 0:
+        return "bearish"
+    if fut_oi_chg_pct < 0 and price_change_pct > 0:
+        return "bullish"
+    if fut_oi_chg_pct < 0 and price_change_pct < 0:
+        return "bearish"
+    return None
+
+
+def _vix_trend_vote(vix_change_pct):
+    """Rising VIX = rising fear = bearish lean; falling VIX = calm =
+    bullish lean. Index-only in practice -- VIX is left None for
+    commodities (see snapshot_commodity), so this vote simply abstains
+    there rather than being force-fit onto an instrument it doesn't
+    apply to."""
+    if vix_change_pct is None:
+        return None
+    if vix_change_pct > 3:
+        return "bearish"
+    if vix_change_pct < -3:
+        return "bullish"
+    return None
+
+
+def _momentum_vote(recent_change_pct):
+    """Same +-0.05% threshold _price_confirms_bias() already used --
+    reused here as ONE vote among several, not the sole word on
+    direction the way a single PCR tier crossing effectively was in
+    the old version."""
+    if recent_change_pct is None:
+        return None
+    if recent_change_pct > 0.05:
+        return "bullish"
+    if recent_change_pct < -0.05:
+        return "bearish"
+    return None
+
+
+def _derive_bias(pcr, oi_buildup, pe_oi=None, ce_oi=None, price=None, max_pain=None,
+                  fut_oi_chg_pct=None, price_change_pct=None, vix_change_pct=None,
+                  momentum_pct=None):
+    """
+    Aug 27 2026: rebuilt as a genuine multi-factor vote, REPLACING the
+    old "PCR tier, refined by one OI modifier" approach entirely. Real
+    trigger: compared live against a reference NIFTY tool that runs its
+    own 7-factor vote (seen live: Bullish 3 / Bearish 4 -> Neutral, on
+    that thin a margin) -- this project was calling the SAME moment
+    "Bearish" outright, because a single PCR tier crossing (0.5-0.95)
+    was enough to fully commit, with no concept of how close the
+    underlying signals actually were. Checked directly: both PCR
+    readings (0.63 there, 0.69 here) sat well inside that tier, so the
+    old code was doing exactly what it was written to do -- the GAP was
+    the missing concept of confidence/margin, not a wrong PCR read.
+
+    This does NOT try to reverse-engineer that other tool's exact
+    internal factors or weights -- not possible from a screenshot of
+    its output alone. It's a genuine, independent 7-vote system built
+    from data this project already fetches every cycle (PCR tier,
+    today's OI buildup direction, ATM-strike Put/Call balance, Max Pain
+    pull, OI+price buildup/unwinding combo, VIX trend, short-term price
+    momentum), using the same real principle: several independent reads
+    have to agree before committing to a direction; a close split stays
+    Neutral rather than picking a side. Any factor without enough data
+    simply abstains (counts toward neither side) rather than being
+    guessed.
+
+    HONEST LIMITATION: the specific 7 factors and the two margin
+    thresholds below are a reasonable first cut, not empirically
+    tuned -- same "watch and retune" status as every other threshold
+    already documented in this file. This can't be retroactively
+    verified against past logged data (the OLD Bias values are already
+    written for prior days, computed the old way) -- it can only be
+    watched going forward from here, same honest gap the oi_buildup
+    change had when IT shipped.
+    """
+    votes = [
+        _pcr_vote(pcr),
+        _oi_buildup_vote(oi_buildup),
+        _atm_balance_vote(pe_oi, ce_oi),
+        _max_pain_vote(price, max_pain),
+        _oi_price_combo_vote(fut_oi_chg_pct, price_change_pct),
+        _vix_trend_vote(vix_change_pct),
+        _momentum_vote(momentum_pct),
+    ]
+    bullish = votes.count("bullish")
+    bearish = votes.count("bearish")
+    margin = bullish - bearish
+
+    if abs(margin) < BIAS_VOTE_MARGIN_FOR_DIRECTION:
         return "Neutral"
-
-    return pcr_bias
+    direction = "Bullish" if margin > 0 else "Bearish"
+    if abs(margin) >= BIAS_VOTE_MARGIN_FOR_STRONG:
+        return f"{direction} (Strong)"
+    return direction
 
 
 def _status_label(oi_chg):
@@ -606,7 +768,9 @@ def _bias_direction(bias):
     Bearish/Bearish (Strong) -> 'down', Neutral/None -> None. Deliberately
     collapses Strong vs plain into the same direction, since a tier
     change within one direction (Bullish -> Bullish (Strong)) is an
-    intensity change, not a flip."""
+    intensity change, not a flip. Unaffected by the Aug 27 Bias rewrite
+    above -- still just reads the resulting string's prefix, same as
+    always."""
     if not bias:
         return None
     if bias.startswith("Bullish"):
@@ -758,6 +922,12 @@ def _price_confirms_bias(recent_change_pct, bias):
     _multi_horizon_confirms() below, so the same verdict logic applies
     at every horizon rather than just the original 15min.
 
+    Aug 27 2026: also now, separately, ONE of the 7 votes _derive_bias()
+    uses (via _momentum_vote(), same +-0.05% threshold) to help COMPUTE
+    Bias in the first place -- this function's own job is unchanged
+    though: it still just checks momentum against whatever Bias came
+    out, as an after-the-fact consistency read, same as always.
+
     Also flags the Neutral case specifically: PCR sitting in the
     Neutral band doesn't mean price itself is standing still -- a
     real, sustained move can happen while OI positioning just hasn't
@@ -805,7 +975,8 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     change_percent: the index's own day change%, passed in from
     _build_all() (which already fetches it for the top banner) rather
     than making a second API call for the same number.
-    vix: India VIX, same reasoning -- already fetched elsewhere per cycle.
+    vix: India VIX, same index for both rows (it's one number, not
+    per-index) -- reused from data already fetched elsewhere per cycle.
     """
     if not OPENPYXL_AVAILABLE or index_name not in INDEX_SYMBOLS:
         return None
@@ -824,6 +995,8 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         return None
     if not oi:
         return None
+    with _lock:
+        _last_oi_snapshot[index_name] = oi
 
     # Futures price + OI -- ONE depth() call gives both (confirmed live:
     # ltp for price, oi/pdoi/oipercent for OI), replacing what used to be
@@ -866,14 +1039,21 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         ce_chg = (ce_oi - prev["ce_oi"]) if (ce_oi is not None and "ce_oi" in prev) else None
         _last_snapshot[index_name] = {"pe_oi": pe_oi, "ce_oi": ce_oi}
 
-    bias = _derive_bias(oi.get("pcr"), oi.get("oi_buildup"))
-    # Multi-horizon momentum, NOT the day-cumulative change_percent --
-    # see _price_confirms_bias()'s docstring for why. Spot specifically
-    # (not Fut), matching the same choice already made in
-    # compute_cas_auction_moves() for the same reason: Fut trades
-    # through the CAS window differently and isn't the number this
-    # confirmation check is meant to be about.
+    # Aug 27 2026: momentum + VIX-trend now computed BEFORE Bias -- they
+    # feed _derive_bias() as two of its votes, not just a post-hoc
+    # confirmation check the way the single 15min "Price Confirms Bias"
+    # value below still is. Recording still happens exactly once per
+    # cycle either way, just earlier in this function now.
     horizon_changes = _record_and_get_multi_horizon_changes(index_name, oi.get("spot"))
+    vix_trend_pct = _record_and_get_vix_trend(vix)
+
+    bias = _derive_bias(
+        oi.get("pcr"), oi.get("oi_buildup"),
+        pe_oi=pe_oi, ce_oi=ce_oi,
+        price=oi.get("spot"), max_pain=oi.get("max_pain"),
+        fut_oi_chg_pct=fut_oi_chg_pct, price_change_pct=change_percent,
+        vix_change_pct=vix_trend_pct, momentum_pct=horizon_changes.get(15),
+    )
     confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
     per_horizon_confirms, horizons_summary = _multi_horizon_confirms(horizon_changes, bias)
     # Flagged separately rather than suppressing/altering Change % or
@@ -1023,6 +1203,8 @@ def snapshot_commodity(name, base):
         return None
     if not oi:
         return None
+    with _lock:
+        _last_oi_snapshot[name] = oi
 
     atm_strike = oi.get("atm_strike")
     rows = oi.get("rows", [])
@@ -1043,12 +1225,19 @@ def snapshot_commodity(name, base):
         ce_chg = (ce_oi - prev["ce_oi"]) if (ce_oi is not None and "ce_oi" in prev) else None
         _last_snapshot[name] = {"pe_oi": pe_oi, "ce_oi": ce_oi}
 
-    bias = _derive_bias(oi.get("pcr"), oi.get("oi_buildup"))
-    # Multi-horizon momentum, same as snapshot_index() -- but Fut here,
-    # not Spot, since commodities have no separate spot/cash index (the
-    # futures contract IS the underlying, same reasoning as everywhere
-    # else in this function).
+    # Aug 27 2026: momentum computed BEFORE Bias -- feeds _derive_bias()
+    # as one of its votes, same reordering as snapshot_index() above.
+    # No VIX-trend vote for commodities (VIX doesn't apply -- left None
+    # below, same as the row's own "VIX" field always has been).
     horizon_changes = _record_and_get_multi_horizon_changes(name, fut_price)
+
+    bias = _derive_bias(
+        oi.get("pcr"), oi.get("oi_buildup"),
+        pe_oi=pe_oi, ce_oi=ce_oi,
+        price=fut_price, max_pain=oi.get("max_pain"),
+        fut_oi_chg_pct=fut_oi_chg_pct, price_change_pct=change_percent,
+        vix_change_pct=None, momentum_pct=horizon_changes.get(15),
+    )
     confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
     per_horizon_confirms, horizons_summary = _multi_horizon_confirms(horizon_changes, bias)
 
