@@ -1623,6 +1623,28 @@ class DailyBacktestReportDownloadView(APIView):
         return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
 
 
+class DailyBacktestRangeView(APIView):
+    """
+    Aug 27 2026: on-demand backtest for a specific date range -- powers
+    the date-range picker in the Daily Backtest tab. Pure preview
+    computation: no PDF written, no Telegram send, doesn't touch the
+    scheduled cycle's cached last-run status. Safe to call as often as
+    someone drags the date picker.
+    GET /api/daily-backtest/range/?start=YYYY-MM-DD&end=YYYY-MM-DD
+    """
+    def get(self, request):
+        from .daily_backtest import run_range_backtest
+        start = request.GET.get("start")
+        end = request.GET.get("end")
+        if not start or not end:
+            return Response({"error": "start and end query params (YYYY-MM-DD) are required"}, status=400)
+        try:
+            result = run_range_backtest(start, end)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
+        return Response(clean_json(result))
+
+
 class IndexBacktestExportView(APIView):
     """Download the day-wise backtest as an Excel file, one row per
     date+bias with a Hit% and sample count column per horizon.

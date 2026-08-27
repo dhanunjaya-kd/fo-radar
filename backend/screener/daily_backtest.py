@@ -246,6 +246,85 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
     return result
 
 
+def _filter_trades_by_range(trades, start_date, end_date):
+    """Keep only trades whose EXIT falls within [start_date, end_date]
+    (inclusive, by calendar date). Exit date is what
+    compute_equity_curve() orders by and what P&L is realized on, so
+    filtering by exit (not entry) matches what the resulting chart
+    actually shows -- a trade that entered before the window but
+    exited inside it is included; one that entered inside but hasn't
+    exited yet (still open) is correctly excluded either way, same as
+    load_all_trades()'s own "unresolved rows aren't counted" rule."""
+    return [t for t in trades if start_date <= t["exit_dt"].date() <= end_date]
+
+
+def run_range_backtest(start_str, end_str):
+    """
+    Aug 27 2026: on-demand, date-range-filtered backtest -- powers the
+    date-range picker in the Daily Backtest tab, so a specific window
+    (e.g. "just this week") can be viewed instead of always seeing
+    everything ever logged. Pure read/compute, NO side effects: does
+    not write a PDF, does not touch the scheduled cycle's cached
+    _last_run, does not send to Telegram -- those stay reserved for
+    the real scheduled/manual full cycle (run_daily_backtest_cycle
+    above). This is a fast preview computation only, safe to call as
+    often as someone drags the date picker.
+
+    Raises ValueError if start_str/end_str aren't valid YYYY-MM-DD --
+    caller (the API view) is expected to turn that into a 400, not a
+    500.
+
+    Returns {'stock': {...}, 'nifty': {...}, 'banknifty': {...}}, each
+    shaped {'summary': ..., 'equity_curve': ...} (same shapes
+    _summarize()/_serialize_equity_curve() already produce elsewhere)
+    with both None if nothing fell inside the requested range.
+    """
+    try:
+        start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        raise ValueError("start/end must be YYYY-MM-DD")
+
+    result = {
+        "stock": {"summary": None, "equity_curve": None},
+        "nifty": {"summary": None, "equity_curve": None},
+        "banknifty": {"summary": None, "equity_curve": None},
+    }
+
+    try:
+        from .backtest_signal_pnl import load_all_trades, compute_capital_base, compute_metrics, compute_equity_curve
+        all_trades, _ = load_all_trades()
+        trades = _filter_trades_by_range(all_trades, start_date, end_date)
+        if trades:
+            capital_base = compute_capital_base(trades)
+            metrics = compute_metrics(trades, capital_base)
+            if metrics:
+                result["stock"]["summary"] = _summarize(metrics)
+                result["stock"]["equity_curve"] = _serialize_equity_curve(compute_equity_curve(trades, capital_base))
+    except Exception as e:
+        print(f"[DailyBacktest] range stock backtest failed: {e}")
+
+    try:
+        from .backtest_index_positional import generate_positional_trades, DEFAULT_MARGIN_PER_LOT
+        from .backtest_signal_pnl import compute_capital_base, compute_metrics, compute_equity_curve
+        for index_name, key in (("NIFTY", "nifty"), ("BANKNIFTY", "banknifty")):
+            try:
+                all_trades, _ = generate_positional_trades(index_name)
+                trades = _filter_trades_by_range(all_trades, start_date, end_date)
+                if trades:
+                    capital_base = compute_capital_base(trades, capital_per_trade=DEFAULT_MARGIN_PER_LOT.get(index_name, 200000))
+                    metrics = compute_metrics(trades, capital_base)
+                    if metrics:
+                        result[key]["summary"] = _summarize(metrics)
+                        result[key]["equity_curve"] = _serialize_equity_curve(compute_equity_curve(trades, capital_base))
+            except Exception as e:
+                print(f"[DailyBacktest] range {index_name} backtest failed: {e}")
+    except Exception as e:
+        print(f"[DailyBacktest] range index import failed: {e}")
+
+    return result
+
+
 def run_daily_backtest_cycle_async(trigger="manual", backfill_days=7):
     """Fire-and-forget wrapper for the API-triggered 'Run Now' button --
     the full cycle can take a while (real Fyers history calls per
