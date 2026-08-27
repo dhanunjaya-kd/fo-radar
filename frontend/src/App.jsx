@@ -14,11 +14,13 @@ import CrudeOilTracker from './components/CrudeOilTracker';
 import BullionTracker from './components/BullionTracker';
 import NewsFeed from './components/NewsFeed';
 import FundamentalsWatchlist from './components/FundamentalsWatchlist';
+import DailyBacktestTab from './components/DailyBacktestTab';
 
-// The 9 valid tab ids -- used to validate whatever's in localStorage
+// The 10 valid tab ids -- used to validate whatever's in localStorage
 // so a stale/unrecognized value (e.g. from an older version of the
 // app) can't leave activeTab pointing at nothing and rendering blank.
-const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value'];
+// Aug 27 2026: added 'backtest' for the new Daily Backtest tab.
+const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -54,6 +56,7 @@ function AppShell() {
     { id: 'bullion', label: 'Gold & Silver', count: null },
     { id: 'news', label: 'News', count: null },
     { id: 'value', label: 'Value Watchlist', count: null },
+    { id: 'backtest', label: 'Daily Backtest', count: null },
   ];
 
   useEffect(() => {
@@ -128,6 +131,7 @@ function AppShell() {
               {tab.id === 'bullion' && '🥇'}
               {tab.id === 'news' && '📰'}
               {tab.id === 'value' && '💎'}
+              {tab.id === 'backtest' && '🧮'}
               {tab.label}
               {tab.count !== null && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full ${
@@ -158,6 +162,7 @@ function AppShell() {
         {activeTab === 'bullion' && <BullionTracker />}
         {activeTab === 'news' && <NewsFeed />}
         {activeTab === 'value' && <FundamentalsWatchlist />}
+        {activeTab === 'backtest' && <DailyBacktestTab />}
       </div>
     </div>
   );
