@@ -127,8 +127,23 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
             capital_base = compute_capital_base(trades)
             metrics = compute_metrics(trades, capital_base)
             if metrics:
-                stock_pdf = _run_and_rename(write_pdf_report, trades, metrics, f"signal_pnl_stock_{end_str}.pdf")
+                # Aug 27 2026: summary computed and exposed FIRST, before
+                # PDF generation is even attempted -- these two used to
+                # be set on the same line, which meant a PDF-only failure
+                # (e.g. reportlab not installed) silently took the
+                # numeric summary down with it too, even though
+                # _summarize() has no PDF dependency at all. Caught live:
+                # a real missing-reportlab error left the tab showing
+                # "No trades yet" when real, computed trade data existed
+                # the whole time. PDF generation now has its OWN
+                # try/except so a rendering-library problem only costs
+                # the download link, never the numbers themselves.
                 stock_summary = _summarize(metrics)
+                try:
+                    stock_pdf = _run_and_rename(write_pdf_report, trades, metrics, f"signal_pnl_stock_{end_str}.pdf")
+                except Exception as e:
+                    print(f"[DailyBacktest] stock PDF generation failed (summary still available): {e}")
+                    errors.append(f"stock PDF: {e}")
         else:
             print(f"[DailyBacktest] No resolved stock trades yet ({excluded} excluded) -- skipping stock PDF this cycle, not an error.")
     except Exception as e:
@@ -148,8 +163,16 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
                 capital_base = compute_capital_base(trades, capital_per_trade=DEFAULT_MARGIN_PER_LOT.get(index_name, 200000))
                 metrics = compute_metrics(trades, capital_base)
                 if metrics:
-                    pdf_path = _run_and_rename(write_pdf_report, trades, metrics, f"index_positional_{index_name}_{end_str}.pdf")
-                    index_results[index_name] = (pdf_path, _summarize(metrics))
+                    # Same decoupling as the stock section above -- summary
+                    # exposed regardless of whether PDF rendering succeeds.
+                    summary = _summarize(metrics)
+                    pdf_path = None
+                    try:
+                        pdf_path = _run_and_rename(write_pdf_report, trades, metrics, f"index_positional_{index_name}_{end_str}.pdf")
+                    except Exception as e:
+                        print(f"[DailyBacktest] {index_name} PDF generation failed (summary still available): {e}")
+                        errors.append(f"{index_name} PDF: {e}")
+                    index_results[index_name] = (pdf_path, summary)
             except Exception as e:
                 print(f"[DailyBacktest] {index_name} positional backtest failed: {e}")
                 errors.append(f"{index_name} positional: {e}")
