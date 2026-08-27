@@ -80,6 +80,86 @@ function EquityCurveChart({ points, width = 280, height = 100 }) {
   );
 }
 
+// Aug 27 2026: merges the 3 per-source trade lists (stock/NIFTY/
+// BANKNIFTY) into one combined, most-recent-first table -- matches
+// the single "Recent Trades" table from the mockup (spanning all
+// strategies together, not 3 separate mini-tables), while the backend
+// still keeps them as 3 clean separate arrays. Merge happens here on
+// the frontend rather than in daily_backtest.py, since it's just a
+// concat+sort+slice with no real business logic -- doesn't need a
+// backend round-trip of its own.
+function RecentTradesTable({ stockTrades, niftyTrades, bankniftyTrades, limit = 15 }) {
+  const tagged = [
+    ...(stockTrades || []).map(t => ({ ...t, source: 'Stock' })),
+    ...(niftyTrades || []).map(t => ({ ...t, source: 'NIFTY' })),
+    ...(bankniftyTrades || []).map(t => ({ ...t, source: 'BANKNIFTY' })),
+  ];
+  const merged = tagged.sort((a, b) => new Date(b.exit_dt) - new Date(a.exit_dt)).slice(0, limit);
+
+  if (merged.length === 0) {
+    return (
+      <div className="rounded-lg bg-slate-800/50 border border-slate-700/40 p-4 text-center">
+        <p className="text-xs text-slate-500">No resolved trades yet across any strategy.</p>
+      </div>
+    );
+  }
+
+  const sourceBadge = (source) => {
+    const styles = {
+      Stock: 'text-indigo-300 bg-indigo-500/10 border-indigo-500/25',
+      NIFTY: 'text-amber-300 bg-amber-500/10 border-amber-500/25',
+      BANKNIFTY: 'text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/25',
+    };
+    return styles[source] || styles.Stock;
+  };
+
+  return (
+    <div className="rounded-lg bg-slate-800/50 border border-slate-700/40 overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-700/40">
+        <h3 className="text-sm font-bold text-white">Recent Trades</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-[9px] text-slate-500 uppercase border-b border-slate-700/30">
+              <th className="text-left px-4 py-2 font-medium">Date</th>
+              <th className="text-left px-2 py-2 font-medium">Source</th>
+              <th className="text-left px-2 py-2 font-medium">Symbol</th>
+              <th className="text-left px-2 py-2 font-medium">Action</th>
+              <th className="text-right px-2 py-2 font-medium">Entry</th>
+              <th className="text-right px-2 py-2 font-medium">Exit</th>
+              <th className="text-right px-4 py-2 font-medium">P&L</th>
+            </tr>
+          </thead>
+          <tbody>
+            {merged.map((t, i) => {
+              const isWin = (t.pnl || 0) >= 0;
+              return (
+                <tr key={i} className="border-b border-slate-700/20 last:border-0 hover:bg-slate-900/30">
+                  <td className="px-4 py-2 text-slate-400 whitespace-nowrap">
+                    {new Date(t.exit_dt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </td>
+                  <td className="px-2 py-2">
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${sourceBadge(t.source)}`}>{t.source}</span>
+                  </td>
+                  <td className="px-2 py-2 text-white font-medium">{t.symbol || '—'}</td>
+                  <td className="px-2 py-2 text-slate-400">{t.action || '—'}</td>
+                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{t.entry != null ? `₹${t.entry.toFixed(2)}` : '—'}</td>
+                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{t.exit_price != null ? `₹${t.exit_price.toFixed(2)}` : '—'}</td>
+                  <td className={`px-4 py-2 text-right font-bold tabular-nums ${isWin ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {t.pnl != null ? `${isWin ? '+' : ''}₹${t.pnl.toFixed(2)}` : '—'}
+                    {t.pnl_pct != null && <span className="text-[9px] font-normal opacity-70 ml-1">({isWin ? '+' : ''}{t.pnl_pct.toFixed(1)}%)</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve }) {
   const hasData = !!summary;
   return (
@@ -244,9 +324,9 @@ export default function DailyBacktestTab() {
   // run_range_backtest docstring), so pdfPath is always null in range
   // view rather than pointing at a stale scheduled-run PDF that
   // doesn't match what's actually being shown.
-  const displayStock = isRangeView ? rangeResult.stock : { summary: status?.stock_summary, equity_curve: status?.stock_equity_curve };
-  const displayNifty = isRangeView ? rangeResult.nifty : { summary: status?.nifty_summary, equity_curve: status?.nifty_equity_curve };
-  const displayBanknifty = isRangeView ? rangeResult.banknifty : { summary: status?.banknifty_summary, equity_curve: status?.banknifty_equity_curve };
+  const displayStock = isRangeView ? rangeResult.stock : { summary: status?.stock_summary, equity_curve: status?.stock_equity_curve, recent_trades: status?.stock_recent_trades };
+  const displayNifty = isRangeView ? rangeResult.nifty : { summary: status?.nifty_summary, equity_curve: status?.nifty_equity_curve, recent_trades: status?.nifty_recent_trades };
+  const displayBanknifty = isRangeView ? rangeResult.banknifty : { summary: status?.banknifty_summary, equity_curve: status?.banknifty_equity_curve, recent_trades: status?.banknifty_recent_trades };
 
   return (
     <div className="space-y-4">
@@ -318,6 +398,7 @@ export default function DailyBacktestTab() {
             <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={null} equityCurve={displayNifty.equity_curve} />
             <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={null} equityCurve={displayBanknifty.equity_curve} />
           </div>
+          <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} />
         </>
       ) : neverRun ? (
         <div className="text-center py-12">
@@ -349,6 +430,7 @@ export default function DailyBacktestTab() {
             <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={status.nifty_pdf} equityCurve={displayNifty.equity_curve} />
             <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={status.banknifty_pdf} equityCurve={displayBanknifty.equity_curve} />
           </div>
+          <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} />
         </>
       )}
     </div>
