@@ -15,6 +15,9 @@ const IconAlertTriangle = ({ size = 13 }) => (
 const IconClock = ({ size = 13 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
 );
+const IconCalendar = ({ size = 13, className = '' }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+);
 
 // Aug 27 2026: pure SVG, no charting library dependency -- avoids any
 // risk of the app breaking on a missing npm package (same lesson as
@@ -187,6 +190,41 @@ export default function DailyBacktestTab() {
     }
   };
 
+  // Aug 27 2026: date-range picker -- lets someone view performance
+  // over any specific window instead of only ever seeing the last
+  // scheduled/manual run's full-history numbers. rangeResult is null
+  // until a range is actually queried; while null, the tab shows the
+  // normal scheduled 'status' data (unchanged from before). Native
+  // <input type="date"> deliberately -- no extra date-picker library
+  // to add, same "don't add a dependency that can break" lesson as
+  // today's reportlab issue.
+  const [rangeStart, setRangeStart] = useState('');
+  const [rangeEnd, setRangeEnd] = useState('');
+  const [rangeResult, setRangeResult] = useState(null);
+  const [rangeLoading, setRangeLoading] = useState(false);
+
+  const viewRange = async () => {
+    if (!rangeStart || !rangeEnd) return;
+    setRangeLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/daily-backtest/range/?start=${rangeStart}&end=${rangeEnd}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setRangeResult(json);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRangeLoading(false);
+    }
+  };
+
+  const clearRange = () => {
+    setRangeResult(null);
+    setRangeStart('');
+    setRangeEnd('');
+  };
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -198,6 +236,17 @@ export default function DailyBacktestTab() {
   }
 
   const neverRun = !status || !status.started_at;
+  const isRangeView = !!rangeResult;
+
+  // Aug 27 2026: whichever view is active feeds the SAME SummaryCard/
+  // EquityCurveChart components below -- range results never have a
+  // PDF (that's a preview-only endpoint, see daily_backtest.py's
+  // run_range_backtest docstring), so pdfPath is always null in range
+  // view rather than pointing at a stale scheduled-run PDF that
+  // doesn't match what's actually being shown.
+  const displayStock = isRangeView ? rangeResult.stock : { summary: status?.stock_summary, equity_curve: status?.stock_equity_curve };
+  const displayNifty = isRangeView ? rangeResult.nifty : { summary: status?.nifty_summary, equity_curve: status?.nifty_equity_curve };
+  const displayBanknifty = isRangeView ? rangeResult.banknifty : { summary: status?.banknifty_summary, equity_curve: status?.banknifty_equity_curve };
 
   return (
     <div className="space-y-4">
@@ -221,13 +270,56 @@ export default function DailyBacktestTab() {
         </button>
       </div>
 
+      {/* Date range picker -- re-slices the SAME cards below for a
+          specific window instead of always showing all-time history. */}
+      <div className="flex items-center gap-2 flex-wrap bg-slate-800/30 border border-slate-700/30 rounded-lg px-3 py-2">
+        <IconCalendar size={13} className="text-slate-500" />
+        <span className="text-[11px] text-slate-500">Custom range:</span>
+        <input
+          type="date"
+          value={rangeStart}
+          onChange={(e) => setRangeStart(e.target.value)}
+          className="h-7 text-xs bg-slate-900/60 border border-slate-700 rounded px-2 text-slate-300 focus:outline-none focus:border-emerald-500"
+        />
+        <span className="text-slate-600 text-xs">to</span>
+        <input
+          type="date"
+          value={rangeEnd}
+          onChange={(e) => setRangeEnd(e.target.value)}
+          className="h-7 text-xs bg-slate-900/60 border border-slate-700 rounded px-2 text-slate-300 focus:outline-none focus:border-emerald-500"
+        />
+        <button
+          onClick={viewRange}
+          disabled={!rangeStart || !rangeEnd || rangeLoading}
+          className="h-7 text-xs font-medium rounded px-3 text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {rangeLoading ? 'Loading…' : 'View Range'}
+        </button>
+        {isRangeView && (
+          <button onClick={clearRange} className="h-7 text-xs font-medium rounded px-3 text-slate-400 bg-slate-800 border border-slate-700 hover:text-slate-200 transition-colors">
+            Show Latest Run
+          </button>
+        )}
+      </div>
+
       {error && (
         <div className="text-xs text-amber-400 bg-amber-500/10 px-3 py-2 rounded-lg border border-amber-500/20 flex items-center gap-1.5">
           <IconAlertTriangle size={13} /> {error}
         </div>
       )}
 
-      {neverRun ? (
+      {isRangeView ? (
+        <>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <IconCalendar size={11} /> Showing: {rangeStart} to {rangeEnd}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <SummaryCard title="Stock Signals" pdfKey="stock" summary={displayStock.summary} pdfPath={null} equityCurve={displayStock.equity_curve} />
+            <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={null} equityCurve={displayNifty.equity_curve} />
+            <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={null} equityCurve={displayBanknifty.equity_curve} />
+          </div>
+        </>
+      ) : neverRun ? (
         <div className="text-center py-12">
           <div className="text-slate-600 mb-3 flex justify-center"><IconClock size={32} /></div>
           <h3 className="text-base font-bold text-white mb-1">No backtest run yet</h3>
@@ -253,9 +345,9 @@ export default function DailyBacktestTab() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <SummaryCard title="Stock Signals" pdfKey="stock" summary={status.stock_summary} pdfPath={status.stock_pdf} equityCurve={status.stock_equity_curve} />
-            <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={status.nifty_summary} pdfPath={status.nifty_pdf} equityCurve={status.nifty_equity_curve} />
-            <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={status.banknifty_summary} pdfPath={status.banknifty_pdf} equityCurve={status.banknifty_equity_curve} />
+            <SummaryCard title="Stock Signals" pdfKey="stock" summary={displayStock.summary} pdfPath={status.stock_pdf} equityCurve={displayStock.equity_curve} />
+            <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={status.nifty_pdf} equityCurve={displayNifty.equity_curve} />
+            <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={status.banknifty_pdf} equityCurve={displayBanknifty.equity_curve} />
           </div>
         </>
       )}
