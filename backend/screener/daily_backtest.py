@@ -45,9 +45,9 @@ _lock = threading.Lock()
 _last_run = {
     "started_at": None, "finished_at": None, "trigger": None,  # 'scheduled-close' | 'scheduled-morning' | 'manual'
     "backfill_range": None,
-    "stock_pdf": None, "stock_summary": None, "stock_equity_curve": None,
-    "nifty_pdf": None, "nifty_summary": None, "nifty_equity_curve": None,
-    "banknifty_pdf": None, "banknifty_summary": None, "banknifty_equity_curve": None,
+    "stock_pdf": None, "stock_summary": None, "stock_equity_curve": None, "stock_recent_trades": None,
+    "nifty_pdf": None, "nifty_summary": None, "nifty_equity_curve": None, "nifty_recent_trades": None,
+    "banknifty_pdf": None, "banknifty_summary": None, "banknifty_equity_curve": None, "banknifty_recent_trades": None,
     "errors": [],
 }
 
@@ -83,6 +83,42 @@ def _serialize_equity_curve(curve):
         {"date": p["dt"].isoformat(), "cumulative_pnl": p["cumulative_pnl"], "equity": p["equity"]}
         for p in curve
     ]
+
+
+def _serialize_trades(trades, limit=15):
+    """
+    Aug 27 2026: JSON-safe view of the most recent N trades (by exit
+    date, most recent first) -- powers a Recent Trades table in the
+    tab. Uses .get() throughout rather than assuming every field
+    exists on every trade record: stock trades (backtest_signal_pnl.py's
+    load_all_trades()) and index positional trades (backtest_index_
+    positional.py's generate_positional_trades()) aren't guaranteed to
+    carry identical fields (e.g. grade/sector are stock-specific
+    concepts) -- this only surfaces what's actually there rather than
+    fabricating a field that doesn't exist for one of the two sources.
+    entry_dt/exit_dt/entry/exit_price/pnl/pnl_pct ARE guaranteed on
+    both, though -- they're required inputs to compute_equity_curve()/
+    compute_capital_base(), which both trade sources already feed
+    successfully elsewhere in this file.
+    """
+    if not trades:
+        return []
+    sorted_trades = sorted(trades, key=lambda t: t["exit_dt"], reverse=True)[:limit]
+    out = []
+    for t in sorted_trades:
+        out.append({
+            "symbol": t.get("symbol"),
+            "action": t.get("action"),
+            "entry_dt": t["entry_dt"].isoformat() if t.get("entry_dt") else None,
+            "exit_dt": t["exit_dt"].isoformat() if t.get("exit_dt") else None,
+            "entry": t.get("entry"),
+            "exit_price": t.get("exit_price"),
+            "pnl": t.get("pnl"),
+            "pnl_pct": t.get("pnl_pct"),
+            "exit_reason": t.get("exit_reason"),
+            "grade": t.get("grade"),  # None for index positional trades -- frontend just omits the badge when absent
+        })
+    return out
 
 
 def _summarize(metrics):
@@ -133,7 +169,7 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         print(f"[DailyBacktest] backfill failed: {e}")
         errors.append(f"backfill: {e}")
 
-    stock_pdf, stock_summary, stock_equity_curve = None, None, None
+    stock_pdf, stock_summary, stock_equity_curve, stock_recent_trades = None, None, None, None
     try:
         from .backtest_signal_pnl import load_all_trades, compute_capital_base, compute_metrics, compute_equity_curve, write_pdf_report
         trades, excluded = load_all_trades()
@@ -158,6 +194,9 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
                 # math (backtest_signal_pnl.py), no reportlab/matplotlib
                 # involved, so it's exposed here unconditionally too.
                 stock_equity_curve = _serialize_equity_curve(compute_equity_curve(trades, capital_base))
+                # Aug 27 2026: same again for the Recent Trades table --
+                # pure trade-data, no PDF dependency, exposed regardless.
+                stock_recent_trades = _serialize_trades(trades)
                 try:
                     stock_pdf = _run_and_rename(write_pdf_report, trades, metrics, f"signal_pnl_stock_{end_str}.pdf")
                 except Exception as e:
@@ -169,7 +208,7 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         print(f"[DailyBacktest] stock backtest failed: {e}")
         errors.append(f"stock backtest: {e}")
 
-    index_results = {"NIFTY": (None, None, None), "BANKNIFTY": (None, None, None)}
+    index_results = {"NIFTY": (None, None, None, None), "BANKNIFTY": (None, None, None, None)}
     try:
         from .backtest_index_positional import generate_positional_trades, DEFAULT_MARGIN_PER_LOT
         from .backtest_signal_pnl import compute_capital_base, compute_metrics, compute_equity_curve, write_pdf_report
@@ -182,18 +221,19 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
                 capital_base = compute_capital_base(trades, capital_per_trade=DEFAULT_MARGIN_PER_LOT.get(index_name, 200000))
                 metrics = compute_metrics(trades, capital_base)
                 if metrics:
-                    # Same decoupling as the stock section above -- summary
-                    # AND equity curve exposed regardless of whether PDF
-                    # rendering succeeds.
+                    # Same decoupling as the stock section above -- summary,
+                    # equity curve, AND recent trades all exposed regardless
+                    # of whether PDF rendering succeeds.
                     summary = _summarize(metrics)
                     equity_curve = _serialize_equity_curve(compute_equity_curve(trades, capital_base))
+                    recent_trades = _serialize_trades(trades)
                     pdf_path = None
                     try:
                         pdf_path = _run_and_rename(write_pdf_report, trades, metrics, f"index_positional_{index_name}_{end_str}.pdf")
                     except Exception as e:
                         print(f"[DailyBacktest] {index_name} PDF generation failed (summary still available): {e}")
                         errors.append(f"{index_name} PDF: {e}")
-                    index_results[index_name] = (pdf_path, summary, equity_curve)
+                    index_results[index_name] = (pdf_path, summary, equity_curve, recent_trades)
             except Exception as e:
                 print(f"[DailyBacktest] {index_name} positional backtest failed: {e}")
                 errors.append(f"{index_name} positional: {e}")
@@ -206,9 +246,9 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         "finished_at": datetime.now().isoformat(),
         "trigger": trigger,
         "backfill_range": f"{start_str} to {end_str}",
-        "stock_pdf": stock_pdf, "stock_summary": stock_summary, "stock_equity_curve": stock_equity_curve,
-        "nifty_pdf": index_results["NIFTY"][0], "nifty_summary": index_results["NIFTY"][1], "nifty_equity_curve": index_results["NIFTY"][2],
-        "banknifty_pdf": index_results["BANKNIFTY"][0], "banknifty_summary": index_results["BANKNIFTY"][1], "banknifty_equity_curve": index_results["BANKNIFTY"][2],
+        "stock_pdf": stock_pdf, "stock_summary": stock_summary, "stock_equity_curve": stock_equity_curve, "stock_recent_trades": stock_recent_trades,
+        "nifty_pdf": index_results["NIFTY"][0], "nifty_summary": index_results["NIFTY"][1], "nifty_equity_curve": index_results["NIFTY"][2], "nifty_recent_trades": index_results["NIFTY"][3],
+        "banknifty_pdf": index_results["BANKNIFTY"][0], "banknifty_summary": index_results["BANKNIFTY"][1], "banknifty_equity_curve": index_results["BANKNIFTY"][2], "banknifty_recent_trades": index_results["BANKNIFTY"][3],
         "errors": errors,
     }
     with _lock:
@@ -275,9 +315,10 @@ def run_range_backtest(start_str, end_str):
     500.
 
     Returns {'stock': {...}, 'nifty': {...}, 'banknifty': {...}}, each
-    shaped {'summary': ..., 'equity_curve': ...} (same shapes
-    _summarize()/_serialize_equity_curve() already produce elsewhere)
-    with both None if nothing fell inside the requested range.
+    shaped {'summary': ..., 'equity_curve': ..., 'recent_trades': ...}
+    (same shapes _summarize()/_serialize_equity_curve()/
+    _serialize_trades() already produce elsewhere) with all three None
+    if nothing fell inside the requested range.
     """
     try:
         start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
@@ -286,9 +327,9 @@ def run_range_backtest(start_str, end_str):
         raise ValueError("start/end must be YYYY-MM-DD")
 
     result = {
-        "stock": {"summary": None, "equity_curve": None},
-        "nifty": {"summary": None, "equity_curve": None},
-        "banknifty": {"summary": None, "equity_curve": None},
+        "stock": {"summary": None, "equity_curve": None, "recent_trades": None},
+        "nifty": {"summary": None, "equity_curve": None, "recent_trades": None},
+        "banknifty": {"summary": None, "equity_curve": None, "recent_trades": None},
     }
 
     try:
@@ -301,6 +342,7 @@ def run_range_backtest(start_str, end_str):
             if metrics:
                 result["stock"]["summary"] = _summarize(metrics)
                 result["stock"]["equity_curve"] = _serialize_equity_curve(compute_equity_curve(trades, capital_base))
+                result["stock"]["recent_trades"] = _serialize_trades(trades)
     except Exception as e:
         print(f"[DailyBacktest] range stock backtest failed: {e}")
 
@@ -317,6 +359,7 @@ def run_range_backtest(start_str, end_str):
                     if metrics:
                         result[key]["summary"] = _summarize(metrics)
                         result[key]["equity_curve"] = _serialize_equity_curve(compute_equity_curve(trades, capital_base))
+                        result[key]["recent_trades"] = _serialize_trades(trades)
             except Exception as e:
                 print(f"[DailyBacktest] range {index_name} backtest failed: {e}")
     except Exception as e:
