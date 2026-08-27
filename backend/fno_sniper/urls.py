@@ -10,7 +10,8 @@ from screener.views import (
     IndexBacktestView, IndexBacktestExportView, WeeklyReportView,
     FundamentalsWatchlistView, CASAuctionMovesView, IndexTrackerAvailableDatesView,
     SignalWatchlistCsvView, IndexSignalView, CommodityCurrentSymbolView,
-    DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView
+    DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView,
+    DailyBacktestRangeView
 )
 
 urlpatterns = [
@@ -52,6 +53,7 @@ urlpatterns = [
     path('api/daily-backtest/status/', DailyBacktestStatusView.as_view(), name='daily_backtest_status'),
     path('api/daily-backtest/run/', DailyBacktestRunView.as_view(), name='daily_backtest_run'),
     path('api/daily-backtest/download/<str:report_type>/', DailyBacktestReportDownloadView.as_view(), name='daily_backtest_download'),
+    path('api/daily-backtest/range/', DailyBacktestRangeView.as_view(), name='daily_backtest_range'),
 
     # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
