@@ -583,7 +583,7 @@ def _record_and_get_vix_trend(vix, now=None):
 # actual correction; the exact margin numbers need real logged data
 # before they can be trusted, not a single comparison point.
 BIAS_VOTE_MARGIN_FOR_DIRECTION = 2
-BIAS_VOTE_MARGIN_FOR_STRONG = 5
+BIAS_VOTE_MARGIN_FOR_STRONG = 4  # was 5 out of 7 votes; 4 out of 6 holds roughly the same "most votes agree" proportion -- see _derive_bias()'s Aug 27 follow-up note for why the vote count dropped
 
 
 def _pcr_vote(pcr):
@@ -647,26 +647,6 @@ def _max_pain_vote(price, max_pain):
     return None
 
 
-def _oi_price_combo_vote(fut_oi_chg_pct, price_change_pct):
-    """Classic long/short buildup-vs-unwinding read: OI building
-    (writing) alongside a price rise = fresh longs (bullish); OI
-    building alongside a price fall = fresh shorts (bearish); OI
-    coming off (unwinding) alongside a price rise = short covering
-    (bullish); OI coming off alongside a price fall = long unwinding
-    (bearish)."""
-    if fut_oi_chg_pct is None or price_change_pct is None:
-        return None
-    if fut_oi_chg_pct > 0 and price_change_pct > 0:
-        return "bullish"
-    if fut_oi_chg_pct > 0 and price_change_pct < 0:
-        return "bearish"
-    if fut_oi_chg_pct < 0 and price_change_pct > 0:
-        return "bullish"
-    if fut_oi_chg_pct < 0 and price_change_pct < 0:
-        return "bearish"
-    return None
-
-
 def _vix_trend_vote(vix_change_pct):
     """Rising VIX = rising fear = bearish lean; falling VIX = calm =
     bullish lean. Index-only in practice -- VIX is left None for
@@ -697,8 +677,7 @@ def _momentum_vote(recent_change_pct):
 
 
 def _derive_bias(pcr, oi_buildup, pe_oi=None, ce_oi=None, price=None, max_pain=None,
-                  fut_oi_chg_pct=None, price_change_pct=None, vix_change_pct=None,
-                  momentum_pct=None):
+                  vix_change_pct=None, momentum_pct=None):
     """
     Aug 27 2026: rebuilt as a genuine multi-factor vote, REPLACING the
     old "PCR tier, refined by one OI modifier" approach entirely. Real
@@ -714,31 +693,52 @@ def _derive_bias(pcr, oi_buildup, pe_oi=None, ce_oi=None, price=None, max_pain=N
 
     This does NOT try to reverse-engineer that other tool's exact
     internal factors or weights -- not possible from a screenshot of
-    its output alone. It's a genuine, independent 7-vote system built
-    from data this project already fetches every cycle (PCR tier,
-    today's OI buildup direction, ATM-strike Put/Call balance, Max Pain
-    pull, OI+price buildup/unwinding combo, VIX trend, short-term price
-    momentum), using the same real principle: several independent reads
-    have to agree before committing to a direction; a close split stays
-    Neutral rather than picking a side. Any factor without enough data
-    simply abstains (counts toward neither side) rather than being
-    guessed.
+    its output alone. It's a genuine, independent vote system built
+    from data this project already fetches every cycle, using the same
+    real principle: several independent reads have to agree before
+    committing to a direction; a close split stays Neutral rather than
+    picking a side. Any factor without enough data simply abstains
+    (counts toward neither side) rather than being guessed.
 
-    HONEST LIMITATION: the specific 7 factors and the two margin
-    thresholds below are a reasonable first cut, not empirically
+    Aug 27 2026 (SAME DAY FOLLOW-UP): originally shipped with a 7th
+    vote, _oi_price_combo_vote(fut_oi_chg_pct, price_change_pct) --
+    REMOVED after a real live session showed Bias stuck Bearish for
+    the ENTIRE day (09:31 through 14:01+) despite the new vote system
+    being confirmed live and running. Root cause, found by tracing the
+    actual logic rather than re-guessing thresholds: that vote's 4
+    branches ALL reduced to just price_change_pct's sign -- OI's sign
+    never actually changed the bullish/bearish verdict, only the
+    buildup/covering LABEL underneath it (the standard 4-quadrant
+    reading genuinely works that way: Long Buildup AND Short Covering
+    are both "price up" quadrants and both read bullish; Short Buildup
+    AND Long Unwinding are both "price down" and both read bearish).
+    So it was silently a redundant twin of the momentum vote -- worse,
+    it was fed change_percent (the day's CUMULATIVE change, not a
+    rolling window), and Fut OI Chg is fetched from Fyers as
+    oipercent (also day-over-day, not intraday -- see this file's
+    Fut-OI-Chg comment further up; no rolling OI baseline is exposed
+    to build a real intraday version from). Combined with PCR (which
+    also barely moves intraday in a stable regime), that gave 2 votes
+    that could hit the margin bar together and never let go for hours,
+    regardless of what the other 5 actually said -- undermining the
+    entire point of this rebuild. No genuinely independent replacement
+    was available from data Fyers actually exposes, so it's dropped
+    rather than kept in a still-redundant or still-day-sticky form.
+    Down to 6 votes; BIAS_VOTE_MARGIN_FOR_STRONG adjusted from 5 to 4
+    to hold roughly the same "most votes agree" proportion (5/7 -> 4/6).
+
+    HONEST LIMITATION: the remaining 6 factors and the two margin
+    thresholds are still a reasonable first cut, not empirically
     tuned -- same "watch and retune" status as every other threshold
-    already documented in this file. This can't be retroactively
-    verified against past logged data (the OLD Bias values are already
-    written for prior days, computed the old way) -- it can only be
-    watched going forward from here, same honest gap the oi_buildup
-    change had when IT shipped.
+    in this file. Can't be retroactively verified against already-
+    logged Bias values (computed under one of two now-superseded
+    versions) -- only watched going forward from here.
     """
     votes = [
         _pcr_vote(pcr),
         _oi_buildup_vote(oi_buildup),
         _atm_balance_vote(pe_oi, ce_oi),
         _max_pain_vote(price, max_pain),
-        _oi_price_combo_vote(fut_oi_chg_pct, price_change_pct),
         _vix_trend_vote(vix_change_pct),
         _momentum_vote(momentum_pct),
     ]
@@ -1051,7 +1051,6 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         oi.get("pcr"), oi.get("oi_buildup"),
         pe_oi=pe_oi, ce_oi=ce_oi,
         price=oi.get("spot"), max_pain=oi.get("max_pain"),
-        fut_oi_chg_pct=fut_oi_chg_pct, price_change_pct=change_percent,
         vix_change_pct=vix_trend_pct, momentum_pct=horizon_changes.get(15),
     )
     confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
@@ -1235,7 +1234,6 @@ def snapshot_commodity(name, base):
         oi.get("pcr"), oi.get("oi_buildup"),
         pe_oi=pe_oi, ce_oi=ce_oi,
         price=fut_price, max_pain=oi.get("max_pain"),
-        fut_oi_chg_pct=fut_oi_chg_pct, price_change_pct=change_percent,
         vix_change_pct=None, momentum_pct=horizon_changes.get(15),
     )
     confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
