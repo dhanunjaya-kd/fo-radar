@@ -59,8 +59,17 @@ export default function MarketBanner() {
     return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  // Aug 27 2026: fixed path -- was '/popout_chart/index.html', which
+  // isn't a real Fyers route (confirmed against Fyers' own community
+  // forum: the correct, working popout path is '/popout/index.html',
+  // e.g. https://trade.fyers.in/popout/index.html?symbol=NSE:ACC-EQ&
+  // resolution=1&theme=light). The extra "_chart" meant every click
+  // hit a dead path regardless of which symbol/card was clicked --
+  // matches exactly what was reported (nothing opens for any of them).
+  // Resolution left at 5 (unchanged) -- that param isn't the bug, only
+  // the path segment was wrong.
   const fyersChartUrl = (symbol) =>
-    `https://trade.fyers.in/popout_chart/index.html?symbol=${encodeURIComponent(symbol)}&resolution=5&theme=light`;
+    `https://trade.fyers.in/popout/index.html?symbol=${encodeURIComponent(symbol)}&resolution=5&theme=light`;
 
   const Card = ({ label, price, change, changePercent, fyersSymbol }) => {
     const isPos = (change || 0) >= 0;
