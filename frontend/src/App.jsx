@@ -160,7 +160,7 @@ function AppShell() {
           animation actually replay each time, instead of only firing
           once on the very first load. */}
       <div key={activeTab} className="px-4 pb-8 tab-fade-in">
-        {activeTab === 'dashboard' && <Dashboard />}
+        {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
         {activeTab === 'signals' && <SignalList />}
         {activeTab === 'watchlist' && <Watchlist />}
         {activeTab === 'oi' && <Analytics />}
