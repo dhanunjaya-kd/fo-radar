@@ -1501,11 +1501,21 @@ class NewsView(APIView):
     changed regardless of actual market conditions -- same pattern as
     the old fake PCR. Known limitation: only catches headlines that
     mention the bare ticker, not full company names -- see news.py.
+
+    Aug 28 2026: added "broad_news" -- the F&O-ticker filter above
+    means genuinely relevant macro/global news (bond yields, Fed
+    decisions, global market moves) was being silently dropped
+    whenever it didn't happen to name a specific stock, confirmed live
+    ("not getting any news related to global tension, only F&O
+    stocks"). get_broad_market_news() is the SAME feeds, unfiltered --
+    see its own docstring for why it's a separate function rather than
+    a change to get_fno_news() itself.
     """
     def get(self, request):
-        from .news import get_fno_news
+        from .news import get_fno_news, get_broad_market_news
         news = get_fno_news(FNO_STOCKS, limit=20)
-        return Response({"news": news})
+        broad_news = get_broad_market_news(limit=15)
+        return Response({"news": news, "broad_news": broad_news})
 
 
 class FundamentalsWatchlistView(APIView):

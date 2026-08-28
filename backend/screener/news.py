@@ -138,6 +138,118 @@ def get_fno_news(fno_tickers, limit=20):
     return items[:limit]
 
 
+# Aug 28 2026: separate cache from get_fno_news()'s _cache above --
+# genuinely independent data (unfiltered vs ticker-filtered), so a
+# shared cache would return the wrong content for whichever function
+# asked second.
+_broad_cache = {"data": None, "fetched_at": 0}
+
+
+# Aug 28 2026: HONEST STATUS -- whether ET's specific RSS feeds
+# actually include image data is UNCONFIRMED. A direct fetch of the
+# raw feed was blocked (site access restriction hit while checking),
+# and general research on RSS/media conventions doesn't confirm
+# anything ET-specific. This function is written DEFENSIVELY: it reads
+# the two standard places feedparser normalizes image data into if a
+# feed provides it (media:thumbnail -> entry.media_thumbnail,
+# <enclosure> -> entry.enclosures) and returns None if neither is
+# present -- so if the feeds DO carry images, they show up; if they
+# don't, nothing breaks and every "image" field is just null. Confirm
+# by checking the real deployed output once this is live, not by
+# trusting this comment.
+def _extract_image_url(entry):
+    thumbnails = getattr(entry, "media_thumbnail", None)
+    if thumbnails and isinstance(thumbnails, list) and thumbnails[0].get("url"):
+        return thumbnails[0]["url"]
+    enclosures = getattr(entry, "enclosures", None)
+    if enclosures and isinstance(enclosures, list):
+        for enc in enclosures:
+            enc_type = (enc.get("type") or "").lower()
+            enc_url = enc.get("href") or enc.get("url")
+            if enc_url and (not enc_type or enc_type.startswith("image/")):
+                return enc_url
+    return None
+
+
+def get_broad_market_news(limit=10):
+    """
+    Broader macro/global market news -- bond yields, Fed decisions,
+    global market moves, etc -- that get_fno_news() above deliberately
+    EXCLUDES by design (it only keeps headlines mentioning a specific
+    F&O ticker by name). Real gap reported live: "not getting any news
+    related to global tension/global positive, only F&O stocks" --
+    confirmed by reading get_fno_news()'s own filter, which drops
+    anything without a direct ticker match, including exactly this
+    kind of broader coverage ET Markets genuinely publishes.
+
+    Deliberately a FULLY SEPARATE function from get_fno_news(), not a
+    shared-helper refactor of it -- that function is already live and
+    feeding send_new_news_alerts()'s Telegram integration; duplicating
+    ~20 lines of fetch/format logic here is a small, worthwhile cost
+    for zero risk of changing its behavior. Do not merge these into one
+    shared implementation without re-testing send_new_news_alerts()'s
+    seeding behavior end to end.
+
+    Returns [] if feedparser isn't installed or every feed fails, same
+    as get_fno_news() -- never substitutes fake headlines.
+    """
+    if not FEEDPARSER_AVAILABLE:
+        return []
+
+    now = time.time()
+    if _broad_cache["data"] is not None and (now - _broad_cache["fetched_at"]) < CACHE_TTL:
+        return _broad_cache["data"][:limit]
+
+    seen_links = set()
+    items = []
+
+    for source_name, url in RSS_FEEDS:
+        try:
+            parsed = feedparser.parse(url)
+            for entry in parsed.entries:
+                title = getattr(entry, "title", "") or ""
+                link = getattr(entry, "link", "") or ""
+                if not title or not link or link in seen_links:
+                    continue
+                seen_links.add(link)
+
+                published_struct = getattr(entry, "published_parsed", None)
+                published_dt = datetime(*published_struct[:6]) if published_struct else datetime.utcnow()
+
+                items.append({
+                    "title": title,
+                    "source": source_name,
+                    "link": link,
+                    "_published": published_dt,
+                    "sentiment": "Neutral",
+                    "image": _extract_image_url(entry),
+                })
+        except Exception as e:
+            print(f"[News] Failed to fetch {source_name}: {e}")
+            continue
+
+    items.sort(key=lambda x: x["_published"], reverse=True)
+
+    now_utc = datetime.utcnow()
+    for item in items:
+        delta = now_utc - item.pop("_published")
+        minutes = int(delta.total_seconds() // 60)
+        if minutes < 1:
+            item["time"] = "just now"
+        elif minutes < 60:
+            item["time"] = f"{minutes}m ago"
+        else:
+            hours = int(delta.total_seconds() // 3600)
+            if hours < 24:
+                item["time"] = f"{hours}h ago"
+            else:
+                item["time"] = f"{hours // 24}d ago"
+
+    _broad_cache["data"] = items
+    _broad_cache["fetched_at"] = now
+    return items[:limit]
+
+
 _sent_links = set()
 _seeded = False
 
