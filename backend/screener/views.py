@@ -225,6 +225,74 @@ def _fetch_index(name, fallbacks=None):
     return {'price': 0, 'change': 0, 'change_percent': 0}
 
 
+# Aug 28 2026: SEPARATE dict from FYERS_INDEX_SYMBOLS above -- these
+# broader indices (Next 50, 100, Midcap 100, Smallcap 100) are NOT
+# verified against a live Fyers connection the way NIFTY50/BANKNIFTY/
+# VIX are (those are proven, deployed, working in this project for
+# weeks). Evidence they exist under this exact "NSE:<NAME>-INDEX"
+# convention comes from generic NSE index-symbol documentation
+# (matching the same pattern already proven for NIFTY50/BANKNIFTY),
+# NOT a confirmed Fyers-specific test. Kept in a fully separate dict
+# and function from the core index fetch deliberately -- if any of
+# these turn out wrong, that failure is fully isolated and can never
+# affect the already-working NIFTY50/BANKNIFTY/VIX cards.
+BROADER_INDEX_SYMBOLS = {
+    "NIFTY Next 50": "NSE:NIFTYNXT50-INDEX",
+    "NIFTY 100": "NSE:NIFTY100-INDEX",
+    "NIFTY Midcap 100": "NSE:NIFTYMIDCAP100-INDEX",
+    "NIFTY Smallcap 100": "NSE:NIFTYSMLCAP100-INDEX",
+}
+
+
+def fetch_broader_indices():
+    """
+    Real quotes for the broader NSE indices shown on Market View's
+    Indices Performance table -- a fully separate fetch path from
+    _fetch_index() above, batched in one call (same batch pattern as
+    _fetch_all_quotes_fyers, field 'n' for the returned symbol).
+
+    Each symbol here is genuinely UNVERIFIED against a live Fyers
+    connection (see BROADER_INDEX_SYMBOLS' own comment) -- this
+    degrades gracefully: whichever symbols come back with a real,
+    usable price are returned; whichever don't are simply OMITTED
+    from the result, never a zeroed placeholder standing in for real
+    data. The frontend only ever renders what's actually here, so an
+    unresolved symbol just means one fewer row, not a broken table.
+    """
+    if not is_authenticated():
+        return {}
+    symbols = list(BROADER_INDEX_SYMBOLS.values())
+    symbol_to_name = {v: k for k, v in BROADER_INDEX_SYMBOLS.items()}
+    try:
+        resp = get_quotes(symbols)
+    except Exception as e:
+        print(f"[Fyers] Broader indices fetch error: {e}")
+        return {}
+    if not resp or resp.get('s') != 'ok':
+        print(f"[Fyers] Broader indices fetch: response not ok -- {resp}")
+        return {}
+
+    results = {}
+    for item in resp.get('d', []):
+        if item.get('s') != 'ok':
+            continue
+        fyers_sym = item.get('n')
+        name = symbol_to_name.get(fyers_sym)
+        if not name:
+            continue
+        v = item.get('v', {}) or {}
+        price = v.get('lp')
+        if price is None or price <= 0 or (isinstance(price, float) and math.isnan(price)):
+            continue
+        results[name] = {
+            'name': name,
+            'price': round(price, 2),
+            'change': round(v.get('ch', 0) or 0, 2),
+            'change_percent': round(v.get('chp', 0) or 0, 2),
+        }
+    return results
+
+
 def _fetch_all_quotes_fyers(symbols):
     """
     Batch-fetch current price/change/volume for every symbol via Fyers
@@ -1916,6 +1984,30 @@ class FiftyTwoWeekRangeView(APIView):
             "symbol": sym, "high52w": high52w, "low52w": low52w,
             "technical": technical,
         }))
+
+
+class BroaderIndicesView(APIView):
+    """
+    Aug 28 2026: real quotes for the broader NSE indices (Next 50, 100,
+    Midcap 100, Smallcap 100) shown on Market View's Indices
+    Performance table -- built for the Module 4 redesign.
+
+    Deliberately its OWN endpoint, not folded into /api/market-summary/
+    -- that endpoint is polled every 30s by several components
+    (MarketBanner, MarketBreadth, SectorPerformance, the Sentiment
+    gauge), all reading from the already-cached _stock_cache with zero
+    added Fyers cost. fetch_broader_indices() makes a genuinely NEW
+    live Fyers call every time it's invoked -- bolting that onto the
+    already-heavily-polled endpoint would add a recurring live API
+    call to every one of those unrelated components' polls too.
+
+    GET /api/broader-indices/ -> {"indices": {name: {price, change,
+    change_percent}, ...}} -- only includes indices that actually
+    resolved; see fetch_broader_indices() for why some entries may be
+    silently absent (unverified Fyers symbols, degrades gracefully).
+    """
+    def get(self, request):
+        return Response(clean_json({"indices": fetch_broader_indices()}))
 
 
 # ============================================================
