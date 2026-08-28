@@ -2022,6 +2022,77 @@ class BroaderIndicesView(APIView):
         return Response(clean_json({"indices": fetch_broader_indices()}))
 
 
+class StrategyBacktestRunView(APIView):
+    """
+    Aug 28 2026: triggers a background price-action strategy backtest
+    across the F&O universe -- see strategy_backtest.py for the full
+    engine and why OI-confirmation can't be included (only price-
+    action conditions: rsi_min, rsi_max, adx_min).
+
+    POST /api/strategy-backtest/run/
+    Body: {"strategy": {"rsi_min": 40, "rsi_max": 65, "adx_min": 25},
+           "days": 180}  -- days optional, defaults to 180
+    Symbols default to the full FNO_STOCKS universe -- ~208 sequential
+    Fyers History calls, runs as a background thread (see
+    strategy_backtest.py's own module docstring), NOT synchronously --
+    this endpoint returns immediately with the current run state; poll
+    StrategyBacktestStatusView for progress and results.
+
+    A trigger while a run is already in progress is a no-op (returns
+    the ALREADY-RUNNING job's state, doesn't start a competing run --
+    verified in strategy_backtest.py's own test suite).
+    """
+    def post(self, request):
+        from .strategy_backtest import start_multi_symbol_backtest
+        strategy = request.data.get("strategy") or {}
+        days = int(request.data.get("days", 180))
+        symbols = request.data.get("symbols") or FNO_STOCKS
+        state = start_multi_symbol_backtest(symbols, strategy, days=days)
+        return Response(clean_json({
+            "running": state["running"],
+            "started_at": state["started_at"],
+            "symbols_total": state["symbols_total"],
+        }))
+
+
+class StrategyBacktestStatusView(APIView):
+    """
+    Aug 28 2026: poll the current/last price-action strategy backtest
+    run. While running, returns progress only (no trades yet). Once
+    complete, computes real metrics via backtest_signal_pnl.py's
+    already-proven compute_metrics()/compute_capital_base()/
+    compute_equity_curve() -- reusing that pipeline rather than a
+    second, parallel aggregation implementation. Trades are scaled to
+    a real rupee P&L first (scale_trades_to_capital()) -- the raw
+    engine output is a per-SHARE price difference, not yet a real
+    position-sized rupee figure.
+
+    GET /api/strategy-backtest/status/
+    """
+    def get(self, request):
+        from .strategy_backtest import get_strategy_backtest_status, scale_trades_to_capital, serialize_datetimes
+        from .backtest_signal_pnl import compute_metrics, compute_capital_base, compute_equity_curve
+
+        state = get_strategy_backtest_status()
+        response = {
+            "running": state["running"], "started_at": state["started_at"],
+            "finished_at": state["finished_at"], "symbols_total": state["symbols_total"],
+            "symbols_done": state["symbols_done"], "error": state["error"],
+        }
+
+        if state["trades"] is not None:
+            scaled = scale_trades_to_capital(state["trades"])
+            capital_base = compute_capital_base(scaled)
+            metrics = compute_metrics(scaled, capital_base)
+            equity_curve = compute_equity_curve(scaled, capital_base)
+            response["trade_count"] = len(scaled)
+            response["metrics"] = serialize_datetimes(metrics)
+            response["capital_base"] = capital_base
+            response["equity_curve"] = serialize_datetimes(equity_curve)
+            response["trades"] = serialize_datetimes(scaled)
+        return Response(clean_json(response))
+
+
 # ============================================================
 # TELEGRAM ALERTS
 # ============================================================

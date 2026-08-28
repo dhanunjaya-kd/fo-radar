@@ -296,3 +296,64 @@ def get_strategy_backtest_status():
     with _strategy_backtest_lock:
         return dict(_strategy_backtest_state)
 
+
+DEFAULT_CAPITAL_PER_TRADE = 50000  # matches this project's existing backtest_signal_pnl.py convention
+
+
+def scale_trades_to_capital(trades, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
+    """
+    Aug 28 2026: a SEPARATE, additive step -- does not modify
+    simulate_price_action_strategy()'s already-tested trade dicts (see
+    test_trade_simulation.py's 5 passing cases, kept untouched by this
+    function existing). Converts each trade's per-SHARE pnl into a
+    real rupee P&L via a capital-based quantity (qty = capital_per_
+    trade / entry_price) -- a standard, legitimate equity backtesting
+    convention, DIFFERENT from the F&O options lot-size fix elsewhere
+    in this project: equity trading has no regulatory minimum lot
+    size the way options do, so sizing by capital-per-position here is
+    genuinely appropriate, not the same mistake that fix corrected.
+
+    pnl_pct is left completely untouched -- it's a pure percentage
+    return, independent of position size. Only the absolute pnl field
+    is scaled, since that's what backtest_signal_pnl.py's
+    compute_metrics()/compute_capital_base() need to produce a
+    meaningful Net P&L%/CAGR reading.
+
+    Returns a list of NEW trade dicts -- never mutates the input.
+    """
+    result = []
+    for t in trades:
+        qty = max(1, int(capital_per_trade / t['entry_price'])) if t['entry_price'] > 0 else 1
+        new_trade = dict(t)
+        new_trade['qty'] = qty
+        new_trade['pnl'] = round(t['pnl'] * qty, 2)
+        result.append(new_trade)
+    return result
+
+
+def serialize_datetimes(obj):
+    """
+    Aug 28 2026: caught live by this module's own response-shaping
+    test (test_status_response.py) -- backtest_signal_pnl.py's
+    compute_metrics() returns raw datetime objects NESTED throughout
+    its output (max_drawdown.peak_dt/trough_dt/recovered_dt,
+    drawdown_periods[].*, equity_curve[].dt), not just at the top
+    level. A plain json.dumps() on that raises TypeError immediately.
+    Django REST Framework's Response() MIGHT handle this automatically
+    via its own JSON encoder, but that's project-configuration-
+    dependent and unverified here -- rather than rely on unconfirmed
+    framework behavior for something that would be a hard 500 error if
+    wrong, this recursively walks any nested dict/list structure and
+    converts every datetime found to an ISO string explicitly.
+    """
+    if isinstance(obj, dict):
+        return {k: serialize_datetimes(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [serialize_datetimes(v) for v in obj]
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    return obj
+
+
+
+

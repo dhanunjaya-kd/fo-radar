@@ -11,7 +11,8 @@ from screener.views import (
     FundamentalsWatchlistView, CASAuctionMovesView, IndexTrackerAvailableDatesView,
     SignalWatchlistCsvView, IndexSignalView, CommodityCurrentSymbolView,
     DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView,
-    DailyBacktestRangeView, FiftyTwoWeekRangeView, BroaderIndicesView
+    DailyBacktestRangeView, FiftyTwoWeekRangeView, BroaderIndicesView,
+    StrategyBacktestRunView, StrategyBacktestStatusView
 )
 
 urlpatterns = [
@@ -64,6 +65,11 @@ urlpatterns = [
     # BroaderIndicesView's docstring for why this is separate from
     # market-summary.
     path('api/broader-indices/', BroaderIndicesView.as_view(), name='broader_indices'),
+    # Aug 28 2026: price-action strategy backtest (Module 10) -- see
+    # strategy_backtest.py for the full engine and why OI-confirmation
+    # can't be part of any backtestable strategy.
+    path('api/strategy-backtest/run/', StrategyBacktestRunView.as_view(), name='strategy_backtest_run'),
+    path('api/strategy-backtest/status/', StrategyBacktestStatusView.as_view(), name='strategy_backtest_status'),
 
     # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
