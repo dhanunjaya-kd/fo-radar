@@ -400,6 +400,49 @@ def _fyers_history_df(symbol, days=100):
 # stock ticker, so one cache dict serves both without any change here.
 _history_cache = {}
 
+# Aug 28 2026: SEPARATE from _history_cache above -- that one's cache
+# check only looks at symbol+date, not the `days` window requested, so
+# reusing it with a different days value here would silently return
+# the wrong (100-day, not 365-day) window for a symbol already cached
+# by _calc_tech's RSI/ADX/ATR calls. This gets its own dict and its
+# own key so a 52-week lookup and a 100-day indicator lookup for the
+# same symbol never collide or shadow each other.
+_year_history_cache = {}  # {symbol: {'date': 'YYYY-MM-DD', 'high_52w': float, 'low_52w': float}}
+
+
+def get_52_week_high_low(symbol):
+    """
+    Real 52-week high/low, computed from ~365 days of Fyers' History
+    API daily candles -- confirmed (Aug 28 2026, via Fyers' own
+    community forum and the full quotes-response field schema) that
+    the Quotes API does NOT provide this directly: high_price/
+    low_price there are TODAY's intraday high/low only, not a 52-week
+    window. Reuses _fyers_history_df() unchanged, just with a longer
+    days window -- no new Fyers call pattern introduced, same fetch
+    mechanism already proven all session for RSI/ADX/ATR history.
+
+    Cached once per symbol per day (own dict, see _year_history_cache)
+    -- a fresh History API call per symbol on every request would be
+    both slow and wasteful; this only re-fetches once per symbol per
+    trading day.
+
+    Returns (None, None) if history can't be fetched -- never guesses
+    a 52-week range from partial or missing data.
+    """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _year_history_cache.get(symbol)
+    if cached and cached.get('date') == today_str:
+        return cached['high_52w'], cached['low_52w']
+
+    df = _fyers_history_df(symbol, days=365)
+    if df is None or df.empty:
+        return None, None
+
+    high_52w = round(float(df['High'].max()), 2)
+    low_52w = round(float(df['Low'].min()), 2)
+    _year_history_cache[symbol] = {'date': today_str, 'high_52w': high_52w, 'low_52w': low_52w}
+    return high_52w, low_52w
+
 
 def _cached_history_df(symbol, days=100):
     """
@@ -1803,6 +1846,19 @@ class OptionAnalyticsView(APIView):
             "ceOiChg": oi["ce_oi_chg"], "peOiChg": oi["pe_oi_chg"],
             "ceData": ce_data, "peData": pe_data,
         }))
+
+
+class FiftyTwoWeekRangeView(APIView):
+    """
+    Aug 28 2026: real 52-week high/low for a single F&O stock symbol --
+    built for the upcoming Watchlist redesign. GET /api/52-week-range/
+    <symbol>/ -> {"symbol", "high52w", "low52w"}. Both fields are null
+    if history can't be fetched right now -- never a guessed range.
+    """
+    def get(self, request, symbol):
+        sym = symbol.upper().replace(".NS", "")
+        high52w, low52w = get_52_week_high_low(sym)
+        return Response(clean_json({"symbol": sym, "high52w": high52w, "low52w": low52w}))
 
 
 # ============================================================
