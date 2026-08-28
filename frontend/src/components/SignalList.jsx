@@ -14,12 +14,6 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 const IconBolt = ({ size = 20 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
 );
-const IconBell = ({ size = 16 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-);
-const IconBellOff = ({ size = 16 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-);
 const IconDownload = ({ size = 16 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
 );
@@ -55,9 +49,6 @@ export default function LiveSignals() {
   const [signals, setSignals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [alertsEnabled, setAlertsEnabled] = useState(
-    typeof Notification !== 'undefined' && Notification.permission === 'granted'
-  );
   // Past-day export picker -- '' means "today" (the original single
   // download button's behavior, unchanged). Populated once from
   // /api/signals/export/dates/, which lists every date that actually
@@ -67,15 +58,6 @@ export default function LiveSignals() {
   // null = first load -- don't alert for signals that were already active
   // when the page opened, only for ones that appear AFTER that.
   const knownKeysRef = useRef(null);
-
-  const enableAlerts = async () => {
-    if (typeof Notification === 'undefined') {
-      alert("Your browser doesn't support notifications.");
-      return;
-    }
-    const perm = await Notification.requestPermission();
-    setAlertsEnabled(perm === 'granted');
-  };
 
   useEffect(() => {
     fetch(`${API_BASE}/api/signals/export/dates/`)
@@ -144,33 +126,6 @@ export default function LiveSignals() {
   // Memoize to prevent re-renders causing duplicates
   const uniqueSignals = useMemo(() => signals, [signals]);
 
-  // compact=true renders an icon-only button for the tight header row;
-  // compact=false (default) renders the labeled version for the empty state,
-  // where it's standing alone with no surrounding context.
-  const renderAlertToggle = (compact = false) => (
-    <button
-      onClick={enableAlerts}
-      disabled={alertsEnabled}
-      title={alertsEnabled ? 'Alerts on' : 'Enable alerts'}
-      aria-label={alertsEnabled ? 'Alerts on' : 'Enable alerts'}
-      className={`text-xs font-medium rounded-lg transition-colors border ${
-        compact
-          ? 'w-9 h-9 flex items-center justify-center shrink-0'
-          : 'px-3 py-1.5 flex items-center gap-1.5'
-      } ${
-        alertsEnabled
-          ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25 cursor-default'
-          : 'text-amber-400 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20'
-      }`}
-    >
-      {compact
-        ? (alertsEnabled ? <IconBell size={16} /> : <IconBellOff size={16} />)
-        : (alertsEnabled
-          ? <><IconBell size={14} /> Alerts on</>
-          : <><IconBellOff size={14} /> Enable alerts</>)}
-    </button>
-  );
-
   if (loading && uniqueSignals.length === 0) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -198,7 +153,6 @@ export default function LiveSignals() {
         <div className="text-slate-600 mb-3 flex justify-center"><IconBolt size={36} /></div>
         <h3 className="text-lg font-bold text-white mb-1">No SNIPER signals right now</h3>
         <p className="text-slate-400 text-sm mb-4">Market conditions don't meet criteria. Check back in a minute.</p>
-        {renderAlertToggle()}
       </div>
     );
   }
@@ -215,7 +169,6 @@ export default function LiveSignals() {
             </span>
           </h2>
           <div className="flex items-center gap-2">
-            {renderAlertToggle(true)}
             {availableDates.length > 0 && (
               <select
                 value={selectedDate}
