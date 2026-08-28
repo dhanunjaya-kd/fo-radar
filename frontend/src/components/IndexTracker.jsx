@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import IndexPriceChart from './IndexPriceChart';
 
 // Relative on purpose -- see the same note in SignalList.jsx. Routes
 // through Vite's dev-server proxy so this works from any host the page
@@ -422,6 +423,16 @@ function IndexSection({ indexName, showBacktest = true }) {
             📥 Export
           </a>
         </div>
+      </div>
+
+      {/* Aug 28 2026: new price chart, from the Module 5 (Index
+          Tracker) redesign reference -- own component, own file, no
+          backend changes (reuses the same dates/snapshots endpoints
+          this section already fetches from). Everything below this
+          (the full snapshot table, Bias backtest, CAS moves) is
+          unchanged. */}
+      <div className="px-4 pt-4">
+        <IndexPriceChart indexName={indexName} />
       </div>
 
       <div className="p-4">
