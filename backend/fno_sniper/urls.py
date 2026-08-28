@@ -11,7 +11,7 @@ from screener.views import (
     FundamentalsWatchlistView, CASAuctionMovesView, IndexTrackerAvailableDatesView,
     SignalWatchlistCsvView, IndexSignalView, CommodityCurrentSymbolView,
     DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView,
-    DailyBacktestRangeView
+    DailyBacktestRangeView, FiftyTwoWeekRangeView
 )
 
 urlpatterns = [
@@ -54,6 +54,11 @@ urlpatterns = [
     path('api/daily-backtest/run/', DailyBacktestRunView.as_view(), name='daily_backtest_run'),
     path('api/daily-backtest/download/<str:report_type>/', DailyBacktestReportDownloadView.as_view(), name='daily_backtest_download'),
     path('api/daily-backtest/range/', DailyBacktestRangeView.as_view(), name='daily_backtest_range'),
+    # Aug 28 2026: real 52-week high/low for the upcoming Watchlist
+    # redesign -- see views.py's get_52_week_high_low() for why this
+    # needs its own Fyers History API call (the Quotes API confirmed
+    # NOT to provide this field at all).
+    path('api/52-week-range/<str:symbol>/', FiftyTwoWeekRangeView.as_view(), name='fifty_two_week_range'),
 
     # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
