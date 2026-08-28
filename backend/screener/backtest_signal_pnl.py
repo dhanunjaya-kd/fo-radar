@@ -162,6 +162,12 @@ def load_all_trades(capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
     if load_workbook is None:
         return [], 0
 
+    # Deferred import -- same convention used throughout this project
+    # (index_tracker.py's fyers_client imports, etc.) to avoid any
+    # circular-import risk between modules that reference each other
+    # indirectly, rather than a module-level import up top.
+    from .lot_size_resolver import get_lot_size
+
     trades = []
     excluded = 0
 
@@ -208,7 +214,30 @@ def load_all_trades(capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
                 excluded += 1
                 continue
 
-            qty = max(1, int(capital_per_trade / entry))
+            # Aug 27 2026: real, live-resolved NSE lot size (one real
+            # tradeable lot, not int(capital_per_trade/entry)) --
+            # REPLACES the old Rs 50,000-based quantity entirely. That
+            # old math gave a cheap-premium stock a wildly oversized
+            # position purely because it was cheap (e.g. a Rs 4
+            # premium got ~12,400 units vs an Rs 11.60 premium getting
+            # ~4,300 -- same Rs 50k budget, wildly different real
+            # exposure, nothing to do with the strategy being better
+            # on the cheap one). One real lot is what a trader actually
+            # holds, and removes that distortion from every downstream
+            # metric (Net P&L%, Profit Factor, Sharpe) at once, since
+            # they're all built from these same per-trade P&L figures.
+            #
+            # No confirmed live lot size for this symbol -> exclude the
+            # trade entirely (same "don't guess, don't fabricate" rule
+            # every other exclusion in this loop already follows) --
+            # deliberately NOT falling back to the old capital-based
+            # math, which would silently mix two different sizing
+            # methodologies within the same backtest run.
+            qty = get_lot_size(row.get("Symbol"))
+            if qty is None:
+                excluded += 1
+                continue
+
             pnl = round(qty * (exit_price - entry), 2)
             pnl_pct = round((exit_price - entry) / entry * 100, 2)
 

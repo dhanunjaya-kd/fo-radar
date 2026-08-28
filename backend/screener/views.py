@@ -819,12 +819,22 @@ def _build_all():
         # fresh numbers computed below.
         from .excel_logger import get_locked_plan
         locked = get_locked_plan(sym, action)
+        # Aug 27 2026: deferred import matching this file's existing
+        # convention (get_locked_plan right above is imported the same
+        # way) -- used by both branches below.
+        from .lot_size_resolver import get_lot_size
 
         if locked:
             entry, strike = locked['entry'], locked['strike'] or strike
             sl = locked['sl']
             t1, t2, t3 = locked['target1'], locked['target2'], locked['target3']
-            qty = locked['quantity'] or max(1, int(50000 / entry)) if entry else 1
+            # Aug 27 2026: real lot size as the fallback here too (was
+            # int(50000/entry)) -- this branch is a rare defensive case
+            # (an already-locked plan whose stored quantity is somehow
+            # empty), not the primary path, but should stay consistent
+            # with the real fix rather than quietly keep the old
+            # capital-based distortion alive in an edge case.
+            qty = locked['quantity'] or get_lot_size(sym) or 1
             rr = locked['risk_reward'] or 1.5
             option_symbol = locked['option_symbol']
             # Already-tracked outcome status for this locked plan -- see
@@ -885,7 +895,21 @@ def _build_all():
             t2 = round(premium_entry + d * abs(stock_t2 - price), 2)
             t3 = round(premium_entry + d * abs(stock_t3 - price), 2)
 
-            qty = max(1, int(50000 / entry))
+            # Aug 27 2026: real, live-resolved NSE lot size -- REPLACES
+            # int(50000/entry) entirely. That old math gave a cheap-
+            # premium stock a wildly oversized position purely because
+            # it was cheap, nothing to do with signal quality (real
+            # example: a Rs 4.03 premium got ~12,400 units vs a
+            # Rs 11.60 premium's ~4,300, same Rs 50k budget). One real
+            # lot is what a trader actually holds. No confirmed live
+            # lot size for this symbol -> skip the signal entirely,
+            # same "no confirmed data, no signal" rule already applied
+            # a few lines up for a missing option chain -- never
+            # fabricate a quantity.
+            lot_size = get_lot_size(sym)
+            if lot_size is None:
+                continue
+            qty = lot_size
             risk = abs(entry - sl)
             rr = round(abs(t1 - entry) / risk, 2) if risk else 1.5
 

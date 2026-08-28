@@ -175,7 +175,25 @@ def generate_positional_trades(index_name, lot_size=None):
     the rest of that file's engine works unmodified. Also returns
     excluded_count (flips that didn't pass S/R confirmation).
     """
-    lot_size = lot_size or DEFAULT_LOT_SIZE.get(index_name, 50)
+    # Aug 27 2026: resolve the REAL, currently-live lot size from
+    # Fyers' own symbol master (lot_size_resolver.py) instead of
+    # trusting DEFAULT_LOT_SIZE unconditionally -- that table was
+    # already confirmed stale the moment this fix was built (a live
+    # check showed BANKNIFTY's real lot size is 30, not the 35 this
+    # file had hardcoded), exactly the kind of drift this function's
+    # own docstring already warned about. DEFAULT_LOT_SIZE is now only
+    # the LAST-RESORT fallback if the live resolver genuinely can't
+    # reach Fyers (network down, or this specific run predates any
+    # successful fetch) -- not the primary source anymore.
+    if lot_size is None:
+        try:
+            from .lot_size_resolver import get_lot_size
+            lot_size = get_lot_size(index_name)
+        except Exception as e:
+            print(f"[PositionalBacktest] Live lot-size resolve failed for {index_name}: {e}")
+        if lot_size is None:
+            lot_size = DEFAULT_LOT_SIZE.get(index_name, 50)
+            print(f"[PositionalBacktest] Using stale fallback lot size for {index_name}: {lot_size} -- live resolve unavailable")
     dates = list_index_tracker_dates(index_name)
     if not dates:
         return [], 0
