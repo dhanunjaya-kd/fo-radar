@@ -1340,6 +1340,7 @@ class MarketSummaryOldView(APIView):
             breadth = _compute_breadth(list(_stock_cache.values()))
             sectors = _compute_sector_performance(list(_stock_cache.values()))
             sentiment = _compute_market_sentiment(list(_stock_cache.values()))
+            movers = _compute_market_movers(list(_stock_cache.values()))
 
         # MarketBanner (this endpoint) is the one thing mounted on every
         # tab, polling every 30s regardless of which tab is active --
@@ -1364,6 +1365,7 @@ class MarketSummaryOldView(APIView):
             "breadth": breadth,
             "sectors": sectors,
             "sentiment": sentiment,
+            "movers": movers,
             "warming_up": warming,
             "timestamp": datetime.now().isoformat()
         })
@@ -2155,6 +2157,28 @@ def _compute_sector_performance(stocks):
         })
     results.sort(key=lambda r: r["change_percent"], reverse=True)
     return results
+
+
+def _compute_market_movers(stocks, limit=10):
+    """
+    Aug 28 2026: real top gainers/losers from the F&O universe's
+    current change_percent -- same 208-stock scan every other
+    Dashboard-tier panel uses. No fabricated per-mover timestamp (the
+    mockup's own Market Movers panel showed a time per row, but this
+    project doesn't track "when a stock became a top mover" as its
+    own event -- only the current live change% snapshot, which is
+    what's returned here).
+    """
+    sorted_stocks = sorted(stocks, key=lambda s: s.get('change_percent') or 0, reverse=True)
+    gainers = [s for s in sorted_stocks if (s.get('change_percent') or 0) > 0][:limit]
+    losers = sorted(
+        [s for s in sorted_stocks if (s.get('change_percent') or 0) < 0],
+        key=lambda s: s.get('change_percent') or 0,
+    )[:limit]
+    return {
+        "gainers": [{"symbol": s["symbol"], "price": s["price"], "change_percent": s["change_percent"]} for s in gainers],
+        "losers": [{"symbol": s["symbol"], "price": s["price"], "change_percent": s["change_percent"]} for s in losers],
+    }
 
 
 def _classify_sentiment_band(chg):
