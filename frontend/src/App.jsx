@@ -4,6 +4,7 @@ import api from './services/api';
 import { ThemeProvider, useTheme } from './components/ThemeContext';
 import ThemeToggle from './components/ThemeToggle';
 import './components/theme-overrides.css';
+import './components/density-overrides.css';
 import MarketBanner from './components/MarketBanner';
 import MarketBreadth from './components/MarketBreadth';
 import SignalList from './components/SignalList';
@@ -17,6 +18,7 @@ import NewsFeed from './components/NewsFeed';
 import FundamentalsWatchlist from './components/FundamentalsWatchlist';
 import DailyBacktestTab from './components/DailyBacktestTab';
 import Dashboard from './components/Dashboard';
+import SettingsPanel from './components/SettingsPanel';
 
 // The 11 valid tab ids -- used to validate whatever's in localStorage
 // so a stale/unrecognized value (e.g. from an older version of the
@@ -24,7 +26,7 @@ import Dashboard from './components/Dashboard';
 // Aug 28 2026: added 'dashboard' -- new home tab for the Dashboard-
 // specific panels from the 12-screen redesign reference (Sector
 // Performance now, more to follow).
-const VALID_TABS = ['dashboard', 'signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest'];
+const VALID_TABS = ['dashboard', 'signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -34,6 +36,19 @@ function AppShell() {
       return VALID_TABS.includes(stored) ? stored : 'signals';
     } catch {
       return 'signals'; // localStorage unavailable (private browsing etc.) -- just use the default
+    }
+  });
+  // Aug 28 2026: table density preference, from the Settings module --
+  // same read-with-fallback pattern as activeTab right above. Applied
+  // as a class on the root div below (density-compact / density-
+  // comfortable) so it cascades via CSS to every table in the app
+  // without needing to touch each individual table component.
+  const [density, setDensity] = useState(() => {
+    try {
+      const stored = localStorage.getItem('fo-radar-density');
+      return ['comfortable', 'compact'].includes(stored) ? stored : 'comfortable';
+    } catch {
+      return 'comfortable';
     }
   });
   const [signalCount, setSignalCount] = useState(null);
@@ -62,6 +77,7 @@ function AppShell() {
     { id: 'news', label: 'News', count: null },
     { id: 'value', label: 'Value Watchlist', count: null },
     { id: 'backtest', label: 'Daily Backtest', count: null },
+    { id: 'settings', label: 'Settings', count: null },
   ];
 
   useEffect(() => {
@@ -108,7 +124,7 @@ function AppShell() {
   }, []);
 
   return (
-    <div className={`min-h-screen bg-slate-950 text-white overflow-x-hidden ${theme === 'light' ? 'light' : ''}`}>
+    <div className={`min-h-screen bg-slate-950 text-white overflow-x-hidden ${theme === 'light' ? 'light' : ''} density-${density}`}>
       {/* Top Section */}
       <div className="px-4 pt-4 pb-2">
         <MarketBanner />
@@ -129,6 +145,7 @@ function AppShell() {
               }`}
             >
               {tab.id === 'dashboard' && '🏠'}
+              {tab.id === 'settings' && '⚙️'}
               {tab.id === 'signals' && '⚡'}
               {tab.id === 'watchlist' && '👁'}
               {tab.id === 'oi' && '📊'}
@@ -161,6 +178,7 @@ function AppShell() {
           once on the very first load. */}
       <div key={activeTab} className="px-4 pb-8 tab-fade-in">
         {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
+        {activeTab === 'settings' && <SettingsPanel onDensityChange={setDensity} />}
         {activeTab === 'signals' && <SignalList />}
         {activeTab === 'watchlist' && <Watchlist />}
         {activeTab === 'oi' && <Analytics />}
