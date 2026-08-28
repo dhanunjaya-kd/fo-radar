@@ -16,12 +16,15 @@ import BullionTracker from './components/BullionTracker';
 import NewsFeed from './components/NewsFeed';
 import FundamentalsWatchlist from './components/FundamentalsWatchlist';
 import DailyBacktestTab from './components/DailyBacktestTab';
+import Dashboard from './components/Dashboard';
 
-// The 10 valid tab ids -- used to validate whatever's in localStorage
+// The 11 valid tab ids -- used to validate whatever's in localStorage
 // so a stale/unrecognized value (e.g. from an older version of the
 // app) can't leave activeTab pointing at nothing and rendering blank.
-// Aug 27 2026: added 'backtest' for the new Daily Backtest tab.
-const VALID_TABS = ['signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest'];
+// Aug 28 2026: added 'dashboard' -- new home tab for the Dashboard-
+// specific panels from the 12-screen redesign reference (Sector
+// Performance now, more to follow).
+const VALID_TABS = ['dashboard', 'signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -48,6 +51,7 @@ function AppShell() {
   }, [activeTab]);
 
   const tabs = [
+    { id: 'dashboard', label: 'Dashboard', count: null },
     { id: 'signals', label: 'Live Signals', count: signalCount },
     { id: 'watchlist', label: 'Watchlist', count: watchlistCount },
     { id: 'oi', label: 'OI Analytics', count: null },
@@ -124,6 +128,7 @@ function AppShell() {
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
               }`}
             >
+              {tab.id === 'dashboard' && '🏠'}
               {tab.id === 'signals' && '⚡'}
               {tab.id === 'watchlist' && '👁'}
               {tab.id === 'oi' && '📊'}
@@ -155,6 +160,7 @@ function AppShell() {
           animation actually replay each time, instead of only firing
           once on the very first load. */}
       <div key={activeTab} className="px-4 pb-8 tab-fade-in">
+        {activeTab === 'dashboard' && <Dashboard />}
         {activeTab === 'signals' && <SignalList />}
         {activeTab === 'watchlist' && <Watchlist />}
         {activeTab === 'oi' && <Analytics />}
