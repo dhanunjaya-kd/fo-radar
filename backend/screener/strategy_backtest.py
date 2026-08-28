@@ -5,16 +5,6 @@ Aug 28 2026: core simulation engine for a price-action-only strategy
 backtest -- the foundational piece of Module 10's "rule builder"
 concept from the 12-screen redesign reference.
 
-SCOPE, stated plainly: this is the CORE, single-stock simulation
-engine, proven correct by its own test suite (test_indicator_series.py,
-test_trade_simulation.py) -- NOT yet a complete feature. Still needed
-before this is usable end-to-end:
-  1. Wiring into a Django view + URL route
-  2. Extension to loop across the full F&O universe (208 sequential
-     Fyers History API calls is slow -- needs a background-worker
-     pattern like daily_backtest.py, not a synchronous request)
-  3. A frontend UI for defining strategy parameters and viewing results
-
 WHY PRICE-ACTION ONLY, NOT THE FULL RULE BUILDER THE MOCKUP IMPLIES:
 OI-confirmation (a core part of every live SNIPER signal) depends on a
 LIVE option-chain fetch at signal-evaluation time -- that data was
@@ -30,7 +20,16 @@ never backtested.
 Strategy dict format: any of {rsi_min, rsi_max, adx_min} -- a key
 that's absent means "no constraint on this condition." Extensible to
 more price-action conditions later without changing this shape.
+
+MULTI-SYMBOL PERFORMANCE: looping the full ~208-stock F&O universe
+means ~208 sequential Fyers History API calls -- run via a background
+daemon thread (run_multi_symbol_backtest_worker below), same pattern
+as daily_backtest.py's own worker, not a synchronous request that
+would time out.
 """
+import threading
+from datetime import datetime
+
 import pandas as pd
 import numpy as np
 
@@ -96,8 +95,9 @@ def simulate_price_action_strategy(indicator_df, price_df, strategy,
 
     Returns a list of trade dicts: {entry_idx, exit_idx, entry_price,
     exit_price, sl, target, pnl, pnl_pct, exit_reason}. entry_idx/
-    exit_idx are positions into price_df/indicator_df -- the caller
-    maps these back to real dates.
+    exit_idx are positions into price_df/indicator_df -- see
+    attach_real_dates() below to convert these into real calendar
+    dates.
     """
     trades = []
     n = len(price_df)
@@ -159,12 +159,47 @@ def simulate_price_action_strategy(indicator_df, price_df, strategy,
     return trades
 
 
+def attach_real_dates(trades, price_df):
+    """
+    Aug 28 2026: maps each trade's positional entry_idx/exit_idx back
+    to real calendar dates using price_df's 'ts' column (epoch
+    seconds, Fyers' candle format) -- converts the trade dict into the
+    exact shape backtest_signal_pnl.py's compute_metrics()/
+    compute_equity_curve() expect (entry_dt, exit_dt as real
+    datetimes, alongside the existing pnl field), so this engine's
+    output can plug directly into that already-proven aggregation
+    pipeline rather than needing a second, parallel implementation.
+
+    Naive datetimes (datetime.utcfromtimestamp(), not timezone-aware)
+    deliberately -- matches this project's existing convention
+    throughout backtest_signal_pnl.py/news.py; switching to
+    timezone-aware here specifically would risk a type-mismatch
+    TypeError the moment these trades are compared against other
+    naive datetimes in that existing pipeline.
+
+    Verified in test_date_mapping.py: correct date resolution,
+    exit_dt always after entry_dt, all original fields preserved,
+    correct behavior when merging trades from different symbols.
+    """
+    result = []
+    for t in trades:
+        entry_ts = price_df['ts'].iloc[t['entry_idx']]
+        exit_ts = price_df['ts'].iloc[t['exit_idx']]
+        new_trade = dict(t)
+        new_trade['entry_dt'] = datetime.utcfromtimestamp(entry_ts)
+        new_trade['exit_dt'] = datetime.utcfromtimestamp(exit_ts)
+        result.append(new_trade)
+    return result
+
+
 def backtest_symbol(symbol, strategy, days=180, **kwargs):
     """
     Fetches real history for `symbol` via the existing, already-proven
     _fyers_history_df() (views.py) and runs simulate_price_action_
-    strategy() against it. Thin convenience wrapper -- deferred import
-    to avoid a circular dependency (views.py will import THIS module).
+    strategy() against it, then attaches real dates so the output is
+    directly compatible with backtest_signal_pnl.py's aggregation
+    functions. Deferred import to avoid a circular dependency
+    (views.py imports THIS module).
 
     Returns [] (never raises to the caller) if history can't be
     fetched -- same "no real data, no results" rule every other
@@ -178,4 +213,86 @@ def backtest_symbol(symbol, strategy, days=180, **kwargs):
     trades = simulate_price_action_strategy(indicator_df, df, strategy, **kwargs)
     for t in trades:
         t['symbol'] = symbol
-    return trades
+    return attach_real_dates(trades, df)
+
+
+# ============================================================
+# MULTI-SYMBOL BACKGROUND WORKER
+# ============================================================
+# Aug 28 2026: same "trigger + poll" pattern as daily_backtest.py's
+# own worker -- a run across the full F&O universe means ~208
+# sequential Fyers History calls, genuinely too slow for a
+# synchronous request/response cycle. One background thread at a
+# time; a second trigger while one is already running is a no-op
+# (returns the current status instead of starting a competing run).
+
+_strategy_backtest_state = {
+    "running": False,
+    "started_at": None,
+    "finished_at": None,
+    "strategy": None,
+    "symbols_total": 0,
+    "symbols_done": 0,
+    "trades": None,   # list of trade dicts once complete
+    "error": None,
+}
+_strategy_backtest_lock = threading.Lock()
+
+
+def _run_multi_symbol_backtest(symbols, strategy, days=180, **kwargs):
+    """The actual worker body -- runs in a background thread, updates
+    _strategy_backtest_state as it goes so a status endpoint can show
+    live progress rather than a silent black box."""
+    global _strategy_backtest_state
+    all_trades = []
+    try:
+        for i, symbol in enumerate(symbols):
+            try:
+                trades = backtest_symbol(symbol, strategy, days=days, **kwargs)
+                all_trades.extend(trades)
+            except Exception as e:
+                print(f"[StrategyBacktest] {symbol} failed, skipping: {e}")
+            with _strategy_backtest_lock:
+                _strategy_backtest_state["symbols_done"] = i + 1
+        all_trades.sort(key=lambda t: t["exit_dt"])
+        with _strategy_backtest_lock:
+            _strategy_backtest_state["trades"] = all_trades
+            _strategy_backtest_state["error"] = None
+    except Exception as e:
+        with _strategy_backtest_lock:
+            _strategy_backtest_state["error"] = str(e)
+    finally:
+        with _strategy_backtest_lock:
+            _strategy_backtest_state["running"] = False
+            _strategy_backtest_state["finished_at"] = datetime.utcnow().isoformat()
+
+
+def start_multi_symbol_backtest(symbols, strategy, days=180, **kwargs):
+    """
+    Triggers a background run across `symbols` if one isn't already in
+    progress. Returns the CURRENT state immediately (doesn't block) --
+    the caller polls get_strategy_backtest_status() for progress and
+    the final trade list.
+    """
+    with _strategy_backtest_lock:
+        if _strategy_backtest_state["running"]:
+            return dict(_strategy_backtest_state)
+        _strategy_backtest_state.update({
+            "running": True, "started_at": datetime.utcnow().isoformat(),
+            "finished_at": None, "strategy": strategy,
+            "symbols_total": len(symbols), "symbols_done": 0,
+            "trades": None, "error": None,
+        })
+        state_copy = dict(_strategy_backtest_state)
+
+    thread = threading.Thread(target=_run_multi_symbol_backtest, args=(symbols, strategy, days), kwargs=kwargs, daemon=True)
+    thread.start()
+    return state_copy
+
+
+def get_strategy_backtest_status():
+    """Read-only snapshot of the current/last run's state -- safe to
+    call from a polling endpoint at any time, running or not."""
+    with _strategy_backtest_lock:
+        return dict(_strategy_backtest_state)
+
