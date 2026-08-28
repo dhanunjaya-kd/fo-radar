@@ -1,0 +1,30 @@
+/*
+Aug 28 2026: density-overrides.css
+
+Table density preference from the Settings module. Deliberately a
+SEPARATE file from theme-overrides.css (not seen/touched here) --
+applies globally via CSS specificity on the .density-compact class set
+on the app root (App.jsx), rather than editing every individual table
+component's Tailwind classes across the whole codebase (LiveSignalsTable,
+Watchlist, SectorPerformance, and any future table all get this for
+free, no per-component changes needed).
+
+!important is deliberate here, not sloppiness -- Tailwind's own utility
+classes (py-2.5, px-4, etc.) are applied directly on elements with the
+same specificity these rules would otherwise have, so without
+!important this override would unpredictably win or lose depending on
+DOM order rather than the user's actual density choice.
+
+.density-comfortable has no rules at all -- it's the existing default
+appearance already in use throughout the app, nothing to override.
+*/
+
+.density-compact table td,
+.density-compact table th {
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+}
+
+.density-compact table {
+  font-size: 11px !important;
+}
