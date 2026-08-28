@@ -1760,10 +1760,21 @@ class OptionAnalyticsView(APIView):
         # -- confirmed via the real Fyers symbol master that only Oct/
         # Dec are actually current). This variant additionally confirms
         # a real options chain exists for the candidate before using it.
-        from .index_tracker import COMMODITY_BASES, _front_month_commodity_symbol, _front_month_bullion_symbol_with_options, _NEAR_MONTHLY_BASES
+        #
+        # Aug 28 2026: added INDEX_SYMBOLS (NIFTY/BANKNIFTY) -- this view
+        # never actually handled indices before. Every symbol NOT in
+        # COMMODITY_BASES silently fell through to f"NSE:{sym}-EQ",
+        # which is the WRONG Fyers symbol for an index (NSE:NIFTY50-
+        # INDEX, not NSE:NIFTY-EQ) -- calling this with "NIFTY" would
+        # have failed to resolve anything, not just returned imprecise
+        # data. Reuses index_tracker.INDEX_SYMBOLS directly rather than
+        # hardcoding the mapping a second time here.
+        from .index_tracker import COMMODITY_BASES, _front_month_commodity_symbol, _front_month_bullion_symbol_with_options, _NEAR_MONTHLY_BASES, INDEX_SYMBOLS
         if sym in COMMODITY_BASES:
             base = COMMODITY_BASES[sym]
             fyers_symbol = _front_month_commodity_symbol(base) if base in _NEAR_MONTHLY_BASES else _front_month_bullion_symbol_with_options(base)
+        elif sym in INDEX_SYMBOLS:
+            fyers_symbol = INDEX_SYMBOLS[sym]
         else:
             fyers_symbol = f"NSE:{sym}-EQ"
 
