@@ -1358,6 +1358,51 @@ class TickerDataView(APIView):
         return Response({"ticker": stocks})
 
 
+def get_technical_signal(symbol):
+    """
+    Aug 28 2026: real Bullish/Neutral/Bearish technical read for the
+    upcoming Watchlist redesign, based on RSI. Deliberately reuses
+    StockDetailView's exact existing pattern (check _stock_cache first
+    -- free if this symbol happens to already be cached; fall back to
+    _fetch_all_stocks([sym]) for a single fresh quote; then
+    _calc_tech(sym, live_quote=q) for the full indicator set including
+    TODAY's candle) rather than the _build_all()-populated _tech_cache
+    global, which ONLY covers the day's top 30 movers by |change%| --
+    a watchlist can contain any of the 208 F&O stocks, most of which
+    won't be in that moving top-30 subset on a given day.
+
+    RSI thresholds (>=60 Bullish, <=40 Bearish, else Neutral) sit
+    around the same 40-65 "favorable" band this codebase's own signal-
+    quality criteria already uses elsewhere (previously shown in the
+    UI as "RSI 40-65 | ADX >=25 | Vol >=1.5x") -- not a new, unrelated
+    scale invented just for this.
+
+    Returns None if a fresh quote or enough history isn't available --
+    never guesses a direction.
+    """
+    sym = symbol.upper().replace(".NS", "")
+    with _cache_lock:
+        q = _stock_cache.get(sym)
+    if not q:
+        fetched = _fetch_all_stocks([sym])
+        q = fetched.get(sym)
+        if not q:
+            return None
+
+    tech = _calc_tech(sym, live_quote=q)
+    if not tech or tech.get('rsi') is None:
+        return None
+
+    rsi = tech['rsi']
+    if rsi >= 60:
+        label = 'Bullish'
+    elif rsi <= 40:
+        label = 'Bearish'
+    else:
+        label = 'Neutral'
+    return {'label': label, 'rsi': rsi, 'adx': tech.get('adx')}
+
+
 class StockDetailView(APIView):
     def get(self, request, symbol):
         sym = symbol.upper().replace(".NS", "")
@@ -1850,15 +1895,27 @@ class OptionAnalyticsView(APIView):
 
 class FiftyTwoWeekRangeView(APIView):
     """
-    Aug 28 2026: real 52-week high/low for a single F&O stock symbol --
-    built for the upcoming Watchlist redesign. GET /api/52-week-range/
-    <symbol>/ -> {"symbol", "high52w", "low52w"}. Both fields are null
-    if history can't be fetched right now -- never a guessed range.
+    Aug 28 2026: real 52-week high/low PLUS a Bullish/Neutral/Bearish
+    technical read, for a single F&O stock symbol -- built for the
+    Watchlist redesign. Combined into one endpoint (not two) because a
+    Watchlist row wants both together; no reason to make the frontend
+    fire two separate requests per row for data that's always shown
+    side by side.
+
+    GET /api/52-week-range/<symbol>/ ->
+      {"symbol", "high52w", "low52w", "technical": {"label","rsi","adx"} | null}
+
+    Every field is null if it can't be resolved right now -- never a
+    guessed range or a fabricated direction.
     """
     def get(self, request, symbol):
         sym = symbol.upper().replace(".NS", "")
         high52w, low52w = get_52_week_high_low(sym)
-        return Response(clean_json({"symbol": sym, "high52w": high52w, "low52w": low52w}))
+        technical = get_technical_signal(sym)
+        return Response(clean_json({
+            "symbol": sym, "high52w": high52w, "low52w": low52w,
+            "technical": technical,
+        }))
 
 
 # ============================================================
