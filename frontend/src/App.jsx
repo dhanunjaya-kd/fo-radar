@@ -5,6 +5,7 @@ import { ThemeProvider, useTheme } from './components/ThemeContext';
 import ThemeToggle from './components/ThemeToggle';
 import './components/theme-overrides.css';
 import MarketBanner from './components/MarketBanner';
+import MarketBreadth from './components/MarketBreadth';
 import SignalList from './components/SignalList';
 import Watchlist from './components/Watchlist';
 import Analytics from './components/Analytics';
@@ -107,6 +108,7 @@ function AppShell() {
       {/* Top Section */}
       <div className="px-4 pt-4 pb-2">
         <MarketBanner />
+        <MarketBreadth />
       </div>
 
       {/* Tabs */}

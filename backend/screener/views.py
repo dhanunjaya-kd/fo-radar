@@ -1226,6 +1226,7 @@ class MarketSummaryOldView(APIView):
             vix = _index_cache.get("india_vix")
             pcr = _index_cache.get("pcr", {"value": None, "sentiment": "N/A"})
             warming = len(_stock_cache) == 0
+            breadth = _compute_breadth(list(_stock_cache.values()))
 
         # MarketBanner (this endpoint) is the one thing mounted on every
         # tab, polling every 30s regardless of which tab is active --
@@ -1247,6 +1248,7 @@ class MarketSummaryOldView(APIView):
             "banknifty": bank or {"price": 0, "change": 0, "change_percent": 0},
             "india_vix": vix or {"value": 0, "change": 0, "change_percent": 0},
             "pcr": pcr,
+            "breadth": breadth,
             "warming_up": warming,
             "timestamp": datetime.now().isoformat()
         })
@@ -1854,6 +1856,43 @@ class WeeklyReportView(APIView):
 
         filename = os.path.basename(path)
         return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
+
+
+def _compute_breadth(stocks):
+    """
+    Aug 28 2026: real market breadth computed from the F&O universe this
+    project already scans every cycle (_stock_cache, FNO_STOCKS -- 208
+    symbols) -- NOT full-NSE breadth. A full-market breadth reading
+    (thousands of stocks) would need an entirely new, much larger
+    batch-quote flow this project has never had; scoped and labeled
+    honestly to the real ~208-stock F&O universe already being tracked
+    here, rather than presenting a smaller sample as if it were the
+    whole market.
+
+    "Unchanged" is a real, exact 0.0% change_percent reading from
+    Fyers, not a rounding artifact -- a stock that genuinely hasn't
+    traded yet today (or traded at exactly yesterday's close) reads
+    this way; not fabricated or estimated.
+    """
+    if not stocks:
+        return {
+            "advances": 0, "declines": 0, "unchanged": 0, "total": 0,
+            "advances_pct": 0, "declines_pct": 0, "unchanged_pct": 0,
+            "total_volume": 0,
+        }
+    advances = sum(1 for s in stocks if (s.get("change_percent") or 0) > 0)
+    declines = sum(1 for s in stocks if (s.get("change_percent") or 0) < 0)
+    unchanged = sum(1 for s in stocks if (s.get("change_percent") or 0) == 0)
+    total = len(stocks)
+    total_volume = sum(s.get("volume") or 0 for s in stocks)
+    return {
+        "advances": advances, "declines": declines, "unchanged": unchanged,
+        "total": total,
+        "advances_pct": round(advances / total * 100, 1) if total else 0,
+        "declines_pct": round(declines / total * 100, 1) if total else 0,
+        "unchanged_pct": round(unchanged / total * 100, 1) if total else 0,
+        "total_volume": total_volume,
+    }
 
 
 def clean_json(data):
