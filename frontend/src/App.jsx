@@ -19,6 +19,7 @@ import FundamentalsWatchlist from './components/FundamentalsWatchlist';
 import DailyBacktestTab from './components/DailyBacktestTab';
 import Dashboard from './components/Dashboard';
 import SettingsPanel from './components/SettingsPanel';
+import StrategyBacktest from './components/StrategyBacktest';
 import SearchBar from './components/SearchBar';
 
 // Aug 28 2026: lifted verbatim from SignalList.jsx (top-nav redesign --
@@ -44,7 +45,7 @@ const IconMaximize = ({ size = 17 }) => (
 // Aug 28 2026: added 'dashboard' -- new home tab for the Dashboard-
 // specific panels from the 12-screen redesign reference (Sector
 // Performance now, more to follow).
-const VALID_TABS = ['dashboard', 'signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings'];
+const VALID_TABS = ['dashboard', 'signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings', 'strategy'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -120,6 +121,7 @@ function AppShell() {
     { id: 'value', label: 'Value Watchlist', count: null },
     { id: 'backtest', label: 'Daily Backtest', count: null },
     { id: 'settings', label: 'Settings', count: null },
+    { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
   // Aug 28 2026: grouped nav layout, from the top-nav redesign
@@ -134,12 +136,12 @@ function AppShell() {
   // than built empty just to visually match the reference.
   const standaloneTabs = tabs.filter(t => ['dashboard', 'signals', 'watchlist'].includes(t.id));
   const marketsTabs = tabs.filter(t => ['market', 'index', 'crude', 'bullion'].includes(t.id));
-  const intelligenceTabs = tabs.filter(t => ['oi', 'news', 'backtest', 'value'].includes(t.id));
+  const intelligenceTabs = tabs.filter(t => ['oi', 'news', 'backtest', 'value', 'strategy'].includes(t.id));
 
   const tabIcon = (id) => ({
     dashboard: '🏠', settings: '⚙️', signals: '⚡', watchlist: '👁',
     oi: '📊', index: '📈', market: '📋', crude: '🛢️', bullion: '🥇',
-    news: '📰', value: '💎', backtest: '🧮',
+    news: '📰', value: '💎', backtest: '🧮', strategy: '🧪',
   }[id] || '');
 
   const TabButton = ({ tab }) => (
@@ -306,6 +308,7 @@ function AppShell() {
         {activeTab === 'news' && <NewsFeed />}
         {activeTab === 'value' && <FundamentalsWatchlist />}
         {activeTab === 'backtest' && <DailyBacktestTab />}
+        {activeTab === 'strategy' && <StrategyBacktest />}
       </div>
     </div>
   );
