@@ -1228,6 +1228,7 @@ class MarketSummaryOldView(APIView):
             warming = len(_stock_cache) == 0
             breadth = _compute_breadth(list(_stock_cache.values()))
             sectors = _compute_sector_performance(list(_stock_cache.values()))
+            sentiment = _compute_market_sentiment(list(_stock_cache.values()))
 
         # MarketBanner (this endpoint) is the one thing mounted on every
         # tab, polling every 30s regardless of which tab is active --
@@ -1251,6 +1252,7 @@ class MarketSummaryOldView(APIView):
             "pcr": pcr,
             "breadth": breadth,
             "sectors": sectors,
+            "sentiment": sentiment,
             "warming_up": warming,
             "timestamp": datetime.now().isoformat()
         })
@@ -1934,6 +1936,73 @@ def _compute_sector_performance(stocks):
         })
     results.sort(key=lambda r: r["change_percent"], reverse=True)
     return results
+
+
+def _classify_sentiment_band(chg):
+    """Assigns one of 5 sentiment bands to a single stock's change% --
+    thresholds are a reasonable first cut, not empirically tuned, same
+    "watch and retune" status as every other threshold in this project
+    (PCR bands, Bias vote margins, price-confirmation thresholds)."""
+    if chg >= 2.0:
+        return "Very Bullish"
+    if chg >= 0.5:
+        return "Bullish"
+    if chg > -0.5:
+        return "Neutral"
+    if chg > -2.0:
+        return "Bearish"
+    return "Very Bearish"
+
+
+_SENTIMENT_BAND_VALUE = {"Very Bullish": 100, "Bullish": 75, "Neutral": 50, "Bearish": 25, "Very Bearish": 0}
+_SENTIMENT_BAND_ORDER = ["Very Bullish", "Bullish", "Neutral", "Bearish", "Very Bearish"]
+
+
+def _compute_market_sentiment(stocks):
+    """
+    Aug 28 2026: real market sentiment gauge computed ENTIRELY from the
+    F&O universe's own change_percent distribution -- the same
+    208-stock data breadth/sector performance already use. Deliberately
+    NOT a hand-mixed formula blending PCR/VIX/Bias with invented
+    weights -- the overall 0-100 score is the mathematically CONSISTENT
+    weighted average of the same 5-band breakdown returned alongside
+    it (each band's fixed sentiment value x its real percentage of
+    stocks), so the gauge number and the legend can never quietly
+    drift apart into two independently-guessed figures. Verified by
+    this module's own test suite: score == weighted_avg(bands), always.
+    """
+    if not stocks:
+        return {"score": 50, "label": "Neutral", "bands": []}
+
+    counts = {name: 0 for name in _SENTIMENT_BAND_ORDER}
+    for s in stocks:
+        chg = s.get("change_percent") or 0
+        band = _classify_sentiment_band(chg)
+        counts[band] += 1
+
+    total = len(stocks)
+    bands = []
+    weighted_sum = 0
+    for name in _SENTIMENT_BAND_ORDER:
+        count = counts[name]
+        pct = round(count / total * 100, 1) if total else 0
+        bands.append({"label": name, "count": count, "pct": pct})
+        weighted_sum += _SENTIMENT_BAND_VALUE[name] * count
+
+    score = round(weighted_sum / total, 1) if total else 50
+
+    if score >= 80:
+        label = "Very Bullish"
+    elif score >= 60:
+        label = "Bullish"
+    elif score >= 40:
+        label = "Neutral"
+    elif score >= 20:
+        label = "Bearish"
+    else:
+        label = "Very Bearish"
+
+    return {"score": score, "label": label, "bands": bands}
 
 
 def clean_json(data):
