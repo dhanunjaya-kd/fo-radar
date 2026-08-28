@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import IndexPriceChart from './IndexPriceChart';
+import OHLCInfo from './OHLCInfo';
+import AdvanceDeclineDonut from './AdvanceDeclineDonut';
 
 // Relative on purpose -- see the same note in SignalList.jsx. Routes
 // through Vite's dev-server proxy so this works from any host the page
@@ -433,6 +435,9 @@ function IndexSection({ indexName, showBacktest = true }) {
           unchanged. */}
       <div className="px-4 pt-4">
         <IndexPriceChart indexName={indexName} />
+        <div className="mt-3">
+          <OHLCInfo indexName={indexName} />
+        </div>
       </div>
 
       <div className="p-4">
@@ -469,6 +474,14 @@ export default function IndexTracker() {
         API. Crude oil moved to its own dedicated tab, since it works differently enough (no spot/cash
         index, its own MCX hours, its own options chain) to deserve a separate home rather than being
         squeezed in here.
+      </div>
+      {/* Aug 28 2026: market-wide, not index-specific (same reasoning
+          as keeping MarketBanner/MarketBreadth global rather than
+          per-tab) -- shown once here, not duplicated inside each
+          IndexSection card below. */}
+      <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-4">
+        <h3 className="text-sm font-bold text-white mb-3">Advances / Declines</h3>
+        <AdvanceDeclineDonut />
       </div>
       <IndexSection indexName="NIFTY" />
       <IndexSection indexName="BANKNIFTY" />
