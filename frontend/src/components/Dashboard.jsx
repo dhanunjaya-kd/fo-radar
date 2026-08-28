@@ -2,15 +2,20 @@ import SectorPerformance from './SectorPerformance';
 import TopLiveSignals from './TopLiveSignals';
 import MarketSentimentGauge from './MarketSentimentGauge';
 import OptionsOverview from './OptionsOverview';
+import MarketMovers from './MarketMovers';
 
 // Aug 28 2026: new Dashboard tab -- the home for the Dashboard-specific
-// panels from the 12-screen redesign reference. Module 1 COMPLETE as
-// of this file: Top Live Signals, Market Sentiment gauge, Sector
-// Performance, and Options Overview -- FII/DII deliberately skipped
-// (no confirmed real data source). The global top banner (NIFTY/
-// BANKNIFTY/VIX/PCR/Crude + Breadth) deliberately stays OUTSIDE this
-// component -- it's already shared across every tab via MarketBanner/
-// MarketBreadth in App.jsx, so it isn't duplicated here.
+// panels from the 12-screen redesign reference. Module 1 COMPLETE:
+// Top Live Signals, Market Sentiment gauge, Sector Performance, and
+// Options Overview -- FII/DII deliberately skipped (no confirmed real
+// data source). Market Movers added here too (from Module 6) -- there
+// was no natural existing tab for the reduced-scope "Futures/News"
+// module (Currency Futures dropped, Index/Stock/Commodity Futures
+// already live in existing tabs), so this is where it actually fits.
+// The global top banner (NIFTY/BANKNIFTY/VIX/PCR/Crude + Breadth)
+// deliberately stays OUTSIDE this component -- it's already shared
+// across every tab via MarketBanner/MarketBreadth in App.jsx, so it
+// isn't duplicated here.
 //
 // onNavigate: passed down from App.jsx (its setActiveTab) so panels
 // like Top Live Signals' "View All" button can actually switch to the
@@ -28,6 +33,7 @@ export default function Dashboard({ onNavigate }) {
         <OptionsOverview />
         <SectorPerformance />
       </div>
+      <MarketMovers />
     </div>
   );
 }
