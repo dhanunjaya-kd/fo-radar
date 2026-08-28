@@ -1,5 +1,7 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useSignals } from '../hooks/useSignals'
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 // Table layout matches the reference the user gave (compact rows, colored
 // pill badges per column) -- but populated with REAL fields from the live
@@ -37,6 +39,11 @@ const GRADE_COLOR = {
   'C': 'text-amber-400', 'D': 'text-rose-400',
 }
 
+// Aug 28 2026: Technical badge tone -- matches the RSI thresholds
+// get_technical_signal() actually uses server-side (>=60 Bullish,
+// <=40 Bearish, else Neutral), not a separate scale invented here.
+const TECH_TONE = { Bullish: 'green', Neutral: 'gray', Bearish: 'red' }
+
 function Pill({ children, tone }) {
   const tones = {
     green: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25',
@@ -49,6 +56,37 @@ function Pill({ children, tone }) {
 
 export default function Watchlist() {
   const { signals, loading, error } = useSignals()
+  // Aug 28 2026: 52-week High/Low + Technical (RSI-based Bullish/
+  // Neutral/Bearish) -- fetched per-symbol from the new
+  // /api/52-week-range/<symbol>/ endpoint (views.py), separate from
+  // useSignals() since that data isn't part of the signal object at
+  // all. Fetched in parallel, per-symbol failures isolated (tested in
+  // test_watchlist_fetch_logic.js) so one bad symbol never blanks the
+  // whole table -- missing/failed entries just render as an honest
+  // dash, never a guess.
+  const [rangeData, setRangeData] = useState({})
+
+  useEffect(() => {
+    if (!signals || signals.length === 0) return
+    let mounted = true
+    const fetchRanges = async () => {
+      const results = {}
+      await Promise.all(signals.map(async (s) => {
+        try {
+          const res = await fetch(`${API_BASE}/api/52-week-range/${s.symbol}/`)
+          if (!res.ok) throw new Error('HTTP ' + res.status)
+          results[s.symbol] = await res.json()
+        } catch (err) {
+          results[s.symbol] = null
+        }
+      }))
+      if (mounted) setRangeData(results)
+    }
+    fetchRanges()
+    // Same 30s cadence as the other market-summary-fed panels tonight.
+    const interval = setInterval(fetchRanges, 30000)
+    return () => { mounted = false; clearInterval(interval) }
+  }, [(signals || []).map(s => s.symbol).join(',')])
 
   if (loading) {
     return <div className="p-10 text-center text-slate-500">Loading watchlist...</div>
@@ -78,6 +116,14 @@ export default function Watchlist() {
               <span className="hidden sm:inline">OI Status</span>
             </th>
             <th className="text-center px-1.5 sm:px-4 py-2 sm:py-2.5 font-medium">Signal</th>
+            <th className="text-right px-2 sm:px-4 py-2 sm:py-2.5 font-medium whitespace-nowrap">
+              <span className="sm:hidden">52W</span>
+              <span className="hidden sm:inline">52W High / Low</span>
+            </th>
+            <th className="text-center px-1.5 sm:px-4 py-2 sm:py-2.5 font-medium">
+              <span className="sm:hidden">Tech</span>
+              <span className="hidden sm:inline">Technical</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -100,6 +146,26 @@ export default function Watchlist() {
                 {s.action === 'BUY'
                   ? <Pill tone="green"><IconTriangleUp /><span className="hidden sm:inline">BUY</span></Pill>
                   : <Pill tone="red"><IconTriangleDown /><span className="hidden sm:inline">SELL</span></Pill>}
+              </td>
+              <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right whitespace-nowrap">
+                {rangeData[s.symbol]?.high52w != null ? (
+                  <>
+                    <span className="text-emerald-400">₹{fmt(rangeData[s.symbol].high52w)}</span>
+                    {' / '}
+                    <span className="text-rose-400">₹{fmt(rangeData[s.symbol].low52w)}</span>
+                  </>
+                ) : (
+                  <span className="text-slate-600">—</span>
+                )}
+              </td>
+              <td className="px-1.5 sm:px-4 py-2.5 sm:py-3 text-center">
+                {rangeData[s.symbol]?.technical?.label ? (
+                  <Pill tone={TECH_TONE[rangeData[s.symbol].technical.label] || 'gray'}>
+                    {rangeData[s.symbol].technical.label}
+                  </Pill>
+                ) : (
+                  <Pill tone="gray">—</Pill>
+                )}
               </td>
             </tr>
           ))}
