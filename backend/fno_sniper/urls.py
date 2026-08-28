@@ -11,7 +11,7 @@ from screener.views import (
     FundamentalsWatchlistView, CASAuctionMovesView, IndexTrackerAvailableDatesView,
     SignalWatchlistCsvView, IndexSignalView, CommodityCurrentSymbolView,
     DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView,
-    DailyBacktestRangeView, FiftyTwoWeekRangeView
+    DailyBacktestRangeView, FiftyTwoWeekRangeView, BroaderIndicesView
 )
 
 urlpatterns = [
@@ -59,6 +59,11 @@ urlpatterns = [
     # needs its own Fyers History API call (the Quotes API confirmed
     # NOT to provide this field at all).
     path('api/52-week-range/<str:symbol>/', FiftyTwoWeekRangeView.as_view(), name='fifty_two_week_range'),
+    # Aug 28 2026: broader NSE indices for Market View's Indices
+    # Performance table -- own endpoint, own cadence, see
+    # BroaderIndicesView's docstring for why this is separate from
+    # market-summary.
+    path('api/broader-indices/', BroaderIndicesView.as_view(), name='broader_indices'),
 
     # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
