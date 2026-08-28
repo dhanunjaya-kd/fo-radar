@@ -48,6 +48,7 @@ actually show.
 """
 import os
 import threading
+import tempfile
 from datetime import datetime, timedelta
 
 try:
@@ -489,6 +490,59 @@ def _ensure_flips_sheet(wb):
     for cell in ws[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+
+
+def _atomic_save(wb, path):
+    """
+    Aug 28 2026: saves the workbook safely -- write to a temp file in
+    the SAME directory first, then atomically swap it into place via
+    os.replace(), rather than wb.save(path) writing directly to the
+    real target.
+
+    REAL bug this fixes: openpyxl (like any zip writer) writes a
+    file's central directory LAST, at the very end of the save -- if
+    the process gets interrupted anywhere before that (a crash, a
+    Windows file-lock collision, auto_sync.py grabbing the file
+    mid-write), the result is a file that LOOKS zip-like enough for
+    Excel's lenient repair tool to offer to salvage it, but fails
+    Python's stricter zipfile check outright with "File is not a zip
+    file". Confirmed live: a real corrupted CRUDEOIL/CRUDEOILM file
+    from Aug 26 showed exactly this signature -- Excel offered to
+    recover it, openpyxl couldn't open it at all.
+
+    os.replace() is atomic on both POSIX and Windows -- the real
+    target path is either the complete OLD file or the complete NEW
+    file at every instant, never a partially-written one, regardless
+    of when an interruption happens. The temp file lives in the SAME
+    directory as the target specifically because atomic replace only
+    holds within one filesystem -- a temp file on a different drive
+    would silently fall back to copy+delete, losing exactly the
+    guarantee this exists to provide.
+    """
+    directory = os.path.dirname(path)
+    fd, tmp_path = tempfile.mkstemp(suffix=".xlsx.tmp", dir=directory)
+    os.close(fd)  # openpyxl needs a path to write to, not an open fd -- mkstemp is only used for its atomic unique-name creation
+    try:
+        wb.save(tmp_path)
+        os.replace(tmp_path, path)
+    except BaseException:
+        # BaseException, not Exception -- a real interruption
+        # (KeyboardInterrupt, or the process being killed via a signal
+        # Python can still trap) needs this cleanup too, not just
+        # ordinary exceptions. Safe to catch this broadly here
+        # specifically because the ONLY action taken is deleting a
+        # leftover temp file, and the original exception/interrupt is
+        # ALWAYS re-raised unchanged right after -- this never
+        # swallows or alters how the interruption propagates, it just
+        # tidies up first. Caught live via this file's own test suite:
+        # a simulated KeyboardInterrupt mid-write left an orphaned
+        # .tmp file behind under the narrower `except Exception`.
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass  # best-effort cleanup -- don't let a cleanup failure mask the real error above
+        raise
 
 
 def _get_workbook(path):
@@ -1103,7 +1157,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         ws = wb["Snapshots"]
         ws.append([row[c] for c in COLUMNS])
         _log_flip_if_changed(wb, index_name, bias, row.get("Spot"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
-        wb.save(path)
+        _atomic_save(wb, path)
     except Exception as e:
         print(f"[IndexTracker] Failed to log {index_name} snapshot: {e}")
 
@@ -1281,7 +1335,7 @@ def snapshot_commodity(name, base):
         ws = wb["Snapshots"]
         ws.append([row[c] for c in COLUMNS])
         _log_flip_if_changed(wb, name, bias, row.get("Fut"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
-        wb.save(path)
+        _atomic_save(wb, path)
     except Exception as e:
         print(f"[IndexTracker] Failed to log {name} snapshot: {e}")
 
