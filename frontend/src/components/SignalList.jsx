@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
-import SniperCard from './SniperCard';
+import LiveSignalsTable from './LiveSignalsTable';
 
 // Relative on purpose -- Vite's dev-server proxy (vite.config.js) forwards
 // /api/* to the Django backend on this same machine, so this works
@@ -250,11 +250,7 @@ export default function LiveSignals() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {uniqueSignals.map((signal) => (
-          <SniperCard key={signal.symbol} signal={signal} />
-        ))}
-      </div>
+      <LiveSignalsTable signals={uniqueSignals} />
     </div>
   );
 }
