@@ -1227,6 +1227,7 @@ class MarketSummaryOldView(APIView):
             pcr = _index_cache.get("pcr", {"value": None, "sentiment": "N/A"})
             warming = len(_stock_cache) == 0
             breadth = _compute_breadth(list(_stock_cache.values()))
+            sectors = _compute_sector_performance(list(_stock_cache.values()))
 
         # MarketBanner (this endpoint) is the one thing mounted on every
         # tab, polling every 30s regardless of which tab is active --
@@ -1249,6 +1250,7 @@ class MarketSummaryOldView(APIView):
             "india_vix": vix or {"value": 0, "change": 0, "change_percent": 0},
             "pcr": pcr,
             "breadth": breadth,
+            "sectors": sectors,
             "warming_up": warming,
             "timestamp": datetime.now().isoformat()
         })
@@ -1893,6 +1895,45 @@ def _compute_breadth(stocks):
         "unchanged_pct": round(unchanged / total * 100, 1) if total else 0,
         "total_volume": total_volume,
     }
+
+
+def _compute_sector_performance(stocks):
+    """
+    Aug 28 2026: real sector-level aggregation from the F&O universe
+    this project already scans -- each stock's own `sector` field
+    (already set from the SECTORS mapping in _fetch_all_quotes_fyers)
+    grouped and averaged. This is a SIMPLE AVERAGE of each sector's
+    stocks' change_percent, NOT a market-cap-weighted index reading --
+    this project has no market-cap data wired into the live scan to
+    weight by, so a cap-weighted figure would just be invented. Stated
+    plainly as a simple average, not presented as a precise sector
+    index the way NIFTY IT/NIFTY AUTO etc. are on NSE's own site.
+
+    Sorted by real performance (best first) -- matches how this is
+    actually used (scanning for which sectors are leading today), not
+    alphabetical order.
+    """
+    from collections import defaultdict
+    by_sector = defaultdict(list)
+    for s in stocks:
+        sector = s.get("sector") or "Unknown"
+        by_sector[sector].append(s)
+
+    results = []
+    for sector, group in by_sector.items():
+        changes = [s.get("change_percent") or 0 for s in group]
+        avg_chg = round(sum(changes) / len(changes), 2) if changes else 0
+        advances = sum(1 for c in changes if c > 0)
+        declines = sum(1 for c in changes if c < 0)
+        results.append({
+            "sector": sector,
+            "change_percent": avg_chg,
+            "advances": advances,
+            "declines": declines,
+            "stock_count": len(group),
+        })
+    results.sort(key=lambda r: r["change_percent"], reverse=True)
+    return results
 
 
 def clean_json(data):
