@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import MarketHeatmap from './MarketHeatmap';
+import MarketSummary from './MarketSummary';
 
 // Relative on purpose -- see the same note in IndexTracker.jsx/SignalList.jsx.
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -297,11 +298,12 @@ function MarketViewSection({ indexName }) {
 export default function MarketView() {
   return (
     <div className="space-y-4">
-      {/* Aug 28 2026: new section, from the Module 4 (Market View)
-          redesign reference -- reuses Sector Performance's own data
-          (/api/market-summary/), no backend change here. Everything
-          below this (the indigo note + both NIFTY/BANKNIFTY tables)
-          is completely unchanged. */}
+      {/* Aug 28 2026: new sections, from the Module 4 (Market View)
+          redesign reference -- MarketSummary is pure client-side time
+          logic (no backend), MarketHeatmap reuses Sector Performance's
+          own data (/api/market-summary/). Everything below this (the
+          indigo note + both NIFTY/BANKNIFTY tables) is unchanged. */}
+      <MarketSummary />
       <MarketHeatmap />
       <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300">
         Clean market view — same live data as Index Tracker, just the core columns only, thinned to a
