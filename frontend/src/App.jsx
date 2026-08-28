@@ -262,8 +262,16 @@ function AppShell() {
 
       {/* Grouped nav */}
       <div className="px-4 mb-4 flex items-start gap-6 flex-wrap">
-        <div className="flex gap-1">
-          {standaloneTabs.map(tab => <TabButton key={tab.id} tab={tab} />)}
+        <div>
+          {/* Invisible spacer label, same height/margin as the real
+              "Markets"/"Intelligence" labels below -- without this,
+              this group's buttons sit higher than the other two
+              (nothing pushing them down), creating an uneven,
+              zig-zagged baseline across the row. */}
+          <p className="text-[9px] uppercase tracking-wider mb-1 px-1 invisible">·</p>
+          <div className="flex gap-1">
+            {standaloneTabs.map(tab => <TabButton key={tab.id} tab={tab} />)}
+          </div>
         </div>
         <div>
           <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1 px-1">Markets</p>
