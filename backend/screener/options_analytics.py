@@ -94,6 +94,24 @@ def compute_pcr(rows):
     return round(pe_oi / ce_oi, 3), ce_oi, pe_oi
 
 
+def compute_pcr_volume(rows):
+    """
+    Aug 28 2026: Volume-based Put-Call Ratio -- same PCR concept as
+    compute_pcr() above, but using today's traded VOLUME instead of
+    open interest. A genuinely different signal from OI-based PCR:
+    volume reflects today's fresh trading activity, OI reflects
+    whatever's accumulated over however many prior days -- same
+    "today's flow vs built-up position" distinction index_tracker.py's
+    Bias vote system already draws between OI buildup and plain OI
+    level, applied here to PCR specifically.
+    """
+    ce_vol = sum((r['ce']['volume'] if r['ce'] else 0) for r in rows)
+    pe_vol = sum((r['pe']['volume'] if r['pe'] else 0) for r in rows)
+    if ce_vol == 0:
+        return 0.0, ce_vol, pe_vol
+    return round(pe_vol / ce_vol, 3), ce_vol, pe_vol
+
+
 # ---------------------------------------------------------------------------
 # 3. OI change (buildup)
 # ---------------------------------------------------------------------------
@@ -162,6 +180,28 @@ def compute_support_resistance(rows):
     resistance = max(ce_rows, key=lambda r: r['ce']['oi'])['strike'] if ce_rows else None
     support = max(pe_rows, key=lambda r: r['pe']['oi'])['strike'] if pe_rows else None
     return support, resistance
+
+
+def compute_atm_straddle_price(rows, atm_strike):
+    """
+    Aug 28 2026: ATM Call premium + ATM Put premium -- the classic
+    "straddle price," commonly read as the options market's implied
+    expected move by expiry (a rough rule of thumb: the underlying is
+    priced to move roughly +/- this much by expiry, on either side).
+    Returns None (never a guess) if the ATM strike itself, or either
+    leg's live LTP, isn't available -- same "don't fabricate a missing
+    price" rule every other function in this file already follows.
+    """
+    if atm_strike is None:
+        return None
+    atm_row = next((r for r in rows if r['strike'] == atm_strike), None)
+    if not atm_row:
+        return None
+    ce_ltp = atm_row['ce']['ltp'] if atm_row['ce'] else None
+    pe_ltp = atm_row['pe']['ltp'] if atm_row['pe'] else None
+    if not ce_ltp or not pe_ltp or ce_ltp <= 0 or pe_ltp <= 0:
+        return None
+    return round(ce_ltp + pe_ltp, 2)
 
 
 # ---------------------------------------------------------------------------
@@ -299,10 +339,12 @@ def analyze_option_chain(raw_response, days_to_expiry):
     enrich_rows_with_iv_greeks(rows, spot, days_to_expiry)
 
     pcr, ce_oi_total, pe_oi_total = compute_pcr(rows)
+    pcr_volume, ce_vol_total, pe_vol_total = compute_pcr_volume(rows)
     ce_oi_chg, pe_oi_chg = compute_oi_change(rows)
     max_pain = compute_max_pain(rows)
     support, resistance = compute_support_resistance(rows)
     iv, atm_strike, greeks = compute_atm_iv(rows, spot, days_to_expiry)
+    atm_straddle_price = compute_atm_straddle_price(rows, atm_strike)
 
     if ce_oi_chg > pe_oi_chg * 1.2:
         buildup = 'CE writing dominant (bearish)'
@@ -314,6 +356,7 @@ def analyze_option_chain(raw_response, days_to_expiry):
     return {
         'spot': spot,
         'pcr': pcr,
+        'pcr_volume': pcr_volume,
         'ce_oi': ce_oi_total,
         'pe_oi': pe_oi_total,
         'ce_oi_total': ce_oi_total,
@@ -325,6 +368,7 @@ def analyze_option_chain(raw_response, days_to_expiry):
         'support': support,
         'resistance': resistance,
         'atm_strike': atm_strike,
+        'atm_straddle_price': atm_straddle_price,
         'iv': iv,
         'oi_buildup': buildup,
         'greeks': greeks,  # {'CE': {...}, 'PE': {...}} at the ATM strike

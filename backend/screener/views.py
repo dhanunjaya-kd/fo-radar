@@ -1793,7 +1793,10 @@ class OptionAnalyticsView(APIView):
 
         return Response(clean_json({
             "symbol": sym, "live": True, "spot": oi["spot"], "pcr": oi["pcr"],
+            "pcrVolume": oi.get("pcr_volume"),
             "maxPain": oi["max_pain"], "atmIv": oi["iv"], "atmStrike": oi["atm_strike"],
+            "atmStraddlePrice": oi.get("atm_straddle_price"),
+            "maxPainDistPct": oi.get("max_pain_dist_pct"),
             "support": oi["support"], "resistance": oi["resistance"],
             "oiBuildup": oi["oi_buildup"], "greeks": oi["greeks"],
             "totalCeOi": oi["ce_oi"], "totalPeOi": oi["pe_oi"],
