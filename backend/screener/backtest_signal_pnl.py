@@ -247,8 +247,9 @@ def load_all_trades(capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
                 "oi_confirmation": row.get("OI Confirmation") or "Unknown",
                 "pattern": row.get("Pattern") or "None",
                 "entry_dt": entry_dt, "exit_dt": exit_dt,
-                "entry": entry, "exit_price": exit_price, "qty": qty,
+                "entry": entry, "sl": sl, "exit_price": exit_price, "qty": qty,
                 "pnl": pnl, "pnl_pct": pnl_pct, "exit_reason": reason,
+                "r_multiple": compute_r_multiple(entry, sl, exit_price),
             })
 
     trades.sort(key=lambda t: t["exit_dt"])
@@ -446,6 +447,59 @@ def generate_key_findings(trades, min_trades_for_a_finding=10):
     return findings
 
 
+def compute_r_multiple(entry, sl, exit_price):
+    """
+    Aug 29 2026: R-Multiple = Realized P&L / Initial Risk, per the PDF
+    upgrade spec's own definition. Initial Risk = entry - sl in
+    PREMIUM terms -- confirmed against this engine's own existing pnl
+    formula (pnl = exit_price - entry, applied uniformly regardless of
+    BUY/SELL), which only makes sense if entry is always the premium
+    paid and sl is always BELOW it: every trade here buys an option
+    contract (call or put), never shorts the underlying. So
+    initial_risk = entry - sl should always be positive for a real,
+    correctly-logged trade -- a non-positive value signals a genuine
+    data problem, not a valid trade, and is handled defensively (None,
+    not a fabricated or infinite ratio).
+
+    Tested in test_r_multiple.py (9 cases) before being wired in here.
+    """
+    if entry is None or sl is None or exit_price is None:
+        return None
+    initial_risk = entry - sl
+    if initial_risk <= 0:
+        return None
+    return round((exit_price - entry) / initial_risk, 4)
+
+
+def summarize_r_multiples(trades):
+    """Average/median/best/worst R, winner-distribution percentiles,
+    and winning-vs-losing R asymmetry -- the full breakdown the PDF
+    spec's R-Multiple table asks for. Trades whose r_multiple is None
+    (missing or bad SL data) are excluded from the sample, not treated
+    as 0R. Returns None if there's no valid sample at all, same
+    "don't fabricate" pattern every other metric here follows."""
+    r_values = [t["r_multiple"] for t in trades if t.get("r_multiple") is not None]
+    if not r_values:
+        return None
+    n = len(r_values)
+    sorted_r = sorted(r_values)
+    median = sorted_r[n // 2] if n % 2 == 1 else (sorted_r[n // 2 - 1] + sorted_r[n // 2]) / 2
+    winners = [r for r in r_values if r > 0]
+    losers = [r for r in r_values if r < 0]
+    return {
+        "avg_r": round(sum(r_values) / n, 3),
+        "median_r": round(median, 3),
+        "best_r": round(max(r_values), 3),
+        "worst_r": round(min(r_values), 3),
+        "pct_ge_1r": round(len([r for r in r_values if r >= 1]) / n * 100, 1),
+        "pct_ge_2r": round(len([r for r in r_values if r >= 2]) / n * 100, 1),
+        "pct_le_neg1r": round(len([r for r in r_values if r <= -1]) / n * 100, 1),
+        "avg_winning_r": round(sum(winners) / len(winners), 3) if winners else None,
+        "avg_losing_r": round(sum(losers) / len(losers), 3) if losers else None,
+        "sample_size": n,
+    }
+
+
 def compute_metrics(trades, capital_base):
     """The full statistics suite, modeled on the reference TradeTron
     report. Every ratio that can legitimately divide by zero (Calmar
@@ -537,6 +591,7 @@ def compute_metrics(trades, capital_base):
         "drawdown_periods": drawdown_periods,
         "daily_pnl": daily_pnl,
         "monthly_pnl": compute_monthly_pnl(trades),
+        "r_multiple": summarize_r_multiples(trades),
     }
 
 
