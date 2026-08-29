@@ -549,6 +549,54 @@ def compute_long_short_breakdown(trades):
     return result
 
 
+def compute_scorecard_status(metrics, min_sample_size=20):
+    """
+    Promising / Weak / Insufficient Sample -- P0 upgrade spec item.
+    Fixed, disclosed rule, confirmed with him Aug 29 2026 (chose the
+    "strict" option over a looser PF-only alternative):
+
+      Insufficient Sample -- fewer than min_sample_size (20) resolved
+      trades. Not a new number: the SAME 20-trade floor this file's
+      own small-sample warning banner already uses elsewhere.
+
+      Promising -- Profit Factor >= 1.5 AND Win Rate >= 45%, both.
+
+      Weak -- clears the sample floor but doesn't clear both bars
+      above. "Weak" means "hasn't cleared the Promising bar yet," not
+      "definitely losing" -- a strategy can be net profitable and
+      still be Weak here if it's under 1.5 PF or under 45% win rate.
+
+    A None profit_factor (gross_loss == 0 -- zero realized losing
+    trades) is treated as CLEARING the PF bar, not failing it: it
+    means no losses recorded yet, not missing data, so scoring it as
+    a failure against >=1.5 would be backwards.
+
+    Returns (status_str, reason_str) -- reason_str names the exact
+    numbers that decided it, so the status is never an unexplained
+    label.
+    """
+    total = metrics["total_trades"]
+    if total < min_sample_size:
+        return ("Insufficient Sample",
+                f"Only {total} resolved trades -- below the {min_sample_size}-trade floor to trust a verdict either way.")
+
+    pf = metrics["profit_factor"]
+    wr = metrics["win_rate_pct"]
+    pf_ok = pf is None or pf >= 1.5
+    wr_ok = wr is not None and wr >= 45
+
+    if pf_ok and wr_ok:
+        pf_str = "no losing trades yet" if pf is None else f"PF {pf}"
+        return ("Promising", f"{pf_str}, Win Rate {wr}% -- both clear the bar (PF >= 1.5, Win Rate >= 45%).")
+
+    failed = []
+    if not pf_ok:
+        failed.append(f"PF {pf} is below 1.5")
+    if not wr_ok:
+        failed.append(f"Win Rate {wr}% is below 45%")
+    return ("Weak", f"Doesn't clear the Promising bar yet: {'; '.join(failed)}.")
+
+
 def compute_metrics(trades, capital_base):
     """The full statistics suite, modeled on the reference TradeTron
     report. Every ratio that can legitimately divide by zero (Calmar
@@ -619,7 +667,18 @@ def compute_metrics(trades, capital_base):
 
     ongoing_dd = next((d for d in drawdown_periods if d["status"] == "Ongoing"), None)
 
-    return {
+    # Strategy Scorecard secondary metrics -- P0 upgrade spec item.
+    # avg_loss stays negative (same sign convention as gross_loss
+    # above) rather than reporting a magnitude that'd need a label to
+    # explain which direction it means.
+    avg_win = round(gross_profit / len(wins), 2) if wins else None
+    avg_loss = round(gross_loss / len(losses), 2) if losses else None
+    winning_days = len([v for v in daily_pnl.values() if v > 0])
+    losing_days = len([v for v in daily_pnl.values() if v < 0])
+    holding_minutes = [(t["exit_dt"] - t["entry_dt"]).total_seconds() / 60 for t in trades]
+    avg_holding_minutes = round(sum(holding_minutes) / len(holding_minutes), 1) if holding_minutes else None
+
+    metrics = {
         "net_pnl": net_pnl,
         "net_pnl_pct": round(net_pnl / capital_base * 100, 2) if capital_base else None,
         "capital_base": capital_base,
@@ -642,7 +701,13 @@ def compute_metrics(trades, capital_base):
         "monthly_pnl": compute_monthly_pnl(trades),
         "r_multiple": summarize_r_multiples(trades),
         "long_short": compute_long_short_breakdown(trades),
+        "avg_win": avg_win, "avg_loss": avg_loss,
+        "winning_days": winning_days, "losing_days": losing_days,
+        "avg_holding_minutes": avg_holding_minutes,
+        "expectancy": round(net_pnl / len(trades), 2) if trades else None,
     }
+    metrics["scorecard_status"], metrics["scorecard_status_reason"] = compute_scorecard_status(metrics)
+    return metrics
 
 
 def _bin_daily_returns(daily_pnl, capital_base, num_bins=12):
@@ -981,6 +1046,104 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
                 "⚠ Small sample -- treat everything below as a rough first look, not a verified edge. "
                 "Same caution as every other backtest in this project."), warn))
             story.append(Spacer(1, 3 * mm))
+
+        # ---- Strategy Scorecard -- P0 upgrade spec item, added Aug 29
+        # 2026. Status rule (Promising: PF >= 1.5 AND Win Rate >= 45%;
+        # Insufficient Sample: below 20 trades, same floor the small-
+        # sample warning above already uses) was confirmed with him
+        # directly, over a looser PF-only alternative. The full
+        # disclosed logic lives in compute_scorecard_status() -- this
+        # block only renders metrics["scorecard_status"]. ----
+        story.append(Paragraph(_esc("Strategy Scorecard"), h2))
+
+        status = metrics["scorecard_status"]
+        status_colors = {
+            "Promising": "#16A34A",
+            "Weak": "#D97706",
+            "Insufficient Sample": "#6B7280",
+        }
+        status_bg = status_colors.get(status, "#6B7280")
+        status_h_style = ParagraphStyle("status_h", fontName="Helvetica-Bold", fontSize=15, textColor=rl_colors.white, spaceAfter=2)
+        status_r_style = ParagraphStyle("status_r", fontName="Helvetica", fontSize=8.5, textColor=rl_colors.white, leading=11)
+        status_tbl = Table(
+            [[Paragraph(_esc(f"STATUS: {status.upper()}"), status_h_style)],
+             [Paragraph(_esc(metrics["scorecard_status_reason"]), status_r_style)]],
+            colWidths=[180 * mm],
+        )
+        status_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor(status_bg)),
+            ("LEFTPADDING", (0, 0), (-1, -1), 12), ("TOPPADDING", (0, 0), (-1, 0), 8),
+            ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
+        ]))
+        story.append(status_tbl)
+        story.append(Spacer(1, 3 * mm))
+        story.append(Paragraph(_esc(
+            "Fixed, disclosed rule: Promising needs Profit Factor >= 1.5 AND Win Rate >= 45%, both. Below 20 "
+            "resolved trades it's always Insufficient Sample, regardless of how good the numbers look -- not "
+            "enough data yet to trust a verdict either way."), caption))
+
+        dd_rs = f"{metrics['max_drawdown']['depth']:,.0f}" if metrics["max_drawdown"] else "N/A"
+        dd_pct = f"{metrics['max_drawdown']['depth_pct']}%" if metrics["max_drawdown"] else "N/A"
+
+        headline_rows = [
+            ["Starting Capital (Rs)", f"{metrics['capital_base']:,.0f}"],
+            ["Net P&L (Rs)", f"{metrics['net_pnl']:,.0f}"],
+            ["Return %", na(metrics["net_pnl_pct"], "%")],
+            ["Trades", str(metrics["total_trades"])],
+            ["Win Rate", na(metrics["win_rate_pct"], "%")],
+            ["Profit Factor", na(metrics["profit_factor"])],
+            ["Expectancy/Trade (Rs)", na(metrics["expectancy"])],
+            ["Max Drawdown (Rs / %)", f"{dd_rs} / {dd_pct}"],
+        ]
+        headline_table = Table(headline_rows, colWidths=[75 * mm, 105 * mm])
+        headline_style_cmds = [
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+            ("ROWBACKGROUNDS", (0, 0), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ]
+        # Sign-colored only where sign is meaningful: Net P&L, Return %,
+        # Expectancy (green/red), and Max Drawdown (always red when it
+        # exists -- a drawdown is never a positive number worth
+        # coloring green). Trades/Win Rate/Profit Factor/Starting
+        # Capital stay neutral, same reasoning as every other table
+        # in this report.
+        for row_idx, key in [(1, "net_pnl"), (2, "net_pnl_pct"), (6, "expectancy")]:
+            _, text_hex = _pos_neg_hex(metrics[key])
+            headline_style_cmds.append(("TEXTCOLOR", (1, row_idx), (1, row_idx), rl_colors.HexColor(text_hex)))
+        if metrics["max_drawdown"]:
+            headline_style_cmds.append(("TEXTCOLOR", (1, 7), (1, 7), rl_colors.HexColor("#991B1B")))
+        headline_table.setStyle(TableStyle(headline_style_cmds))
+        story.append(headline_table)
+        story.append(Spacer(1, 5 * mm))
+
+        secondary_rows = [
+            ["Average Win (Rs)", na(metrics["avg_win"])],
+            ["Average Loss (Rs)", na(metrics["avg_loss"])],
+            ["Winning Days", str(metrics["winning_days"])],
+            ["Losing Days", str(metrics["losing_days"])],
+            ["Average Holding Time", _fmt_holding(metrics["avg_holding_minutes"])],
+        ]
+        secondary_table = Table(secondary_rows, colWidths=[75 * mm, 105 * mm])
+        secondary_style_cmds = [
+            ("FONTNAME", (0, 0), (0, -1), "Helvetica"),
+            ("TEXTCOLOR", (0, 0), (0, -1), rl_colors.HexColor("#6B7280")),
+            ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+            ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#F3F4F6")),
+            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ]
+        _, win_t = _pos_neg_hex(metrics["avg_win"])
+        secondary_style_cmds.append(("TEXTCOLOR", (1, 0), (1, 0), rl_colors.HexColor(win_t)))
+        _, loss_t = _pos_neg_hex(metrics["avg_loss"])
+        secondary_style_cmds.append(("TEXTCOLOR", (1, 1), (1, 1), rl_colors.HexColor(loss_t)))
+        secondary_table.setStyle(TableStyle(secondary_style_cmds))
+        story.append(secondary_table)
+        story.append(Spacer(1, 4 * mm))
+
+        story.append(PageBreak())
 
         # ---- KPI card grid, 4 across, 2 rows ----
         pf_bg, pf_t = _rating_hex(metrics["profit_factor"], 1.5, 1.0)
