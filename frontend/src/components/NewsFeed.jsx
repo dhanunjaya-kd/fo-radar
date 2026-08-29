@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import TabInfoBanner from './TabInfoBanner';
 
 // Relative on purpose -- see the same note in SignalList.jsx / IndexTracker.jsx.
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -47,11 +48,11 @@ export default function NewsFeed() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300 mb-3">
+        <TabInfoBanner className="mb-3">
           Real headlines from ET's Markets/Stocks/Company RSS feeds, filtered to stories that directly mention
           an F&O ticker. Refreshes every 5 minutes. Known gap: only matches the bare ticker in text, not full
           company names — some relevant stories can still be missed.
-        </div>
+        </TabInfoBanner>
         {news.length === 0 ? (
           <p className="text-sm text-slate-500 px-1">
             No F&O-relevant headlines right now — quiet periods are expected, not a bug.

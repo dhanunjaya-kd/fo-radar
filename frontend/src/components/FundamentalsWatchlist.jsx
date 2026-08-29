@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import TabInfoBanner from './TabInfoBanner';
 
 // Relative on purpose -- see the same note in SignalList.jsx / IndexTracker.jsx.
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -42,13 +43,13 @@ export default function FundamentalsWatchlist() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300">
+      <TabInfoBanner>
         Long-term value candidates: NSE stocks meaningfully below their 52-week high, ranked by combined
         fundamentals (P/E, ROE, Debt/Equity, Sales growth) via percentile ranking — not a single opaque
         score, every input is shown in the table below. This list grows as background data collection
         progresses across the full NSE list; a short list right now just means it hasn't gotten there yet,
         not that nothing else qualifies. Not investment advice — a shortlist worth a closer look, not a verdict.
-      </div>
+      </TabInfoBanner>
 
       {stocks.length === 0 ? (
         <div className="py-10 text-center text-slate-500 text-sm max-w-md mx-auto">

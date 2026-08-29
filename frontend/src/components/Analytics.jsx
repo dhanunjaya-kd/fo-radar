@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import TabInfoBanner from './TabInfoBanner';
 
 const IconBarChart = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
@@ -187,6 +188,11 @@ const Analytics = ({ stock, onStockSelect }) => {
 
   return (
     <div className="space-y-6">
+      <TabInfoBanner>
+        Per-stock options analytics — PCR, Max Pain, ATM implied vol, OI buildup, and the put/call wall
+        positioning below, all from Fyers' live option chain for whichever symbol is selected. Defaults to
+        your top live signal; search any other F&O symbol above to switch.
+      </TabInfoBanner>
       {searchBar}
       <div className="bg-slate-900 rounded-lg border border-slate-800 p-6">
         <div className="flex items-center justify-between mb-4">

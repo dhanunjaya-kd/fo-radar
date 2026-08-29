@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import TabInfoBanner from './TabInfoBanner';
 
 // Relative on purpose -- see the same note in SignalList.jsx / IndexTracker.jsx.
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -557,11 +558,11 @@ export default function CrudeOilTracker() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300">
+      <TabInfoBanner>
         Crude oil has its own dedicated tab since it's a genuinely different instrument than NIFTY/BANKNIFTY —
         no separate spot/cash index (the futures contract IS the underlying), its own MCX trading hours, and its
         own options chain below. Runs on the Market Depth + option chain APIs confirmed working for MCX.
-      </div>
+      </TabInfoBanner>
 
       <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl w-fit">
         {CONTRACTS.map(c => (

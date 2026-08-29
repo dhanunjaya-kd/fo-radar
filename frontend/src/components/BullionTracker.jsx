@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import TabInfoBanner from './TabInfoBanner';
 
 // Relative on purpose -- see the same note in SignalList.jsx / IndexTracker.jsx.
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -559,12 +560,12 @@ export default function BullionTracker() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300">
+      <TabInfoBanner>
         Gold and Silver have their own dedicated tab, same reasoning as Crude Oil — no separate spot/cash index
         (the futures contract IS the underlying), their own MCX trading hours, their own options chain below.
         Unlike Crude, these don't trade in every calendar month — the front-month resolver checks live Fyers
         data to find whichever contract is actually active right now, rather than assuming a fixed monthly cycle.
-      </div>
+      </TabInfoBanner>
 
       <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl w-fit">
         {CONTRACTS.map(c => (

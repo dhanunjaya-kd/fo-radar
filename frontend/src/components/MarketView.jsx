@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import MarketHeatmap from './MarketHeatmap';
 import MarketSummary from './MarketSummary';
+import TabInfoBanner from './TabInfoBanner';
 import IndicesPerformance from './IndicesPerformance';
 
 // Relative on purpose -- see the same note in IndexTracker.jsx/SignalList.jsx.
@@ -308,11 +309,11 @@ export default function MarketView() {
       <MarketSummary />
       <MarketHeatmap />
       <IndicesPerformance />
-      <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300">
+      <TabInfoBanner>
         Clean market view — same live data as Index Tracker, just the core columns only, thinned to a
         ~30-minute cadence (Index Tracker still shows every snapshot at full density). Arrows show the
         change from the previous row shown here, not necessarily the immediately-prior raw snapshot.
-      </div>
+      </TabInfoBanner>
       <MarketViewSection indexName="NIFTY" />
       <MarketViewSection indexName="BANKNIFTY" />
     </div>

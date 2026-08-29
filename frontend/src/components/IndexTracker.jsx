@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import IndexPriceChart from './IndexPriceChart';
 import OHLCInfo from './OHLCInfo';
+import TabInfoBanner from './TabInfoBanner';
 import AdvanceDeclineDonut from './AdvanceDeclineDonut';
 
 // Relative on purpose -- see the same note in SignalList.jsx. Routes
@@ -468,13 +469,13 @@ function IndexSection({ indexName, showBacktest = true }) {
 export default function IndexTracker() {
   return (
     <div className="space-y-4">
-      <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-4 py-2.5 text-xs text-indigo-300">
+      <TabInfoBanner>
         NIFTY and BANKNIFTY only, snapshotted every scan cycle. "Fut" is the real front-month futures
         price; "Fut OI" and "Fut OI Chg%" (day-over-day) are now tracked too, via Fyers' Market Depth
         API. Crude oil moved to its own dedicated tab, since it works differently enough (no spot/cash
         index, its own MCX hours, its own options chain) to deserve a separate home rather than being
         squeezed in here.
-      </div>
+      </TabInfoBanner>
       {/* Aug 28 2026: market-wide, not index-specific (same reasoning
           as keeping MarketBanner/MarketBreadth global rather than
           per-tab) -- shown once here, not duplicated inside each

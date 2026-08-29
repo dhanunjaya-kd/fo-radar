@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import TabInfoBanner from './TabInfoBanner';
 
 // Relative on purpose -- same note as SignalList.jsx/MarketBanner.jsx.
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -330,6 +331,13 @@ export default function DailyBacktestTab() {
 
   return (
     <div className="space-y-4">
+      <TabInfoBanner>
+        Backtests EVERY logged signal from day one to today, not a recent window — the underlying engine
+        scans every dated log file with no limit. Runs automatically ~4:00 PM (after close) and ~8:00 AM
+        (before open), backfilling the last 7 days to catch anything a missed run would otherwise skip.
+        The date range picker below re-slices this same full history into a specific window; it doesn't
+        run a separate backtest.
+      </TabInfoBanner>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-lg font-bold text-white">Daily Backtest</h2>
