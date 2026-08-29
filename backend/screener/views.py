@@ -1358,9 +1358,15 @@ class MarketSummaryOldView(APIView):
             print(f"[ExcelLog] outcome check (market-summary) failed: {e}")
 
         return Response({
-            "nifty50": nifty or {"price": 0, "change": 0, "change_percent": 0},
-            "banknifty": bank or {"price": 0, "change": 0, "change_percent": 0},
-            "india_vix": vix or {"value": 0, "change": 0, "change_percent": 0},
+            # Aug 29 2026: no longer masking "no data yet" as a fake
+            # {"price": 0, ...} object. The frontend (MarketBanner.jsx)
+            # now distinguishes a genuine 0 from missing data via
+            # `== null`, not a truthiness check -- sending a fabricated
+            # zero here would defeat that distinction at the source.
+            # None becomes null in the JSON response.
+            "nifty50": nifty,
+            "banknifty": bank,
+            "india_vix": vix,
             "pcr": pcr,
             "breadth": breadth,
             "sectors": sectors,
