@@ -12,7 +12,8 @@ from screener.views import (
     SignalWatchlistCsvView, IndexSignalView, CommodityCurrentSymbolView,
     DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView,
     DailyBacktestRangeView, FiftyTwoWeekRangeView, BroaderIndicesView,
-    StrategyBacktestRunView, StrategyBacktestStatusView
+    StrategyBacktestRunView, StrategyBacktestStatusView,
+    DailyBacktestRangeReportView,
 )
 
 urlpatterns = [
@@ -55,6 +56,13 @@ urlpatterns = [
     path('api/daily-backtest/run/', DailyBacktestRunView.as_view(), name='daily_backtest_run'),
     path('api/daily-backtest/download/<str:report_type>/', DailyBacktestReportDownloadView.as_view(), name='daily_backtest_download'),
     path('api/daily-backtest/range/', DailyBacktestRangeView.as_view(), name='daily_backtest_range'),
+    # Aug 29 2026: the actual downloadable PDF for a specific date
+    # range -- the line above only ever returns a JSON preview, by
+    # design (see DailyBacktestRangeView's own docstring). This is the
+    # real counterpart, see DailyBacktestRangeReportView/
+    # daily_backtest.run_range_report() for why it needed its own
+    # endpoint rather than overloading the preview one.
+    path('api/daily-backtest/range/report/', DailyBacktestRangeReportView.as_view(), name='daily_backtest_range_report'),
     # Aug 28 2026: real 52-week high/low for the upcoming Watchlist
     # redesign -- see views.py's get_52_week_high_low() for why this
     # needs its own Fyers History API call (the Quotes API confirmed
