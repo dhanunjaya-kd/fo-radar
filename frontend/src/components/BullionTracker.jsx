@@ -4,6 +4,55 @@ import TabInfoBanner from './TabInfoBanner';
 // Relative on purpose -- see the same note in SignalList.jsx / IndexTracker.jsx.
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+// Aug 29 2026: LIVE vs CLOSED · LAST labeling, per the PDF's data-state
+// table. Genuinely MCX's own hours (~9:00 AM - 11:30 PM IST, Mon-Fri),
+// same as CrudeOilTracker.jsx -- duplicated here rather than shared,
+// matching this file's existing convention (see the top-of-file note
+// on why formatters/icons/badges are all duplicated, not imported).
+// Tested in test_mcx_status.js (9 cases).
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MCX_OPEN_MIN = 9 * 60;        // 9:00 AM
+const MCX_CLOSE_MIN = 23 * 60 + 30; // 11:30 PM
+
+function computeMcxStatus(day, totalMinutes) {
+  const isWeekday = day >= 1 && day <= 5;
+  const isWithinHours = totalMinutes >= MCX_OPEN_MIN && totalMinutes < MCX_CLOSE_MIN;
+  const isOpen = isWeekday && isWithinHours;
+
+  if (isOpen) {
+    return { isOpen: true, label: 'Market Open', nextEvent: 'Closes at 11:30 PM' };
+  }
+
+  let daysUntilNextOpen = 0;
+  let candidateDay = day;
+
+  if (isWeekday && totalMinutes < MCX_OPEN_MIN) {
+    daysUntilNextOpen = 0;
+  } else {
+    do {
+      candidateDay = (candidateDay + 1) % 7;
+      daysUntilNextOpen++;
+    } while (candidateDay === 0 || candidateDay === 6);
+  }
+
+  const dayLabel = daysUntilNextOpen === 0 ? 'today' : (daysUntilNextOpen === 1 ? 'tomorrow' : `on ${DAY_NAMES[candidateDay]}`);
+  return { isOpen: false, label: 'Market Closed', nextEvent: `Opens 9:00 AM ${dayLabel}` };
+}
+
+function getIstDayAndMinutes(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parts.find(p => p.type === type)?.value;
+  const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const day = weekdayMap[get('weekday')];
+  let hour = parseInt(get('hour'), 10);
+  if (hour === 24) hour = 0;
+  const minute = parseInt(get('minute'), 10);
+  return { day, totalMinutes: hour * 60 + minute };
+}
+
 const CONTRACTS = [
   { id: 'GOLD', label: 'Gold (Standard)' },
   { id: 'GOLDM', label: 'Gold Mini' },
@@ -513,6 +562,16 @@ function OptionsChainSection({ contractId, contractLabel }) {
 // --- top-level: contract toggle + summary/backtest + options chain ---
 export default function BullionTracker() {
   const [contractId, setContractId] = useState('GOLD');
+  const [marketStatus, setMarketStatus] = useState(null);
+  useEffect(() => {
+    const update = () => {
+      const { day, totalMinutes } = getIstDayAndMinutes(new Date());
+      setMarketStatus(computeMcxStatus(day, totalMinutes));
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, []);
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -578,7 +637,18 @@ export default function BullionTracker() {
 
       <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 gap-3">
-          <h3 className="text-sm font-bold text-white whitespace-nowrap">{contractLabel}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold text-white whitespace-nowrap">{contractLabel}</h3>
+            {!selectedDate && rows.length > 0 && marketStatus && (
+              <span className={`text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${
+                marketStatus.isOpen
+                  ? 'text-emerald-500 bg-emerald-500/10 border-emerald-500/25'
+                  : 'text-slate-500 bg-slate-700/30 border-slate-600/30'
+              }`}>
+                {marketStatus.isOpen ? 'LIVE' : 'CLOSED · LAST'}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {availableDates.length > 0 && (
               <select
