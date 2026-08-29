@@ -500,6 +500,55 @@ def summarize_r_multiples(trades):
     }
 
 
+def compute_long_short_breakdown(trades):
+    """
+    Splits trades by Action (BUY/SELL) into complete scorecards -- P0
+    upgrade spec item. Deliberately a SEPARATE function from
+    compute_segment_breakdown() (used for Grade/Sector/OI/Pattern)
+    rather than an extension of it: those four already-shipped,
+    already-tested tables don't need Average R or Average Holding
+    Time, and extending a shared function to carry fields only one
+    caller needs risks changing their output shape for no reason.
+
+    Returns {action: {count, wins, losses, win_rate_pct, net_pnl,
+    expectancy, profit_factor, avg_r, avg_holding_minutes}} for every
+    real Action value present in the trades (normally just "BUY" and
+    "SELL" -- this project only ever buys option premium, long calls
+    for BUY / long puts for SELL, never shorts the underlying, so
+    "Long vs Short" here means bullish-vs-bearish bias, not a literal
+    short position).
+
+    avg_r is None for a side with no trade carrying a valid
+    r_multiple; avg_holding_minutes is computed from real entry_dt/
+    exit_dt, never estimated. Same "exclude rather than fabricate"
+    rule as summarize_r_multiples().
+    """
+    groups = defaultdict(list)
+    for t in trades:
+        groups[t.get("action") or "Unknown"].append(t)
+
+    result = {}
+    for action, group_trades in groups.items():
+        wins = [t for t in group_trades if t["pnl"] > 0]
+        losses = [t for t in group_trades if t["pnl"] < 0]
+        net_pnl = round(sum(t["pnl"] for t in group_trades), 2)
+        gross_profit = sum(t["pnl"] for t in wins)
+        gross_loss = sum(t["pnl"] for t in losses)
+        r_values = [t["r_multiple"] for t in group_trades if t.get("r_multiple") is not None]
+        holding_minutes = [(t["exit_dt"] - t["entry_dt"]).total_seconds() / 60 for t in group_trades]
+        result[action] = {
+            "count": len(group_trades),
+            "wins": len(wins), "losses": len(losses),
+            "win_rate_pct": round(len(wins) / len(group_trades) * 100, 1) if group_trades else None,
+            "net_pnl": net_pnl,
+            "expectancy": round(net_pnl / len(group_trades), 2) if group_trades else None,
+            "profit_factor": round(gross_profit / abs(gross_loss), 2) if gross_loss != 0 else None,
+            "avg_r": round(sum(r_values) / len(r_values), 3) if r_values else None,
+            "avg_holding_minutes": round(sum(holding_minutes) / len(holding_minutes), 1) if holding_minutes else None,
+        }
+    return result
+
+
 def compute_metrics(trades, capital_base):
     """The full statistics suite, modeled on the reference TradeTron
     report. Every ratio that can legitimately divide by zero (Calmar
@@ -592,6 +641,7 @@ def compute_metrics(trades, capital_base):
         "daily_pnl": daily_pnl,
         "monthly_pnl": compute_monthly_pnl(trades),
         "r_multiple": summarize_r_multiples(trades),
+        "long_short": compute_long_short_breakdown(trades),
     }
 
 
@@ -732,6 +782,53 @@ def _chart_monthly_pnl(metrics, out_path):
     return True
 
 
+def _chart_long_short_comparison(breakdown, out_path):
+    """Side-by-side BUY vs SELL bars for Win Rate % and Net P&L -- the
+    two numbers that most directly answer the spec's own framing:
+    'do not assume the same edge exists in both directions.' Returns
+    False (writes nothing) if either side has zero trades -- a
+    comparison needs two real bars to mean anything, not one real bar
+    next to a fabricated zero."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    buy, sell = breakdown.get("BUY"), breakdown.get("SELL")
+    if not buy or not sell:
+        return False
+
+    actions = ["BUY", "SELL"]
+    bar_colors = ["#2563EB", "#D97706"]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3))
+    ax1.bar(actions, [buy["win_rate_pct"], sell["win_rate_pct"]], color=bar_colors, width=0.5)
+    ax1.set_ylabel("Win Rate %", color="#6B7280", fontsize=9)
+    ax1.set_ylim(0, 100)
+    _mpl_style_axes(ax1)
+
+    ax2.bar(actions, [buy["net_pnl"], sell["net_pnl"]], color=bar_colors, width=0.5)
+    ax2.set_ylabel("Net P&L (Rs)", color="#6B7280", fontsize=9)
+    ax2.axhline(0, color="#9CA3AF", linewidth=1)
+    _mpl_style_axes(ax2)
+
+    fig.tight_layout()
+    fig.savefig(out_path, facecolor="white")
+    plt.close(fig)
+    return True
+
+
+def _fmt_holding(minutes):
+    """Minutes -> 'Xh Ym' / 'Ym' for display. None -> 'N/A', same
+    convention as every other missing-value case in this file."""
+    if minutes is None:
+        return "N/A"
+    total_min = round(minutes)
+    hours, mins = divmod(total_min, 60)
+    if hours > 0:
+        return f"{hours}h {mins}m"
+    return f"{mins}m"
+
+
 def _esc(text):
     """reportlab's Paragraph parses its text as a small XML/HTML-like
     markup language -- a raw & is interpreted as the start of an entity
@@ -846,11 +943,13 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         dd_png = os.path.join(tmp, "drawdown.png")
         hist_png = os.path.join(tmp, "histogram.png")
         monthly_png = os.path.join(tmp, "monthly.png")
+        ls_png = os.path.join(tmp, "long_short.png")
 
         _chart_equity_curve(metrics, eq_png)
         _chart_drawdown(metrics, dd_png)
         has_hist = _chart_daily_histogram(metrics, hist_png)
         has_monthly = _chart_monthly_pnl(metrics, monthly_png)
+        has_ls_chart = _chart_long_short_comparison(metrics.get("long_short") or {}, ls_png)
 
         styles = getSampleStyleSheet()
         h1 = ParagraphStyle("h1", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=20, textColor=rl_colors.white, spaceAfter=2)
@@ -1039,6 +1138,76 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
             story.append(Paragraph(_esc(
                 f"Based on {rm['sample_size']} of {metrics['total_trades']} resolved trades with a valid Entry/SL "
                 f"pair to compute Initial Risk from."), caption))
+
+        story.append(PageBreak())
+
+        # ---- Long vs Short -- P0 upgrade spec item, added Aug 29 2026.
+        # "Long vs Short" here means bullish-vs-bearish bias (BUY/SELL
+        # on the Action field), not a literal short position -- this
+        # engine only ever buys option premium (calls for BUY, puts
+        # for SELL), never shorts the underlying, same note as
+        # compute_long_short_breakdown()'s own docstring. ----
+        story.append(Paragraph(_esc("Long vs Short"), h2))
+        story.append(Paragraph(_esc(
+            "The same trades split by direction (BUY = bullish, SELL = bearish). Two strategies can share one "
+            "blended win rate while one side is doing all the work -- this checks whether the edge genuinely "
+            "holds in both directions rather than assuming it does."), caption))
+
+        ls = metrics.get("long_short") or {}
+        buy_ls, sell_ls = ls.get("BUY"), ls.get("SELL")
+        known_count = (buy_ls["count"] if buy_ls else 0) + (sell_ls["count"] if sell_ls else 0)
+        stray_count = metrics["total_trades"] - known_count
+        if stray_count > 0:
+            story.append(Paragraph(_esc(
+                f"Note: {stray_count} trade(s) carried an Action value other than BUY/SELL and are excluded from "
+                f"this comparison rather than guessed into one side."), warn))
+            story.append(Spacer(1, 2 * mm))
+
+        def g(side, key):
+            return side.get(key) if side else None
+
+        def rs(v):
+            return "N/A" if v is None else f"{v:,.0f}"
+
+        ls_rows = [
+            ["Metric", "BUY", "SELL"],
+            ["Trades", str(g(buy_ls, "count") or 0), str(g(sell_ls, "count") or 0)],
+            ["Win Rate", na(g(buy_ls, "win_rate_pct"), "%"), na(g(sell_ls, "win_rate_pct"), "%")],
+            ["Net P&L (Rs)", rs(g(buy_ls, "net_pnl")), rs(g(sell_ls, "net_pnl"))],
+            ["Profit Factor", na(g(buy_ls, "profit_factor")), na(g(sell_ls, "profit_factor"))],
+            ["Expectancy/Trade (Rs)", rs(g(buy_ls, "expectancy")), rs(g(sell_ls, "expectancy"))],
+            ["Average R", r_str(g(buy_ls, "avg_r")), r_str(g(sell_ls, "avg_r"))],
+            ["Avg Holding Time", _fmt_holding(g(buy_ls, "avg_holding_minutes")), _fmt_holding(g(sell_ls, "avg_holding_minutes"))],
+        ]
+        ls_table = Table(ls_rows, colWidths=[55 * mm, 62.5 * mm, 62.5 * mm], repeatRows=1)
+        ls_style_cmds = [
+            ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ]
+        # Sign-based coloring only where sign is actually meaningful --
+        # Net P&L (row 3), Expectancy (row 5), Average R (row 6). Win
+        # Rate/Profit Factor/Trades/Holding Time are left neutral, same
+        # reasoning as the R-Multiple table above.
+        for row_idx, key in [(3, "net_pnl"), (5, "expectancy"), (6, "avg_r")]:
+            for col_idx, side in [(1, buy_ls), (2, sell_ls)]:
+                _, text_hex = _pos_neg_hex(g(side, key))
+                ls_style_cmds.append(("TEXTCOLOR", (col_idx, row_idx), (col_idx, row_idx), rl_colors.HexColor(text_hex)))
+        ls_table.setStyle(TableStyle(ls_style_cmds))
+        story.append(ls_table)
+        story.append(Spacer(1, 5 * mm))
+
+        if has_ls_chart:
+            story.append(RLImage(ls_png, width=180 * mm, height=180 * mm * (3 / 9)))
+        else:
+            story.append(Paragraph(_esc(
+                "No comparison chart -- one side has zero resolved trades."), caption))
 
         story.append(PageBreak())
 
