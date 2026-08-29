@@ -2,6 +2,58 @@ import { useEffect, useState } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+// Aug 29 2026: LIVE vs CLOSED · LAST labeling, per the PDF's data-state
+// table. Logic copied verbatim from MarketBanner.jsx (11 status-logic
+// tests + 3 timezone tests already passed there), not re-derived.
+// This component shows the LAST LOGGED SNAPSHOT, not a direct live
+// quote -- while the market's open, new snapshots log every ~60s, so
+// that value is effectively live; once closed, it's the last known
+// value from before close. Same honest limitation as everywhere else
+// this logic is used: weekday + time-of-day only, no NSE holiday
+// calendar wired in anywhere in this project.
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MARKET_OPEN_MIN = 9 * 60 + 15;
+const MARKET_CLOSE_MIN = 15 * 60 + 30;
+
+function getIstDayAndMinutes(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parts.find(p => p.type === type)?.value;
+  const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const day = weekdayMap[get('weekday')];
+  let hour = parseInt(get('hour'), 10);
+  if (hour === 24) hour = 0;
+  const minute = parseInt(get('minute'), 10);
+  return { day, totalMinutes: hour * 60 + minute };
+}
+
+function computeMarketStatus(day, totalMinutes) {
+  const isWeekday = day >= 1 && day <= 5;
+  const isWithinHours = totalMinutes >= MARKET_OPEN_MIN && totalMinutes < MARKET_CLOSE_MIN;
+  const isOpen = isWeekday && isWithinHours;
+
+  if (isOpen) {
+    return { isOpen: true, label: 'Market Open', nextEvent: 'Closes at 3:30 PM' };
+  }
+
+  let daysUntilNextOpen = 0;
+  let candidateDay = day;
+
+  if (isWeekday && totalMinutes < MARKET_OPEN_MIN) {
+    daysUntilNextOpen = 0;
+  } else {
+    do {
+      candidateDay = (candidateDay + 1) % 7;
+      daysUntilNextOpen++;
+    } while (candidateDay === 0 || candidateDay === 6);
+  }
+
+  const dayLabel = daysUntilNextOpen === 0 ? 'today' : (daysUntilNextOpen === 1 ? 'tomorrow' : `on ${DAY_NAMES[candidateDay]}`);
+  return { isOpen: false, label: 'Market Closed', nextEvent: `Opens 9:15 AM ${dayLabel}` };
+}
+
 // Aug 28 2026: all three pieces here (date selection, downsampling,
 // coordinate transform) tested independently before being wired
 // together -- test_chart_range_logic.js and test_chart_coordinates.js.
@@ -46,6 +98,16 @@ const DISPLAY_NAME = { NIFTY: 'NIFTY', BANKNIFTY: 'BANKNIFTY' };
 
 export default function IndexPriceChart({ indexName }) {
   const [range, setRange] = useState('1D');
+  const [marketStatus, setMarketStatus] = useState(null);
+  useEffect(() => {
+    const update = () => {
+      const { day, totalMinutes } = getIstDayAndMinutes(new Date());
+      setMarketStatus(computeMarketStatus(day, totalMinutes));
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, []);
   const [points, setPoints] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -118,6 +180,11 @@ export default function IndexPriceChart({ indexName }) {
               {changePct != null && (
                 <span className={`text-xs font-medium ${isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {isPos ? '+' : ''}{changeInRange.toFixed(2)} ({isPos ? '+' : ''}{changePct.toFixed(2)}%)
+                </span>
+              )}
+              {marketStatus && (
+                <span className={`text-[9px] font-semibold uppercase tracking-wider ${marketStatus.isOpen ? 'text-emerald-500' : 'text-slate-500'}`}>
+                  {marketStatus.isOpen ? 'LIVE' : 'CLOSED · LAST'}
                 </span>
               )}
             </div>
