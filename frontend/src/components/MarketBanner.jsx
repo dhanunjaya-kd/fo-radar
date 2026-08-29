@@ -109,6 +109,7 @@ export default function MarketBanner() {
   }, []);
 
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
   // Separate, independent fetch from the Index Tracker endpoint that's
   // already confirmed working -- NOT wired into /api/market-summary/
   // (that endpoint's cache is populated by the NSE-hours-gated worker
@@ -131,9 +132,10 @@ export default function MarketBanner() {
         const res = await fetch(`${API_BASE}/api/market-summary/`);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const json = await res.json();
-        if (mounted) setData(json);
+        if (mounted) { setData(json); setFetchError(null); }
       } catch (err) {
         console.error('Market fetch error:', err);
+        if (mounted) setFetchError(err.message || 'Fetch failed');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -219,9 +221,23 @@ export default function MarketBanner() {
     return () => { mounted = false; };
   }, []);
 
+  // Aug 29 2026: per the PDF's own data-state table -- a null/missing
+  // price is NOT the same as a genuine 0.00, and showing them
+  // identically is exactly the "ambiguous zero" problem it flagged.
+  // Returns null (not the string '0.00') so the CALLER decides how to
+  // display "no data" -- tested in test_data_state.js.
   const fmt = (n) => {
-    if (n === null || n === undefined || isNaN(n)) return '0.00';
+    if (n === null || n === undefined || isNaN(n)) return null;
     return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  // Tested in test_data_state.js (6 cases, including the important
+  // "a genuine 0 price must still show as live, not be confused with
+  // missing data" case -- uses == null, not a falsy check).
+  const determineDataState = (price, isMarketOpen, err) => {
+    if (err) return 'error';
+    if (price == null) return 'no_data';
+    return isMarketOpen ? 'live' : 'closed';
   };
 
   // Aug 27 2026: fixed path -- was '/popout_chart/index.html', which
@@ -236,24 +252,51 @@ export default function MarketBanner() {
   const fyersChartUrl = (symbol) =>
     `https://trade.fyers.in/popout/index.html?symbol=${encodeURIComponent(symbol)}&resolution=5&theme=light`;
 
-  const Card = ({ label, price, change, changePercent, fyersSymbol, sparklineData }) => {
+  // Aug 29 2026: rebuilt for real LIVE / CLOSED / NO DATA / ERROR
+  // states, replacing the old always-pulsing-dot-plus-fake-0.00
+  // display. isMarketOpen comes from this component's own tested
+  // marketStatus (added earlier), not re-derived here.
+  const Card = ({ label, price, change, changePercent, fyersSymbol, sparklineData, isMarketOpen, err }) => {
+    const state = determineDataState(price, isMarketOpen, err);
     const isPos = (change || 0) >= 0;
     const arrow = isPos ? '↗' : '↘';
-    const textColor = isPos ? 'text-emerald-400' : 'text-rose-400';
-    const bgDot = isPos ? 'bg-emerald-500' : 'bg-rose-500';
+
+    const priceStr = fmt(price);
+    const changeStr = fmt(change);
+    const changePctStr = fmt(changePercent);
+
+    const dotClass = state === 'live'
+      ? `${isPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`
+      : state === 'error' ? 'bg-amber-500'
+      : 'bg-slate-600'; // closed or no_data -- static, muted, deliberately NOT pulsing like live data
+
+    const statusLabel = state === 'live' ? 'LIVE'
+      : state === 'closed' ? 'CLOSED · LAST'
+      : state === 'error' ? 'DATA ERROR'
+      : 'DATA UNAVAILABLE';
+    const statusColor = state === 'live' ? 'text-emerald-500'
+      : state === 'error' ? 'text-amber-500'
+      : 'text-slate-500';
 
     const inner = (
       <div className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 ${fyersSymbol ? 'hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group' : ''}`}>
-        <div className={`w-2 h-2 rounded-full ${bgDot} animate-pulse`} />
+        <div className={`w-2 h-2 rounded-full ${dotClass}`} />
         <div className="flex-1">
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1">
             {label}
             {fyersSymbol && <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400">↗ chart</span>}
           </p>
-          <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(price)}</p>
-          <p className={`text-xs font-medium ${textColor}`}>
-            {arrow} {isPos ? '+' : ''}{fmt(change)} ({isPos ? '+' : ''}{fmt(changePercent)}%)
-          </p>
+          {priceStr != null ? (
+            <>
+              <p className="text-lg font-bold text-white tabular-nums tier-critical">{priceStr}</p>
+              <p className={`text-xs font-medium ${state === 'live' ? (isPos ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'}`}>
+                {arrow} {isPos ? '+' : ''}{changeStr ?? '—'} ({isPos ? '+' : ''}{changePctStr ?? '—'}%)
+              </p>
+            </>
+          ) : (
+            <p className="text-lg font-bold text-slate-600 tabular-nums">—</p>
+          )}
+          <p className={`text-[9px] font-semibold uppercase tracking-wider mt-0.5 ${statusColor}`}>{statusLabel}</p>
         </div>
         <Sparkline values={sparklineData} />
       </div>
@@ -287,33 +330,25 @@ export default function MarketBanner() {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
-      <Card label="NIFTY 50" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} />
-      <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} />
-      
-      {/* VIX */}
-      <a href={fyersChartUrl("NSE:INDIAVIX-INDEX")} target="_blank" rel="noopener noreferrer" title="Open INDIA VIX chart on Fyers"
-        className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group">
-        <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-        <div className="flex-1">
-          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1">
-            INDIA VIX
-            <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400">↗ chart</span>
-          </p>
-          <p className="text-lg font-bold text-white tabular-nums tier-important">{fmt(vix.price || vix.value)}</p>
-          <p className={`text-xs font-medium ${(vix.change || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {(vix.change || 0) >= 0 ? '↗ +' : '↘ '}{fmt(vix.change)}
-          </p>
-        </div>
-        <Sparkline values={vixHistory} />
-      </a>
+      <Card label="NIFTY 50" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
+      <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
+      <Card label="INDIA VIX" price={vix.price ?? vix.value} change={vix.change} changePercent={vix.change_percent} fyersSymbol="NSE:INDIAVIX-INDEX" sparklineData={vixHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
 
-      {/* PCR */}
+      {/* PCR -- kept in its own distinct shape (sentiment label
+          instead of change%, no sparkline), but now uses the same
+          LIVE/CLOSED/DATA UNAVAILABLE status labeling as every other
+          card, instead of its own separate "N/A" convention. */}
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
-        <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+        <div className={`w-2 h-2 rounded-full ${pcr.value != null && marketStatus?.isOpen ? 'bg-purple-500 animate-pulse' : 'bg-slate-600'}`} />
         <div>
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">PCR</p>
-          <p className="text-lg font-bold text-white tabular-nums tier-important">{pcr.value ? pcr.value.toFixed(2) : 'N/A'}</p>
-          <p className="text-xs font-medium text-purple-400">{pcr.sentiment || 'N/A'}</p>
+          <p className="text-lg font-bold text-white tabular-nums tier-important">{pcr.value != null ? pcr.value.toFixed(2) : '—'}</p>
+          <p className={`text-xs font-medium ${pcr.value != null ? 'text-purple-400' : 'text-slate-500'}`}>{pcr.value != null ? (pcr.sentiment || 'N/A') : 'Data unavailable'}</p>
+          <p className={`text-[9px] font-semibold uppercase tracking-wider mt-0.5 ${
+            fetchError ? 'text-amber-500' : pcr.value == null ? 'text-slate-500' : marketStatus?.isOpen ? 'text-emerald-500' : 'text-slate-500'
+          }`}>
+            {fetchError ? 'DATA ERROR' : pcr.value == null ? 'DATA UNAVAILABLE' : marketStatus?.isOpen ? 'LIVE' : 'CLOSED · LAST'}
+          </p>
         </div>
       </div>
 
@@ -334,7 +369,7 @@ export default function MarketBanner() {
               CRUDE OIL
               <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400">↗ chart</span>
             </p>
-            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice)}</p>
+            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice) ?? '—'}</p>
             <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
               {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}
             </p>
@@ -346,7 +381,7 @@ export default function MarketBanner() {
           <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
           <div className="flex-1">
             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">CRUDE OIL</p>
-            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice)}</p>
+            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice) ?? '—'}</p>
             <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
               {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}
             </p>
