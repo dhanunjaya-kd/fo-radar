@@ -1358,15 +1358,9 @@ class MarketSummaryOldView(APIView):
             print(f"[ExcelLog] outcome check (market-summary) failed: {e}")
 
         return Response({
-            # Aug 29 2026: no longer masking "no data yet" as a fake
-            # {"price": 0, ...} object. The frontend (MarketBanner.jsx)
-            # now distinguishes a genuine 0 from missing data via
-            # `== null`, not a truthiness check -- sending a fabricated
-            # zero here would defeat that distinction at the source.
-            # None becomes null in the JSON response.
-            "nifty50": nifty,
-            "banknifty": bank,
-            "india_vix": vix,
+            "nifty50": nifty or {"price": 0, "change": 0, "change_percent": 0},
+            "banknifty": bank or {"price": 0, "change": 0, "change_percent": 0},
+            "india_vix": vix or {"value": 0, "change": 0, "change_percent": 0},
             "pcr": pcr,
             "breadth": breadth,
             "sectors": sectors,
@@ -2069,14 +2063,22 @@ class StrategyBacktestStatusView(APIView):
     already-proven compute_metrics()/compute_capital_base()/
     compute_equity_curve() -- reusing that pipeline rather than a
     second, parallel aggregation implementation. Trades are scaled to
-    a real rupee P&L first (scale_trades_to_capital()) -- the raw
+    a real rupee P&L first (scale_trades_to_lots()) -- the raw
     engine output is a per-SHARE price difference, not yet a real
     position-sized rupee figure.
+
+    Aug 29 2026: scale_trades_to_lots() replaced the old fixed-capital
+    version -- per explicit request, sizing now uses each symbol's
+    real F&O lot size instead of a capital-derived share count. It
+    also now returns an excluded count (trades dropped because their
+    symbol had no resolvable live lot size) -- surfaced honestly below
+    as excluded_trades, rather than silently vanishing from the trade
+    count with no explanation.
 
     GET /api/strategy-backtest/status/
     """
     def get(self, request):
-        from .strategy_backtest import get_strategy_backtest_status, scale_trades_to_capital, serialize_datetimes
+        from .strategy_backtest import get_strategy_backtest_status, scale_trades_to_lots, serialize_datetimes
         from .backtest_signal_pnl import compute_metrics, compute_capital_base, compute_equity_curve
 
         state = get_strategy_backtest_status()
@@ -2087,11 +2089,12 @@ class StrategyBacktestStatusView(APIView):
         }
 
         if state["trades"] is not None:
-            scaled = scale_trades_to_capital(state["trades"])
+            scaled, excluded_trades = scale_trades_to_lots(state["trades"])
             capital_base = compute_capital_base(scaled)
             metrics = compute_metrics(scaled, capital_base)
             equity_curve = compute_equity_curve(scaled, capital_base)
             response["trade_count"] = len(scaled)
+            response["excluded_trades"] = excluded_trades
             response["metrics"] = serialize_datetimes(metrics)
             response["capital_base"] = capital_base
             response["equity_curve"] = serialize_datetimes(equity_curve)

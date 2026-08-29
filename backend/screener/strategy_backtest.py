@@ -297,38 +297,52 @@ def get_strategy_backtest_status():
         return dict(_strategy_backtest_state)
 
 
-DEFAULT_CAPITAL_PER_TRADE = 50000  # matches this project's existing backtest_signal_pnl.py convention
-
-
-def scale_trades_to_capital(trades, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
+def scale_trades_to_lots(trades):
     """
-    Aug 28 2026: a SEPARATE, additive step -- does not modify
-    simulate_price_action_strategy()'s already-tested trade dicts (see
-    test_trade_simulation.py's 5 passing cases, kept untouched by this
-    function existing). Converts each trade's per-SHARE pnl into a
-    real rupee P&L via a capital-based quantity (qty = capital_per_
-    trade / entry_price) -- a standard, legitimate equity backtesting
-    convention, DIFFERENT from the F&O options lot-size fix elsewhere
-    in this project: equity trading has no regulatory minimum lot
-    size the way options do, so sizing by capital-per-position here is
-    genuinely appropriate, not the same mistake that fix corrected.
+    Aug 29 2026: REPLACED scale_trades_to_capital() (fixed-capital
+    sizing, qty = capital_per_trade / entry_price) with real, per-
+    symbol lot-size sizing -- per explicit request. Matches this
+    project's existing backtest_signal_pnl.py convention exactly: same
+    get_lot_size() resolver, same skip-on-unresolvable behavior (never
+    defaults to a guessed quantity).
+
+    HONEST LIMITATION, carried over unchanged from before: this engine
+    simulates the UNDERLYING STOCK's price movement (RSI/ADX/ATR), not
+    actual option premium movement -- there's no historical option-
+    chain archive for the broader F&O universe, so OI-confirmation
+    can't be backtested here (see simulate_price_action_strategy()'s
+    own docstring). Sizing by the real lot size makes the POSITION
+    SIZE realistic and F&O-native -- what you'd actually trade in --
+    but the P&L still reflects the underlying's price change per lot,
+    not a real option premium's own movement, which would differ due
+    to delta, theta, and IV. This is a more realistic quantity
+    convention, not a true options-premium P&L simulation.
+
+    Trades whose symbol has no resolvable live lot size are EXCLUDED
+    entirely, never defaulted to a guessed quantity -- same rule
+    backtest_signal_pnl.py already follows for exactly this situation.
 
     pnl_pct is left completely untouched -- it's a pure percentage
     return, independent of position size. Only the absolute pnl field
-    is scaled, since that's what backtest_signal_pnl.py's
-    compute_metrics()/compute_capital_base() need to produce a
-    meaningful Net P&L%/CAGR reading.
+    is scaled.
 
-    Returns a list of NEW trade dicts -- never mutates the input.
+    Returns (list of NEW trade dicts, excluded_count) -- never mutates
+    the input. Tested in test_lot_size_scaling.py (5 cases) against an
+    injected mock lookup; re-verified here against the real resolver.
     """
+    from .lot_size_resolver import get_lot_size
     result = []
+    excluded = 0
     for t in trades:
-        qty = max(1, int(capital_per_trade / t['entry_price'])) if t['entry_price'] > 0 else 1
+        qty = get_lot_size(t['symbol'])
+        if qty is None:
+            excluded += 1
+            continue
         new_trade = dict(t)
         new_trade['qty'] = qty
         new_trade['pnl'] = round(t['pnl'] * qty, 2)
         result.append(new_trade)
-    return result
+    return result, excluded
 
 
 def serialize_datetimes(obj):
