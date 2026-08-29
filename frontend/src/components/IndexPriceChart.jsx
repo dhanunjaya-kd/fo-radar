@@ -208,9 +208,23 @@ export default function IndexPriceChart({ indexName }) {
       {loading ? (
         <div className="h-[220px] rounded-lg bg-slate-900/30 animate-pulse" />
       ) : error ? (
-        <div className="h-[220px] flex items-center justify-center text-sm text-rose-400">⚠ {error}</div>
+        <div className="py-10 flex items-center justify-center gap-1.5 text-sm text-rose-400">⚠ {error}</div>
       ) : !chart ? (
-        <div className="h-[220px] flex items-center justify-center text-sm text-slate-500">Not enough data yet for this range.</div>
+        // Aug 29 2026: shrunk from a fixed h-[220px] (visually expensive
+        // for one line of text) per the PDF's empty-state feedback, and
+        // now explains why + when using marketStatus (already available
+        // in this component from the LIVE/CLOSED work above) instead of
+        // just stating the absence with no context.
+        <div className="py-10 flex flex-col items-center justify-center gap-1.5 text-center">
+          <p className="text-sm text-slate-500">Not enough data yet for this range.</p>
+          {marketStatus && (
+            <p className="text-xs text-slate-600">
+              {marketStatus.isOpen
+                ? 'Snapshots log roughly every minute while the market is open — check back shortly.'
+                : marketStatus.nextEvent}
+            </p>
+          )}
+        </div>
       ) : (
         <div>
           <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" style={{ maxHeight: HEIGHT }}>
