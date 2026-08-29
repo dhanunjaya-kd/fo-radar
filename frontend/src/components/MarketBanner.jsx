@@ -5,6 +5,56 @@ import { useEffect, useState } from 'react';
 // was loaded from (localhost, home wifi, Tailscale) with no changes.
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+// Aug 29 2026: Market Status, moved here from its own standalone card
+// in Market View -- now shown globally next to the time/date, since
+// whether the market's open matters on every tab, not just Market
+// View. Logic copied verbatim from MarketSummary.jsx (11 status-logic
+// tests + 3 timezone tests already passed there), not re-derived.
+// Same honest limitation carried over: weekday + time-of-day only, no
+// NSE holiday calendar wired in anywhere in this project.
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const MARKET_OPEN_MIN = 9 * 60 + 15;  // 9:15 AM
+const MARKET_CLOSE_MIN = 15 * 60 + 30; // 3:30 PM
+
+function getIstDayAndMinutes(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: false,
+  }).formatToParts(date);
+  const get = (type) => parts.find(p => p.type === type)?.value;
+  const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const day = weekdayMap[get('weekday')];
+  let hour = parseInt(get('hour'), 10);
+  if (hour === 24) hour = 0;
+  const minute = parseInt(get('minute'), 10);
+  return { day, totalMinutes: hour * 60 + minute };
+}
+
+function computeMarketStatus(day, totalMinutes) {
+  const isWeekday = day >= 1 && day <= 5;
+  const isWithinHours = totalMinutes >= MARKET_OPEN_MIN && totalMinutes < MARKET_CLOSE_MIN;
+  const isOpen = isWeekday && isWithinHours;
+
+  if (isOpen) {
+    return { isOpen: true, label: 'Market Open', nextEvent: 'Closes at 3:30 PM' };
+  }
+
+  let daysUntilNextOpen = 0;
+  let candidateDay = day;
+
+  if (isWeekday && totalMinutes < MARKET_OPEN_MIN) {
+    daysUntilNextOpen = 0;
+  } else {
+    do {
+      candidateDay = (candidateDay + 1) % 7;
+      daysUntilNextOpen++;
+    } while (candidateDay === 0 || candidateDay === 6);
+  }
+
+  const dayLabel = daysUntilNextOpen === 0 ? 'today' : (daysUntilNextOpen === 1 ? 'tomorrow' : `on ${DAY_NAMES[candidateDay]}`);
+  return { isOpen: false, label: 'Market Closed', nextEvent: `Opens 9:15 AM ${dayLabel}` };
+}
+
 // Aug 28 2026: pure SVG sparkline -- same coordinate-transform pattern
 // already tested for DailyBacktestTab.jsx's EquityCurveChart (verified
 // there against flat/single-point/rising/falling edge cases before
@@ -43,6 +93,21 @@ function Sparkline({ values, width = 64, height = 24 }) {
 
 export default function MarketBanner() {
   const [data, setData] = useState(null);
+  const [marketStatus, setMarketStatus] = useState(null);
+
+  // Own independent clock, same as MarketSummary.jsx used -- reflects
+  // right now, not whenever the backend's data.timestamp last updated
+  // (which could be stale if the last fetch failed or is slow).
+  useEffect(() => {
+    const update = () => {
+      const { day, totalMinutes } = getIstDayAndMinutes(new Date());
+      setMarketStatus(computeMarketStatus(day, totalMinutes));
+    };
+    update();
+    const interval = setInterval(update, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const [loading, setLoading] = useState(true);
   // Separate, independent fetch from the Index Tracker endpoint that's
   // already confirmed working -- NOT wired into /api/market-summary/
@@ -290,16 +355,24 @@ export default function MarketBanner() {
         </div>
       )}
 
-      {/* Time */}
+      {/* Time + Market Status -- moved here from its own standalone
+          card in Market View, per direct feedback: whether the market
+          is open matters globally, not just on one tab. */}
       <div className="hidden md:flex items-center justify-end px-4 py-3">
         <div className="text-right">
+          {marketStatus && (
+            <div className="flex items-center justify-end gap-1.5 mb-1">
+              <span className={`w-1.5 h-1.5 rounded-full ${marketStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-slate-500'}`} />
+              <span className={`text-xs font-semibold ${marketStatus.isOpen ? 'text-emerald-400' : 'text-slate-400'}`}>{marketStatus.label}</span>
+            </div>
+          )}
           <p className="text-xs text-slate-400 font-mono">
             {new Date(data.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
           </p>
           <p className="text-[10px] text-slate-500 font-mono">
             {new Date(data.timestamp).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
           </p>
-          <p className="text-[10px] text-slate-600">Last updated</p>
+          {marketStatus && <p className="text-[10px] text-slate-600">{marketStatus.nextEvent}</p>}
         </div>
       </div>
     </div>

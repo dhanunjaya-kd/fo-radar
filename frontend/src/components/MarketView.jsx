@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import MarketHeatmap from './MarketHeatmap';
-import MarketSummary from './MarketSummary';
 import TabInfoBanner from './TabInfoBanner';
 import IndicesPerformance from './IndicesPerformance';
 
@@ -301,12 +300,12 @@ export default function MarketView() {
   return (
     <div className="space-y-4">
       {/* Aug 28 2026: new sections, from the Module 4 (Market View)
-          redesign reference -- MarketSummary is pure client-side time
-          logic (no backend), MarketHeatmap and IndicesPerformance each
-          have their own backend endpoints (see their own files).
-          Everything below this (the indigo note + both NIFTY/
+          redesign reference -- MarketHeatmap and IndicesPerformance
+          each have their own backend endpoints (see their own files).
+          MarketSummary moved to the global MarketBanner (Aug 29 2026)
+          -- whether the market's open matters on every tab, not just
+          here. Everything below this (the indigo note + both NIFTY/
           BANKNIFTY tables) is unchanged. */}
-      <MarketSummary />
       <MarketHeatmap />
       <IndicesPerformance />
       <TabInfoBanner>
