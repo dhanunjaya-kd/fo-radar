@@ -833,6 +833,9 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
     def na(v, suffix=""):
         return "N/A" if v is None else f"{v}{suffix}"
 
+    def r_str(v):
+        return "N/A" if v is None else f"{v:+.2f}R"
+
     out_dir = os.path.join(LOG_DIR, "backtest_reports")
     os.makedirs(out_dir, exist_ok=True)
     today = datetime.now().strftime("%Y-%m-%d")
@@ -982,6 +985,60 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
             "How far below the highest point reached so far the account was at each moment, as a %. Always zero or "
             "negative -- 0 means sitting at a new high, a deep dip means a real losing stretch that hadn't recovered yet."), caption))
         story.append(RLImage(dd_png, width=180 * mm, height=180 * mm * (2.6 / 9)))
+
+        # ---- R-Multiple Analysis -- P0 upgrade spec item, added Aug 29
+        # 2026. Measures setup quality independent of rupee sizing:
+        # Realized R = P&L / Initial Risk (Entry - SL), already computed
+        # and tested per-trade in compute_r_multiple() / load_all_trades(),
+        # and already summarized by summarize_r_multiples() into
+        # metrics["r_multiple"]. This block only renders that existing
+        # dict -- no new computation happens here. ----
+        story.append(Paragraph(_esc("R-Multiple Analysis"), h2))
+        story.append(Paragraph(_esc(
+            "How many multiples of initial risk (Entry minus SL) each trade returned, independent of position "
+            "size or premium level -- a Rs 5-risk trade that made Rs 15 is +3R the same as a Rs 50-risk trade "
+            "that made Rs 150. This is what actually measures setup quality; rupee P&L above doesn't."), caption))
+
+        rm = metrics.get("r_multiple")
+        if rm is None:
+            story.append(Paragraph(_esc(
+                "N/A -- no trade in this backtest had a valid Entry/SL pair to compute Initial Risk from."), warn))
+        else:
+            rm_rows = [
+                ["Average R", r_str(rm["avg_r"])],
+                ["Median R", r_str(rm["median_r"])],
+                ["Best single trade", r_str(rm["best_r"])],
+                ["Worst single trade", r_str(rm["worst_r"])],
+                ["Trades \u2265 +1R", f"{rm['pct_ge_1r']}%"],
+                ["Trades \u2265 +2R", f"{rm['pct_ge_2r']}%"],
+                ["Trades \u2264 -1R", f"{rm['pct_le_neg1r']}%"],
+                ["Average winning R", r_str(rm["avg_winning_r"])],
+                ["Average losing R", r_str(rm["avg_losing_r"])],
+            ]
+            rm_table = Table(rm_rows, colWidths=[75 * mm, 105 * mm])
+            rm_style_cmds = [
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 0), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ]
+            # Sign-based coloring only on the actual R-value rows (0-3,
+            # 7-8) -- the % rows (4-6) are always non-negative by
+            # definition, so coloring them by raw sign would be
+            # meaningless at best and backwards at worst: a HIGH
+            # "Trades <= -1R" is a BAD result, not a green one.
+            for row_idx, key in [(0, "avg_r"), (1, "median_r"), (2, "best_r"), (3, "worst_r"),
+                                  (7, "avg_winning_r"), (8, "avg_losing_r")]:
+                _, text_hex = _pos_neg_hex(rm[key])
+                rm_style_cmds.append(("TEXTCOLOR", (1, row_idx), (1, row_idx), rl_colors.HexColor(text_hex)))
+            rm_table.setStyle(TableStyle(rm_style_cmds))
+            story.append(rm_table)
+            story.append(Spacer(1, 2 * mm))
+            story.append(Paragraph(_esc(
+                f"Based on {rm['sample_size']} of {metrics['total_trades']} resolved trades with a valid Entry/SL "
+                f"pair to compute Initial Risk from."), caption))
 
         story.append(PageBreak())
 
