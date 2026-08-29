@@ -8,7 +8,6 @@ import './components/density-overrides.css';
 import MarketBanner from './components/MarketBanner';
 import MarketBreadth from './components/MarketBreadth';
 import SignalList from './components/SignalList';
-import Watchlist from './components/Watchlist';
 import Analytics from './components/Analytics';
 import IndexTracker from './components/IndexTracker';
 import MarketView from './components/MarketView';
@@ -44,7 +43,7 @@ const IconMaximize = ({ size = 17 }) => (
 // Aug 28 2026: added 'dashboard' -- new home tab for the Dashboard-
 // specific panels from the 12-screen redesign reference (Sector
 // Performance now, more to follow).
-const VALID_TABS = ['dashboard', 'signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings', 'strategy'];
+const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings', 'strategy'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -70,7 +69,6 @@ function AppShell() {
     }
   });
   const [signalCount, setSignalCount] = useState(null);
-  const [watchlistCount, setWatchlistCount] = useState(null);
   // Aug 28 2026: lifted verbatim from SignalList.jsx as part of the
   // top-nav redesign -- the underlying notification-firing logic
   // inside SignalList.jsx checks Notification.permission directly,
@@ -110,7 +108,6 @@ function AppShell() {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', count: null },
     { id: 'signals', label: 'Live Signals', count: signalCount },
-    { id: 'watchlist', label: 'Watchlist', count: watchlistCount },
     { id: 'oi', label: 'OI Analytics', count: null },
     { id: 'index', label: 'Index Tracker', count: null },
     { id: 'market', label: 'Market View', count: null },
@@ -134,23 +131,25 @@ function AppShell() {
   // nothing left over for a "More" dropdown, so it's omitted rather
   // than built empty just to visually match the reference.
   // Aug 28 2026: flat, single-row nav per direct feedback -- the
-  // earlier grouped "Markets"/"Intelligence" structure is gone. Exact
-  // order as requested: Dashboard, Live Signals, Watchlist, OI
+  // earlier grouped "Markets"/"Intelligence" structure is gone.
+  // Aug 29 2026: Watchlist removed entirely (not just hidden) -- it
+  // used the exact same useSignals() data as Live Signals, just fewer
+  // columns; its one genuinely unique piece (52W High/Low + Technical)
+  // folded into Live Signals' own detail drawer instead
+  // (LiveSignalsTable.jsx). Order now: Dashboard, Live Signals, OI
   // Analytics, Index Tracker, Market View, Crude Oil, Gold & Silver,
   // News, Value Watchlist, Daily Backtest, Settings. 'strategy'
   // (Strategy Backtest) deliberately excluded from this visible list --
   // same feedback explicitly dropped it ("don't add more tabs just
-  // because there's space"). Still reachable via the search bar (its
-  // entry stays in the underlying `tabs` array search reads from) and
-  // via direct navigation -- not deleted, just not competing for a
-  // slot in the primary nav. Properly folding it into Daily Backtest
-  // as a sub-section (rather than just hiding it) needs seeing that
-  // component first.
-  const primaryNavOrder = ['dashboard', 'signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings'];
+  // because there's space"). Still reachable via direct navigation --
+  // not deleted, just not competing for a slot in the primary nav.
+  // Properly folding it into Daily Backtest as a sub-section (rather
+  // than just hiding it) needs seeing that component first.
+  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   const tabIcon = (id) => ({
-    dashboard: '🏠', settings: '⚙️', signals: '⚡', watchlist: '👁',
+    dashboard: '🏠', settings: '⚙️', signals: '⚡',
     oi: '📊', index: '📈', market: '📋', crude: '🛢️', bullion: '🥇',
     news: '📰', value: '💎', backtest: '🧮', strategy: '🧪',
   }[id] || '');
@@ -185,7 +184,6 @@ function AppShell() {
         if (cancelled || !res) return;
         const list = Array.isArray(res) ? res : (res.signals || []);
         setSignalCount(list.length);
-        setWatchlistCount(list.filter(s => s.action === 'BUY').length);
       }).catch(() => {});
     };
     loadCounts();
@@ -289,7 +287,6 @@ function AppShell() {
         {activeTab === 'dashboard' && <Dashboard onNavigate={setActiveTab} />}
         {activeTab === 'settings' && <SettingsPanel onDensityChange={setDensity} />}
         {activeTab === 'signals' && <SignalList />}
-        {activeTab === 'watchlist' && <Watchlist />}
         {activeTab === 'oi' && <Analytics />}
         {activeTab === 'index' && <IndexTracker />}
         {activeTab === 'market' && <MarketView />}
