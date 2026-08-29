@@ -20,7 +20,6 @@ import DailyBacktestTab from './components/DailyBacktestTab';
 import Dashboard from './components/Dashboard';
 import SettingsPanel from './components/SettingsPanel';
 import StrategyBacktest from './components/StrategyBacktest';
-import SearchBar from './components/SearchBar';
 
 // Aug 28 2026: lifted verbatim from SignalList.jsx (top-nav redesign --
 // the alert bell moved here). Duplicated rather than pulled into a new
@@ -221,7 +220,7 @@ function AppShell() {
 
   return (
     <div className={`min-h-screen bg-slate-950 text-white overflow-x-hidden ${theme === 'light' ? 'light' : ''} density-${density}`}>
-      {/* Top nav row: logo, search, and the icon cluster */}
+      {/* Top nav row: logo and the icon cluster */}
       <div className="px-4 pt-4 pb-3 flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0">
           <span className="text-xl">🎯</span>
@@ -229,7 +228,6 @@ function AppShell() {
             F&amp;O SNIPER <span className="text-slate-500 font-normal">SCANNER v3.0</span>
           </span>
         </div>
-        <SearchBar tabs={tabs} onNavigate={(tabId) => setActiveTab(tabId)} />
         <div className="flex items-center gap-1.5 ml-auto">
           <ThemeToggle />
           <button
