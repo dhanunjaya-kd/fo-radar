@@ -134,9 +134,21 @@ function AppShell() {
   // between the 3 standalone entries and the 2 groups, there was
   // nothing left over for a "More" dropdown, so it's omitted rather
   // than built empty just to visually match the reference.
-  const standaloneTabs = tabs.filter(t => ['dashboard', 'signals', 'watchlist'].includes(t.id));
-  const marketsTabs = tabs.filter(t => ['market', 'index', 'crude', 'bullion'].includes(t.id));
-  const intelligenceTabs = tabs.filter(t => ['oi', 'news', 'backtest', 'value', 'strategy'].includes(t.id));
+  // Aug 28 2026: flat, single-row nav per direct feedback -- the
+  // earlier grouped "Markets"/"Intelligence" structure is gone. Exact
+  // order as requested: Dashboard, Live Signals, Watchlist, OI
+  // Analytics, Index Tracker, Market View, Crude Oil, Gold & Silver,
+  // News, Value Watchlist, Daily Backtest, Settings. 'strategy'
+  // (Strategy Backtest) deliberately excluded from this visible list --
+  // same feedback explicitly dropped it ("don't add more tabs just
+  // because there's space"). Still reachable via the search bar (its
+  // entry stays in the underlying `tabs` array search reads from) and
+  // via direct navigation -- not deleted, just not competing for a
+  // slot in the primary nav. Properly folding it into Daily Backtest
+  // as a sub-section (rather than just hiding it) needs seeing that
+  // component first.
+  const primaryNavOrder = ['dashboard', 'signals', 'watchlist', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings'];
+  const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   const tabIcon = (id) => ({
     dashboard: '🏠', settings: '⚙️', signals: '⚡', watchlist: '👁',
@@ -262,31 +274,11 @@ function AppShell() {
         <MarketBreadth />
       </div>
 
-      {/* Grouped nav */}
-      <div className="px-4 mb-4 flex items-start gap-6 flex-wrap">
-        <div>
-          {/* Invisible spacer label, same height/margin as the real
-              "Markets"/"Intelligence" labels below -- without this,
-              this group's buttons sit higher than the other two
-              (nothing pushing them down), creating an uneven,
-              zig-zagged baseline across the row. */}
-          <p className="text-[9px] uppercase tracking-wider mb-1 px-1 invisible">·</p>
-          <div className="flex gap-1">
-            {standaloneTabs.map(tab => <TabButton key={tab.id} tab={tab} />)}
-          </div>
-        </div>
-        <div>
-          <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1 px-1">Markets</p>
-          <div className="flex gap-1 flex-wrap">
-            {marketsTabs.map(tab => <TabButton key={tab.id} tab={tab} />)}
-          </div>
-        </div>
-        <div>
-          <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1 px-1">Intelligence</p>
-          <div className="flex gap-1 flex-wrap">
-            {intelligenceTabs.map(tab => <TabButton key={tab.id} tab={tab} />)}
-          </div>
-        </div>
+      {/* Primary nav -- single flat row, exact order per direct
+          feedback: don't add tabs just because there's space, and
+          the earlier "Markets"/"Intelligence" grouping is gone. */}
+      <div className="px-4 mb-4 flex gap-1 flex-wrap">
+        {primaryTabs.map(tab => <TabButton key={tab.id} tab={tab} />)}
       </div>
 
       {/* Content Area — ONLY ONE TAB VISIBLE */}
