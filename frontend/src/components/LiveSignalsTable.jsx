@@ -1,4 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+// Relative on purpose -- same note as SignalList.jsx / IndexTracker.jsx.
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 const GRADE_STYLES = {
   'A+': 'text-emerald-400 bg-emerald-500/10',
@@ -7,6 +10,12 @@ const GRADE_STYLES = {
   'C': 'text-amber-400 bg-amber-500/10',
   'D': 'text-rose-400 bg-rose-500/10',
 };
+
+// Aug 29 2026: matches the RSI thresholds get_technical_signal() uses
+// server-side (>=60 Bullish, <=40 Bearish, else Neutral) -- same
+// mapping Watchlist.jsx used, copied verbatim now that its 52W/
+// Technical columns are folding into this drawer instead.
+const TECH_TONE = { Bullish: 'green', Neutral: 'gray', Bearish: 'red' };
 
 function statusBucket(outcomeStatus) {
   if (outcomeStatus === 'Open') return 'Open';
@@ -80,6 +89,27 @@ function fmtNum(v, digits = 1) {
 }
 
 function DetailDrawer({ signal, onClose }) {
+  // Aug 29 2026: 52W High/Low + Technical, folded in from the removed
+  // Watchlist tab (it used useSignals() -- the exact same underlying
+  // data as this table, just fewer columns plus these two fields; no
+  // longer worth a separate tab). Fetched on-demand per selected
+  // signal rather than upfront for the whole table, unlike Watchlist's
+  // original all-at-once approach -- most signals never get their
+  // drawer opened, so fetching only the one actually being viewed
+  // avoids the wasted calls. useState/useEffect MUST run before the
+  // `if (!signal) return null` below, or this would violate React's
+  // Rules of Hooks (a conditional early return before a hook call).
+  const [rangeData, setRangeData] = useState(null);
+  useEffect(() => {
+    if (!signal) { setRangeData(null); return; }
+    let cancelled = false;
+    fetch(`${API_BASE}/api/52-week-range/${signal.symbol}/`)
+      .then(res => res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status)))
+      .then(data => { if (!cancelled) setRangeData(data); })
+      .catch(() => { if (!cancelled) setRangeData(null); }); // isolated failure -- honest dash below, not a guess
+    return () => { cancelled = true; };
+  }, [signal?.symbol]);
+
   if (!signal) return null;
   const isBuy = signal.action === 'BUY';
   const contractLabel = formatOptionContractLabel(signal);
@@ -138,6 +168,32 @@ function DetailDrawer({ signal, onClose }) {
                 <p className="text-[9px] text-slate-500 uppercase">Target 3</p>
                 <p className="text-sm font-bold text-emerald-400/60 tabular-nums">{fmtPrice(signal.target3)}</p>
               </div>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1.5">52-Week Range &amp; Technical</p>
+            <div className="bg-slate-800/60 rounded-lg p-3 flex items-center justify-between">
+              {rangeData?.high52w != null ? (
+                <p className="text-xs text-slate-300">
+                  <span className="text-emerald-400 font-semibold">₹{rangeData.high52w.toFixed(2)}</span>
+                  {' / '}
+                  <span className="text-rose-400 font-semibold">₹{rangeData.low52w.toFixed(2)}</span>
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500">—</p>
+              )}
+              {rangeData?.technical?.label ? (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                  TECH_TONE[rangeData.technical.label] === 'green' ? 'text-emerald-400 bg-emerald-500/15 border border-emerald-500/25' :
+                  TECH_TONE[rangeData.technical.label] === 'red' ? 'text-rose-400 bg-rose-500/15 border border-rose-500/25' :
+                  'text-slate-400 bg-slate-700/30 border border-slate-600/30'
+                }`}>
+                  {rangeData.technical.label}
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-600">—</span>
+              )}
             </div>
           </div>
 
