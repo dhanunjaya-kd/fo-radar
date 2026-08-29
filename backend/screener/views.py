@@ -1843,6 +1843,33 @@ class DailyBacktestRangeView(APIView):
         return Response(clean_json(result))
 
 
+class DailyBacktestRangeReportView(APIView):
+    """
+    Aug 29 2026: the actual downloadable PDF for a specific date range
+    -- DailyBacktestRangeView above only ever returns a JSON preview,
+    by design. This is the real counterpart: reuses the exact same
+    compute_metrics()/write_pdf_report() pipeline (Strategy Scorecard,
+    R-Multiple, Long vs Short, every section) the full daily-cycle PDF
+    already uses, scoped to just the requested window.
+    GET /api/daily-backtest/range/report/?start=YYYY-MM-DD&end=YYYY-MM-DD
+    """
+    def get(self, request):
+        from django.http import FileResponse, JsonResponse
+        from .daily_backtest import run_range_report
+        start = request.GET.get("start")
+        end = request.GET.get("end")
+        if not start or not end:
+            return Response({"error": "start and end query params (YYYY-MM-DD) are required"}, status=400)
+        try:
+            path = run_range_report(start, end)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
+        if not path or not os.path.exists(path):
+            return JsonResponse({"error": f"No resolved stock trades between {start} and {end}."}, status=404)
+        filename = os.path.basename(path)
+        return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
+
+
 class IndexBacktestExportView(APIView):
     """Download the day-wise backtest as an Excel file, one row per
     date+bias with a Hit% and sample count column per horizon.

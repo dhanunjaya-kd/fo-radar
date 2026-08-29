@@ -368,6 +368,55 @@ def run_range_backtest(start_str, end_str):
     return result
 
 
+def run_range_report(start_str, end_str):
+    """
+    Aug 29 2026: the actual downloadable PDF for a specific date range
+    -- the missing piece run_range_backtest() was never meant to be.
+    That function is a fast JSON preview only, by its own explicit
+    design (see its docstring: "Pure preview computation: no PDF
+    written"). This is the real counterpart: filters trades to
+    [start, end] with the same already-tested _filter_trades_by_range()
+    used above, then runs them through the EXACT SAME compute_metrics()
+    / write_pdf_report() pipeline the full daily-cycle stock PDF uses
+    -- meaning a range PDF gets the identical Strategy Scorecard/
+    R-Multiple/Long vs Short/every other section the full report has,
+    not a stripped-down version.
+
+    Does NOT touch the scheduled cycle's cached _last_run and does NOT
+    send to Telegram -- same isolation run_range_backtest() already
+    keeps for the preview path. The one real side effect a
+    *downloadable* report can't avoid is writing a PDF to disk, which
+    this does via the same _run_and_rename() collision-fix already
+    used elsewhere in this file, under a range-specific filename
+    (signal_pnl_stock_<start>_to_<end>.pdf) so it never collides with
+    the scheduled cycle's own signal_pnl_stock_<today>.pdf.
+
+    Raises ValueError for a bad date string, same contract as
+    run_range_backtest() -- caller (the API view) should turn that
+    into a 400. Returns None if there are zero resolved stock trades
+    inside the requested range (caller should turn that into a 404,
+    not a 500 or a technically-successful empty PDF).
+    """
+    try:
+        start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        raise ValueError("start/end must be YYYY-MM-DD")
+
+    from .backtest_signal_pnl import load_all_trades, compute_capital_base, compute_metrics, write_pdf_report
+    all_trades, _ = load_all_trades()
+    trades = _filter_trades_by_range(all_trades, start_date, end_date)
+    if not trades:
+        return None
+
+    capital_base = compute_capital_base(trades)
+    metrics = compute_metrics(trades, capital_base)
+    if not metrics:
+        return None
+
+    return _run_and_rename(write_pdf_report, trades, metrics, f"signal_pnl_stock_{start_str}_to_{end_str}.pdf")
+
+
 def run_daily_backtest_cycle_async(trigger="manual", backfill_days=7):
     """Fire-and-forget wrapper for the API-triggered 'Run Now' button --
     the full cycle can take a while (real Fyers history calls per
