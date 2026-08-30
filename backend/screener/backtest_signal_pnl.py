@@ -48,6 +48,7 @@ import os
 import re
 import glob
 from datetime import datetime, timedelta
+from datetime import time as dt_time
 from collections import defaultdict
 
 try:
@@ -294,16 +295,25 @@ def compute_equity_curve(trades, capital_base):
     return curve
 
 
-def compute_drawdown_periods(equity_curve):
+def compute_drawdown_periods(equity_curve, trades=None):
     """
     Walks the equity curve and identifies every distinct peak->trough
     ->recovery cycle. A period that never recovers by the end of the
     data is marked 'Ongoing' rather than force-closed -- matches the
     reference report's own 'Currently underwater' concept.
 
+    trades, if provided, additionally counts how many trades occurred
+    while each period was underwater (peak_dt exclusive through
+    recovered_dt inclusive, or through the last trade if still
+    Ongoing) -- P1 upgrade spec item: "drawdown depth, duration,
+    recovery time AND TRADES INSIDE each drawdown." Optional and
+    backward-compatible: called with just equity_curve (as it always
+    was before), every period gets trades_inside=None rather than a
+    silently wrong count.
+
     Returns a list of {peak_equity, peak_dt, trough_equity, trough_dt,
-    depth (Rs), depth_pct, recovered_dt (or None), status}, one per
-    distinct drawdown period, oldest first.
+    depth (Rs), depth_pct, recovered_dt (or None), status,
+    trades_inside}, one per distinct drawdown period, oldest first.
     """
     if not equity_curve:
         return []
@@ -343,6 +353,16 @@ def compute_drawdown_periods(equity_curve):
             "recovered_dt": None, "status": "Ongoing",
         })
 
+    for period in periods:
+        if trades is None:
+            period["trades_inside"] = None
+            continue
+        lower, upper = period["peak_dt"], period["recovered_dt"]
+        if upper is not None:
+            period["trades_inside"] = sum(1 for t in trades if lower < t["exit_dt"] <= upper)
+        else:
+            period["trades_inside"] = sum(1 for t in trades if t["exit_dt"] > lower)
+
     return periods
 
 
@@ -367,6 +387,79 @@ def compute_monthly_pnl(trades):
     for v in monthly.values():
         v["pnl"] = round(v["pnl"], 2)
     return dict(sorted(monthly.items()))
+
+
+def compute_streaks(trades):
+    """
+    Consecutive win/loss streak analysis -- P1 upgrade spec item.
+    Walks trades in exit-time order (same chronological convention
+    the equity curve already uses) since a streak is a sequence
+    property -- order matters, unlike every other breakdown in this
+    file which groups trades regardless of order.
+
+    A flat trade (pnl == 0) breaks both a winning and a losing streak
+    -- it's neither a win nor a loss, same three-way split
+    win_rate_pct/wins/losses/flats already use elsewhere in this file,
+    not silently folded into one side here either.
+
+    Returns None for an empty trade list, else {max_win_streak,
+    max_loss_streak, avg_win_streak, avg_loss_streak,
+    win_streak_count, loss_streak_count}. avg_*_streak is None if that
+    side never had a streak at all (e.g. a strategy with zero losing
+    trades has no loss streaks to average).
+    """
+    if not trades:
+        return None
+    sorted_trades = sorted(trades, key=lambda t: t["exit_dt"])
+    win_streaks, loss_streaks = [], []
+    current_kind, current_len = None, 0
+    for t in sorted_trades:
+        kind = "win" if t["pnl"] > 0 else ("loss" if t["pnl"] < 0 else "flat")
+        if kind == current_kind:
+            current_len += 1
+        else:
+            if current_kind == "win":
+                win_streaks.append(current_len)
+            elif current_kind == "loss":
+                loss_streaks.append(current_len)
+            current_kind, current_len = kind, 1
+    if current_kind == "win":
+        win_streaks.append(current_len)
+    elif current_kind == "loss":
+        loss_streaks.append(current_len)
+
+    return {
+        "max_win_streak": max(win_streaks) if win_streaks else 0,
+        "max_loss_streak": max(loss_streaks) if loss_streaks else 0,
+        "avg_win_streak": round(sum(win_streaks) / len(win_streaks), 2) if win_streaks else None,
+        "avg_loss_streak": round(sum(loss_streaks) / len(loss_streaks), 2) if loss_streaks else None,
+        "win_streak_count": len(win_streaks),
+        "loss_streak_count": len(loss_streaks),
+    }
+
+
+def compute_weekly_pnl(trades):
+    """
+    P&L grouped by ISO calendar week (Mon-Sun) -- P1 upgrade spec item
+    ("worst week / best week"). Groups by exit date, same convention
+    daily_pnl/monthly_pnl already use for "when a trade's P&L counts."
+    ISO week (a fixed year+week-number pair) rather than a rolling
+    7-day window -- a standard, unambiguous boundary.
+
+    Returns None for an empty trade list, else {"weekly_pnl":
+    {(iso_year, iso_week): net_pnl}, "best_week": ((iso_year,
+    iso_week), net_pnl), "worst_week": same shape}.
+    """
+    if not trades:
+        return None
+    weekly = defaultdict(float)
+    for t in trades:
+        iso_year, iso_week, _ = t["exit_dt"].isocalendar()
+        weekly[(iso_year, iso_week)] += t["pnl"]
+    weekly = {k: round(v, 2) for k, v in sorted(weekly.items())}
+    best_week = max(weekly.items(), key=lambda kv: kv[1])
+    worst_week = min(weekly.items(), key=lambda kv: kv[1])
+    return {"weekly_pnl": weekly, "best_week": best_week, "worst_week": worst_week}
 
 
 def compute_segment_breakdown(trades, segment_key):
@@ -549,6 +642,118 @@ def compute_long_short_breakdown(trades):
     return result
 
 
+def check_data_integrity(trades):
+    """
+    Data Quality/Integrity checks -- the last P0 upgrade spec item.
+    Runs entirely against data already loaded here (entry_dt/exit_dt/
+    entry/exit_price/qty/pnl/symbol/action) -- no new data source, no
+    new file reads. Checks the spec asks for that this project's data
+    genuinely doesn't support -- liquidity/spread at execution,
+    corporate-action adjustments -- are reported as NOT CAPTURED
+    rather than a fabricated pass, same rule as every other honest gap
+    in this file.
+
+    Five real checks, each grounded in an actual pattern found by hand
+    in this project's own Aug 2026 data before this function existed:
+
+      Timestamp integrity -- exit before entry (corrupt), or exit ==
+      entry to the minute (zero-duration) -- e.g. a real HEROMOTOCO
+      row logged 2026-08-25 14:25 -> 14:25.
+
+      Market hours -- entry or exit outside 09:15-15:40 IST (the wider
+      bound, vs the regular 09:15-15:30 close, deliberately covers a
+      real CAS auction exit without flagging it as a false positive).
+      Real example: six different symbols on 2026-08-07 all entered
+      at exactly 05:04 -- long before market open.
+
+      Duplicate signals -- exact match on symbol+action+entry+
+      exit_price+qty+pnl. This project's own real Aug 10 2026 data:
+      BAJFINANCE/ABB/BHARATFORG each appear twice, entries ~4 minutes
+      apart, otherwise byte-identical -- the exact restart-bug pattern
+      flag_duplicate_signals.py exists to catch (built, per this
+      project's own history, but never run).
+
+      Overlapping positions -- narrower than compute_capital_base()'s
+      peak-concurrency figure above: TWO open positions on the SAME
+      symbol at the same moment, which shouldn't happen if each symbol
+      only ever carries one live signal at a time. Different symbols
+      being concurrent is normal and NOT flagged here.
+
+      Missing/stale data -- exit prices pinned at a near-zero floor.
+      Real Aug 25 2026 data: ten different symbols all closed at
+      exactly Rs 0.05 the same day -- ten unrelated option contracts
+      hitting the identical tick isn't organic decay, it looks like a
+      floor/fallback value standing in for a real missing LTP.
+
+    Returns None for an empty trade list. Otherwise a dict -- see the
+    return statement at the bottom for the exact shape -- including
+    overall_status ("Complete"/"Partial"/"Suspect"), the Data Status
+    spec section 12 asks the PDF and dashboard to agree on.
+    """
+    if not trades:
+        return None
+
+    corrupt_ts = [t for t in trades if t["exit_dt"] < t["entry_dt"]]
+    zero_duration = [t for t in trades if t["exit_dt"] == t["entry_dt"]]
+
+    market_open, market_close = dt_time(9, 15), dt_time(15, 40)
+    off_hours = [t for t in trades
+                 if not (market_open <= t["entry_dt"].time() <= market_close)
+                 or not (market_open <= t["exit_dt"].time() <= market_close)]
+
+    dup_groups = defaultdict(list)
+    for t in trades:
+        key = (t["symbol"], t["action"], t["entry"], t["exit_price"], t["qty"], t["pnl"])
+        dup_groups[key].append(t)
+    duplicate_groups = [g for g in dup_groups.values() if len(g) > 1]
+    duplicate_trade_count = sum(len(g) for g in duplicate_groups)
+
+    by_symbol = defaultdict(list)
+    for t in trades:
+        by_symbol[t["symbol"]].append(t)
+    overlap_pairs = []
+    for sym_trades in by_symbol.values():
+        sym_sorted = sorted(sym_trades, key=lambda t: t["entry_dt"])
+        for i in range(1, len(sym_sorted)):
+            prev, cur = sym_sorted[i - 1], sym_sorted[i]
+            if cur["entry_dt"] < prev["exit_dt"]:
+                overlap_pairs.append((prev, cur))
+
+    floor_price_trades = [t for t in trades if t["exit_price"] is not None and t["exit_price"] <= 0.10]
+    floor_price_days = defaultdict(int)
+    for t in floor_price_trades:
+        floor_price_days[t["exit_dt"].date().isoformat()] += 1
+    floor_price_concentrated_days = {d: c for d, c in floor_price_days.items() if c >= 3}
+
+    total = len(trades)
+    # Fixed, disclosed thresholds: real corruption or a >2% duplicate
+    # rate is Suspect -- not a minor caveat, a reason to distrust the
+    # numbers above until fixed. Anything else flagged is Partial.
+    # Nothing flagged at all is Complete.
+    if corrupt_ts or (total and duplicate_trade_count / total > 0.02):
+        overall_status = "Suspect"
+    elif off_hours or zero_duration or overlap_pairs or floor_price_concentrated_days:
+        overall_status = "Partial"
+    else:
+        overall_status = "Complete"
+
+    return {
+        "overall_status": overall_status,
+        "total_trades": total,
+        "corrupt_timestamps": len(corrupt_ts),
+        "zero_duration": len(zero_duration),
+        "off_hours": len(off_hours),
+        "off_hours_examples": off_hours[:3],
+        "duplicate_groups": len(duplicate_groups),
+        "duplicate_trade_count": duplicate_trade_count,
+        "duplicate_examples": duplicate_groups[:3],
+        "overlapping_positions": len(overlap_pairs),
+        "overlap_examples": overlap_pairs[:3],
+        "floor_price_trades": len(floor_price_trades),
+        "floor_price_days": dict(sorted(floor_price_concentrated_days.items())),
+    }
+
+
 def compute_scorecard_status(metrics, min_sample_size=20):
     """
     Promising / Weak / Insufficient Sample -- P0 upgrade spec item.
@@ -597,6 +802,135 @@ def compute_scorecard_status(metrics, min_sample_size=20):
     return ("Weak", f"Doesn't clear the Promising bar yet: {'; '.join(failed)}.")
 
 
+def compute_time_of_day_breakdown(trades):
+    """
+    Buckets trades by ENTRY time-of-day into six fixed windows -- P1
+    upgrade spec item. Bucketed by entry (not exit) since the spec
+    frames this as finding "strong/weak trading windows" -- when a
+    signal actually FIRES, not when it happens to resolve (which can
+    be hours later for an intraday hold). Fixed buckets exactly as the
+    spec lists them, not adaptive/quantile-based.
+
+    A trade whose entry time falls outside 09:15-15:30 entirely (the
+    real off-hours pattern check_data_integrity() already flags
+    elsewhere -- e.g. this project's own real 05:04 AM entries) is
+    excluded from every bucket rather than forced into the nearest
+    one, same "exclude rather than fabricate" rule as everywhere else
+    in this file. excluded_off_hours in the return makes that count
+    visible rather than a silent gap between totals.
+
+    Returns {"buckets": {label: {count, win_rate_pct, net_pnl,
+    profit_factor, avg_r}}, "excluded_off_hours": N}, buckets in spec
+    order (dict insertion order is preserved).
+    """
+    bucket_defs = [
+        ("09:15-10:00", dt_time(9, 15), dt_time(10, 0)),
+        ("10:00-11:00", dt_time(10, 0), dt_time(11, 0)),
+        ("11:00-12:00", dt_time(11, 0), dt_time(12, 0)),
+        ("12:00-13:00", dt_time(12, 0), dt_time(13, 0)),
+        ("13:00-14:00", dt_time(13, 0), dt_time(14, 0)),
+        ("14:00-15:30", dt_time(14, 0), dt_time(15, 30)),
+    ]
+    buckets = {}
+    matched = 0
+    for i, (label, start, end) in enumerate(bucket_defs):
+        is_last = (i == len(bucket_defs) - 1)
+        if is_last:  # closed interval on the final bucket -- 15:30 is a real, valid close-time entry
+            bucket_trades = [t for t in trades if start <= t["entry_dt"].time() <= end]
+        else:  # half-open elsewhere so an exact-boundary entry (e.g. 11:00:00) matches exactly one bucket
+            bucket_trades = [t for t in trades if start <= t["entry_dt"].time() < end]
+        matched += len(bucket_trades)
+
+        wins = [t for t in bucket_trades if t["pnl"] > 0]
+        losses = [t for t in bucket_trades if t["pnl"] < 0]
+        net_pnl = round(sum(t["pnl"] for t in bucket_trades), 2)
+        gross_profit = sum(t["pnl"] for t in wins)
+        gross_loss = sum(t["pnl"] for t in losses)
+        r_values = [t["r_multiple"] for t in bucket_trades if t.get("r_multiple") is not None]
+        buckets[label] = {
+            "count": len(bucket_trades),
+            "win_rate_pct": round(len(wins) / len(bucket_trades) * 100, 1) if bucket_trades else None,
+            "net_pnl": net_pnl,
+            "profit_factor": round(gross_profit / abs(gross_loss), 2) if gross_loss != 0 else None,
+            "avg_r": round(sum(r_values) / len(r_values), 3) if r_values else None,
+        }
+    return {"buckets": buckets, "excluded_off_hours": len(trades) - matched}
+
+
+def categorize_exit_reason(exit_reason):
+    """
+    Buckets the exact exit_reason string parse_outcome() writes into
+    5 clean categories -- P1 upgrade spec item. exit_reason as logged
+    is closer to free text than an enum for the EOD-estimate case
+    (e.g. "Closed down ~249.05 (-1.7% from entry)" carries the actual
+    price and percent inline) -- this pulls out just the outcome TYPE
+    spec section 5 asks for, matching parse_outcome()'s own real
+    output prefixes exactly ("SL Hit", "Target N Hit", "Closed
+    up/down/flat ...").
+
+    "Closed (EOD/manual)" is this project's own documented meaning
+    (see the session handoff): the trade never hit a real SL/Target,
+    this is an estimated end-of-day mark instead -- maps to the spec's
+    "flat/other exits" catch-all. "Other" is a genuine safety net for
+    anything that doesn't match any known prefix, surfaced rather than
+    silently folded into one of the real categories.
+    """
+    if not exit_reason:
+        return "Other"
+    r = exit_reason.strip()
+    if r.startswith("Target 3"):
+        return "T3"
+    if r.startswith("Target 2"):
+        return "T2"
+    if r.startswith("Target 1"):
+        return "T1"
+    if r.startswith("SL Hit"):
+        return "SL"
+    if r.startswith("Closed"):
+        return "Closed (EOD/manual)"
+    return "Other"
+
+
+def compute_exit_analysis(trades):
+    """
+    Count/%/P&L/Avg R by exit-reason category -- P1 upgrade spec item.
+    Directly answers "count and percentage reaching SL/T1/T2/T3/flat"
+    and "P&L and R-Multiple by exit reason", both explicitly asked
+    for. Deliberately does NOT attempt to answer the spec's other two
+    framing questions ("are winners cut too early", "does T3 actually
+    add value") with a causal claim -- that needs MFE (what price did
+    AFTER a T1 exit) which this project's signal logs don't capture at
+    all, only entry/exit, never an intratrade price path. Answering
+    that honestly means saying so, not guessing from what IS here.
+
+    Returns None for an empty trade list, else {category: {count,
+    pct_of_total, net_pnl, avg_r}} in a fixed T1/T2/T3/SL/Closed/Other
+    order, omitting any category with zero trades.
+    """
+    if not trades:
+        return None
+    groups = defaultdict(list)
+    for t in trades:
+        groups[categorize_exit_reason(t["exit_reason"])].append(t)
+
+    total = len(trades)
+    order = ["T1", "T2", "T3", "SL", "Closed (EOD/manual)", "Other"]
+    result = {}
+    for cat in order:
+        cat_trades = groups.get(cat, [])
+        if not cat_trades:
+            continue
+        net_pnl = round(sum(t["pnl"] for t in cat_trades), 2)
+        r_values = [t["r_multiple"] for t in cat_trades if t.get("r_multiple") is not None]
+        result[cat] = {
+            "count": len(cat_trades),
+            "pct_of_total": round(len(cat_trades) / total * 100, 1),
+            "net_pnl": net_pnl,
+            "avg_r": round(sum(r_values) / len(r_values), 3) if r_values else None,
+        }
+    return result
+
+
 def compute_metrics(trades, capital_base):
     """The full statistics suite, modeled on the reference TradeTron
     report. Every ratio that can legitimately divide by zero (Calmar
@@ -617,7 +951,7 @@ def compute_metrics(trades, capital_base):
     net_pnl = round(gross_profit + gross_loss, 2)
 
     equity_curve = compute_equity_curve(trades, capital_base)
-    drawdown_periods = compute_drawdown_periods(equity_curve)
+    drawdown_periods = compute_drawdown_periods(equity_curve, trades)
     max_dd = min(drawdown_periods, key=lambda d: d["depth"]) if drawdown_periods else None
 
     daily_pnl = compute_daily_pnl(trades)
@@ -705,6 +1039,11 @@ def compute_metrics(trades, capital_base):
         "winning_days": winning_days, "losing_days": losing_days,
         "avg_holding_minutes": avg_holding_minutes,
         "expectancy": round(net_pnl / len(trades), 2) if trades else None,
+        "data_integrity": check_data_integrity(trades),
+        "time_of_day": compute_time_of_day_breakdown(trades),
+        "exit_analysis": compute_exit_analysis(trades),
+        "streaks": compute_streaks(trades),
+        "weekly": compute_weekly_pnl(trades),
     }
     metrics["scorecard_status"], metrics["scorecard_status_reason"] = compute_scorecard_status(metrics)
     return metrics
@@ -882,6 +1221,63 @@ def _chart_long_short_comparison(breakdown, out_path):
     return True
 
 
+def _chart_time_of_day(tod, out_path):
+    """Net P&L by entry time-of-day window -- one bar per bucket,
+    colored green/red by sign so a weak window is visible at a glance,
+    not just readable in the table. Returns False if every bucket is
+    empty (nothing to chart)."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    buckets = tod["buckets"]
+    labels = list(buckets.keys())
+    values = [buckets[label]["net_pnl"] for label in labels]
+    if not any(buckets[label]["count"] > 0 for label in labels):
+        return False
+
+    colors = ["#16A34A" if v >= 0 else "#DC2626" for v in values]
+
+    fig, ax = plt.subplots(figsize=(9, 3))
+    ax.bar(labels, values, color=colors, width=0.6)
+    ax.set_ylabel("Net P&L (Rs)", color="#6B7280", fontsize=9)
+    ax.axhline(0, color="#9CA3AF", linewidth=1)
+    ax.tick_params(axis="x", labelsize=8, rotation=20)
+    _mpl_style_axes(ax)
+
+    fig.tight_layout()
+    fig.savefig(out_path, facecolor="white")
+    plt.close(fig)
+    return True
+
+
+def _chart_exit_analysis(exit_analysis, out_path):
+    """Average R by exit category -- one bar per category that
+    actually occurred, colored green/red by sign. Visualizes whether
+    reaching a further target is disproportionately more valuable,
+    which the table alone makes you compute by eye."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    cats = [c for c, v in exit_analysis.items() if v["avg_r"] is not None]
+    if not cats:
+        return False
+    values = [exit_analysis[c]["avg_r"] for c in cats]
+    colors = ["#16A34A" if v >= 0 else "#DC2626" for v in values]
+
+    fig, ax = plt.subplots(figsize=(9, 3))
+    ax.bar(cats, values, color=colors, width=0.5)
+    ax.set_ylabel("Average R", color="#6B7280", fontsize=9)
+    ax.axhline(0, color="#9CA3AF", linewidth=1)
+    _mpl_style_axes(ax)
+
+    fig.tight_layout()
+    fig.savefig(out_path, facecolor="white")
+    plt.close(fig)
+    return True
+
+
 def _fmt_holding(minutes):
     """Minutes -> 'Xh Ym' / 'Ym' for display. None -> 'N/A', same
     convention as every other missing-value case in this file."""
@@ -1009,18 +1405,23 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         hist_png = os.path.join(tmp, "histogram.png")
         monthly_png = os.path.join(tmp, "monthly.png")
         ls_png = os.path.join(tmp, "long_short.png")
+        tod_png = os.path.join(tmp, "time_of_day.png")
+        exit_png = os.path.join(tmp, "exit_analysis.png")
 
         _chart_equity_curve(metrics, eq_png)
         _chart_drawdown(metrics, dd_png)
         has_hist = _chart_daily_histogram(metrics, hist_png)
         has_monthly = _chart_monthly_pnl(metrics, monthly_png)
         has_ls_chart = _chart_long_short_comparison(metrics.get("long_short") or {}, ls_png)
+        has_tod_chart = _chart_time_of_day(metrics["time_of_day"], tod_png)
+        has_exit_chart = _chart_exit_analysis(metrics["exit_analysis"] or {}, exit_png)
 
         styles = getSampleStyleSheet()
         h1 = ParagraphStyle("h1", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=20, textColor=rl_colors.white, spaceAfter=2)
         sub = ParagraphStyle("sub", fontName="Helvetica", fontSize=9, textColor=rl_colors.HexColor("#9CA3AF"))
         h2 = ParagraphStyle("h2", fontName="Helvetica-Bold", fontSize=13, textColor=rl_colors.HexColor("#111827"), spaceBefore=14, spaceAfter=6)
         caption = ParagraphStyle("caption", fontName="Helvetica-Oblique", fontSize=8, textColor=rl_colors.HexColor("#6B7280"), spaceAfter=6)
+        h2b = ParagraphStyle("h2b", fontName="Helvetica-Bold", fontSize=10, textColor=rl_colors.HexColor("#374151"), spaceBefore=2, spaceAfter=4)
         warn = ParagraphStyle("warn", fontName="Helvetica-Oblique", fontSize=8.5, textColor=rl_colors.HexColor("#854D0E"), backColor=rl_colors.HexColor("#FEF9C3"))
 
         story = []
@@ -1142,6 +1543,120 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         secondary_table.setStyle(TableStyle(secondary_style_cmds))
         story.append(secondary_table)
         story.append(Spacer(1, 4 * mm))
+
+        story.append(PageBreak())
+
+        # ---- Data Quality & Integrity -- the last P0 upgrade spec
+        # item, added Aug 30 2026. Placed right after the Scorecard
+        # (not buried near the end) on purpose: the spec's own section
+        # 13 is titled "DO NOT OPTIMIZE UNTIL THESE ARE TRUE" -- this
+        # should contextualize the STATUS verdict above before anyone
+        # reads further, not come as an afterthought. Renders
+        # metrics["data_integrity"] -- see check_data_integrity()'s
+        # own docstring for exactly what each check does and the real
+        # Aug 2026 patterns that motivated each one. ----
+        story.append(Paragraph(_esc("Data Quality & Integrity"), h2))
+        story.append(Paragraph(_esc(
+            "Checked before anything above is trusted, not after. Every check here runs against this backtest's "
+            "own real entry/exit data -- no assumptions, no simulated data."), caption))
+
+        di = metrics.get("data_integrity")
+        if di is None:
+            story.append(Paragraph(_esc("N/A -- no trades to check."), warn))
+        else:
+            di_status_colors = {"Complete": "#16A34A", "Partial": "#D97706", "Suspect": "#DC2626"}
+            di_bg = di_status_colors.get(di["overall_status"], "#6B7280")
+            di_status_style = ParagraphStyle("di_status", fontName="Helvetica-Bold", fontSize=13, textColor=rl_colors.white)
+            di_status_tbl = Table(
+                [[Paragraph(_esc(f"DATA STATUS: {di['overall_status'].upper()}"), di_status_style)]],
+                colWidths=[180 * mm],
+            )
+            di_status_tbl.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor(di_bg)),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12), ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ]))
+            story.append(di_status_tbl)
+            story.append(Spacer(1, 3 * mm))
+            story.append(Paragraph(_esc(
+                "Suspect: real timestamp corruption exists, or more than 2% of trades look like exact duplicates. "
+                "Partial: something else below was flagged but nothing structurally broken. Complete: nothing flagged."
+            ), caption))
+
+            def clean(n, label):
+                return "No issues found" if n == 0 else f"{n} {label}"
+
+            di_cell_style = ParagraphStyle("di_cell", fontName="Helvetica", fontSize=8.5, textColor=rl_colors.HexColor("#111827"), leading=11)
+            di_cell_flag_style = ParagraphStyle("di_cell_flag", parent=di_cell_style, textColor=rl_colors.HexColor("#92400E"), fontName="Helvetica-Bold")
+
+            di_raw_rows = [
+                ("Timestamp Integrity", clean(di["corrupt_timestamps"], "corrupt (exit before entry)") if di["corrupt_timestamps"]
+                 else clean(di["zero_duration"], "zero-duration (entry == exit to the minute)"),
+                 di["corrupt_timestamps"] > 0 or di["zero_duration"] > 0),
+                ("Market Hours (09:15-15:40 IST)", clean(di["off_hours"], "trade(s) with entry or exit outside this window"),
+                 di["off_hours"] > 0),
+                ("Duplicate Signals", "No issues found" if di["duplicate_groups"] == 0 else
+                 f"{di['duplicate_groups']} group(s), {di['duplicate_trade_count']} trades, look like exact duplicates",
+                 di["duplicate_groups"] > 0),
+                ("Overlapping Positions", clean(di["overlapping_positions"], "same-symbol overlap(s) found"),
+                 di["overlapping_positions"] > 0),
+                ("Missing/Stale Data", "No issues found" if di["floor_price_trades"] == 0 else
+                 f"{di['floor_price_trades']} trade(s) exited at or below Rs 0.10",
+                 di["floor_price_trades"] > 0),
+                ("Position Sizing", "Real per-symbol F&O lot size via lot_size_resolver.py. Capital base = peak "
+                 f"concurrent positions \u00d7 Rs {DEFAULT_CAPITAL_PER_TRADE:,}/trade (from real timestamps, not guessed).", False),
+                ("Trading Costs", "Not yet modeled -- every P&L figure in this report is gross, not net of "
+                 "brokerage/STT/exchange charges/GST.", False),
+                ("Slippage", "Not yet modeled.", False),
+                ("Liquidity", "Not captured -- no volume or bid-ask spread is stored per trade in this project's signal logs.", False),
+                ("Corporate Actions", "Not captured -- no corporate-action adjustment log exists in this project yet.", False),
+            ]
+            di_rows = [["Check", "Result"]]
+            for check_label, result_text, is_flagged in di_raw_rows:
+                cell_style = di_cell_flag_style if is_flagged else di_cell_style
+                di_rows.append([check_label, Paragraph(_esc(result_text), cell_style)])
+            di_table = Table(di_rows, colWidths=[45 * mm, 135 * mm], repeatRows=1)
+            di_style_cmds = [
+                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (0, -1), 8.5),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ]
+            di_table.setStyle(TableStyle(di_style_cmds))
+            story.append(di_table)
+
+            # Concrete examples, not just counts -- a duplicate group or
+            # an off-hours cluster is far more convincing (and far more
+            # checkable) as real rows than as a bare number.
+            if di["duplicate_examples"]:
+                story.append(Spacer(1, 4 * mm))
+                story.append(Paragraph(_esc("Duplicate signal examples"), h2b))
+                dup_ex_rows = [["Symbol", "Action", "Entry Time", "Entry", "Exit", "P&L (Rs)"]]
+                for group in di["duplicate_examples"]:
+                    for t in group:
+                        dup_ex_rows.append([t["symbol"], t["action"], t["entry_dt"].strftime("%Y-%m-%d %H:%M"),
+                                             f"{t['entry']:g}", f"{t['exit_price']:g}", f"{t['pnl']:,.0f}"])
+                dup_ex_table = Table(dup_ex_rows, colWidths=[28 * mm, 20 * mm, 40 * mm, 24 * mm, 24 * mm, 44 * mm])
+                dup_ex_table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]))
+                story.append(dup_ex_table)
+
+            if di["floor_price_days"]:
+                story.append(Spacer(1, 4 * mm))
+                days_str = ", ".join(f"{d} ({c} trades)" for d, c in di["floor_price_days"].items())
+                story.append(Paragraph(_esc(f"Floor-price days: {days_str}"), caption))
 
         story.append(PageBreak())
 
@@ -1374,6 +1889,203 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
 
         story.append(PageBreak())
 
+        # ---- Time-of-Day Analysis -- P1 upgrade spec item, added Aug
+        # 30 2026. Bucketed by ENTRY time (see
+        # compute_time_of_day_breakdown()'s own docstring for why),
+        # fixed spec-defined windows, off-hours entries excluded and
+        # counted rather than forced into the nearest bucket. ----
+        story.append(Paragraph(_esc("Time-of-Day Analysis"), h2))
+        story.append(Paragraph(_esc(
+            "The same trades split by when they entered, not when they resolved -- finds whether the edge is "
+            "concentrated in a specific window (e.g. the open) or spread evenly across the day. A window with "
+            "very few trades isn't a reliable read yet, same small-sample caution as everywhere else in this report."
+        ), caption))
+
+        tod = metrics["time_of_day"]
+        tod_rows = [["Time Window", "Trades", "Win Rate", "Net P&L (Rs)", "Profit Factor", "Avg R"]]
+        for label, b in tod["buckets"].items():
+            tod_rows.append([
+                label, str(b["count"]), na(b["win_rate_pct"], "%"),
+                rs(b["net_pnl"]) if b["count"] else "N/A",
+                na(b["profit_factor"]), r_str(b["avg_r"]),
+            ])
+        tod_table = Table(tod_rows, colWidths=[28 * mm, 20 * mm, 22 * mm, 32 * mm, 28 * mm, 25 * mm], repeatRows=1)
+        tod_style_cmds = [
+            ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+            ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+            ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ]
+        # Sign-colored only on Net P&L and Avg R, same convention as
+        # every other table in this report -- Trades/Win Rate/PF stay
+        # neutral.
+        for row_idx, (label, b) in enumerate(tod["buckets"].items(), start=1):
+            if b["count"]:
+                _, pnl_t = _pos_neg_hex(b["net_pnl"])
+                tod_style_cmds.append(("TEXTCOLOR", (3, row_idx), (3, row_idx), rl_colors.HexColor(pnl_t)))
+            _, r_t = _pos_neg_hex(b["avg_r"])
+            tod_style_cmds.append(("TEXTCOLOR", (5, row_idx), (5, row_idx), rl_colors.HexColor(r_t)))
+        tod_table.setStyle(TableStyle(tod_style_cmds))
+        story.append(tod_table)
+        story.append(Spacer(1, 5 * mm))
+
+        if has_tod_chart:
+            story.append(RLImage(tod_png, width=180 * mm, height=180 * mm * (3 / 9)))
+        else:
+            story.append(Paragraph(_esc("No chart -- no trades fall inside 09:15-15:30."), caption))
+
+        if tod["excluded_off_hours"]:
+            story.append(Spacer(1, 3 * mm))
+            story.append(Paragraph(_esc(
+                f"{tod['excluded_off_hours']} trade(s) had an entry time outside 09:15-15:30 entirely and are "
+                f"excluded from every window above rather than forced into the nearest one -- see Data Quality & "
+                f"Integrity's Market Hours check."), warn))
+
+        story.append(PageBreak())
+
+        # ---- Exit Analysis -- P1 upgrade spec item, added Aug 30
+        # 2026. Renders metrics["exit_analysis"] -- see
+        # compute_exit_analysis()'s own docstring for exactly why MFE/
+        # MAE and the "cut too early"/"does T3 add value" causal
+        # questions are deliberately NOT answered here: this project's
+        # signal logs have no intratrade price path, only entry/exit,
+        # so a causal claim there would be a guess dressed as a
+        # finding. ----
+        story.append(Paragraph(_esc("Exit Analysis"), h2))
+        story.append(Paragraph(_esc(
+            "How every trade actually ended: a real Target hit, a real Stop hit, or an estimated end-of-day mark "
+            "because neither triggered. Shows where P&L and R actually come from, not just how many trades of "
+            "each type there were."), caption))
+
+        ea = metrics.get("exit_analysis")
+        if not ea:
+            story.append(Paragraph(_esc("N/A -- no trades to analyze."), warn))
+        else:
+            ea_rows = [["Exit Reason", "Trades", "% of Total", "Net P&L (Rs)", "Avg R"]]
+            for cat, v in ea.items():
+                ea_rows.append([cat, str(v["count"]), f"{v['pct_of_total']}%", rs(v["net_pnl"]), r_str(v["avg_r"])])
+            ea_table = Table(ea_rows, colWidths=[45 * mm, 25 * mm, 25 * mm, 35 * mm, 25 * mm], repeatRows=1)
+            ea_style_cmds = [
+                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ]
+            for row_idx, (cat, v) in enumerate(ea.items(), start=1):
+                _, pnl_t = _pos_neg_hex(v["net_pnl"])
+                ea_style_cmds.append(("TEXTCOLOR", (3, row_idx), (3, row_idx), rl_colors.HexColor(pnl_t)))
+                _, r_t = _pos_neg_hex(v["avg_r"])
+                ea_style_cmds.append(("TEXTCOLOR", (4, row_idx), (4, row_idx), rl_colors.HexColor(r_t)))
+            ea_table.setStyle(TableStyle(ea_style_cmds))
+            story.append(ea_table)
+            story.append(Spacer(1, 5 * mm))
+
+            if has_exit_chart:
+                story.append(RLImage(exit_png, width=180 * mm, height=180 * mm * (3 / 9)))
+                story.append(Spacer(1, 3 * mm))
+
+            # Factual, computed observation -- states what the numbers
+            # above actually show, then explicitly declines the causal
+            # question the spec itself asks ("cut too early", "does T3
+            # add value") rather than guessing at an answer this data
+            # can't support.
+            target_cats = [c for c in ("T1", "T2", "T3") if c in ea]
+            if target_cats:
+                parts = [f"{c} {ea[c]['pct_of_total']}% of trades (avg {r_str(ea[c]['avg_r'])})" for c in target_cats]
+                story.append(Paragraph(_esc(
+                    f"{'; '.join(parts)}. A further target reaching a higher average R than an earlier one is "
+                    f"expected by construction (it's a larger price move by definition) -- it doesn't by itself "
+                    f"answer whether MORE trades could have reached that target if held past an earlier exit. "
+                    f"That needs the price path AFTER each exit (MFE/MAE), which this project's signal logs don't "
+                    f"capture -- only entry and the single exit price are logged, never an intratrade series. "
+                    f"Answered honestly: not enough data to say whether winners are cut too early, only how the "
+                    f"trades that already happened broke down."
+                ), caption))
+            else:
+                story.append(Paragraph(_esc(
+                    "No Target-hit exits in this data to compare -- MFE/MAE would need the intratrade price path "
+                    "regardless, which this project's signal logs don't capture."), caption))
+
+        story.append(PageBreak())
+
+        # ---- Streaks & Risk -- P1 upgrade spec item, added Aug 30
+        # 2026. Renders metrics["streaks"]/metrics["weekly"], and
+        # reuses best_trade/worst_trade/best_day/worst_day (already
+        # computed above, in the Profit vs Loss Breakdown section) --
+        # deliberately not recomputed a second time here. Drawdown
+        # depth/duration/recovery/trades-inside is the enhanced Worst
+        # Drawdowns table further down this report, not duplicated
+        # here.
+        story.append(Paragraph(_esc("Streaks & Risk"), h2))
+        story.append(Paragraph(_esc(
+            "Consecutive win/loss runs and the single biggest swings -- the operational risk a blended win rate "
+            "and profit factor don't show: how long a real losing run can feel, and how much any one trade, day, "
+            "or week can move the account."), caption))
+
+        streaks = metrics.get("streaks")
+        weekly = metrics.get("weekly")
+        if not streaks:
+            story.append(Paragraph(_esc("N/A -- no trades to analyze."), warn))
+        else:
+            def day_str(day_tuple):
+                return f"{day_tuple[0]} (Rs {day_tuple[1]:,.0f})" if day_tuple else "N/A"
+
+            def week_str(week_tuple):
+                if not week_tuple:
+                    return "N/A"
+                (iso_year, iso_week), week_pnl = week_tuple
+                monday = datetime.fromisocalendar(iso_year, iso_week, 1).strftime("%Y-%m-%d")
+                return f"Week of {monday} (Rs {week_pnl:,.0f})"
+
+            sr_rows = [
+                ["Max Winning Streak", f"{streaks['max_win_streak']} trades"],
+                ["Max Losing Streak", f"{streaks['max_loss_streak']} trades"],
+                ["Average Winning Streak", f"{streaks['avg_win_streak']} trades" if streaks["avg_win_streak"] is not None else "N/A"],
+                ["Average Losing Streak", f"{streaks['avg_loss_streak']} trades" if streaks["avg_loss_streak"] is not None else "N/A"],
+                ["Largest Single-Trade Gain", rs(metrics["best_trade"])],
+                ["Largest Single-Trade Loss", rs(metrics["worst_trade"])],
+                ["Best Single Day", day_str(metrics["best_day"])],
+                ["Worst Single Day", day_str(metrics["worst_day"])],
+                ["Best Week", week_str(weekly["best_week"]) if weekly else "N/A"],
+                ["Worst Week", week_str(weekly["worst_week"]) if weekly else "N/A"],
+            ]
+            sr_table = Table(sr_rows, colWidths=[60 * mm, 120 * mm])
+            sr_style_cmds = [
+                ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 0), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ]
+            # Sign-colored only where sign is meaningful: gain/loss and
+            # day/week P&L (rows 4-9). Streak counts (rows 0-3) are
+            # trade counts, not signed values, so stay neutral.
+            sign_rows = [
+                (4, metrics["best_trade"]), (5, metrics["worst_trade"]),
+                (6, metrics["best_day"][1] if metrics["best_day"] else None),
+                (7, metrics["worst_day"][1] if metrics["worst_day"] else None),
+                (8, weekly["best_week"][1] if weekly else None),
+                (9, weekly["worst_week"][1] if weekly else None),
+            ]
+            for row_idx, value in sign_rows:
+                _, text_hex = _pos_neg_hex(value)
+                sr_style_cmds.append(("TEXTCOLOR", (1, row_idx), (1, row_idx), rl_colors.HexColor(text_hex)))
+            sr_table.setStyle(TableStyle(sr_style_cmds))
+            story.append(sr_table)
+
+        story.append(PageBreak())
+
         # ---- Performance by Segment -- the real answer to "why does
         # the overall number look the way it does." Shows whether
         # losses are concentrated in one Grade/Sector/OI-state/Pattern
@@ -1447,18 +2159,19 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         story.append(Paragraph(_esc("Worst Drawdowns"), h2))
         story.append(Paragraph(_esc(
             "The 5 deepest peak-to-trough declines in account value, worst first. 'Recovered' shows when "
-            "equity climbed back to the pre-drawdown peak -- '--' means it hasn't yet."), caption))
-        dd_rows = [["#", "Depth (Rs)", "Depth %", "Peak Date", "Trough Date", "Recovered", "Status"]]
+            "equity climbed back to the pre-drawdown peak -- '--' means it hasn't yet. 'Trades' is how many "
+            "trades closed while still underwater, from the peak to recovery (or to now, if still Ongoing)."), caption))
+        dd_rows = [["#", "Depth (Rs)", "Depth %", "Peak Date", "Trough Date", "Recovered", "Status", "Trades"]]
         sorted_dd = sorted(metrics["drawdown_periods"], key=lambda d: d["depth"])[:5]
         for i, d in enumerate(sorted_dd, 1):
             dd_rows.append([
                 str(i), f"{d['depth']:,.0f}", f"{d['depth_pct']}%",
                 d["peak_dt"].strftime("%Y-%m-%d %H:%M"), d["trough_dt"].strftime("%Y-%m-%d %H:%M"),
                 d["recovered_dt"].strftime("%Y-%m-%d %H:%M") if d["recovered_dt"] else "--",
-                d["status"],
+                d["status"], na(d.get("trades_inside")),
             ])
         if len(dd_rows) > 1:
-            dd_table = Table(dd_rows, colWidths=[10*mm, 25*mm, 20*mm, 32*mm, 32*mm, 32*mm, 22*mm], repeatRows=1)
+            dd_table = Table(dd_rows, colWidths=[9*mm, 23*mm, 18*mm, 29*mm, 29*mm, 29*mm, 20*mm, 15*mm], repeatRows=1)
             style_cmds = [
                 ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
@@ -1468,8 +2181,8 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
             ]
             for i in range(1, len(dd_rows)):
-                if dd_rows[i][-1] == "Ongoing":
-                    style_cmds.append(("BACKGROUND", (-1, i), (-1, i), rl_colors.HexColor("#FEF9C3")))
+                if dd_rows[i][-2] == "Ongoing":
+                    style_cmds.append(("BACKGROUND", (-2, i), (-2, i), rl_colors.HexColor("#FEF9C3")))
             dd_table.setStyle(TableStyle(style_cmds))
             story.append(dd_table)
         else:
