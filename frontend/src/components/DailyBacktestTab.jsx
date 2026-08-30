@@ -161,15 +161,21 @@ function RecentTradesTable({ stockTrades, niftyTrades, bankniftyTrades, limit = 
   );
 }
 
-function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve }) {
+function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve, downloadUrl }) {
   const hasData = !!summary;
+  // Aug 30 2026: downloadUrl lets a caller point this at a different
+  // endpoint (the new range-report PDF) instead of the scheduled-run
+  // download link every other caller still uses by default -- pdfPath
+  // stays what it always was, a plain "do we have a PDF at all" gate,
+  // decoupled from which URL that PDF actually lives at.
+  const href = downloadUrl || `${API_BASE}/api/daily-backtest/download/${pdfKey}/`;
   return (
     <div className="rounded-lg bg-slate-800/50 border border-slate-700/40 p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-white">{title}</h3>
         {pdfPath && (
           <a
-            href={`${API_BASE}/api/daily-backtest/download/${pdfKey}/`}
+            href={href}
             title={`Download ${title} report (PDF)`}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
             download
@@ -319,12 +325,13 @@ export default function DailyBacktestTab() {
   const neverRun = !status || !status.started_at;
   const isRangeView = !!rangeResult;
 
-  // Aug 27 2026: whichever view is active feeds the SAME SummaryCard/
-  // EquityCurveChart components below -- range results never have a
-  // PDF (that's a preview-only endpoint, see daily_backtest.py's
-  // run_range_backtest docstring), so pdfPath is always null in range
-  // view rather than pointing at a stale scheduled-run PDF that
-  // doesn't match what's actually being shown.
+  // Aug 27 2026 (updated Aug 30): whichever view is active feeds the
+  // SAME SummaryCard/EquityCurveChart components below. Stock now has
+  // a real range-scoped PDF endpoint (see the pdfPath/downloadUrl
+  // wiring on its SummaryCard below) -- NIFTY/BANKNIFTY still don't,
+  // so their SummaryCards keep pdfPath=null in range view rather than
+  // pointing at a stale scheduled-run PDF that wouldn't match what's
+  // actually being shown.
   const displayStock = isRangeView ? rangeResult.stock : { summary: status?.stock_summary, equity_curve: status?.stock_equity_curve, recent_trades: status?.stock_recent_trades };
   const displayNifty = isRangeView ? rangeResult.nifty : { summary: status?.nifty_summary, equity_curve: status?.nifty_equity_curve, recent_trades: status?.nifty_recent_trades };
   const displayBanknifty = isRangeView ? rangeResult.banknifty : { summary: status?.banknifty_summary, equity_curve: status?.banknifty_equity_curve, recent_trades: status?.banknifty_recent_trades };
@@ -402,7 +409,27 @@ export default function DailyBacktestTab() {
             <IconCalendar size={11} /> Showing: {rangeStart} to {rangeEnd}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <SummaryCard title="Stock Signals" pdfKey="stock" summary={displayStock.summary} pdfPath={null} equityCurve={displayStock.equity_curve} />
+            {/* Aug 30 2026: stock now has a real range-scoped PDF
+                (daily_backtest.run_range_report(), same
+                Scorecard/R-Multiple/every-section pipeline the full
+                report uses) -- gated on displayStock.summary rather
+                than a separate existence check, since the range
+                endpoint and this preview endpoint filter the exact
+                same trades the exact same way: if one has data the
+                other will too. NIFTY/BANKNIFTY intentionally still
+                get pdfPath={null} here -- no range-report endpoint
+                exists for index positional backtests yet, and a
+                stale full-history link would be actively misleading
+                in range view (the same reasoning that set all three
+                to null originally). */}
+            <SummaryCard
+              title="Stock Signals"
+              pdfKey="stock"
+              summary={displayStock.summary}
+              pdfPath={displayStock.summary ? 'range-report' : null}
+              downloadUrl={`${API_BASE}/api/daily-backtest/range/report/?start=${rangeStart}&end=${rangeEnd}`}
+              equityCurve={displayStock.equity_curve}
+            />
             <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={null} equityCurve={displayNifty.equity_curve} />
             <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={null} equityCurve={displayBanknifty.equity_curve} />
           </div>
