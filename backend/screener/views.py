@@ -1092,8 +1092,26 @@ def _build_all():
                     )
             except Exception as e:
                 print(f"[Telegram] Failed to send new-signal alert: {e}")
+            # Aug 30 2026: the SAME genuinely-new signals, ALSO logged
+            # to the positional tracker with wider multi-day SL/Target
+            # -- see positional_logger.py's own docstring for exactly
+            # how those levels get computed (same delta-based premium
+            # translation the intraday engine above already uses, just
+            # fed wider stock-side ATR multipliers). Own try/except so
+            # a positional-logging problem can never block the
+            # already-working intraday logging/Telegram alert above it.
+            try:
+                from .positional_logger import log_new_positional_signals
+                log_new_positional_signals(newly_logged)
+            except Exception as e:
+                print(f"[PositionalLog] Failed to log new positional signals: {e}")
         if is_authenticated():
             check_outcomes(get_quotes)
+            try:
+                from .positional_logger import check_positional_outcomes
+                check_positional_outcomes(get_quotes)
+            except Exception as e:
+                print(f"[PositionalLog] Failed to check positional outcomes: {e}")
     except Exception as e:
         print(f"[ExcelLog] sync failed: {e}")
 
