@@ -59,6 +59,16 @@ except ImportError:
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "signal_logs")
 DEFAULT_CAPITAL_PER_TRADE = 50000  # matches views.py's existing qty = max(1, int(50000/entry)) fallback
 
+# P2 upgrade spec item ("strategy-rule version," section 12: "a
+# redefined backtest is never presented as the original test"). The
+# actual grade/OI-confirmation/pattern rules live in views.py's
+# scoring engine, not in this file, so this can't be computed or
+# derived here -- it's a manually-maintained marker. Bump it by hand
+# whenever you materially change scoring/signal-generation logic
+# elsewhere in the project, so a report generated after a rule change
+# is visibly distinguishable from one generated before it.
+STRATEGY_RULE_VERSION = "v1 (2026-08-30)"
+
 _TARGET_RE = re.compile(r'^Target (\d) Hit$')
 _EOD_ESTIMATE_RE = re.compile(r'^Closed (?:up|down|flat) ~([\d.]+) \([+-][\d.]+% from entry(?:, EOD estimate)?\)$')
 
@@ -387,6 +397,101 @@ def compute_monthly_pnl(trades):
     for v in monthly.values():
         v["pnl"] = round(v["pnl"], 2)
     return dict(sorted(monthly.items()))
+
+
+def compute_monte_carlo(trades, capital_base, n_simulations=2000, seed=42):
+    """
+    Trade-order resampling -- P2 upgrade spec item ("Monte Carlo /
+    trade-order resampling: estimate plausible streaks and drawdowns
+    when sample size supports it"). Takes the exact same realized P&L
+    values from THIS backtest and reshuffles their ORDER thousands of
+    times -- same wins, same losses, same count, same win rate, just
+    a different sequence -- then recomputes max drawdown % and max
+    losing streak for each shuffle. Answers something the one real
+    sequence can't: how much worse could these same trades have
+    looked, purely from unlucky ordering, not from a different edge.
+
+    Deliberately limited scope, and this is disclosed in the PDF, not
+    just here: this does NOT test different market conditions,
+    different position sizing, or cost/slippage sensitivity -- the
+    spec's own Robustness section also asks for those, but they need
+    a real cost model (Gross vs Net) that doesn't exist in this
+    project yet. This is order-of-the-same-trades only.
+
+    Requires at least 30 trades (the same "Reliable" floor
+    sample_size_label() already uses elsewhere in this file) --
+    below that, reordering a handful of trades doesn't tell you much
+    beyond what the Streaks & Risk page already shows. Returns None
+    below that floor.
+
+    Uses Python's own random module with a FIXED, reported seed --
+    the exact same simulation set every time this exact trade list is
+    re-run, not a fresh random draw that would make two reports of
+    the same data disagree.
+
+    Returns None below the 30-trade floor. Otherwise a dict with
+    n_simulations, seed, and for both max_drawdown_pct and
+    max_loss_streak: a median, a "5% of simulations were at least
+    this bad" tail value, and the single worst value seen across all
+    simulations.
+    """
+    if len(trades) < 30:
+        return None
+    import random
+    rng = random.Random(seed)
+    pnls = [t["pnl"] for t in trades]
+
+    drawdown_pcts = []  # each <= 0; more negative = worse
+    loss_streaks = []   # each >= 0; higher = worse
+
+    for _ in range(n_simulations):
+        shuffled = pnls[:]
+        rng.shuffle(shuffled)
+
+        equity = capital_base
+        peak = capital_base
+        worst_dd_pct = 0.0
+        current_streak, worst_streak = 0, 0
+        for pnl in shuffled:
+            equity += pnl
+            if pnl < 0:
+                current_streak += 1
+                worst_streak = max(worst_streak, current_streak)
+            else:
+                current_streak = 0
+            if equity > peak:
+                peak = equity
+            if peak:
+                dd_pct = (equity - peak) / peak * 100
+                worst_dd_pct = min(worst_dd_pct, dd_pct)
+        drawdown_pcts.append(worst_dd_pct)
+        loss_streaks.append(worst_streak)
+
+    drawdown_pcts.sort()  # ascending: most negative (worst) first
+    loss_streaks.sort()   # ascending: smallest (best) first
+
+    def pct_from_bottom(sorted_list, fraction):
+        idx = min(len(sorted_list) - 1, max(0, int(len(sorted_list) * fraction)))
+        return sorted_list[idx]
+
+    return {
+        "n_simulations": n_simulations,
+        "seed": seed,
+        "median_max_drawdown_pct": round(pct_from_bottom(drawdown_pcts, 0.50), 2),
+        # 5% of simulations had a drawdown at least this bad -- the
+        # worst (most negative) end of the ascending list.
+        "worst_case_5pct_max_drawdown_pct": round(pct_from_bottom(drawdown_pcts, 0.05), 2),
+        "single_worst_max_drawdown_pct": round(drawdown_pcts[0], 2),
+        "median_max_loss_streak": pct_from_bottom(loss_streaks, 0.50),
+        # 5% of simulations had a streak at least this long -- the
+        # worst (longest) end of the ascending list.
+        "worst_case_5pct_max_loss_streak": pct_from_bottom(loss_streaks, 0.95),
+        "single_worst_max_loss_streak": loss_streaks[-1],
+        # Raw distribution, for an honest histogram -- charting from
+        # the real 2000 simulation outcomes, not reconstructed from
+        # just the three summary points above.
+        "drawdown_pct_distribution": drawdown_pcts,
+    }
 
 
 def compute_streaks(trades):
@@ -1062,6 +1167,7 @@ def compute_metrics(trades, capital_base):
         "exit_analysis": compute_exit_analysis(trades),
         "streaks": compute_streaks(trades),
         "weekly": compute_weekly_pnl(trades),
+        "monte_carlo": compute_monte_carlo(trades, capital_base),
     }
     metrics["scorecard_status"], metrics["scorecard_status_reason"] = compute_scorecard_status(metrics)
     return metrics
@@ -1296,6 +1402,34 @@ def _chart_exit_analysis(exit_analysis, out_path):
     return True
 
 
+def _chart_monte_carlo(mc, actual_dd_pct, out_path):
+    """Histogram of simulated max-drawdown % across every reshuffle,
+    with the backtest's OWN actual drawdown marked as a vertical line
+    -- shows at a glance whether the real result sits in the ordinary
+    middle of the distribution or out in a lucky/unlucky tail."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    dist = mc["drawdown_pct_distribution"]
+    if not dist:
+        return False
+
+    fig, ax = plt.subplots(figsize=(9, 3.2))
+    ax.hist(dist, bins=40, color="#6366F1", edgecolor="white", linewidth=0.3)
+    if actual_dd_pct is not None:
+        ax.axvline(actual_dd_pct, color="#DC2626", linewidth=1.5, linestyle="--")
+        ax.text(actual_dd_pct, ax.get_ylim()[1] * 0.95, " Actual", color="#DC2626", fontsize=8, va="top")
+    ax.set_xlabel("Simulated Max Drawdown %", color="#6B7280", fontsize=9)
+    ax.set_ylabel("Simulations", color="#6B7280", fontsize=9)
+    _mpl_style_axes(ax)
+
+    fig.tight_layout()
+    fig.savefig(out_path, facecolor="white")
+    plt.close(fig)
+    return True
+
+
 def _fmt_holding(minutes):
     """Minutes -> 'Xh Ym' / 'Ym' for display. None -> 'N/A', same
     convention as every other missing-value case in this file."""
@@ -1425,6 +1559,7 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         ls_png = os.path.join(tmp, "long_short.png")
         tod_png = os.path.join(tmp, "time_of_day.png")
         exit_png = os.path.join(tmp, "exit_analysis.png")
+        mc_png = os.path.join(tmp, "monte_carlo.png")
 
         _chart_equity_curve(metrics, eq_png)
         _chart_drawdown(metrics, dd_png)
@@ -1433,6 +1568,8 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         has_ls_chart = _chart_long_short_comparison(metrics.get("long_short") or {}, ls_png)
         has_tod_chart = _chart_time_of_day(metrics["time_of_day"], tod_png)
         has_exit_chart = _chart_exit_analysis(metrics["exit_analysis"] or {}, exit_png)
+        has_mc_chart = (_chart_monte_carlo(metrics["monte_carlo"], metrics["max_drawdown"]["depth_pct"] if metrics["max_drawdown"] else None, mc_png)
+                         if metrics.get("monte_carlo") else False)
 
         styles = getSampleStyleSheet()
         h1 = ParagraphStyle("h1", parent=styles["Title"], fontName="Helvetica-Bold", fontSize=20, textColor=rl_colors.white, spaceAfter=2)
@@ -1449,7 +1586,8 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
             [[Paragraph(_esc("F&O Sniper -- Signal P&L Backtest"), h1)],
              [Paragraph(_esc(f"Capital base Rs {metrics['capital_base']:,.0f}  |  {metrics['total_trades']} resolved trades "
                         f"({metrics['wins']}W / {metrics['losses']}L / {metrics['flats']} flat)  |  "
-                        f"{metrics['total_days_span']} day span  |  generated {today}"), sub)]],
+                        f"{metrics['total_days_span']} day span  |  generated {today}  |  "
+                        f"rules {STRATEGY_RULE_VERSION}"), sub)]],
             colWidths=[180 * mm],
         )
         header_tbl.setStyle(TableStyle([
@@ -2101,6 +2239,65 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
                 sr_style_cmds.append(("TEXTCOLOR", (1, row_idx), (1, row_idx), rl_colors.HexColor(text_hex)))
             sr_table.setStyle(TableStyle(sr_style_cmds))
             story.append(sr_table)
+
+        story.append(PageBreak())
+
+        # ---- Robustness: Trade-Order Resampling (Monte Carlo) -- P2
+        # upgrade spec item, added Aug 30 2026. Renders
+        # metrics["monte_carlo"] -- see compute_monte_carlo()'s own
+        # docstring for exact scope and why walk-forward/out-of-sample/
+        # cost-sensitivity/slippage-sensitivity (the rest of the
+        # spec's Robustness section) are deliberately not attempted:
+        # those need a real cost model (Gross vs Net) that doesn't
+        # exist in this project yet, or a "what's being optimized"
+        # concept this rule-based, not fitted-parameter, engine
+        # doesn't really have. ----
+        story.append(Paragraph(_esc("Robustness: Trade-Order Resampling"), h2))
+        story.append(Paragraph(_esc(
+            "Reshuffles this backtest's own real trade outcomes thousands of times -- same wins, same losses, "
+            "same win rate, just a different order -- to see how much worse these SAME trades could plausibly "
+            "have looked from unlucky sequencing alone. Does not test different market conditions, position "
+            "sizing, or costs/slippage -- those need a real cost model that doesn't exist in this project yet "
+            "(see Trading Costs on the Data Quality page)."), caption))
+
+        mc = metrics.get("monte_carlo")
+        if not mc:
+            story.append(Paragraph(_esc(
+                "N/A -- needs at least 30 resolved trades for resampling to say anything beyond what Streaks & "
+                "Risk already shows."), warn))
+        else:
+            actual_dd = metrics["max_drawdown"]["depth_pct"] if metrics["max_drawdown"] else None
+            actual_streak = metrics["streaks"]["max_loss_streak"] if metrics["streaks"] else None
+
+            mc_rows = [
+                ["Metric", "Actual (this backtest)", "Simulated Median", "Worst-Case (5%)", f"Single Worst (of {mc['n_simulations']})"],
+                ["Max Drawdown %", na(actual_dd, "%"), f"{mc['median_max_drawdown_pct']}%",
+                 f"{mc['worst_case_5pct_max_drawdown_pct']}%", f"{mc['single_worst_max_drawdown_pct']}%"],
+                ["Max Losing Streak", na(actual_streak, " trades"), f"{mc['median_max_loss_streak']} trades",
+                 f"{mc['worst_case_5pct_max_loss_streak']} trades", f"{mc['single_worst_max_loss_streak']} trades"],
+            ]
+            mc_table = Table(mc_rows, colWidths=[30*mm, 36*mm, 32*mm, 32*mm, 40*mm], repeatRows=1)
+            mc_style_cmds = [
+                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ]
+            mc_table.setStyle(TableStyle(mc_style_cmds))
+            story.append(mc_table)
+            story.append(Spacer(1, 4 * mm))
+            story.append(Paragraph(_esc(
+                f"{mc['n_simulations']:,} simulations, fixed seed {mc['seed']} -- exactly reproducible on a "
+                f"re-run of this same trade data, not a fresh random draw each time."), caption))
+            story.append(Spacer(1, 3 * mm))
+
+            if has_mc_chart:
+                story.append(RLImage(mc_png, width=180 * mm, height=180 * mm * (3.2 / 9)))
 
         story.append(PageBreak())
 
