@@ -240,7 +240,7 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
                 if not trades:
                     print(f"[DailyBacktest] No {index_name} positional trades yet ({excluded} excluded) -- skipping, not an error.")
                     continue
-                capital_base = compute_capital_base(trades, capital_per_trade=DEFAULT_MARGIN_PER_LOT.get(index_name, 200000))
+                capital_base = compute_capital_base(trades, capital_per_trade=DEFAULT_MARGIN_PER_LOT.get(index_name, 200000), use_real_committed=False)  # Aug 30 2026: margin-based futures, not premium-buying -- keep the original flat-slot model, not the new real-committed one
                 metrics = compute_metrics(trades, capital_base)
                 if metrics:
                     # Same decoupling as the stock section above -- summary,
@@ -397,7 +397,7 @@ def run_range_backtest(start_str, end_str):
                 all_trades, _ = generate_positional_trades(index_name)
                 trades = _filter_trades_by_range(all_trades, start_date, end_date)
                 if trades:
-                    capital_base = compute_capital_base(trades, capital_per_trade=DEFAULT_MARGIN_PER_LOT.get(index_name, 200000))
+                    capital_base = compute_capital_base(trades, capital_per_trade=DEFAULT_MARGIN_PER_LOT.get(index_name, 200000), use_real_committed=False)  # Aug 30 2026: margin-based futures, not premium-buying -- keep the original flat-slot model, not the new real-committed one
                     metrics = compute_metrics(trades, capital_base)
                     if metrics:
                         result[key]["summary"] = _summarize(metrics)

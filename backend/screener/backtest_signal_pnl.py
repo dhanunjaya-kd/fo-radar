@@ -267,18 +267,58 @@ def load_all_trades(capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
     return trades, excluded
 
 
-def compute_capital_base(trades, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
+def compute_capital_base(trades, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE, use_real_committed=True):
     """
-    The 'Margin' figure everything else (CAGR/Sharpe/Sortino/Calmar) is
-    measured against. Rather than guess a round number, this is
-    max_concurrent_positions x capital_per_trade -- the real peak
-    number of trades that were open at the same moment anywhere in the
-    backtest, computed from actual entry/exit timestamps. Honest and
-    non-arbitrary: it's exactly enough capital to have actually run
-    every trade this data shows, no more, no less.
+    The 'Starting Capital' figure everything else (Return %/CAGR/
+    Sharpe/Sortino/Calmar) is measured against.
+
+    use_real_committed=True (the default -- what the stock P&L
+    backtest wants, and what actually fixed the real confusion this
+    was causing): real peak capital committed, not a flat per-slot
+    guess. At every moment, sums (qty x entry) for every trade
+    genuinely open at that instant -- the SAME real per-symbol F&O lot
+    size already used for that trade's own P&L (see load_all_trades())
+    -- and returns the single highest such sum anywhere in the
+    backtest. Buying option premium means paying the full qty x entry
+    upfront, no leverage, so this is the real Rupee amount that would
+    genuinely have been tied up at the single most demanding moment --
+    not an assumed flat Rs per concurrent slot, which was silently
+    treating a Rs 0.50-premium stock and a Rs 2,000-premium stock as
+    costing the same to hold one real lot of, when they very much
+    don't.
+
+    use_real_committed=False (what the index positional/futures
+    backtest explicitly opts into -- see its own call sites in
+    daily_backtest.py): the ORIGINAL flat-slot model,
+    max_concurrent_positions x capital_per_trade. Futures trading is
+    margin-based, not full-notional -- qty x entry would be the
+    NOTIONAL value, wildly overstating real capital tied up (margin is
+    a fraction of that). An estimated Rs-per-lot MARGIN figure times
+    peak concurrency is the economically correct model for THAT
+    product, not a bug to "fix" the same way the premium-buying case
+    was -- so this flag exists to keep that path byte-for-byte
+    unchanged rather than silently reinterpreting it.
     """
     if not trades:
         return capital_per_trade  # nothing to measure against -- one trade's worth as a floor
+
+    if use_real_committed:
+        events = []
+        for t in trades:
+            committed = (t.get("qty") or 0) * (t.get("entry") or 0)
+            events.append((t["entry_dt"], committed))
+            events.append((t["exit_dt"], -committed))
+        events.sort(key=lambda e: (e[0], e[1]))  # on a tie, process the exit (negative) before the entry (positive) -- doesn't inflate concurrency for a same-instant flip
+        running, peak = 0.0, 0.0
+        for _, delta in events:
+            running += delta
+            peak = max(peak, running)
+        # peak == 0 only if every trade had a zero qty or zero entry --
+        # degenerate/broken input, not a real backtest -- falls back to
+        # the floor rather than returning a capital base of Rs 0 and
+        # breaking every downstream percentage calc via division by zero.
+        return round(peak, 2) if peak > 0 else capital_per_trade
+
     events = []
     for t in trades:
         events.append((t["entry_dt"], 1))
@@ -1758,8 +1798,9 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
                 ("Missing/Stale Data", "No issues found" if di["floor_price_trades"] == 0 else
                  f"{di['floor_price_trades']} trade(s) exited at or below Rs 0.10",
                  di["floor_price_trades"] > 0),
-                ("Position Sizing", "Real per-symbol F&O lot size via lot_size_resolver.py. Capital base = peak "
-                 f"concurrent positions \u00d7 Rs {DEFAULT_CAPITAL_PER_TRADE:,}/trade (from real timestamps, not guessed).", False),
+                ("Position Sizing", "Real per-symbol F&O lot size via lot_size_resolver.py. Capital base = peak real "
+                 "capital committed (sum of qty \u00d7 entry across every position genuinely open at the same "
+                 "moment, from real timestamps) -- not a flat per-trade guess.", False),
                 ("Trading Costs", "Not yet modeled -- every P&L figure in this report is gross, not net of "
                  "brokerage/STT/exchange charges/GST.", False),
                 ("Slippage", "Not yet modeled.", False),
