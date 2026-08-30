@@ -259,6 +259,7 @@ def load_all_trades(capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
                 "pattern": row.get("Pattern") or "None",
                 "entry_dt": entry_dt, "exit_dt": exit_dt,
                 "entry": entry, "sl": sl, "exit_price": exit_price, "qty": qty,
+                "target1": t1, "target2": t2, "target3": t3,
                 "pnl": pnl, "pnl_pct": pnl_pct, "exit_reason": reason,
                 "r_multiple": compute_r_multiple(entry, sl, exit_price),
             })
