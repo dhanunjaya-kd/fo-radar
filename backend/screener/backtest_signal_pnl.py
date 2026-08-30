@@ -462,6 +462,24 @@ def compute_weekly_pnl(trades):
     return {"weekly_pnl": weekly, "best_week": best_week, "worst_week": worst_week}
 
 
+def sample_size_label(count):
+    """
+    Low/Preliminary/Reliable -- P1 upgrade spec item, fixed disclosed
+    thresholds: under 10 trades is Low sample (do not optimize on it),
+    10-29 is Preliminary, 30+ is More reliable (still not proof, per
+    the spec's own wording). Applied to every segment table (Grade/OI
+    Confirmation/Pattern/Sector) so a small, extreme-looking segment
+    (e.g. a 3-trade 100% win rate) can't be mistaken for a strong
+    finding sitting next to a 167-trade segment with no visual
+    distinction between them.
+    """
+    if count < 10:
+        return "Low"
+    if count < 30:
+        return "Preliminary"
+    return "Reliable"
+
+
 def compute_segment_breakdown(trades, segment_key):
     """
     Groups trades by a field (grade / sector / oi_confirmation / pattern)
@@ -2094,8 +2112,10 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         story.append(Paragraph(_esc("Performance by Segment"), h2))
         story.append(Paragraph(_esc(
             "The same trades, split by Grade, Sector, OI Confirmation, and Pattern -- shows WHERE performance is "
-            "concentrated instead of one blended number. A segment with very few trades (2-3) isn't a reliable "
-            "read yet, even if its win rate looks extreme -- same small-sample caution as everywhere else in this report."), caption))
+            "concentrated instead of one blended number. Sample column, fixed disclosed thresholds: under 10 "
+            "trades is Low (do not optimize on it), 10-29 is Preliminary, 30+ is More reliable -- still not proof. "
+            "Never treat a tiny 100% segment as stronger evidence than a large one just because the percentage "
+            "looks better."), caption))
 
         key_findings = generate_key_findings(trades)
         if key_findings:
@@ -2118,13 +2138,13 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
                 story.append(Paragraph(_esc("No data."), caption))
                 return
             shown = rows[:max_rows] if max_rows else rows
-            table_rows = [["Segment", "Trades", "Win Rate", "Net P&L (Rs)", "Profit Factor"]]
+            table_rows = [["Segment", "Trades", "Sample", "Win Rate", "Net P&L (Rs)", "Profit Factor"]]
             for r in shown:
                 table_rows.append([
-                    str(r["segment"]), str(r["count"]), f"{r['win_rate_pct']}%",
+                    str(r["segment"]), str(r["count"]), sample_size_label(r["count"]), f"{r['win_rate_pct']}%",
                     f"{r['net_pnl']:,.0f}", na(r["profit_factor"]),
                 ])
-            t = Table(table_rows, colWidths=[45*mm, 22*mm, 22*mm, 35*mm, 30*mm])
+            t = Table(table_rows, colWidths=[40*mm, 16*mm, 22*mm, 18*mm, 34*mm, 24*mm])
             style_cmds = [
                 ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
@@ -2132,9 +2152,13 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
                 ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
             ]
+            sample_colors = {"Low": "#DC2626", "Preliminary": "#D97706", "Reliable": "#16A34A"}
             for i, r in enumerate(shown, start=1):
                 bg = "#DCFCE7" if r["net_pnl"] > 0 else ("#FEE2E2" if r["net_pnl"] < 0 else "#F3F4F6")
-                style_cmds.append(("BACKGROUND", (3, i), (3, i), rl_colors.HexColor(bg)))
+                style_cmds.append(("BACKGROUND", (4, i), (4, i), rl_colors.HexColor(bg)))
+                label = sample_size_label(r["count"])
+                style_cmds.append(("TEXTCOLOR", (2, i), (2, i), rl_colors.HexColor(sample_colors[label])))
+                style_cmds.append(("FONTNAME", (2, i), (2, i), "Helvetica-Bold"))
             t.setStyle(TableStyle(style_cmds))
             story.append(t)
             story.append(Spacer(1, 4 * mm))
