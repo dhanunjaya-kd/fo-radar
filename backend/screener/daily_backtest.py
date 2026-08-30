@@ -46,6 +46,7 @@ _last_run = {
     "started_at": None, "finished_at": None, "trigger": None,  # 'scheduled-close' | 'scheduled-morning' | 'manual'
     "backfill_range": None,
     "stock_pdf": None, "stock_summary": None, "stock_equity_curve": None, "stock_recent_trades": None,
+    "stock_range_pdf": None,  # Aug 30 2026: same rich PDF format as stock_pdf, scoped to just this cycle's backfill window
     "nifty_pdf": None, "nifty_summary": None, "nifty_equity_curve": None, "nifty_recent_trades": None,
     "banknifty_pdf": None, "banknifty_summary": None, "banknifty_equity_curve": None, "banknifty_recent_trades": None,
     "errors": [],
@@ -170,6 +171,7 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         errors.append(f"backfill: {e}")
 
     stock_pdf, stock_summary, stock_equity_curve, stock_recent_trades = None, None, None, None
+    stock_range_pdf = None
     try:
         from .backtest_signal_pnl import load_all_trades, compute_capital_base, compute_metrics, compute_equity_curve, write_pdf_report
         trades, excluded = load_all_trades()
@@ -202,6 +204,26 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
                 except Exception as e:
                     print(f"[DailyBacktest] stock PDF generation failed (summary still available): {e}")
                     errors.append(f"stock PDF: {e}")
+
+                # Aug 30 2026: ALSO generate a second PDF -- same rich
+                # format as stock_pdf above (Scorecard/R-Multiple/Data
+                # Quality/every section), scoped to just this cycle's
+                # backfill window (start_str to end_str) instead of
+                # full history. His own request: get both the complete
+                # PDF and a recent-window PDF "in one go," in the same
+                # report format, rather than the plain signal-list
+                # Excel that window previously only got from the
+                # backfill step above. Reuses run_range_report()
+                # directly (own try/except, defined later in this same
+                # module) rather than re-implementing its filter/
+                # compute/write logic here -- the one cost is a second
+                # load_all_trades() call, which is local xlsx parsing,
+                # not a live Fyers call, so not a rate-limit concern.
+                try:
+                    stock_range_pdf = run_range_report(start_str, end_str)
+                except Exception as e:
+                    print(f"[DailyBacktest] stock range PDF generation failed: {e}")
+                    errors.append(f"stock range PDF: {e}")
         else:
             print(f"[DailyBacktest] No resolved stock trades yet ({excluded} excluded) -- skipping stock PDF this cycle, not an error.")
     except Exception as e:
@@ -247,6 +269,7 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         "trigger": trigger,
         "backfill_range": f"{start_str} to {end_str}",
         "stock_pdf": stock_pdf, "stock_summary": stock_summary, "stock_equity_curve": stock_equity_curve, "stock_recent_trades": stock_recent_trades,
+        "stock_range_pdf": stock_range_pdf,
         "nifty_pdf": index_results["NIFTY"][0], "nifty_summary": index_results["NIFTY"][1], "nifty_equity_curve": index_results["NIFTY"][2], "nifty_recent_trades": index_results["NIFTY"][3],
         "banknifty_pdf": index_results["BANKNIFTY"][0], "banknifty_summary": index_results["BANKNIFTY"][1], "banknifty_equity_curve": index_results["BANKNIFTY"][2], "banknifty_recent_trades": index_results["BANKNIFTY"][3],
         "errors": errors,
@@ -278,6 +301,26 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
             from trading.telegram_bot import TelegramBot
             bot = TelegramBot()
             bot.send_document(first_pdf, caption="\n".join(caption_lines))
+
+            # Aug 30 2026: ALSO send the range-scoped stock PDF as a
+            # second document in the same cycle, right after the
+            # complete-history one -- his own request, "same PDF
+            # format, one is complete, other is date range, in one
+            # go." Its own try/except: a failure here shouldn't hide
+            # the fact that the main PDF above already sent
+            # successfully. Uses the same send_document(path, caption)
+            # call already confirmed working just above, not a new
+            # method.
+            if stock_range_pdf:
+                try:
+                    range_caption = (
+                        f"\U0001F4CA <b>F&O Radar \u2014 Last {backfill_days} Days ({start_str} to {end_str})</b>\n"
+                        f"Same report format as above, just this window instead of full history."
+                    )
+                    bot.send_document(stock_range_pdf, caption=range_caption)
+                except Exception as e:
+                    print(f"[DailyBacktest] stock range PDF Telegram send failed: {e}")
+                    errors.append(f"stock range PDF Telegram send: {e}")
         else:
             print("[DailyBacktest] Nothing to send to Telegram this cycle (no reports generated yet).")
     except Exception as e:
