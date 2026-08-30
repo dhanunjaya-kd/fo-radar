@@ -67,6 +67,27 @@ def _direction(bias):
     return None
 
 
+def _time_to_minutes(t):
+    """
+    Normalizes a Snapshots/Flips 'Time' cell value into minutes-since-
+    midnight, for the staleness check in _snapshot_at_or_before() below.
+    Handles the normal openpyxl case (a real datetime.time or datetime
+    object) directly via .hour/.minute, and falls back to parsing a
+    plain "HH:MM..." string for anything else. Returns None if
+    genuinely unparseable -- callers must treat that as "can't tell,
+    don't block a trade over a format surprise," never raise.
+    """
+    if t is None:
+        return None
+    if hasattr(t, "hour") and hasattr(t, "minute"):
+        return t.hour * 60 + t.minute
+    try:
+        parts = str(t).split(":")
+        return int(parts[0]) * 60 + int(parts[1])
+    except (ValueError, IndexError):
+        return None
+
+
 def list_index_tracker_dates(index_name):
     """Every date with a real index_tracker log for this index, oldest first
     (this backtest needs to walk forward chronologically, unlike the stock
@@ -206,11 +227,33 @@ def generate_positional_trades(index_name, lot_size=None):
             all_flips.append(f)
     all_flips.sort(key=lambda f: (str(f["Date"]), str(f["Time"])))
 
-    def _snapshot_at_or_before(date_str, time_str):
+    def _snapshot_at_or_before(date_str, time_str, max_staleness_minutes=10):
         """The real logged snapshot closest to (at or just before) a
         given flip's timestamp, for reading the concurrent Fut price
         and Support/Resistance -- the Flips sheet's own 'Price' field
-        is Spot, not Fut, so this is needed for correct P&L pricing."""
+        is Spot, not Fut, so this is needed for correct P&L pricing.
+
+        Aug 30 2026: also rejects a match that's more than
+        max_staleness_minutes OLDER than the flip itself, returning
+        None (same as "no snapshot at all," which the caller already
+        excludes) rather than silently using it. Real bug this fixes,
+        found by tracing actual reported output, not guessed: a real
+        NIFTY backtest showed 4 consecutive flips across a single day
+        (09:29/09:46/12:19/12:46) all pricing to the EXACT same Fut
+        value, producing four artificial 0-P&L trades in a row. With a
+        normal ~60s snapshot cadence, flips 17 minutes to 2.5 hours
+        apart should never land on the same snapshot row -- this only
+        happens if the Snapshots sheet has a real logging gap covering
+        that whole stretch (this project already has one confirmed,
+        still-unexplained gap pattern around the CAS window most days;
+        this suggests gaps aren't limited to just that one window). 10
+        minutes is a generous multiple of the normal ~60s cadence --
+        wide enough to absorb ordinary jitter, tight enough to catch a
+        real multi-hour gap. A rejected flip counts toward `excluded`
+        via the same path a genuinely-missing snapshot already does --
+        this is not a new failure mode, just a stale match no longer
+        being mistaken for a fresh one.
+        """
         rows = all_snapshots_by_date.get(date_str, [])
         candidate = None
         for r in rows:
@@ -218,7 +261,15 @@ def generate_positional_trades(index_name, lot_size=None):
                 candidate = r
             else:
                 break
-        return candidate or (rows[0] if rows else None)
+        if candidate is None:
+            candidate = rows[0] if rows else None
+        if candidate is None:
+            return None
+        flip_min = _time_to_minutes(time_str)
+        snap_min = _time_to_minutes(candidate.get("Time"))
+        if flip_min is not None and snap_min is not None and (flip_min - snap_min) > max_staleness_minutes:
+            return None
+        return candidate
 
     def _last_snapshot_on_or_before(date_str):
         """Latest available snapshot at or before this date -- used for
