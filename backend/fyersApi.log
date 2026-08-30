@@ -6163,3 +6163,4 @@
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/history","Error":{"code":-300,"message":"Invalid symbol provided","s":"error"}},"timestamp":"2026-08-30 18:10:39,821+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/history","Error":{"code":-300,"message":"Invalid symbol provided","s":"error"}},"timestamp":"2026-08-30 18:10:40,066+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/history","Error":{"code":-300,"message":"Invalid symbol provided","s":"error"}},"timestamp":"2026-08-30 18:10:40,330+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/profile","Error":{"s":"error","code":-348,"message":"please provide valid appType"}},"timestamp":"2026-08-30 18:57:11,522+0530","service":"FyersAPI"}
