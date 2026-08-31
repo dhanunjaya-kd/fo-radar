@@ -53,9 +53,111 @@ function colorForChange(changePercent, maxAbs) {
   return `rgba(244, 63, 94, ${0.25 + intensity * 0.55})`;
 }
 
+function fmtPrice(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return `₹${Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+function fmtPct(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
+}
+function buildupStyle(buildup) {
+  if (!buildup) return 'text-slate-500';
+  if (buildup.includes('PE writing')) return 'text-emerald-400';
+  if (buildup.includes('CE writing')) return 'text-rose-400';
+  return 'text-slate-300';
+}
+
+// Aug 30 2026: sector click-through. Fetches /api/sector-stocks/<sector>/
+// on open -- a LIVE OI fetch per stock in the sector on the backend
+// (see SectorStocksView in views.py for why this is deliberately live
+// rather than reused from the main scan's already-filtered signal
+// data). Expect a few seconds' wait, not an instant response -- that
+// tradeoff was chosen directly over an instant-but-mostly-blank
+// version.
+function SectorDrawer({ sector, onClose }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetch(`${API_BASE}/api/sector-stocks/${encodeURIComponent(sector)}/`)
+      .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(json => { if (!cancelled) setData(json); })
+      .catch(e => { if (!cancelled) setError(e.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [sector]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={onClose}>
+      <div
+        className="w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-xl bg-slate-900 border border-slate-700 flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+          <h3 className="text-sm font-bold text-white">{sector} — stocks</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-white text-lg leading-none px-2">×</button>
+        </div>
+        <div className="overflow-y-auto p-4">
+          {loading && (
+            <div className="py-8 text-center text-slate-500 text-sm">
+              Fetching live OI for {sector} stocks — this can take a few seconds…
+            </div>
+          )}
+          {error && <div className="py-4 text-center text-rose-400 text-sm">⚠ {error}</div>}
+          {!loading && !error && data && data.stocks.length === 0 && (
+            <div className="py-8 text-center text-slate-500 text-sm">No F&O stocks found in this sector.</div>
+          )}
+          {!loading && !error && data && data.stocks.length > 0 && (
+            <>
+              {!data.authenticated && (
+                <div className="mb-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                  ⚠ Not authenticated with Fyers right now — showing price/change only, OI buildup unavailable.
+                </div>
+              )}
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-slate-500 border-b border-slate-800">
+                    <th className="text-left px-2 py-2 font-medium">Symbol</th>
+                    <th className="text-right px-2 py-2 font-medium">Price</th>
+                    <th className="text-right px-2 py-2 font-medium">Chg%</th>
+                    <th className="text-left px-2 py-2 font-medium">OI Buildup</th>
+                    <th className="text-right px-2 py-2 font-medium">PCR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.stocks.map(s => (
+                    <tr key={s.symbol} className="border-b border-slate-800/50 hover:bg-slate-800/30">
+                      <td className="px-2 py-2 text-white font-medium whitespace-nowrap">{s.symbol}</td>
+                      <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{fmtPrice(s.price)}</td>
+                      <td className={`px-2 py-2 text-right tabular-nums ${(s.change_percent || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {fmtPct(s.change_percent)}
+                      </td>
+                      <td className={`px-2 py-2 whitespace-nowrap ${buildupStyle(s.oi_buildup)}`}>{s.oi_buildup || '—'}</td>
+                      <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{s.pcr != null ? s.pcr.toFixed(2) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MarketHeatmap() {
   const [sectors, setSectors] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedSector, setSelectedSector] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -104,7 +206,7 @@ export default function MarketHeatmap() {
     <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-700/40">
         <h3 className="text-sm font-bold text-white">Market Heatmap</h3>
-        <p className="text-[10px] text-slate-500 mt-0.5">Tile size = number of F&O stocks in that sector, color = today's average change%</p>
+        <p className="text-[10px] text-slate-500 mt-0.5">Tile size = number of F&O stocks in that sector, color = today's average change% — click a sector to see its stocks</p>
       </div>
       <div className="p-3">
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" style={{ maxHeight: 340 }}>
@@ -112,7 +214,7 @@ export default function MarketHeatmap() {
             const fontSize = Math.min(16, Math.max(9, Math.min(tile.width, tile.height) / 8));
             const showDetail = tile.width > 60 && tile.height > 36;
             return (
-              <g key={tile.name}>
+              <g key={tile.name} onClick={() => setSelectedSector(tile.name)} className="cursor-pointer transition-opacity hover:opacity-80">
                 <rect
                   x={tile.x} y={tile.y} width={tile.width} height={tile.height}
                   fill={colorForChange(tile.changePercent, maxAbsChange)}
@@ -135,6 +237,9 @@ export default function MarketHeatmap() {
           })}
         </svg>
       </div>
+      {selectedSector && (
+        <SectorDrawer sector={selectedSector} onClose={() => setSelectedSector(null)} />
+      )}
     </div>
   );
 }
