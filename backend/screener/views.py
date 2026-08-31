@@ -896,6 +896,23 @@ def _build_all():
         total_score = max(0, min(100, score + oi_adjustment))
         grade = 'A+' if total_score >= 95 else 'A' if total_score >= 85 else 'B' if total_score >= 75 else 'C' if total_score >= 60 else 'D'
 
+        # Aug 31 2026: P0-4 from the UI Corrections checklist -- "no
+        # hidden formulas, every score has a documented factor
+        # breakdown." This is NOT a new scoring system, just the exact
+        # same 5 components that already made up score/oi_adjustment
+        # above, exposed as structured data instead of one opaque
+        # percentage. Deliberately does NOT add factors that don't
+        # exist yet in this codebase (Breadth, FII/FPI, DII, News/
+        # event risk) -- inventing numbers for those would violate
+        # this project's own no-fabrication rule.
+        score_breakdown = {
+            "rsi_favorable": 15 if (40 <= rsi <= 65) else 0,
+            "volume_surge": 15 if (vol >= vol_avg * 1.5) else 0,
+            "trend_strength_adx": 20 if (adx >= 25) else 0,
+            "directional_alignment": 30 if (bullish_aligned or bearish_aligned) else 0,
+            "oi_confirmation": oi_adjustment,
+        }
+
         if oi:
             strike = oi.get('atm_strike') or strike
             greeks = (oi.get('greeks') or {}).get(opt_side, {})
@@ -1042,7 +1059,7 @@ def _build_all():
             "symbol": sym, "name": sym, "price": price,
             "change": stock['change'], "change_percent": stock['change_percent'],
             "grade": grade, "confidence": f"{total_score}%",
-            "technical_score": score, "oi_adjustment": oi_adjustment,
+            "technical_score": score, "oi_adjustment": oi_adjustment, "score_breakdown": score_breakdown,
             "rsi": rsi, "adx": round(adx, 1),
             "oi_confirmation": oi_confirmation, "oi_reason": oi_reason, "pattern": pattern,
             "sector": stock["sector"], "signal_type": "SNIPER",
