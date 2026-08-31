@@ -353,7 +353,7 @@ function CASMovesSection({ indexName }) {
   );
 }
 
-function IndexSection({ indexName, showBacktest = true }) {
+function IndexSection({ indexName, showBacktest = true, topSideContent = null }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -433,12 +433,28 @@ function IndexSection({ indexName, showBacktest = true }) {
           backend changes (reuses the same dates/snapshots endpoints
           this section already fetches from). Everything below this
           (the full snapshot table, Bias backtest, CAS moves) is
-          unchanged. */}
-      <div className="px-4 pt-4">
-        <IndexPriceChart indexName={indexName} />
-        <div className="mt-3">
-          <OHLCInfo indexName={indexName} />
+          unchanged.
+          Aug 30 2026: optional topSideContent renders beside the chart
+          instead of below it, so a compact widget (e.g. Advances/
+          Declines) can share this row and save vertical space instead
+          of each taking a full-width row of its own. min-w-0 on the
+          chart column keeps the flex item from refusing to shrink
+          below the chart's natural width. Only passed in for one
+          index at a time (see IndexTracker() below) -- stacks under
+          the chart on small screens rather than squeezing both side
+          by side. */}
+      <div className="px-4 pt-4 flex flex-col lg:flex-row gap-4">
+        <div className="flex-1 min-w-0">
+          <IndexPriceChart indexName={indexName} />
+          <div className="mt-3">
+            <OHLCInfo indexName={indexName} />
+          </div>
         </div>
+        {topSideContent && (
+          <div className="lg:w-80 shrink-0">
+            {topSideContent}
+          </div>
+        )}
       </div>
 
       <div className="p-4">
@@ -476,15 +492,22 @@ export default function IndexTracker() {
         index, its own MCX hours, its own options chain) to deserve a separate home rather than being
         squeezed in here.
       </TabInfoBanner>
-      {/* Aug 28 2026: market-wide, not index-specific (same reasoning
-          as keeping MarketBanner/MarketBreadth global rather than
-          per-tab) -- shown once here, not duplicated inside each
-          IndexSection card below. */}
-      <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-4">
-        <h3 className="text-sm font-bold text-white mb-3">Advances / Declines</h3>
-        <AdvanceDeclineDonut />
-      </div>
-      <IndexSection indexName="NIFTY" />
+      {/* Aug 30 2026: Advances/Declines used to be its own full-width
+          row above both index sections -- moved to sit beside NIFTY's
+          price chart instead (via IndexSection's topSideContent prop),
+          since a compact donut card taking a whole row of its own was
+          wasting vertical space. Still market-wide, still shown once
+          (not duplicated for BANKNIFTY) -- same reasoning as before,
+          just a different position. */}
+      <IndexSection
+        indexName="NIFTY"
+        topSideContent={
+          <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-4 h-full">
+            <h3 className="text-sm font-bold text-white mb-3">Advances / Declines</h3>
+            <AdvanceDeclineDonut />
+          </div>
+        }
+      />
       <IndexSection indexName="BANKNIFTY" />
     </div>
   );
