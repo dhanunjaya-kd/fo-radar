@@ -832,6 +832,17 @@ def _build_all():
         oi_confirmation = "NO_DATA"
         oi_adjustment = 0
         pattern = None
+        # Aug 31 2026: P0-2 from the UI Corrections checklist -- "OI
+        # CONFIRMED" implies proof, but check_oi_confirmation_score_bias.py
+        # already found CONFIRMED's median base score equals NEUTRAL's
+        # exactly (65.0 = 65.0), and NEUTRAL trades outperformed
+        # CONFIRMED ~8x in per-trade P&L on real logged data -- CONFIRMED
+        # was never actually shown to add predictive value here. oi_reason
+        # is ADDITIVE, not a replacement for oi_confirmation (unknown
+        # what frontend logic currently keys on that exact string), and
+        # uses evidence-language ("aligns with") instead of certainty-
+        # language ("confirms").
+        oi_reason = None
 
         if oi:
             buildup = oi.get('oi_buildup') or ''
@@ -840,8 +851,10 @@ def _build_all():
 
             if action == 'BUY' and bullish_oi:
                 oi_confirmation, oi_adjustment = "CONFIRMED", 20
+                oi_reason = "OI aligns with BUY (PE writing dominant) — not shown to add predictive edge on its own"
             elif action == 'SELL' and bearish_oi:
                 oi_confirmation, oi_adjustment = "CONFIRMED", 20
+                oi_reason = "OI aligns with SELL (CE writing dominant) — not shown to add predictive edge on its own"
             elif (action == 'BUY' and bearish_oi) or (action == 'SELL' and bullish_oi):
                 # CONFLICT used to just be a -15 penalty, which some
                 # technically-strong setups could still survive (3 showed
@@ -858,6 +871,7 @@ def _build_all():
                 continue
             else:
                 oi_confirmation, oi_adjustment = "NEUTRAL", 0
+                oi_reason = "OI shows no clear directional lean"
 
             # PCR as a secondary, smaller confirmation -- classic reading is
             # PCR > 1 = more puts written = bullish support building, and
@@ -1030,7 +1044,7 @@ def _build_all():
             "grade": grade, "confidence": f"{total_score}%",
             "technical_score": score, "oi_adjustment": oi_adjustment,
             "rsi": rsi, "adx": round(adx, 1),
-            "oi_confirmation": oi_confirmation, "pattern": pattern,
+            "oi_confirmation": oi_confirmation, "oi_reason": oi_reason, "pattern": pattern,
             "sector": stock["sector"], "signal_type": "SNIPER",
             "action": action, "entry": entry, "quantity": qty,
             "sl": sl, "target1": t1, "target2": t2, "target3": t3,
