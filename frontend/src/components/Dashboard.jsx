@@ -2,6 +2,8 @@ import TopLiveSignals from './TopLiveSignals';
 import MarketSentimentGauge from './MarketSentimentGauge';
 import SectorStrength from './SectorStrength';
 import OISnapshot from './OISnapshot';
+import DataHealthStrip from './DataHealthStrip';
+import NoTradeLog from './NoTradeLog';
 
 // Aug 28 2026: REBUILT per direct feedback -- "Dashboard should
 // answer in 5 seconds: market direction, strongest signals, OI
@@ -37,19 +39,26 @@ import OISnapshot from './OISnapshot';
 // so with few active signals both boxes ended up showing the exact
 // same rows. Live Signals already has its own full tab for the
 // complete list, so two overlapping summaries here was redundancy,
-// not two genuinely different views. TopLiveSignals stays as the one
-// signals-glance widget. OISnapshot now takes its own full-width row
-// instead of sharing a 2-col grid with the removed section.
+// not two genuinely different views.
+// Aug 31 2026 (later same day): DataHealthStrip added at top (Section
+// 18 of the UI Corrections checklist) and NoTradeLog takes the grid
+// slot AttentionFeed vacated -- genuinely different content this
+// time (WHY candidates are being rejected right now, from
+// NoTradeLogView/P0-6), not a second view of the same signals.
 export default function Dashboard({ onNavigate }) {
   return (
     <div className="space-y-4">
+      <DataHealthStrip />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <TopLiveSignals onViewAll={onNavigate ? () => onNavigate('signals') : null} limit={3} />
         </div>
         <MarketSentimentGauge />
       </div>
-      <OISnapshot onNavigate={onNavigate} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <NoTradeLog />
+        <OISnapshot onNavigate={onNavigate} />
+      </div>
       <SectorStrength onNavigate={onNavigate} />
     </div>
   );
