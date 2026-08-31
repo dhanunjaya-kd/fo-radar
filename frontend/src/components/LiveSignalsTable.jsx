@@ -100,6 +100,7 @@ function DetailDrawer({ signal, onClose }) {
   // `if (!signal) return null` below, or this would violate React's
   // Rules of Hooks (a conditional early return before a hook call).
   const [rangeData, setRangeData] = useState(null);
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!signal) { setRangeData(null); return; }
     let cancelled = false;
@@ -114,6 +115,31 @@ function DetailDrawer({ signal, onClose }) {
   const isBuy = signal.action === 'BUY';
   const contractLabel = formatOptionContractLabel(signal);
   const age = formatSignalAge(signal.timestamp);
+
+  // Aug 31 2026: real finding, not a guess -- Fyers' own community
+  // support forum confirms trade.fyers.in has NO per-symbol deep-link
+  // URL ("the URL remains the same even after switching stocks, the
+  // system updates the chart based on the selected stock WITHIN the
+  // platform"). Whatever this button did before this drawer was
+  // rebuilt, a real jump-straight-to-this-strike link was never
+  // actually possible on Fyers' web platform. Honest replacement:
+  // copy the exact tradeable symbol, open Fyers, let the user
+  // paste-search in ~2 seconds -- doesn't claim capability Fyers
+  // doesn't have. Still opens Fyers even if the clipboard write fails
+  // (e.g. blocked in a non-secure context) -- just skips the "Copied"
+  // confirmation since that part genuinely didn't happen.
+  const handleOpenFyers = async () => {
+    if (signal.option_symbol) {
+      try {
+        await navigator.clipboard.writeText(signal.option_symbol);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (e) {
+        // clipboard blocked -- still open Fyers below
+      }
+    }
+    window.open('https://trade.fyers.in/', '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <>
@@ -132,13 +158,22 @@ function DetailDrawer({ signal, onClose }) {
 
         <div className="p-4 space-y-4">
           <div className={`rounded-lg p-3 text-center border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-rose-500/10 border-rose-500/25'}`}>
-            <p className={`text-base font-bold ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}>{contractLabel}</p>
+            <button
+              onClick={handleOpenFyers}
+              title={signal.option_symbol ? `Copy ${signal.option_symbol} and open Fyers` : 'Open Fyers'}
+              className={`text-base font-bold underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}
+            >
+              {contractLabel}
+            </button>
             <div className="flex items-center justify-center gap-2 mt-1">
               <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusStyle(signal.outcome_status)}`}>
                 {signal.outcome_status || 'Open'}
               </span>
               {age && <span className="text-[10px] text-slate-500">{age}</span>}
             </div>
+            <p className="text-[9px] text-slate-500 mt-1.5">
+              {copied ? '✓ Symbol copied — paste into Fyers search' : 'Tap to copy symbol & open Fyers'}
+            </p>
           </div>
 
           <div>
