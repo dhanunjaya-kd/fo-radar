@@ -727,6 +727,12 @@ def _build_all():
     movers = sorted(results.values(), key=lambda x: abs(x.get('change_percent', 0)), reverse=True)[:30]
     signals = []
     techs = {}
+    # Aug 31 2026: P0-7 -- one VIX read for the whole cycle, reused by
+    # every signal's audit_snapshot below rather than re-reading
+    # _index_cache per stock. Same source line 1404 already uses
+    # elsewhere in this file (_index_cache.get("india_vix")).
+    with _cache_lock:
+        cycle_vix = _index_cache.get("india_vix")
     # Aug 31 2026: P0-6 from the UI Corrections checklist -- these
     # rejection points already existed (every `continue` below), they
     # just discarded the candidate silently. This makes each one an
@@ -934,7 +940,18 @@ def _build_all():
             signal_extra = {
                 "ce_oi": oi.get('ce_oi'), "pe_oi": oi.get('pe_oi'),
                 "ce_oi_chg": oi.get('ce_oi_chg'), "pe_oi_chg": oi.get('pe_oi_chg'),
-                "pcr": oi.get('pcr'), "max_pain": oi.get('max_pain'),
+                # Aug 31 2026: Section 11 from the UI Corrections checklist
+                # -- "define exactly whether PCR is total OI PCR, volume
+                # PCR, or another measure." pcr_volume was ALREADY computed
+                # by options_analytics.py's analyze_option_chain() (its own
+                # compute_pcr_volume()) but never surfaced here -- this
+                # codebase already had the second measure, it just wasn't
+                # exposed. pcr_definition makes explicit which one "pcr"
+                # itself is, since the two can (and do) disagree.
+                "pcr": oi.get('pcr'), "pcr_volume": oi.get('pcr_volume'),
+                "pcr_definition": "OI-based (total Put OI / total Call OI across the chain)",
+                "days_to_expiry": oi.get('days_to_expiry'),
+                "max_pain": oi.get('max_pain'),
                 "iv": oi.get('iv') if oi.get('iv') is not None else tech.get('hist_vol', 20),
                 "resistance": oi.get('resistance') or tech.get('resistance', round(price * 1.05, 2)),
                 "support": oi.get('support') or tech.get('support', round(price * 0.95, 2)),
@@ -952,7 +969,9 @@ def _build_all():
             # a confident-looking fake number.
             signal_extra = {
                 "ce_oi": None, "pe_oi": None, "ce_oi_chg": None, "pe_oi_chg": None,
-                "pcr": None, "max_pain": None,
+                "pcr": None, "pcr_volume": None, "pcr_definition": None,
+                "days_to_expiry": None,
+                "max_pain": None,
                 "iv": tech.get('hist_vol', 20),
                 "resistance": tech.get('resistance', round(price * 1.05, 2)),
                 "support": tech.get('support', round(price * 0.95, 2)),
@@ -961,6 +980,50 @@ def _build_all():
                 "delta": None, "theta": None, "vega": None, "gamma": None,
                 "live_oi": False,
             }
+
+        # Aug 31 2026: Section 3 from the UI Corrections checklist --
+        # "Support/Resistance: add source and distance from current
+        # price." Computed once here (after both branches above
+        # converge) rather than duplicated inside each -- support/
+        # resistance themselves were already being set (from real OI
+        # walls when live_oi is True, from price-action fallback
+        # otherwise); this just adds how far away they actually are.
+        # None if either input is missing, never a fabricated distance.
+        supp, res = signal_extra.get("support"), signal_extra.get("resistance")
+        signal_extra["support_distance_pct"] = round((price - supp) / price * 100, 2) if supp else None
+        signal_extra["resistance_distance_pct"] = round((res - price) / price * 100, 2) if res else None
+
+        # --- Reuse an already-locked trade plan if one exists ---
+        # Aug 31 2026: P0-7 (Audit Snapshot) from the UI Corrections
+        # checklist -- "persist every input used for the decision...
+        # historical signal can be reconstructed exactly." Built from
+        # values already computed above by this point -- nothing
+        # re-fetched, nothing invented. Deliberately does NOT include
+        # FII/DII (no real data source exists yet in this codebase --
+        # same blocker Dashboard.jsx already flags) or market-wide
+        # breadth (would mean recomputing _compute_breadth() per
+        # signal, real added cost for a value that's about the whole
+        # market, not this specific decision -- worth doing properly
+        # later, not rushed in here). score_version lets a later
+        # scoring-rule change be told apart from an old signal's math
+        # without needing to diff the code by date.
+        audit_snapshot = {
+            "score_version": "2026-08-31-a",
+            "price": price, "rsi": round(rsi, 2), "macd": round(macd, 4),
+            "vwap": round(vwap, 2), "adx": round(adx, 1), "atr": round(atr, 2),
+            "volume": vol, "volume_avg": vol_avg,
+            "pcr": signal_extra.get("pcr"), "pcr_volume": signal_extra.get("pcr_volume"),
+            "pcr_definition": signal_extra.get("pcr_definition"),
+            "max_pain": signal_extra.get("max_pain"),
+            "iv": signal_extra.get("iv"), "support": signal_extra.get("support"),
+            "resistance": signal_extra.get("resistance"),
+            "support_distance_pct": signal_extra.get("support_distance_pct"),
+            "resistance_distance_pct": signal_extra.get("resistance_distance_pct"),
+            "oi_buildup": signal_extra.get("oi_buildup"), "live_oi": signal_extra.get("live_oi"),
+            "sector": stock["sector"],
+            "india_vix": (cycle_vix or {}).get("price"),
+            "captured_at": datetime.now().isoformat(),
+        }
 
         # --- Reuse an already-locked trade plan if one exists ---
         # This used to recompute entry/SL/target1-3 from scratch every
@@ -1042,6 +1105,23 @@ def _build_all():
                 no_trade_log.append({"symbol": sym, "reason": f"No confirmed live option chain for {strike} strike"})
                 continue
 
+            # Aug 31 2026: Section 9 (Risk Engine) from the UI Corrections
+            # checklist -- "liquidity filter: reject signals with poor
+            # volume/OI or excessive bid-ask spread." bid/ask were already
+            # being fetched on this exact leg (options_analytics.py's
+            # parse_option_chain()) but never checked -- entry was trusted
+            # off ltp alone regardless of how wide the real tradeable
+            # spread was. 15% of ltp is a reasonable starting cutoff, not
+            # a historically validated one -- flagged as such, easy to
+            # tighten/loosen once you've watched how often it actually
+            # fires against real contracts.
+            bid, ask = leg.get('bid'), leg.get('ask')
+            if bid is not None and ask is not None and ask > 0:
+                spread_pct = round((ask - bid) / premium_entry * 100, 1)
+                if spread_pct > 15:
+                    no_trade_log.append({"symbol": sym, "reason": f"Spread too wide on {strike} {opt_side}: {spread_pct}% of premium (bid {bid}, ask {ask})"})
+                    continue
+
             d = max(abs(delta_for_premium), 0.05)  # floor so deep OTM deltas don't zero out the math
             # SL loses MORE than delta alone implies -- theta/gamma work
             # against you on an adverse move too, so weight it up rather than
@@ -1072,6 +1152,37 @@ def _build_all():
             risk = abs(entry - sl)
             rr = round(abs(t1 - entry) / risk, 2) if risk else 1.5
 
+        # Aug 31 2026: Section 9 (Risk Engine) from the UI Corrections
+        # checklist. Computed here (after locked/fresh converge) using
+        # entry/sl/qty directly, NOT the `risk` variable above -- that
+        # one only exists inside the fresh-computation branch, not the
+        # locked-plan-reuse branch, so referencing it here would crash
+        # on any already-tracked signal.
+        # risk_amount: "risk per trade, calculated from entry to SL" --
+        # real rupees, not just the per-unit premium difference.
+        # price_basis: "explicitly identify which price entry/SL/target
+        # refers to" -- confirmed via the P0-1 R:R check earlier this
+        # session that these are ALWAYS option-premium levels, never
+        # underlying, for every signal this engine produces. A fixed
+        # label, not computed per-signal, because it's a property of
+        # this system's design (always buys premium), not something
+        # that varies signal to signal.
+        risk_amount = round(abs(entry - sl) * qty, 2)
+        reward_amount = round(abs(t1 - entry) * qty, 2)
+        price_basis = "option_premium"
+        # Aug 31 2026: Section 3 -- "add signal age." A genuinely fresh
+        # signal (locked is None) is 0 minutes old by definition, no
+        # lookup needed. A reused/locked plan's real creation time now
+        # comes back from get_locked_plan() (see excel_logger.py) --
+        # None only if that timestamp genuinely couldn't be recovered
+        # (e.g. a pre-existing row from before this field existed).
+        if locked and locked.get('created_at'):
+            signal_age_minutes = round((datetime.now() - locked['created_at']).total_seconds() / 60, 1)
+        elif locked:
+            signal_age_minutes = None
+        else:
+            signal_age_minutes = 0.0
+
         signals.append({
             "symbol": sym, "name": sym, "price": price,
             "change": stock['change'], "change_percent": stock['change_percent'],
@@ -1079,10 +1190,13 @@ def _build_all():
             "technical_score": score, "oi_adjustment": oi_adjustment, "score_breakdown": score_breakdown,
             "rsi": rsi, "adx": round(adx, 1),
             "oi_confirmation": oi_confirmation, "oi_reason": oi_reason, "pattern": pattern,
+            "audit_snapshot": audit_snapshot,
             "sector": stock["sector"], "signal_type": "SNIPER",
             "action": action, "entry": entry, "quantity": qty,
             "sl": sl, "target1": t1, "target2": t2, "target3": t3,
-            "risk_reward": rr, "pcr_chg": None, "option_symbol": option_symbol,
+            "risk_reward": rr, "risk_amount": risk_amount, "reward_amount": reward_amount,
+            "price_basis": price_basis, "signal_age_minutes": signal_age_minutes,
+            "pcr_chg": None, "option_symbol": option_symbol,
             "stock_sl": stock_sl, "stock_target1": stock_t1,
             "stock_target2": stock_t2, "stock_target3": stock_t3,
             "strike": strike,
