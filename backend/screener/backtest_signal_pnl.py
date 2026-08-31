@@ -1555,7 +1555,7 @@ def _pos_neg_hex(value):
     return "#F3F4F6", "#374151"
 
 
-def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
+def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE, excluded_count=0):
     """
     Builds the full PDF report -- styled toward the TradeTron reference
     he shared: smooth gradient-filled equity curve, a red underwater/
@@ -1566,6 +1566,18 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
     can't produce chart-quality graphics, matplotlib alone can't lay
     out a multi-page document, so this uses each for what it's
     actually good at.
+
+    Aug 31 2026: excluded_count added -- this project already discloses
+    OTHER exclusions directly in the PDF (off-hours trades, stray
+    Action values), but the single biggest one -- signals with no
+    priceable outcome at all (still open, or genuinely unresolvable,
+    e.g. an expired option Fyers' History API no longer serves) --
+    never made it past print_summary()'s terminal-only output. Same
+    "exclude rather than fabricate" rule as load_all_trades() already
+    follows; this just makes that exclusion visible in the one place
+    someone reading only the PDF would actually see it. Defaults to 0
+    so any caller that doesn't pass it (e.g. from outside this file)
+    keeps working exactly as before, just without the disclosure box.
 
     Saved to signal_logs/backtest_reports/signal_pnl_backtest_<today>.pdf.
     Returns the path, or None if there's nothing to report yet.
@@ -1643,6 +1655,14 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
             story.append(Paragraph(_esc(
                 "⚠ Small sample -- treat everything below as a rough first look, not a verified edge. "
                 "Same caution as every other backtest in this project."), warn))
+            story.append(Spacer(1, 3 * mm))
+
+        if excluded_count > 0:
+            story.append(Paragraph(_esc(
+                f"ℹ {excluded_count} signal(s) are NOT reflected in any number in this report -- still open, "
+                f"or no priceable outcome could be recorded (e.g. an expired option Fyers' History API no "
+                f"longer serves). Not counted as a win, a loss, or a breakeven -- excluded entirely, same rule "
+                f"this project applies everywhere else rather than guess at a result."), warn))
             story.append(Spacer(1, 3 * mm))
 
         # ---- Strategy Scorecard -- P0 upgrade spec item, added Aug 29
@@ -2968,7 +2988,7 @@ if __name__ == "__main__":
             # still here, just not called automatically -- swap the
             # line below if Excel is ever wanted again.
             try:
-                path = write_pdf_report(trades, metrics)
+                path = write_pdf_report(trades, metrics, excluded_count=excluded)
                 print(f"\nFull PDF report written to: {path}")
             except ImportError as e:
                 print(f"\nPDF generation needs matplotlib and reportlab -- pip install matplotlib reportlab")
