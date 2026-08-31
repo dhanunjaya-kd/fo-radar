@@ -6302,3 +6302,6 @@
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-31 09:45:07,753+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-31 09:45:07,753+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-31 09:45:07,753+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-31 09:46:16,091+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-31 09:46:16,091+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-31 09:46:16,109+0530","service":"FyersAPI"}
