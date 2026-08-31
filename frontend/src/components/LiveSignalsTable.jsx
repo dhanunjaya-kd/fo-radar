@@ -88,6 +88,28 @@ function fmtNum(v, digits = 1) {
   return v != null ? v.toFixed(digits) : '—';
 }
 
+// Aug 31 2026: TradingView's real NSE option symbol format, confirmed
+// against real examples on TradingView's own community (e.g.
+// "NIFTY250814C24700") -- genuinely different from this codebase's own
+// Fyers-format option_symbol (e.g. "ADANIPOWER25SEP205PE"): TradingView
+// encodes the FULL expiry date (year+month+DAY) and a single C/P
+// letter, not year+month + CE/PE. Requires the real expiry_date field
+// (added to the backend alongside this) -- returns null rather than a
+// guessed symbol if it's missing (e.g. an older cached signal from
+// before this field existed, or no live option chain was ever
+// confirmed for this signal).
+function buildTradingViewOptionSymbol(signal) {
+  if (!signal.expiry_date || signal.strike == null) return null;
+  const d = new Date(`${signal.expiry_date}T00:00:00`); // fixed local midnight, avoids a UTC-shift changing the date
+  if (isNaN(d.getTime())) return null;
+  const yy = String(d.getFullYear()).slice(-2);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const optLetter = signal.action === 'BUY' ? 'C' : 'P';
+  const strike = Math.round(signal.strike);
+  return `NSE:${signal.symbol}${yy}${mm}${dd}${optLetter}${strike}`;
+}
+
 function DetailDrawer({ signal, onClose }) {
   // Aug 29 2026: 52W High/Low + Technical, folded in from the removed
   // Watchlist tab (it used useSignals() -- the exact same underlying
@@ -132,6 +154,11 @@ function DetailDrawer({ signal, onClose }) {
   // between the two, so this deliberately doesn't guess at that.
   // Still copies the exact option contract symbol to clipboard, so
   // it's available to paste/search once the stock's chart is open.
+  // Aug 31 2026: now attempts the EXACT option contract's own chart,
+  // using the real TradingView format confirmed above -- not just the
+  // underlying stock. Falls back to the stock's own chart (still
+  // correct, just less specific) if expiry_date isn't present on this
+  // signal, rather than guessing at a symbol that's likely wrong.
   const handleOpenChart = async () => {
     if (signal.option_symbol) {
       try {
@@ -142,7 +169,9 @@ function DetailDrawer({ signal, onClose }) {
         // clipboard blocked -- still open the chart below
       }
     }
-    window.open(`https://www.tradingview.com/chart/?symbol=NSE:${signal.symbol}`, '_blank', 'noopener,noreferrer');
+    const tvOptionSymbol = buildTradingViewOptionSymbol(signal);
+    const target = tvOptionSymbol || `NSE:${signal.symbol}`;
+    window.open(`https://www.tradingview.com/chart/?symbol=${target}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -164,7 +193,7 @@ function DetailDrawer({ signal, onClose }) {
           <div className={`rounded-lg p-3 text-center border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-rose-500/10 border-rose-500/25'}`}>
             <button
               onClick={handleOpenChart}
-              title={`Open ${signal.symbol}'s chart on TradingView${signal.option_symbol ? ` (copies ${signal.option_symbol} too)` : ''}`}
+              title={`Open ${signal.symbol}'s exact contract chart on TradingView${signal.option_symbol ? ` (copies ${signal.option_symbol} too)` : ''}`}
               className={`text-base font-bold underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}
             >
               {contractLabel}
@@ -176,7 +205,11 @@ function DetailDrawer({ signal, onClose }) {
               {age && <span className="text-[10px] text-slate-500">{age}</span>}
             </div>
             <p className="text-[9px] text-slate-500 mt-1.5">
-              {copied ? `✓ ${signal.option_symbol} copied — chart opening` : `Tap to open ${signal.symbol} chart`}
+              {copied
+                ? `✓ ${signal.option_symbol} copied — chart opening`
+                : signal.expiry_date
+                  ? `Tap to open the exact ${signal.strike} ${isBuy ? 'CE' : 'PE'} chart`
+                  : `Tap to open ${signal.symbol} chart (exact strike unavailable)`}
             </p>
           </div>
 

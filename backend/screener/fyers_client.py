@@ -229,6 +229,24 @@ def get_option_analytics(symbol, strikecount=10):
     # isn't really one of its own outputs.
     if result is not None:
         result["days_to_expiry"] = days
+        # Aug 31 2026: also expose the actual expiry DATE, not just a
+        # day-count -- needed to build a correct TradingView option
+        # symbol, which encodes the full YYMMDD expiry (TradingView's
+        # own format, confirmed via real examples like
+        # NIFTY250814C24700 -- year+month+DAY, not just year+month like
+        # this project's own Fyers-format option_symbol uses). Re-
+        # parsed directly from the same expiryData Fyers already
+        # returned, not derived from `days` -- avoids drift if today's
+        # date changes between when this was fetched and when it's used.
+        try:
+            expiry_list = (raw or {}).get("data", {}).get("expiryData", [])
+            if expiry_list:
+                expiry_date_obj = datetime.strptime(expiry_list[0].get("date"), "%d-%m-%Y").date()
+                result["expiry_date"] = expiry_date_obj.isoformat()
+            else:
+                result["expiry_date"] = None
+        except Exception:
+            result["expiry_date"] = None
     return result
 
 

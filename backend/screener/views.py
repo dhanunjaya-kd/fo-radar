@@ -950,7 +950,7 @@ def _build_all():
                 # itself is, since the two can (and do) disagree.
                 "pcr": oi.get('pcr'), "pcr_volume": oi.get('pcr_volume'),
                 "pcr_definition": "OI-based (total Put OI / total Call OI across the chain)",
-                "days_to_expiry": oi.get('days_to_expiry'),
+                "days_to_expiry": oi.get('days_to_expiry'), "expiry_date": oi.get('expiry_date'),
                 "max_pain": oi.get('max_pain'),
                 "iv": oi.get('iv') if oi.get('iv') is not None else tech.get('hist_vol', 20),
                 "resistance": oi.get('resistance') or tech.get('resistance', round(price * 1.05, 2)),
@@ -970,7 +970,7 @@ def _build_all():
             signal_extra = {
                 "ce_oi": None, "pe_oi": None, "ce_oi_chg": None, "pe_oi_chg": None,
                 "pcr": None, "pcr_volume": None, "pcr_definition": None,
-                "days_to_expiry": None,
+                "days_to_expiry": None, "expiry_date": None,
                 "max_pain": None,
                 "iv": tech.get('hist_vol', 20),
                 "resistance": tech.get('resistance', round(price * 1.05, 2)),
@@ -1196,7 +1196,7 @@ def _build_all():
             "sl": sl, "target1": t1, "target2": t2, "target3": t3,
             "risk_reward": rr, "risk_amount": risk_amount, "reward_amount": reward_amount,
             "price_basis": price_basis, "signal_age_minutes": signal_age_minutes,
-            "pcr_chg": None, "option_symbol": option_symbol,
+            "pcr_chg": None, "option_symbol": option_symbol, "expiry_date": signal_extra.get("expiry_date"),
             "stock_sl": stock_sl, "stock_target1": stock_t1,
             "stock_target2": stock_t2, "stock_target3": stock_t3,
             "strike": strike,
