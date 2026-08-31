@@ -1,6 +1,5 @@
 import TopLiveSignals from './TopLiveSignals';
 import MarketSentimentGauge from './MarketSentimentGauge';
-import AttentionFeed from './AttentionFeed';
 import SectorStrength from './SectorStrength';
 import OISnapshot from './OISnapshot';
 
@@ -32,6 +31,15 @@ import OISnapshot from './OISnapshot';
 // onNavigate: passed down from App.jsx (its setActiveTab) so every
 // "View All"/"Details" link here actually jumps to the real
 // investigation-tool tab, not a dead link.
+//
+// Aug 31 2026: AttentionFeed removed per direct feedback -- it draws
+// from the same still-open high-conviction signals as TopLiveSignals,
+// so with few active signals both boxes ended up showing the exact
+// same rows. Live Signals already has its own full tab for the
+// complete list, so two overlapping summaries here was redundancy,
+// not two genuinely different views. TopLiveSignals stays as the one
+// signals-glance widget. OISnapshot now takes its own full-width row
+// instead of sharing a 2-col grid with the removed section.
 export default function Dashboard({ onNavigate }) {
   return (
     <div className="space-y-4">
@@ -41,10 +49,7 @@ export default function Dashboard({ onNavigate }) {
         </div>
         <MarketSentimentGauge />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <AttentionFeed onNavigate={onNavigate} />
-        <OISnapshot onNavigate={onNavigate} />
-      </div>
+      <OISnapshot onNavigate={onNavigate} />
       <SectorStrength onNavigate={onNavigate} />
     </div>
   );
