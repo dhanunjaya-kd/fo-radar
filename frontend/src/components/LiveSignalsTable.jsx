@@ -116,29 +116,33 @@ function DetailDrawer({ signal, onClose }) {
   const contractLabel = formatOptionContractLabel(signal);
   const age = formatSignalAge(signal.timestamp);
 
-  // Aug 31 2026: real finding, not a guess -- Fyers' own community
-  // support forum confirms trade.fyers.in has NO per-symbol deep-link
-  // URL ("the URL remains the same even after switching stocks, the
-  // system updates the chart based on the selected stock WITHIN the
-  // platform"). Whatever this button did before this drawer was
-  // rebuilt, a real jump-straight-to-this-strike link was never
-  // actually possible on Fyers' web platform. Honest replacement:
-  // copy the exact tradeable symbol, open Fyers, let the user
-  // paste-search in ~2 seconds -- doesn't claim capability Fyers
-  // doesn't have. Still opens Fyers even if the clipboard write fails
-  // (e.g. blocked in a non-secure context) -- just skips the "Copied"
-  // confirmation since that part genuinely didn't happen.
-  const handleOpenFyers = async () => {
+  // Aug 31 2026: user confirmed live -- the trade.fyers.in version just
+  // opened Fyers' own default chart (NIFTY), not the actual signal's
+  // stock, exactly as the "no per-symbol URL" finding predicted.
+  // TradingView is a real fix, not another guess: it's Fyers' own
+  // underlying charting engine (per their site: "TradingView-powered
+  // platform"), and unlike Fyers' web app, TradingView DOES have a
+  // real, documented, public per-symbol chart URL --
+  // tradingview.com/chart/?symbol=EXCHANGE:TICKER -- confirmed via
+  // their own widget docs (tvwidgetsymbol parameter) and a live
+  // TradingView URL with a ticker directly in the path. Opens the
+  // UNDERLYING STOCK's chart (NSE:ASTRAL), not the exact CE/PE
+  // contract -- NSE equity symbols map reliably 1:1 onto TradingView,
+  // but options-contract symbol formats aren't confirmed to match
+  // between the two, so this deliberately doesn't guess at that.
+  // Still copies the exact option contract symbol to clipboard, so
+  // it's available to paste/search once the stock's chart is open.
+  const handleOpenChart = async () => {
     if (signal.option_symbol) {
       try {
         await navigator.clipboard.writeText(signal.option_symbol);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch (e) {
-        // clipboard blocked -- still open Fyers below
+        // clipboard blocked -- still open the chart below
       }
     }
-    window.open('https://trade.fyers.in/', '_blank', 'noopener,noreferrer');
+    window.open(`https://www.tradingview.com/chart/?symbol=NSE:${signal.symbol}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -159,8 +163,8 @@ function DetailDrawer({ signal, onClose }) {
         <div className="p-4 space-y-4">
           <div className={`rounded-lg p-3 text-center border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-rose-500/10 border-rose-500/25'}`}>
             <button
-              onClick={handleOpenFyers}
-              title={signal.option_symbol ? `Copy ${signal.option_symbol} and open Fyers` : 'Open Fyers'}
+              onClick={handleOpenChart}
+              title={`Open ${signal.symbol}'s chart on TradingView${signal.option_symbol ? ` (copies ${signal.option_symbol} too)` : ''}`}
               className={`text-base font-bold underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}
             >
               {contractLabel}
@@ -172,7 +176,7 @@ function DetailDrawer({ signal, onClose }) {
               {age && <span className="text-[10px] text-slate-500">{age}</span>}
             </div>
             <p className="text-[9px] text-slate-500 mt-1.5">
-              {copied ? '✓ Symbol copied — paste into Fyers search' : 'Tap to copy symbol & open Fyers'}
+              {copied ? `✓ ${signal.option_symbol} copied — chart opening` : `Tap to open ${signal.symbol} chart`}
             </p>
           </div>
 
