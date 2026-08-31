@@ -201,6 +201,19 @@ def _ensure_fresh():
             t2 = ws.cell(row=row_num, column=col["Target 2"]).value
             t3 = ws.cell(row=row_num, column=col["Target 3"]).value
             if opt_symbol and None not in (sl, t1, t2, t3):
+                # Aug 31 2026: Section 3 from the UI Corrections checklist
+                # -- "add signal age." The Timestamp column already
+                # records when this row was first created; parsed here
+                # the same defensive way "Exited At" already is above,
+                # so a restart doesn't lose how long a position's really
+                # been open.
+                created_raw = ws.cell(row=row_num, column=col["Timestamp"]).value
+                created_at = None
+                if created_raw:
+                    try:
+                        created_at = datetime.strptime(str(created_raw), "%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        created_at = None
                 _open_positions[key] = {
                     "row": row_num, "option_symbol": opt_symbol,
                     "entry": ws.cell(row=row_num, column=col["Entry (Premium)"]).value,
@@ -209,6 +222,7 @@ def _ensure_fresh():
                     "risk_reward": ws.cell(row=row_num, column=col["R:R"]).value,
                     "sl": sl, "t1": t1, "t2": t2, "t3": t3,
                     "sl_hit": False, "furthest_target": furthest_target,
+                    "created_at": created_at,
                 }
                 rebuilt_open += 1
 
@@ -219,8 +233,9 @@ def _ensure_fresh():
 
 
 def _write_new_row(ws, signal):
+    now = datetime.now()
     row = [
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        now.strftime("%Y-%m-%d %H:%M:%S"),
         signal.get("symbol"), signal.get("action"), signal.get("grade"),
         signal.get("confidence"), signal.get("price"), signal.get("change_percent"),
         signal.get("strike"), signal.get("entry"), signal.get("sl"),
@@ -245,6 +260,7 @@ def _write_new_row(ws, signal):
             "quantity": signal.get("quantity"), "risk_reward": signal.get("risk_reward"),
             "sl": signal["sl"], "t1": signal["target1"], "t2": signal["target2"], "t3": signal["target3"],
             "sl_hit": False, "furthest_target": 0,
+            "created_at": now,  # Aug 31 2026: Section 3 -- signal age, same source as the row's own Timestamp
         }
     return row_num
 
@@ -274,6 +290,7 @@ def get_locked_plan(symbol, action):
             "sl": pos["sl"], "target1": pos["t1"], "target2": pos["t2"], "target3": pos["t3"],
             "quantity": pos.get("quantity"), "risk_reward": pos.get("risk_reward"),
             "option_symbol": pos.get("option_symbol"),
+            "created_at": pos.get("created_at"),
         }
 
 
@@ -355,8 +372,22 @@ def mark_exited(symbol, action):
             wb = _get_workbook(path)
             ws = wb["Signals"]
             exited_col = COLUMNS.index("Exited At") + 1
+            outcome_col = COLUMNS.index("Outcome") + 1
             now = datetime.now()
             ws.cell(row=existing["row"], column=exited_col).value = now.strftime("%Y-%m-%d %H:%M:%S")
+            # Aug 31 2026: REAL GAP FOUND (not from the checklist -- found
+            # by actually reading this function) -- if a position exits
+            # without ever hitting SL or a target, Outcome was never set
+            # by anything. check_outcomes() only ever WRITES "SL Hit"/
+            # "Target N Hit"; nothing ever wrote a value for "neither
+            # happened before it dropped out". That's the checklist's
+            # EXPIRED state (Section 8, Signal Lifecycle) -- genuinely
+            # nothing resolved, not a fabricated status. Only sets it if
+            # Outcome is still blank, so a real SL/Target hit that
+            # already fired is never overwritten.
+            existing_outcome = ws.cell(row=existing["row"], column=outcome_col).value
+            if not existing_outcome:
+                ws.cell(row=existing["row"], column=outcome_col).value = "Expired (no SL/Target hit)"
             wb.save(path)
             existing["exited_at"] = now
         except Exception as e:

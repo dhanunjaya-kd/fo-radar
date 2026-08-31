@@ -218,7 +218,18 @@ def get_option_analytics(symbol, strikecount=10):
     if not raw or raw.get("s") != "ok":
         return None
     days = get_nearest_expiry_days(raw)
-    return analyze_option_chain(raw, days_to_expiry=days)
+    result = analyze_option_chain(raw, days_to_expiry=days)
+    # Aug 31 2026: Section 9 (Risk Engine) from the UI Corrections
+    # checklist -- "expiry awareness: show days/time to expiry." `days`
+    # was already computed on the line above (fed INTO
+    # analyze_option_chain as an input for its own IV math), it just
+    # never made it back OUT in the result dict. Added here rather than
+    # inside analyze_option_chain() itself, since that function's job is
+    # turning a chain into analytics -- the expiry it was TOLD to use
+    # isn't really one of its own outputs.
+    if result is not None:
+        result["days_to_expiry"] = days
+    return result
 
 
 # Backward compatibility for views.py
