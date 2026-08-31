@@ -35,7 +35,18 @@ export default function TopLiveSignals({ onViewAll, limit = 5 }) {
         const res = await fetch(`${API_BASE}/api/sniper-only/`);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const json = await res.json();
-        if (mounted) setSignals(json.signals || []);
+        // Aug 30 2026: SignalList.jsx already dedupes /api/sniper-only/
+        // by symbol before rendering it -- this widget hits the exact
+        // same endpoint but never had the same guard, which is why a
+        // repeated symbol (e.g. LODHA) could show twice here while
+        // Live Signals stayed clean. Same filter, same precedent.
+        const seen = new Set();
+        const unique = (json.signals || []).filter(s => {
+          if (seen.has(s.symbol)) return false;
+          seen.add(s.symbol);
+          return true;
+        });
+        if (mounted) setSignals(unique);
       } catch (err) {
         console.error('Top live signals fetch error:', err);
       } finally {
