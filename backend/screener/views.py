@@ -47,6 +47,7 @@ _index_cache_updated_at = 0.0  # Aug 20 2026: lets _build_all() below reuse what
 # on Fyers' /quotes endpoint, and this redundant double-fetch was a real,
 # substantial, previously-accepted-as-lightweight contributor to that).
 _signal_cache = []
+_no_trade_cache = []  # Aug 31 2026: P0-6 -- rejected candidates this cycle, with reasons
 _tech_cache = {}
 _cache_lock = threading.Lock()
 _last_fetch = 0
@@ -669,7 +670,7 @@ def _calc_tech(symbol, live_quote=None):
 
 def _build_all():
     """Fetch everything: indices, stocks, signals. Cache all."""
-    global _stock_cache, _index_cache, _index_cache_updated_at, _signal_cache, _tech_cache, _last_fetch
+    global _stock_cache, _index_cache, _index_cache_updated_at, _signal_cache, _tech_cache, _last_fetch, _no_trade_cache
 
     # 1. Indices -- Aug 20 2026: reuse _index_snapshot_worker's fetch if
     # it's recent (that loop runs every 60s specifically for this, and
@@ -726,11 +727,21 @@ def _build_all():
     movers = sorted(results.values(), key=lambda x: abs(x.get('change_percent', 0)), reverse=True)[:30]
     signals = []
     techs = {}
+    # Aug 31 2026: P0-6 from the UI Corrections checklist -- these
+    # rejection points already existed (every `continue` below), they
+    # just discarded the candidate silently. This makes each one an
+    # explicit, explainable NO TRADE entry instead of a stock that
+    # just vanishes with no record of why. Real reasons only -- no
+    # liquidity/spread, IV-vs-expected-move, or expiry-proximity
+    # checks added here, since this codebase doesn't compute those
+    # yet and fabricating them would violate its own no-fake-data rule.
+    no_trade_log = []
     
     for stock in movers:
         sym = stock['symbol']
         tech = _calc_tech(sym, live_quote=stock)
         if not tech:
+            no_trade_log.append({"symbol": sym, "reason": "No technical data available"})
             continue
         techs[sym] = tech
         
@@ -742,6 +753,7 @@ def _build_all():
         # "cannot convert float NaN to integer". math.isnan() is required
         # here specifically because <= can't catch it.
         if price <= 0 or math.isnan(price):
+            no_trade_log.append({"symbol": sym, "reason": "Invalid or missing price data"})
             continue
         
         rsi = tech['rsi']
@@ -757,6 +769,7 @@ def _build_all():
         # cycle instead of letting NaN quietly poison the score/quantity
         # math further down.
         if any(isinstance(v, float) and math.isnan(v) for v in (rsi, macd, vwap, adx, tech.get('atr', 0))):
+            no_trade_log.append({"symbol": sym, "reason": "Insufficient history for indicators (NaN)"})
             continue
         
         # Rebalanced to make room for ADX -- a stock can look great on
@@ -782,6 +795,7 @@ def _build_all():
             score += 30
         
         if score < 50:
+            no_trade_log.append({"symbol": sym, "reason": f"Technical score {score} below 50 threshold"})
             continue
         
         action = "BUY" if bullish_aligned else "SELL"
@@ -868,6 +882,7 @@ def _build_all():
                 # the chart looks. Excluded entirely now, same principle
                 # as the confirmed-live-chain requirement -- not just
                 # scored down, not shown as a trade recommendation at all.
+                no_trade_log.append({"symbol": sym, "reason": f"OI conflicts with {action} direction ({buildup or 'no clear buildup'})"})
                 continue
             else:
                 oi_confirmation, oi_adjustment = "NEUTRAL", 0
@@ -1024,6 +1039,7 @@ def _build_all():
                 # No confirmed live option chain for this exact strike --
                 # skip. Don't invent a premium, and don't recommend a trade
                 # we can't confirm is actually tradeable.
+                no_trade_log.append({"symbol": sym, "reason": f"No confirmed live option chain for {strike} strike"})
                 continue
 
             d = max(abs(delta_for_premium), 0.05)  # floor so deep OTM deltas don't zero out the math
@@ -1050,6 +1066,7 @@ def _build_all():
             # fabricate a quantity.
             lot_size = get_lot_size(sym)
             if lot_size is None:
+                no_trade_log.append({"symbol": sym, "reason": "No confirmed live lot size"})
                 continue
             qty = lot_size
             risk = abs(entry - sl)
@@ -1099,6 +1116,7 @@ def _build_all():
     with _cache_lock:
         _signal_cache = quality_signals
         _tech_cache = techs
+        _no_trade_cache = no_trade_log
 
     # Log every newly-appeared signal to today's Excel file, and mark
     # anything that dropped out of the list since last cycle as exited --
@@ -1516,6 +1534,21 @@ class SectorStocksView(APIView):
 
         results.sort(key=lambda r: r.get('change_percent') or 0, reverse=True)
         return Response({"sector": sector, "stocks": results, "authenticated": authed})
+
+
+class NoTradeLogView(APIView):
+    """
+    Aug 31 2026: P0-6 from the UI Corrections checklist -- exposes
+    THIS cycle's rejected candidates with real reasons (see the
+    no_trade_log entries added throughout the signal-building loop).
+    Not a history -- like _signal_cache, this is overwritten fresh
+    every scan cycle, so it reflects "why did X get rejected just
+    now", not a persisted log across the day.
+    """
+    def get(self, request):
+        with _cache_lock:
+            rejected = list(_no_trade_cache)
+        return Response({"rejected": rejected, "count": len(rejected)})
 
 
 class TickerDataView(APIView):

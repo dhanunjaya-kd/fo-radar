@@ -13,7 +13,7 @@ from screener.views import (
     DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView,
     DailyBacktestRangeView, FiftyTwoWeekRangeView, BroaderIndicesView,
     StrategyBacktestRunView, StrategyBacktestStatusView,
-    DailyBacktestRangeReportView, SectorStocksView,
+    DailyBacktestRangeReportView, SectorStocksView, NoTradeLogView,
 )
 
 urlpatterns = [
@@ -79,6 +79,9 @@ urlpatterns = [
     # scan cycle's already-filtered signal data). See SectorStocksView
     # in views.py for the full reasoning.
     path('api/sector-stocks/<str:sector>/', SectorStocksView.as_view(), name='sector_stocks'),
+    # Aug 31 2026: P0-6 -- explicit NO TRADE log, this cycle's rejected
+    # candidates with real reasons. See NoTradeLogView in views.py.
+    path('api/no-trade-log/', NoTradeLogView.as_view(), name='no_trade_log'),
     # Aug 28 2026: price-action strategy backtest (Module 10) -- see
     # strategy_backtest.py for the full engine and why OI-confirmation
     # can't be part of any backtestable strategy.
