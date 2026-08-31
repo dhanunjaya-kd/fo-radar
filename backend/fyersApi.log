@@ -7105,3 +7105,4 @@
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/history","Error":{"code":-300,"message":"Invalid symbol provided","s":"error"}},"timestamp":"2026-08-31 16:11:40,044+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/history","Error":{"code":-300,"message":"Invalid symbol provided","s":"error"}},"timestamp":"2026-08-31 16:11:40,299+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/history","Error":{"code":-300,"message":"Invalid symbol provided","s":"error"}},"timestamp":"2026-08-31 16:11:40,600+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-08-31 16:12:09,084+0530","service":"FyersAPI"}
