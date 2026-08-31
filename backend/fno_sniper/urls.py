@@ -13,7 +13,7 @@ from screener.views import (
     DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView,
     DailyBacktestRangeView, FiftyTwoWeekRangeView, BroaderIndicesView,
     StrategyBacktestRunView, StrategyBacktestStatusView,
-    DailyBacktestRangeReportView,
+    DailyBacktestRangeReportView, SectorStocksView,
 )
 
 urlpatterns = [
@@ -73,6 +73,12 @@ urlpatterns = [
     # BroaderIndicesView's docstring for why this is separate from
     # market-summary.
     path('api/broader-indices/', BroaderIndicesView.as_view(), name='broader_indices'),
+    # Aug 30 2026: Market Heatmap's sector click-through -- given a
+    # sector name, returns that sector's stocks with live OI buildup
+    # fetched at request time (deliberately not reused from the main
+    # scan cycle's already-filtered signal data). See SectorStocksView
+    # in views.py for the full reasoning.
+    path('api/sector-stocks/<str:sector>/', SectorStocksView.as_view(), name='sector_stocks'),
     # Aug 28 2026: price-action strategy backtest (Module 10) -- see
     # strategy_backtest.py for the full engine and why OI-confirmation
     # can't be part of any backtestable strategy.
