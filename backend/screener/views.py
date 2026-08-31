@@ -1439,6 +1439,54 @@ class SniperOnlyView(APIView):
         return Response({"signals": signals, "count": len(signals)})
 
 
+class SectorStocksView(APIView):
+    """
+    Aug 30 2026: powers the Market Heatmap's sector click-through.
+    Price/change comes straight from _stock_cache (already fetched
+    every scan cycle, free). OI buildup is DELIBERATELY a fresh live
+    fetch per stock at request time, not reused from _signal_cache/
+    techs -- those only cover the ~15-30 stocks that already clear
+    today's technical filter each cycle (kept small on purpose, to
+    bound Fyers call volume), and most of a given sector's stocks
+    won't be in that set on a given day. Reusing it would show '--'
+    for most stocks in most sectors, which defeats the point of a
+    per-sector breakdown. Chosen directly over the faster option: a
+    few seconds' wait and up to one option-chain call per stock in
+    the clicked sector (sectors here run roughly 1-20 stocks), only
+    on click, not added to the main scan cycle's budget.
+    Never fabricates: not authenticated, or an individual fetch
+    fails, that stock's oi_buildup/pcr come back None -- frontend
+    shows '--', same rule as everywhere else in this codebase.
+    """
+    def get(self, request, sector):
+        with _cache_lock:
+            stock_list = [s for s in _stock_cache.values() if s.get('sector') == sector]
+
+        authed = is_authenticated()
+        results = []
+        for s in stock_list:
+            sym = s.get('symbol')
+            oi_buildup, pcr = None, None
+            if authed:
+                try:
+                    oi = get_option_analytics(f"NSE:{sym}-EQ", strikecount=10)
+                    if oi:
+                        oi_buildup = oi.get('oi_buildup')
+                        pcr = oi.get('pcr')
+                except Exception as e:
+                    print(f"[SectorStocks] {sym} OI fetch failed: {e}")
+            results.append({
+                "symbol": sym,
+                "price": s.get('price'),
+                "change_percent": s.get('change_percent'),
+                "oi_buildup": oi_buildup,
+                "pcr": pcr,
+            })
+
+        results.sort(key=lambda r: r.get('change_percent') or 0, reverse=True)
+        return Response({"sector": sector, "stocks": results, "authenticated": authed})
+
+
 class TickerDataView(APIView):
     def get(self, request):
         with _cache_lock:
