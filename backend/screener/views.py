@@ -1551,6 +1551,62 @@ class NoTradeLogView(APIView):
         return Response({"rejected": rejected, "count": len(rejected)})
 
 
+class DataHealthView(APIView):
+    """
+    Aug 31 2026: Section 18 from the UI Corrections checklist -- Data
+    Health Center. Aggregates state that already existed scattered
+    across this file (is_authenticated(), _last_fetch, is_market_hours(),
+    FNO_STOCKS vs _stock_cache) into one honest status object. Adds no
+    new tracking -- e.g. no real per-feed latency measurement exists
+    in this codebase, so that field is left out rather than faked.
+    missing_symbols is a genuine list (which of the real 208 F&O
+    universe aren't in the current cache right now), not an estimate.
+    market_session is deliberately OPEN/CLOSED only (2 states) -- this
+    codebase doesn't have a confirmed PRE-OPEN/POST-CLOSE distinction
+    available, so the 4-state version the checklist describes isn't
+    built here rather than guessed at.
+    The LIVE/DEGRADED/DOWN staleness cutoff (400s) is a reasonable
+    heuristic (~2x this project's own documented ~2.5-3min real scan
+    cycle), not a "historically validated" threshold -- flagged as
+    such, easy to adjust if it proves too tight or too loose in
+    practice.
+    """
+    def get(self, request):
+        from .market_hours import is_market_hours
+
+        with _cache_lock:
+            cached_symbols = set(_stock_cache.keys())
+            stock_count = len(_stock_cache)
+            signal_count = len(_signal_cache)
+            last_fetch = _last_fetch
+
+        authed = is_authenticated()
+        staleness_seconds = round(time.time() - last_fetch, 1) if last_fetch else None
+        market_open = is_market_hours()
+        missing_symbols = [s for s in FNO_STOCKS if s not in cached_symbols]
+
+        if not authed:
+            status = "DOWN"
+        elif staleness_seconds is not None and staleness_seconds > 400:
+            status = "DEGRADED"
+        else:
+            status = "LIVE"
+
+        return Response({
+            "fyers_status": status,
+            "authenticated": authed,
+            "source": "Fyers",
+            "market_session": "OPEN" if market_open else "CLOSED",
+            "last_update": datetime.fromtimestamp(last_fetch).isoformat() if last_fetch else None,
+            "staleness_seconds": staleness_seconds,
+            "stock_universe_total": len(FNO_STOCKS),
+            "stock_cache_count": stock_count,
+            "missing_symbols": missing_symbols,
+            "missing_symbols_count": len(missing_symbols),
+            "live_signal_count": signal_count,
+        })
+
+
 class TickerDataView(APIView):
     def get(self, request):
         with _cache_lock:
