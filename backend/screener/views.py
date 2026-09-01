@@ -731,6 +731,18 @@ def _build_all():
     # every signal's audit_snapshot below rather than re-reading
     # _index_cache per stock. Same source line 1404 already uses
     # elsewhere in this file (_index_cache.get("india_vix")).
+    # Sep 1 2026: P1 from the FO-Radar/Sniper V2 logic review --
+    # relative strength (stock vs sector vs index). Both computed ONCE
+    # for the whole cycle here, not per-signal -- _compute_sector_performance
+    # already exists (used by the Heatmap) and is real: a genuine
+    # average of this cycle's own scanned stocks, not a fabricated
+    # cap-weighted index (see its own docstring). nifty_change_pct
+    # reuses the same _index_cache read pattern as cycle_vix above.
+    sector_change_map = {s["sector"]: s["change_percent"] for s in _compute_sector_performance(list(results.values()))}
+    with _cache_lock:
+        nifty_snapshot = _index_cache.get("nifty50")
+    nifty_change_pct = (nifty_snapshot or {}).get("change_percent")
+
     with _cache_lock:
         cycle_vix = _index_cache.get("india_vix")
     # Aug 31 2026: P0-6 from the UI Corrections checklist -- these
@@ -933,6 +945,13 @@ def _build_all():
             "directional_alignment": 30 if (bullish_aligned or bearish_aligned) else 0,
             "oi_confirmation": oi_adjustment,
         }
+        # Sep 1 2026: FO-Radar/Sniper V2 logic review asks "does a large
+        # OI bonus let a technically weak setup outrank a stronger
+        # one?" -- checked before adding anything: `score` here IS
+        # already the pre-OI base score, and it's already exposed below
+        # as "technical_score". No new field needed -- score_breakdown
+        # (added earlier this session) plus technical_score already
+        # answer this exact question.
 
         if oi:
             strike = oi.get('atm_strike') or strike
@@ -1183,6 +1202,35 @@ def _build_all():
         else:
             signal_age_minutes = 0.0
 
+        # Sep 1 2026: FO-Radar/Sniper V2 logic review, "R:R and
+        # structural feasibility" -- a target can be mathematically
+        # attractive but require price to clear a real support/
+        # resistance wall first. Factual, not a threshold I'm
+        # inventing: either stock_target1 sits past the nearest wall
+        # or it doesn't. None when support/resistance itself isn't
+        # available (honest, not a guess). Purely informational --
+        # doesn't reject or downgrade anything, same reasoning as
+        # everywhere else today: a real behavior change here needs a
+        # decision on what to DO with a flagged signal, not a guess.
+        resistance_val = signal_extra.get("resistance")
+        support_val = signal_extra.get("support")
+        if action == "BUY" and resistance_val:
+            target1_beyond_resistance = stock_t1 >= resistance_val
+        elif action == "SELL" and support_val:
+            target1_beyond_resistance = stock_t1 <= support_val
+        else:
+            target1_beyond_resistance = None
+
+        # Sep 1 2026: relative strength -- how much this stock's own
+        # move differs from its sector's average and from NIFTY's,
+        # this cycle. Positive stock_vs_sector_pct means it's
+        # outperforming its own sector peers, not just moving with
+        # them. None when the sector average or NIFTY's change wasn't
+        # available this cycle -- never a guessed baseline.
+        sector_change_pct = sector_change_map.get(stock["sector"])
+        stock_vs_sector_pct = round(stock['change_percent'] - sector_change_pct, 2) if sector_change_pct is not None else None
+        stock_vs_index_pct = round(stock['change_percent'] - nifty_change_pct, 2) if nifty_change_pct is not None else None
+
         signals.append({
             "symbol": sym, "name": sym, "price": price,
             "change": stock['change'], "change_percent": stock['change_percent'],
@@ -1199,6 +1247,9 @@ def _build_all():
             "pcr_chg": None, "option_symbol": option_symbol, "expiry_date": signal_extra.get("expiry_date"),
             "stock_sl": stock_sl, "stock_target1": stock_t1,
             "stock_target2": stock_t2, "stock_target3": stock_t3,
+            "target1_beyond_resistance": target1_beyond_resistance,
+            "sector_change_pct": sector_change_pct, "stock_vs_sector_pct": stock_vs_sector_pct,
+            "stock_vs_index_pct": stock_vs_index_pct,
             "strike": strike,
             "recommendation": f"{action} {opt_side} — ₹{strike} STRIKE",
             "timestamp": datetime.now().isoformat(),

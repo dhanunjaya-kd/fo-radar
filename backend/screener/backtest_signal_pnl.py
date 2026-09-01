@@ -1055,6 +1055,21 @@ def categorize_exit_reason(exit_reason):
     return "Other"
 
 
+def filter_rule_resolved(trades):
+    """
+    Aug 31 2026: separates genuinely rule-resolved outcomes (hit a real
+    SL or Target) from EOD/manual/other exits. compute_metrics()'s
+    headline win rate/PF/expectancy currently blend BOTH together --
+    verified directly (wins/losses/flats there is computed from the
+    full trades list with no exit-category filter at all). This
+    doesn't change that existing behavior; it's a second, explicit
+    lens on the SAME trades, for compute_metrics() to be called on
+    again separately. Uses categorize_exit_reason() so it can never
+    drift out of sync with what that function considers "resolved".
+    """
+    return [t for t in trades if categorize_exit_reason(t["exit_reason"]) in ("T1", "T2", "T3", "SL")]
+
+
 def compute_exit_analysis(trades):
     """
     Count/%/P&L/Avg R by exit-reason category -- P1 upgrade spec item.
@@ -1555,7 +1570,7 @@ def _pos_neg_hex(value):
     return "#F3F4F6", "#374151"
 
 
-def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE, excluded_count=0):
+def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE, excluded_count=0, rule_resolved_metrics=None):
     """
     Builds the full PDF report -- styled toward the TradeTron reference
     he shared: smooth gradient-filled equity curve, a red underwater/
@@ -2233,6 +2248,53 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
                 story.append(Paragraph(_esc(
                     "No Target-hit exits in this data to compare -- MFE/MAE would need the intratrade price path "
                     "regardless, which this project's signal logs don't capture."), caption))
+
+        # Aug 31 2026: the headline Scorecard/KPI numbers above blend
+        # EOD/manual exits together with genuine SL/Target resolutions
+        # -- verified directly against compute_metrics(), which has no
+        # exit-category filter at all. This makes that blend explicit
+        # by showing the same metrics recomputed on ONLY the rule-
+        # resolved subset, same capital_base so Net P&L/Return% stay
+        # on the same real capital footprint -- the sample size is the
+        # only thing that differs between the two columns.
+        story.append(Paragraph(_esc("Blended vs. Rule-Resolved Only"), h2))
+        story.append(Paragraph(_esc(
+            "The Scorecard above includes every exit type, EOD/manual marks included. This isolates ONLY trades "
+            "that hit a real SL or Target, to show whether the entry/exit rules themselves have an edge, separate "
+            "from how many positions just ran out of trading day."), caption))
+
+        if rule_resolved_metrics is None:
+            story.append(Paragraph(_esc(
+                "N/A -- no trades hit a real SL or Target in this period (every resolved trade was an EOD/manual mark)."), warn))
+        else:
+            rrm = rule_resolved_metrics
+            cmp_rows = [
+                ["", "All Trades (Blended)", "Rule-Resolved Only"],
+                ["Trades", str(metrics["total_trades"]), str(rrm["total_trades"])],
+                ["Win Rate", f"{metrics['win_rate_pct']}%", f"{rrm['win_rate_pct']}%"],
+                ["Profit Factor", na(metrics["profit_factor"]), na(rrm["profit_factor"])],
+                ["Expectancy/Trade (Rs)", rs(metrics["expectancy"]), rs(rrm["expectancy"])],
+                ["Net P&L (Rs)", rs(metrics["net_pnl"]), rs(rrm["net_pnl"])],
+            ]
+            cmp_table = Table(cmp_rows, colWidths=[50 * mm, 65 * mm, 65 * mm], repeatRows=1)
+            cmp_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ]))
+            story.append(cmp_table)
+            story.append(Spacer(1, 3 * mm))
+            if rrm["total_trades"] < 20:
+                story.append(Paragraph(_esc(
+                    f"⚠ Only {rrm['total_trades']} rule-resolved trades -- below the 20-trade floor this project "
+                    f"uses everywhere else. Treat the Rule-Resolved column as a first look, not a verified edge."), warn))
+        story.append(Spacer(1, 5 * mm))
 
         story.append(PageBreak())
 
@@ -2978,6 +3040,7 @@ if __name__ == "__main__":
         trades, excluded = load_all_trades()
         capital_base = compute_capital_base(trades)
         metrics = compute_metrics(trades, capital_base)
+        rule_resolved_metrics = compute_metrics(filter_rule_resolved(trades), capital_base)
         print_summary(metrics, excluded)
         if metrics:
             # Aug 23 2026: switched to PDF by default -- Excel's native
@@ -2988,7 +3051,7 @@ if __name__ == "__main__":
             # still here, just not called automatically -- swap the
             # line below if Excel is ever wanted again.
             try:
-                path = write_pdf_report(trades, metrics, excluded_count=excluded)
+                path = write_pdf_report(trades, metrics, excluded_count=excluded, rule_resolved_metrics=rule_resolved_metrics)
                 print(f"\nFull PDF report written to: {path}")
             except ImportError as e:
                 print(f"\nPDF generation needs matplotlib and reportlab -- pip install matplotlib reportlab")
