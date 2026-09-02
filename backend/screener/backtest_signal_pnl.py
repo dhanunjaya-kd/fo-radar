@@ -47,6 +47,7 @@ Run as a standalone script:
 import os
 import re
 import glob
+import statistics
 from datetime import datetime, timedelta
 from datetime import time as dt_time
 from collections import defaultdict
@@ -252,16 +253,44 @@ def load_all_trades(capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
             pnl = round(qty * (exit_price - entry), 2)
             pnl_pct = round((exit_price - entry) / entry * 100, 2)
 
+            # Sep 2 2026: "Time to target: distribution by target" --
+            # required in the original checklist, never built. SL Hit
+            # At / Target 1-3 Hit At are already logged on every row
+            # (check_outcomes() in excel_logger.py writes each one
+            # independently as its own threshold is crossed) -- just
+            # never read back out until now. Parsed the same defensive
+            # way "Exited At" already is elsewhere in this file: a
+            # blank or unparseable cell becomes None, never a guess.
+            def _parse_hit_at(col_name):
+                raw_val = row.get(col_name)
+                if not raw_val:
+                    return None
+                try:
+                    return datetime.strptime(str(raw_val), "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    return None
+
+            confidence_raw = row.get("Confidence")
+            try:
+                confidence = int(str(confidence_raw).replace('%', '').strip())
+            except (ValueError, TypeError):
+                confidence = None  # can't bucket this trade -- flagged downstream, never guessed
+
             trades.append({
                 "symbol": row.get("Symbol"), "action": row.get("Action"), "grade": row.get("Grade"),
                 "sector": row.get("Sector") or "Unknown",
                 "oi_confirmation": row.get("OI Confirmation") or "Unknown",
                 "pattern": row.get("Pattern") or "None",
+                "confidence": confidence,
                 "entry_dt": entry_dt, "exit_dt": exit_dt,
                 "entry": entry, "sl": sl, "exit_price": exit_price, "qty": qty,
                 "target1": t1, "target2": t2, "target3": t3,
                 "pnl": pnl, "pnl_pct": pnl_pct, "exit_reason": reason,
                 "r_multiple": compute_r_multiple(entry, sl, exit_price),
+                "sl_hit_at": _parse_hit_at("SL Hit At"),
+                "target1_hit_at": _parse_hit_at("Target 1 Hit At"),
+                "target2_hit_at": _parse_hit_at("Target 2 Hit At"),
+                "target3_hit_at": _parse_hit_at("Target 3 Hit At"),
             })
 
     trades.sort(key=lambda t: t["exit_dt"])
@@ -966,6 +995,136 @@ def compute_scorecard_status(metrics, min_sample_size=20):
     return ("Weak", f"Doesn't clear the Promising bar yet: {'; '.join(failed)}.")
 
 
+def compute_score_bucket_calibration(trades):
+    """
+    Sep 2 2026: "until score buckets are calibrated against forward
+    outcomes, the score is a ranking/qualification measure, not a
+    probability" -- the central methodological point of both V2 review
+    documents. Buckets every trade by its REAL logged Confidence value
+    (no reconstruction, no formula-versioning risk -- Confidence is
+    read directly off the row, exactly as it was actually shown live
+    that day).
+
+    Deliberately computed on RULE-RESOLVED trades only (real SL/Target
+    hits) for the win-rate/expectancy figures -- an EOD/manual mark
+    isn't really evidence the SCORE predicted anything, it's evidence
+    the position ran out of trading day. Sample size shown is the
+    rule-resolved count per bucket, not the blended one, so a bucket
+    that LOOKS like it has 40 trades but only 8 real resolutions isn't
+    silently treated as a 40-trade-strong conclusion.
+
+    Returns a list of dicts, one per non-empty bucket, in ascending
+    score order. Buckets below the 20-trade floor are still included
+    (so the empty buckets are visible, not hidden) but explicitly
+    flagged, matching this project's own small-sample convention
+    everywhere else.
+    """
+    bucket_defs = [(60, 65), (65, 70), (70, 75), (75, 80), (80, 85), (85, 90), (90, 101)]
+    results = []
+    for lo, hi in bucket_defs:
+        label = f"{lo}-{hi - 1}" if hi <= 100 else "90+"
+        bucket_trades = [t for t in trades if t.get("confidence") is not None and lo <= t["confidence"] < hi]
+        if not bucket_trades:
+            continue
+        rule_resolved = filter_rule_resolved(bucket_trades)
+        r_values = [t["r_multiple"] for t in rule_resolved if t.get("r_multiple") is not None]
+        wins = [t for t in rule_resolved if t["pnl"] > 0]
+
+        results.append({
+            "bucket": label,
+            "sample_size": len(bucket_trades),
+            "rule_resolved_count": len(rule_resolved),
+            "small_sample": len(rule_resolved) < 20,
+            "target_before_sl_rate_pct": round(len(wins) / len(rule_resolved) * 100, 1) if rule_resolved else None,
+            "avg_r": round(sum(r_values) / len(r_values), 3) if r_values else None,
+            "median_r": round(statistics.median(r_values), 3) if r_values else None,
+            "expectancy_r": round(sum(r_values) / len(r_values), 3) if r_values else None,
+        })
+    return results
+
+
+def compute_r_multiple_drawdown(trades):
+    """
+    Sep 2 2026: "Max drawdown: equity AND R-multiple drawdown" -- only
+    the rupee/equity version existed. This is the same peak-to-trough
+    logic as the equity drawdown, just walked over cumulative R instead
+    of cumulative rupees -- shows drawdown in a way that's comparable
+    across different capital-sizing choices, since R is capital-
+    independent by construction.
+    """
+    r_values = [t["r_multiple"] for t in trades if t.get("r_multiple") is not None]
+    if not r_values:
+        return None
+    cumulative = 0.0
+    peak = 0.0
+    max_dd_r = 0.0
+    for r in r_values:
+        cumulative += r
+        peak = max(peak, cumulative)
+        max_dd_r = min(max_dd_r, cumulative - peak)
+    return {"depth_r": round(max_dd_r, 2)}
+
+
+def compute_stop_first_rate(trades):
+    """
+    Sep 2 2026: "Stop-first rate: how often SL hits before any target."
+    Computed as SL-resolved / rule-resolved -- a rule-resolved trade,
+    by construction, resolved via exactly one of SL or a target
+    (check_outcomes() stops tracking a position the moment SL is hit,
+    same reasoning documented in categorize_exit_reason() elsewhere in
+    this file), so this is a direct, real ratio, not an estimate.
+    """
+    rule_resolved = filter_rule_resolved(trades)
+    if not rule_resolved:
+        return None
+    sl_count = sum(1 for t in rule_resolved if categorize_exit_reason(t["exit_reason"]) == "SL")
+    return {"stop_first_rate_pct": round(sl_count / len(rule_resolved) * 100, 1), "sl_count": sl_count, "rule_resolved_count": len(rule_resolved)}
+
+
+def compute_time_to_target(trades):
+    """
+    Sep 2 2026: "Time to target: distribution by target" -- required in
+    the original UI Corrections checklist, never built. For each target
+    level (1/2/3) and for SL, gathers every trade that actually reached
+    that specific level (using the per-level Hit At timestamp, not just
+    the trade's final exit) and reports how long it took from entry.
+
+    Deliberately per-level, not just "time to exit" -- a trade that
+    passed through Target 1 on its way to Target 2 has TWO real
+    data points here (time-to-T1 AND time-to-T2), not one, matching
+    what check_outcomes() actually recorded (each threshold's own
+    timestamp, independently).
+
+    Returns {level: {count, avg_minutes, median_minutes}} for whichever
+    levels have at least one real data point. A level with zero trades
+    reaching it is omitted entirely, not filled in with a zero -- an
+    empty level means "never happened", not "took 0 minutes".
+    """
+    levels = {
+        "SL": "sl_hit_at",
+        "Target 1": "target1_hit_at",
+        "Target 2": "target2_hit_at",
+        "Target 3": "target3_hit_at",
+    }
+    result = {}
+    for label, field in levels.items():
+        minutes_list = []
+        for t in trades:
+            hit_at = t.get(field)
+            if hit_at is None or t.get("entry_dt") is None:
+                continue
+            elapsed = (hit_at - t["entry_dt"]).total_seconds() / 60
+            if elapsed >= 0:  # a negative gap would mean corrupt timestamps -- excluded, not fabricated into a negative duration
+                minutes_list.append(elapsed)
+        if minutes_list:
+            result[label] = {
+                "count": len(minutes_list),
+                "avg_minutes": round(sum(minutes_list) / len(minutes_list), 1),
+                "median_minutes": round(statistics.median(minutes_list), 1),
+            }
+    return result
+
+
 def compute_time_of_day_breakdown(trades):
     """
     Buckets trades by ENTRY time-of-day into six fixed windows -- P1
@@ -1220,6 +1379,10 @@ def compute_metrics(trades, capital_base):
         "expectancy": round(net_pnl / len(trades), 2) if trades else None,
         "data_integrity": check_data_integrity(trades),
         "time_of_day": compute_time_of_day_breakdown(trades),
+        "time_to_target": compute_time_to_target(trades),
+        "score_bucket_calibration": compute_score_bucket_calibration(trades),
+        "r_multiple_drawdown": compute_r_multiple_drawdown(trades),
+        "stop_first_rate": compute_stop_first_rate(trades),
         "exit_analysis": compute_exit_analysis(trades),
         "streaks": compute_streaks(trades),
         "weekly": compute_weekly_pnl(trades),
@@ -1717,6 +1880,9 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
 
         dd_rs = f"{metrics['max_drawdown']['depth']:,.0f}" if metrics["max_drawdown"] else "N/A"
         dd_pct = f"{metrics['max_drawdown']['depth_pct']}%" if metrics["max_drawdown"] else "N/A"
+        dd_r = f"{metrics['r_multiple_drawdown']['depth_r']}R" if metrics.get("r_multiple_drawdown") else "N/A"
+        sfr = metrics.get("stop_first_rate")
+        sfr_str = f"{sfr['stop_first_rate_pct']}% ({sfr['sl_count']}/{sfr['rule_resolved_count']} rule-resolved)" if sfr else "N/A"
 
         headline_rows = [
             ["Starting Capital (Rs)", f"{metrics['capital_base']:,.0f}"],
@@ -1727,6 +1893,8 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
             ["Profit Factor", na(metrics["profit_factor"])],
             ["Expectancy/Trade (Rs)", na(metrics["expectancy"])],
             ["Max Drawdown (Rs / %)", f"{dd_rs} / {dd_pct}"],
+            ["Max Drawdown (R-multiple)", dd_r],
+            ["Stop-First Rate", sfr_str],
         ]
         headline_table = Table(headline_rows, colWidths=[75 * mm, 105 * mm])
         headline_style_cmds = [
@@ -2249,7 +2417,78 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
                     "No Target-hit exits in this data to compare -- MFE/MAE would need the intratrade price path "
                     "regardless, which this project's signal logs don't capture."), caption))
 
-        # Aug 31 2026: the headline Scorecard/KPI numbers above blend
+        # Sep 2 2026: "Time to target: distribution by target" -- see
+        # compute_time_to_target()'s own docstring for why this is
+        # per-level (a trade passing through T1 on its way to T2 counts
+        # for BOTH), not just "time to final exit".
+        story.append(Paragraph(_esc("Time to Target"), h2))
+        ttt = metrics.get("time_to_target") or {}
+        if not ttt:
+            story.append(Paragraph(_esc("N/A -- no trade in this backtest has a real Hit At timestamp to measure from."), warn))
+        else:
+            ttt_rows = [["Level", "Trades Reaching It", "Avg Time", "Median Time"]]
+            for level in ("SL", "Target 1", "Target 2", "Target 3"):
+                if level in ttt:
+                    d = ttt[level]
+                    ttt_rows.append([level, str(d["count"]), _fmt_holding(d["avg_minutes"]), _fmt_holding(d["median_minutes"])])
+            ttt_table = Table(ttt_rows, colWidths=[35 * mm, 40 * mm, 45 * mm, 45 * mm], repeatRows=1)
+            ttt_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ]))
+            story.append(ttt_table)
+        story.append(Spacer(1, 5 * mm))
+
+        # Sep 2 2026: "until score buckets are calibrated against
+        # forward outcomes, the score is a ranking/qualification
+        # measure, not a probability" -- the central point of both V2
+        # review documents. Bucketed on REAL logged Confidence, no
+        # reconstruction.
+        story.append(Paragraph(_esc("Score Bucket Calibration"), h2))
+        story.append(Paragraph(_esc(
+            "Whether the score actually predicts outcomes, or just ranks candidates. Target-before-SL rate/R "
+            "figures use rule-resolved trades only within each bucket (an EOD mark isn't evidence the score "
+            "predicted anything). A monotonic climb from low buckets to high supports treating the score as "
+            "meaningful; a flat or inconsistent pattern means it currently doesn't, regardless of what any "
+            "single bucket's number looks like in isolation."), caption))
+        calib = metrics.get("score_bucket_calibration") or []
+        if not calib:
+            story.append(Paragraph(_esc("N/A -- no trade in this backtest has a real logged Confidence value to bucket by."), warn))
+        else:
+            calib_rows = [["Score Bucket", "Sample (rule-resolved)", "Target-before-SL Rate", "Avg R", "Median R"]]
+            any_small = False
+            for b in calib:
+                flag = " ⚠" if b["small_sample"] else ""
+                any_small = any_small or b["small_sample"]
+                calib_rows.append([
+                    b["bucket"], f"{b['rule_resolved_count']}{flag}",
+                    na(b["target_before_sl_rate_pct"], "%"), na(b["avg_r"]), na(b["median_r"]),
+                ])
+            calib_table = Table(calib_rows, colWidths=[28 * mm, 40 * mm, 40 * mm, 26 * mm, 26 * mm], repeatRows=1)
+            calib_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ]))
+            story.append(calib_table)
+            if any_small:
+                story.append(Spacer(1, 2 * mm))
+                story.append(Paragraph(_esc(
+                    "⚠ = below the 20-trade floor this project uses everywhere else -- treat that bucket's row as a first look, not a verified figure."), warn))
+        story.append(Spacer(1, 5 * mm))
+
+
         # EOD/manual exits together with genuine SL/Target resolutions
         # -- verified directly against compute_metrics(), which has no
         # exit-category filter at all. This makes that blend explicit
