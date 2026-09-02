@@ -1779,6 +1779,53 @@ _daily_backtest_thread = threading.Thread(target=_daily_backtest_worker, daemon=
 _daily_backtest_thread.start()
 
 
+_eod_scan_lock = threading.Lock()
+_eod_scan_in_progress = False
+_eod_scan_last_result = None  # {"universe": int, "with_data": int, "watchlist_len": int, "stopped_early": bool, "finished_at": iso string} -- last completed run, either trigger source
+
+
+def _run_eod_scan_now(trigger_label):
+    """
+    Sep 2 2026: the actual scan-and-rank work, extracted so BOTH the
+    scheduled worker below AND the manual trigger endpoint call the
+    EXACT same code path -- one real implementation, not two that
+    could drift apart. Lock-protected so a manual click can never
+    overlap a scheduled run (or another manual click) -- concurrent
+    scans would race on the same output files and double up real
+    Fyers load for no reason. Returns True if it actually ran, False
+    if a scan was already in progress and this call was skipped.
+    """
+    global _eod_scan_in_progress, _eod_scan_last_result
+    with _eod_scan_lock:
+        if _eod_scan_in_progress:
+            return False
+        _eod_scan_in_progress = True
+
+    try:
+        print(f"[{datetime.now()}] EOD scan ({trigger_label}): starting.")
+        from .fyers_client import get_quotes, get_history
+        from .eod_scanner import run as run_eod_scan
+        from .next_day_ranking import build_watchlist
+
+        raw_data, stopped_early = run_eod_scan(get_quotes, get_history)
+        if stopped_early:
+            print(f"[{datetime.now()}] EOD scan ({trigger_label}): stopped early on a real rate-limit hit -- "
+                  f"whatever was scanned is saved; ranking runs on that partial set, not blocked.")
+
+        watchlist, universe, with_data = build_watchlist(sectors_map=SECTORS, raw_data=raw_data)
+        print(f"[{datetime.now()}] EOD scan ({trigger_label}): done. Universe {universe}, "
+              f"{with_data} with enough data, {len(watchlist)} ranked.")
+        _eod_scan_last_result = {
+            "universe": universe, "with_data": with_data, "watchlist_len": len(watchlist),
+            "stopped_early": stopped_early, "trigger": trigger_label,
+            "finished_at": datetime.now().isoformat(),
+        }
+        return True
+    finally:
+        with _eod_scan_lock:
+            _eod_scan_in_progress = False
+
+
 def _eod_scan_worker():
     """
     Sep 2 2026: automatic Next Day Watchlist scan -- full NSE universe,
@@ -1793,6 +1840,18 @@ def _eod_scan_worker():
     background jobs; running them back-to-back rather than
     simultaneously avoids compounding rate-limit load on top of
     whatever the live F&O scanner is already doing this same minute.
+
+    Sep 2 2026 FIX -- real bug, confirmed live: this used to check
+    now.hour == RUN_HOUR (an EXACT hour match). If the server isn't
+    already running continuously through the 16:30-16:59 window --
+    which doesn't match how this project is actually run (started
+    fresh each session, not kept running 24/7) -- that window passes
+    with nobody there to catch it, and the scan silently never fires
+    for the entire rest of the day. Now checks whether the current
+    time is AT OR PAST the scheduled time (not equal to one specific
+    hour) AND today hasn't run yet -- catches up immediately on
+    whatever the next 60s check is, however many hours late the
+    server actually started.
 
     See eod_scanner.py's own module docstring for the real, confirmed
     Fyers rate-limit numbers this whole design is paced against, and
@@ -1810,21 +1869,9 @@ def _eod_scan_worker():
             today_str = now.strftime("%Y-%m-%d")
             is_weekday = now.weekday() < 5
 
-            if is_weekday and now.hour == RUN_HOUR and now.minute >= RUN_MINUTE and last_run_date != today_str:
+            if is_weekday and (now.hour, now.minute) >= (RUN_HOUR, RUN_MINUTE) and last_run_date != today_str:
                 last_run_date = today_str
-                print(f"[{now}] EOD scan: starting scheduled Next Day Watchlist scan.")
-                from .fyers_client import get_quotes, get_history
-                from .eod_scanner import run as run_eod_scan
-                from .next_day_ranking import build_watchlist
-
-                raw_data, stopped_early = run_eod_scan(get_quotes, get_history)
-                if stopped_early:
-                    print(f"[{datetime.now()}] EOD scan: stopped early on a real rate-limit hit -- "
-                          f"whatever was scanned is saved; ranking runs on that partial set, not blocked.")
-
-                watchlist, universe, with_data = build_watchlist(sectors_map=SECTORS, raw_data=raw_data)
-                print(f"[{datetime.now()}] EOD scan: done. Universe {universe}, "
-                      f"{with_data} with enough data, {len(watchlist)} ranked.")
+                _run_eod_scan_now("scheduled")
 
             time.sleep(60)
         except Exception as e:
@@ -2358,6 +2405,33 @@ class RiskBudgetSettingsView(APIView):
         with open(USER_SETTINGS_FILE, "w", encoding="utf-8") as f:
             json.dump({"risk_budget_rupees": value}, f)
         return Response({"risk_budget_rupees": value})
+
+
+class EODScanTriggerView(APIView):
+    """
+    Sep 2 2026: manual "run it now" for the Next Day Watchlist scan --
+    the automatic post-close trigger (_eod_scan_worker) only fires
+    once a day and depends on the server actually being up when the
+    window arrives; this lets a scan happen on demand instead, any
+    time. Runs in a background thread -- a real full-universe scan
+    takes many minutes (paced deliberately, see eod_scanner.py), so
+    this returns immediately rather than holding the HTTP connection
+    open that whole time. Shares _run_eod_scan_now()'s lock with the
+    scheduled worker -- calling this while a scan (scheduled or
+    manual) is already running is a no-op, not a second overlapping
+    scan.
+    GET checks status/last result. POST starts a scan if one isn't
+    already running.
+    """
+    def get(self, request):
+        return Response({"scan_in_progress": _eod_scan_in_progress, "last_result": _eod_scan_last_result})
+
+    def post(self, request):
+        if _eod_scan_in_progress:
+            return Response({"started": False, "reason": "A scan is already in progress."}, status=200)
+        thread = threading.Thread(target=_run_eod_scan_now, args=("manual",), daemon=True)
+        thread.start()
+        return Response({"started": True, "reason": "Scan started -- this typically takes several minutes for the full NSE universe. Check back via GET, or just reopen the Next Day tab shortly."})
 
 
 class IndexTrackerAvailableDatesView(APIView):

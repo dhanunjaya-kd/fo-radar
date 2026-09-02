@@ -15,6 +15,7 @@ from screener.views import (
     StrategyBacktestRunView, StrategyBacktestStatusView,
     DailyBacktestRangeReportView, SectorStocksView, NoTradeLogView,
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
+    EODScanTriggerView,
 )
 
 urlpatterns = [
@@ -46,6 +47,9 @@ urlpatterns = [
     # Sep 2 2026: read/write the risk-budget-per-trade setting -- see
     # RiskBudgetSettingsView in views.py.
     path('api/settings/risk-budget/', RiskBudgetSettingsView.as_view(), name='risk_budget_settings'),
+    # Sep 2 2026: manual "run it now" for the Next Day Watchlist scan --
+    # see EODScanTriggerView in views.py.
+    path('api/next-day-watchlist/scan/', EODScanTriggerView.as_view(), name='eod_scan_trigger'),
     path('api/index-tracker/<str:index_name>/dates/', IndexTrackerAvailableDatesView.as_view(), name='index_tracker_dates'),
     path('api/index-tracker/<str:index_name>/export/', IndexTrackerExportView.as_view(), name='index_tracker_export'),
     path('api/index-backtest/<str:index_name>/', IndexBacktestView.as_view(), name='index_backtest'),
