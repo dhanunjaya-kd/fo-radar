@@ -1,0 +1,70 @@
+==============================================================================
+SIGNAL LOG INVENTORY -- generated 2026-09-02 07:02:45
+Read-only. No metrics computed. No values inferred or reconstructed.
+==============================================================================
+
+Dates with a log file: 20
+Earliest: 2026-08-03   Latest: 2026-09-01
+(Note: this is FILE coverage, not necessarily contiguous trading days -- gaps
+ below are listed explicitly rather than assumed away.)
+
+------------------------------------------------------------------------------
+PER-FILE ROW COUNTS
+------------------------------------------------------------------------------
+  2026-08-03  (flat layout)  37 row(s)
+  2026-08-04  (flat layout)  40 row(s)
+  2026-08-05  (flat layout)  17 row(s)
+  2026-08-06  (flat layout)  7 row(s)
+  2026-08-07  (flat layout)  56 row(s)
+  2026-08-08  (nested layout)  28 row(s)
+  2026-08-10  (nested layout)  70 row(s)
+  2026-08-11  (nested layout)  12 row(s)
+  2026-08-12  (nested layout)  13 row(s)
+  2026-08-13  (nested layout)  8 row(s)
+  2026-08-14  (nested layout)  13 row(s)
+  2026-08-20  (nested layout)  8 row(s)
+  2026-08-21  (nested layout)  21 row(s)
+  2026-08-24  (nested layout)  23 row(s)
+  2026-08-25  (nested layout)  27 row(s)
+  2026-08-26  (nested layout)  17 row(s)
+  2026-08-27  (nested layout)  13 row(s)
+  2026-08-28  (nested layout)  13 row(s)
+  2026-08-31  (nested layout)  12 row(s)
+  2026-09-01  (nested layout)  10 row(s)
+  TOTAL raw rows across all files: 445
+  (This is raw row count, NOT resolved-trade count -- unresolved/still-open
+   rows and rows with no priceable outcome are included here, unfiltered.)
+
+------------------------------------------------------------------------------
+HEADER SCHEMA VARIANTS FOUND: 2
+------------------------------------------------------------------------------
+  MULTIPLE different header layouts found -- schema is NOT consistent across
+  the full date range. Any reconstruction (e.g. base_score_pre_oi) must be
+  scoped to a single schema variant's date range, not applied blindly across all.
+
+  Variant 1: used on 2 date(s) -- 2026-08-03 to 2026-08-04 -- DIFFERENT from current excel_logger.py schema
+    Dates: 2026-08-03, 2026-08-04
+    Columns (23): ['Timestamp', 'Symbol', 'Action', 'Grade', 'Confidence', 'Stock Price', 'Change %', 'Strike', 'Entry (Premium)', 'SL', 'Target 1', 'Target 2', 'Target 3', 'Qty', 'R:R', 'OI Confirmation', 'Pattern', 'PCR', 'IV %', 'RSI', 'ADX', 'Sector', 'Exited At']
+
+  Variant 2: used on 18 date(s) -- 2026-08-05 to 2026-09-01 -- MATCHES current excel_logger.py schema
+    Dates: 2026-08-05, 2026-08-06, 2026-08-07, 2026-08-08, 2026-08-10, 2026-08-11, 2026-08-12, 2026-08-13, 2026-08-14, 2026-08-20, 2026-08-21, 2026-08-24, 2026-08-25, 2026-08-26, 2026-08-27, 2026-08-28, 2026-08-31, 2026-09-01
+    Columns (29): ['Timestamp', 'Symbol', 'Action', 'Grade', 'Confidence', 'Stock Price', 'Change %', 'Strike', 'Entry (Premium)', 'SL', 'Target 1', 'Target 2', 'Target 3', 'Qty', 'R:R', 'OI Confirmation', 'Pattern', 'PCR', 'IV %', 'RSI', 'ADX', 'Sector', 'Option Symbol', 'SL Hit At', 'Target 1 Hit At', 'Target 2 Hit At', 'Target 3 Hit At', 'Outcome', 'Exited At']
+
+------------------------------------------------------------------------------
+DISTINCT VALUES SEEN -- 'OI Confirmation' column
+------------------------------------------------------------------------------
+  'CONFIRMED'
+  'CONFLICT'
+  'NEUTRAL'
+  'NO_DATA'
+
+  Directly answers the OI-downgrade/OI-reject variant question: only states
+  that actually appear above were ever logged. If 'CONTRADICTING' or similar
+  never appears, that variant has no historical rows to test at all --
+  confirming (not assuming) that conflicting-OI candidates were rejected
+  before ever reaching the log.
+
+------------------------------------------------------------------------------
+DISTINCT VALUES SEEN -- 'Grade' column
+------------------------------------------------------------------------------
+  ['A', 'A+', 'B', 'C']
