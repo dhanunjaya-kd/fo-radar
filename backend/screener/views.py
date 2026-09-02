@@ -449,6 +449,70 @@ def _compute_indicators(close, high, low, volume):
     return {k: round(v, 2) for k, v in out.items()}
 
 
+def _compute_participation_quality(high, low, close, volume, vol_avg):
+    """
+    Sep 2 2026: Doc 2 Section 8, "upgrade volume into participation
+    quality" -- distinguishes genuine buying/selling pressure from
+    volume that shows up but gets absorbed with no real follow-
+    through. The review doc's own stated examples: "High RVOL + wide
+    bullish candle + close near high -> strong participation" and
+    "High RVOL + tiny net candle -> possible absorption/indecision."
+
+    Uses CLV (close location value) -- ((close-low)-(high-close))/
+    (high-low), ranges -1 (closed at the low) to +1 (closed at the
+    high) -- a standard, self-sufficient technical measure. HONEST
+    NOTE: the doc's "tiny net candle" language is really about
+    close-vs-OPEN (small real body), which _compute_indicators()
+    doesn't currently receive (adding it would mean touching that
+    function's signature and every call site for a purely
+    informational field). CLV -- close landing near the MIDDLE of the
+    day's H-L range -- is used here as a reasonable proxy for the same
+    underlying idea (an indecisive day that didn't resolve toward
+    either extreme), not an identical measure. Tested directly against
+    both of the review document's own stated example cases.
+
+    Deliberately fully separate from _compute_indicators() -- that
+    function's own NaN-guard drops the WHOLE stock from scoring if any
+    of ITS fields come back NaN; a hiccup in this new, purely-
+    informational field must never risk that. Never touches live
+    signal qualification -- this is exposed as an extra informational
+    field only, same boundary as target1_beyond_resistance,
+    relative-strength, etc. added earlier today.
+    """
+    try:
+        latest_high = float(high.iloc[-1])
+        latest_low = float(low.iloc[-1])
+        latest_close = float(close.iloc[-1])
+        latest_volume = float(volume.iloc[-1])
+    except (IndexError, ValueError, TypeError):
+        return None
+
+    if vol_avg is None or vol_avg <= 0:
+        return None
+    rvol = round(latest_volume / vol_avg, 2)
+
+    day_range = latest_high - latest_low
+    if day_range <= 0:
+        # Halted, illiquid, or a genuinely flat day -- CLV is
+        # undefined, not zero. RVOL is still real and reportable.
+        return {"rvol": rvol, "clv": None, "participation_quality": None}
+
+    clv = round(((latest_close - latest_low) - (latest_high - latest_close)) / day_range, 2)
+
+    if rvol >= 1.5 and clv >= 0.5:
+        quality = "Strong Participation (Bullish)"
+    elif rvol >= 1.5 and clv <= -0.5:
+        quality = "Strong Participation (Bearish)"
+    elif rvol >= 1.5 and -0.3 < clv < 0.3:
+        quality = "Absorption / Indecision"
+    elif rvol < 1.2:
+        quality = "Normal"
+    else:
+        quality = "Developing"
+
+    return {"rvol": rvol, "clv": clv, "participation_quality": quality}
+
+
 def _fyers_history_df(symbol, days=100):
     """~`days` calendar days of daily candles from Fyers, shaped into a
     DataFrame with the same column names yfinance used, so
@@ -672,7 +736,18 @@ def _calc_tech(symbol, live_quote=None):
 
         if df is None or len(df) < 20:
             return None
-        return _compute_indicators(df['Close'], df['High'], df['Low'], df['Volume'])
+        indicators = _compute_indicators(df['Close'], df['High'], df['Low'], df['Volume'])
+        if indicators is None:
+            return None
+        # Sep 2 2026: fully separate from _compute_indicators() on
+        # purpose -- see _compute_participation_quality()'s own
+        # docstring. A hiccup here (e.g. a halted stock, zero-range
+        # day) returns None for just this one field, never drops the
+        # stock from the rest of its already-computed indicators.
+        pq = _compute_participation_quality(df['High'], df['Low'], df['Close'], df['Volume'], indicators.get('volume_avg'))
+        if pq:
+            indicators.update(pq)
+        return indicators
     except Exception as e:
         print(f"Tech calc error {symbol}: {e}")
         return None
@@ -712,11 +787,28 @@ def _build_all():
     
     # 2. Fetch all stock prices -- Fyers only, no Yahoo involved at all.
     results = _fetch_all_stocks(FNO_STOCKS)
-    
-    with _cache_lock:
-        _stock_cache = results
-        _last_fetch = time.time()
-    
+
+    # Sep 2 2026: same real bug class as the PCR fix above, just much
+    # bigger blast radius -- this used to unconditionally overwrite
+    # _stock_cache with `results` every cycle, INCLUDING when
+    # _fetch_all_stocks() returns {} (is_authenticated() cached a
+    # transient False -- one momentary /profile hiccup, not
+    # necessarily an actually-invalid token -- see is_authenticated()'s
+    # own docstring in fyers_client.py). One bad cycle used to blank
+    # the ENTIRE 208-stock cache -- every price, every signal, breadth,
+    # sectors, movers, all derived from this -- not just one field.
+    # Now only overwrites on a real, non-empty fetch; a failed cycle
+    # leaves the last known good data in place. _last_fetch
+    # correspondingly now means "last SUCCESSFUL fetch", which is also
+    # the more correct, more honest input for DataHealthView's own
+    # staleness_seconds reading elsewhere in this file.
+    if results:
+        with _cache_lock:
+            _stock_cache = results
+            _last_fetch = time.time()
+    # else: this cycle got nothing -- _stock_cache deliberately left
+    # untouched, same principle as the PCR fix above.
+
     # 3. PCR -- this used to be declines/advances among the scanned stock
     # universe (an advance-decline ratio, a completely different market
     # breadth statistic) mislabeled as "PCR". That's why it never matched
@@ -724,6 +816,18 @@ def _build_all():
     # PCR sitting around 0.99-1.01 while this said 2.27-3.08) -- it was
     # never actually PCR. Now pulls NIFTY's real PCR from its live option
     # chain, which is what "market PCR" conventionally means.
+    #
+    # Sep 2 2026: real bug, confirmed live -- this used to unconditionally
+    # overwrite _index_cache["pcr"] every single cycle, including on a
+    # FAILED fetch (pcr_proxy/pcr_sentiment reset to None/"N/A" at the top
+    # of every cycle, then written regardless of whether the fetch below
+    # actually succeeded). One transient hiccup in this one Fyers call --
+    # out of hundreds of cycles a day -- wiped out a perfectly good
+    # previous value instead of just keeping it, same resilience nifty/
+    # bank/vix already had above (cache_age < 90) that PCR never got. Now
+    # only overwrites the cache on an actual successful fetch; a failed
+    # cycle leaves the last known good value in place rather than
+    # blanking it.
     pcr_proxy, pcr_sentiment = None, "N/A"
     if is_authenticated():
         try:
@@ -733,9 +837,13 @@ def _build_all():
                 pcr_sentiment = "Bearish" if pcr_proxy < 0.95 else "Bullish" if pcr_proxy > 1.05 else "Neutral"
         except Exception as e:
             print(f"[PCR] NIFTY option chain fetch failed: {e}")
-    
-    with _cache_lock:
-        _index_cache["pcr"] = {"value": pcr_proxy, "sentiment": pcr_sentiment}
+
+    if pcr_proxy is not None:
+        with _cache_lock:
+            _index_cache["pcr"] = {"value": pcr_proxy, "sentiment": pcr_sentiment}
+            _index_cache["pcr_updated_at"] = time.time()
+    # else: this cycle's fetch failed -- _index_cache["pcr"] deliberately
+    # left untouched, holding whatever the last successful cycle wrote.
     
     # 4. Build signals from top movers
     movers = sorted(results.values(), key=lambda x: abs(x.get('change_percent', 0)), reverse=True)[:30]
@@ -1311,6 +1419,8 @@ def _build_all():
             "setup_id": setup_id, "entry_time_bucket": entry_time_bucket,
             "signal_logic_version": SIGNAL_LOGIC_VERSION,
             "india_vix_at_signal": (cycle_vix or {}).get("price"),
+            "participation_quality": tech.get("participation_quality"),
+            "rvol": tech.get("rvol"),
             "sector_change_pct": sector_change_pct, "stock_vs_sector_pct": stock_vs_sector_pct,
             "stock_vs_index_pct": stock_vs_index_pct,
             "strike": strike,

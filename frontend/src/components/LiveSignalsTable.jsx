@@ -88,28 +88,6 @@ function fmtNum(v, digits = 1) {
   return v != null ? v.toFixed(digits) : '—';
 }
 
-// Aug 31 2026: TradingView's real NSE option symbol format, confirmed
-// against real examples on TradingView's own community (e.g.
-// "NIFTY250814C24700") -- genuinely different from this codebase's own
-// Fyers-format option_symbol (e.g. "ADANIPOWER25SEP205PE"): TradingView
-// encodes the FULL expiry date (year+month+DAY) and a single C/P
-// letter, not year+month + CE/PE. Requires the real expiry_date field
-// (added to the backend alongside this) -- returns null rather than a
-// guessed symbol if it's missing (e.g. an older cached signal from
-// before this field existed, or no live option chain was ever
-// confirmed for this signal).
-function buildTradingViewOptionSymbol(signal) {
-  if (!signal.expiry_date || signal.strike == null) return null;
-  const d = new Date(`${signal.expiry_date}T00:00:00`); // fixed local midnight, avoids a UTC-shift changing the date
-  if (isNaN(d.getTime())) return null;
-  const yy = String(d.getFullYear()).slice(-2);
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  const optLetter = signal.action === 'BUY' ? 'C' : 'P';
-  const strike = Math.round(signal.strike);
-  return `NSE:${signal.symbol}${yy}${mm}${dd}${optLetter}${strike}`;
-}
-
 function DetailDrawer({ signal, onClose }) {
   // Aug 29 2026: 52W High/Low + Technical, folded in from the removed
   // Watchlist tab (it used useSignals() -- the exact same underlying
@@ -138,40 +116,24 @@ function DetailDrawer({ signal, onClose }) {
   const contractLabel = formatOptionContractLabel(signal);
   const age = formatSignalAge(signal.timestamp);
 
-  // Aug 31 2026: user confirmed live -- the trade.fyers.in version just
-  // opened Fyers' own default chart (NIFTY), not the actual signal's
-  // stock, exactly as the "no per-symbol URL" finding predicted.
-  // TradingView is a real fix, not another guess: it's Fyers' own
-  // underlying charting engine (per their site: "TradingView-powered
-  // platform"), and unlike Fyers' web app, TradingView DOES have a
-  // real, documented, public per-symbol chart URL --
-  // tradingview.com/chart/?symbol=EXCHANGE:TICKER -- confirmed via
-  // their own widget docs (tvwidgetsymbol parameter) and a live
-  // TradingView URL with a ticker directly in the path. Opens the
-  // UNDERLYING STOCK's chart (NSE:ASTRAL), not the exact CE/PE
-  // contract -- NSE equity symbols map reliably 1:1 onto TradingView,
-  // but options-contract symbol formats aren't confirmed to match
-  // between the two, so this deliberately doesn't guess at that.
-  // Still copies the exact option contract symbol to clipboard, so
-  // it's available to paste/search once the stock's chart is open.
-  // Aug 31 2026: now attempts the EXACT option contract's own chart,
-  // using the real TradingView format confirmed above -- not just the
-  // underlying stock. Falls back to the stock's own chart (still
-  // correct, just less specific) if expiry_date isn't present on this
-  // signal, rather than guessing at a symbol that's likely wrong.
+  // Sep 2 2026: switched to Fyers on request, accepting the known
+  // tradeoff -- confirmed (again) via a fresh search that no working
+  // per-symbol trade.fyers.in URL exists (same finding as Aug 31,
+  // re-verified rather than assumed stale). This opens Fyers' generic
+  // trading terminal, NOT the specific contract's chart -- clipboard-
+  // copy of the exact option symbol is now the primary way to actually
+  // find the contract once there, not a bonus alongside a deep link.
   const handleOpenChart = async () => {
     if (signal.option_symbol) {
       try {
         await navigator.clipboard.writeText(signal.option_symbol);
         setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setTimeout(() => setCopied(false), 2500);
       } catch (e) {
-        // clipboard blocked -- still open the chart below
+        // clipboard blocked -- still open Fyers below
       }
     }
-    const tvOptionSymbol = buildTradingViewOptionSymbol(signal);
-    const target = tvOptionSymbol || `NSE:${signal.symbol}`;
-    window.open(`https://www.tradingview.com/chart/?symbol=${target}`, '_blank', 'noopener,noreferrer');
+    window.open('https://trade.fyers.in/', '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -193,7 +155,7 @@ function DetailDrawer({ signal, onClose }) {
           <div className={`rounded-lg p-3 text-center border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-rose-500/10 border-rose-500/25'}`}>
             <button
               onClick={handleOpenChart}
-              title={`Open ${signal.symbol}'s exact contract chart on TradingView${signal.option_symbol ? ` (copies ${signal.option_symbol} too)` : ''}`}
+              title={signal.option_symbol ? `Copy ${signal.option_symbol} and open Fyers -- paste into Fyers' search to find this exact contract` : 'Open Fyers'}
               className={`text-base font-bold underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}
             >
               {contractLabel}
@@ -206,10 +168,10 @@ function DetailDrawer({ signal, onClose }) {
             </div>
             <p className="text-[9px] text-slate-500 mt-1.5">
               {copied
-                ? `✓ ${signal.option_symbol} copied — chart opening`
-                : signal.expiry_date
-                  ? `Tap to open the exact ${signal.strike} ${isBuy ? 'CE' : 'PE'} chart`
-                  : `Tap to open ${signal.symbol} chart (exact strike unavailable)`}
+                ? `✓ ${signal.option_symbol} copied — paste into Fyers' search`
+                : signal.option_symbol
+                  ? `Tap to copy ${signal.option_symbol} and open Fyers (no per-symbol link exists on their platform)`
+                  : `Tap to open Fyers (exact contract symbol unavailable)`}
             </p>
             {signal.near_expiry_warning === true && (
               <p className="text-[10px] text-amber-400 text-center mt-1">

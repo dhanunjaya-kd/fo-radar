@@ -15,6 +15,7 @@ import CrudeOilTracker from './components/CrudeOilTracker';
 import BullionTracker from './components/BullionTracker';
 import NewsFeed from './components/NewsFeed';
 import FundamentalsWatchlist from './components/FundamentalsWatchlist';
+import NextDayWatchlist from './components/NextDayWatchlist';
 import DailyBacktestTab from './components/DailyBacktestTab';
 import Dashboard from './components/Dashboard';
 import SettingsPanel from './components/SettingsPanel';
@@ -40,7 +41,7 @@ const IconMaximize = ({ size = 17 }) => (
 // Aug 28 2026: added 'dashboard' -- new home tab for the Dashboard-
 // specific panels from the 12-screen redesign reference (Sector
 // Performance now, more to follow).
-const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings', 'strategy'];
+const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'nextday', 'backtest', 'settings', 'strategy'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -112,6 +113,7 @@ function AppShell() {
     { id: 'bullion', label: 'Gold & Silver', count: null },
     { id: 'news', label: 'News', count: null },
     { id: 'value', label: 'Value Watchlist', count: null },
+    { id: 'nextday', label: 'Next Day', count: null },
     { id: 'backtest', label: 'Daily Backtest', count: null },
     { id: 'settings', label: 'Settings', count: null },
     { id: 'strategy', label: 'Strategy Backtest', count: null },
@@ -142,13 +144,20 @@ function AppShell() {
   // not deleted, just not competing for a slot in the primary nav.
   // Properly folding it into Daily Backtest as a sub-section (rather
   // than just hiding it) needs seeing that component first.
-  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'backtest', 'settings'];
+  // Sep 2 2026: 'nextday' (Next Day Watchlist) added -- a real,
+  // built, tested feature (full-NSE automatic post-close scan), not
+  // an exception to the "don't add tabs just because there's space"
+  // rule above; that rule was about not padding the nav with things
+  // that don't do anything yet. Placed next to 'value' -- both are
+  // watchlist-style screens for browsing when there's a moment, not
+  // live-monitoring tabs like Live Signals or Index Tracker.
+  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'nextday', 'backtest', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   const tabIcon = (id) => ({
     dashboard: '🏠', settings: '⚙️', signals: '⚡',
     oi: '📊', index: '📈', market: '📋', crude: '🛢️', bullion: '🥇',
-    news: '📰', value: '💎', backtest: '🧮', strategy: '🧪',
+    news: '📰', value: '💎', nextday: '🔭', backtest: '🧮', strategy: '🧪',
   }[id] || '');
 
   const TabButton = ({ tab }) => (
@@ -279,6 +288,7 @@ function AppShell() {
         {activeTab === 'bullion' && <BullionTracker />}
         {activeTab === 'news' && <NewsFeed />}
         {activeTab === 'value' && <FundamentalsWatchlist />}
+        {activeTab === 'nextday' && <NextDayWatchlist />}
         {activeTab === 'backtest' && <DailyBacktestTab />}
         {activeTab === 'strategy' && <StrategyBacktest />}
       </div>

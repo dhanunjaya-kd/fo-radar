@@ -1817,6 +1817,37 @@ def _derive_technical_bias(rsi, sma_distance_pct, closes):
     return direction
 
 
+def compute_market_regime(technical_bias, volatility_environment):
+    """
+    Sep 2 2026: real Regime Engine ingredient -- combines the two
+    things already built today (Technical Bias for trend direction,
+    Volatility Environment for volatility level) into one label.
+    Deliberately informational only, same boundary as every other
+    classification added today -- this does NOT gate live signal
+    selection. Whether a regime label actually predicts anything for
+    THIS strategy is a real question, but it's a "wait for enough
+    real accumulated data" question (same one already blocking the
+    base-score-floor and OI-handling ablation variants), not a "build
+    more code" question -- there's nothing further to build here
+    until that data exists.
+
+    Returns None if either input is missing, never a guessed regime.
+    """
+    if not technical_bias or not volatility_environment:
+        return None
+
+    is_bullish = technical_bias.startswith("Bullish")
+    is_bearish = technical_bias.startswith("Bearish")
+    is_calm = volatility_environment.startswith("Low") or volatility_environment == "Normal"
+
+    if is_bullish:
+        return "Trending Bullish (Calm)" if is_calm else "Volatile Bullish"
+    elif is_bearish:
+        return "Trending Bearish (Calm)" if is_calm else "Volatile Bearish"
+    else:
+        return "Range-Bound / Consolidating" if is_calm else "Choppy / Directionless"
+
+
 def get_trend_momentum_card(index_name, current_spot=None):
     """
     Sep 2 2026: the actual "Trend & Momentum" card -- pure price-action
@@ -1866,5 +1897,6 @@ def get_trend_momentum_card(index_name, current_spot=None):
         "pivot_support_s1": s1,
         "expected_daily_range": round(atr / 2, 2) if atr is not None else None,
         "volatility_environment": vol_environment,
+        "market_regime": compute_market_regime(technical_bias, vol_environment),
         "sample_size": len(candles),
     }

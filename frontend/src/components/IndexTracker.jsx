@@ -183,6 +183,94 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
 // real computation over every historical snapshot file, not a cheap
 // cache read like the rest of this tab. Shows the 30-minute horizon
 // inline for a quick read; the download has 15/30/60min side by side.
+// Sep 2 2026: pure price-action second opinion (RSI/SMA/ATR/pivot S-R/
+// Technical Bias) alongside the OI-based summary above -- see
+// TrendMomentumView/get_trend_momentum_card()'s own docstrings for why
+// this is deliberately separate, never sharing the "Bias" name.
+function TrendMomentumCard({ indexName }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_BASE}/api/trend-momentum/${indexName}/`)
+      .then(r => r.json())
+      .then(d => {
+        if (cancelled) return;
+        if (d.error) { setError(d.error); setData(null); }
+        else { setData(d); setError(null); }
+      })
+      .catch(e => { if (!cancelled) setError(e.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [indexName]);
+
+  if (loading) {
+    return <div className="py-6 text-center text-slate-500 text-xs">Loading trend & momentum...</div>;
+  }
+  if (error || !data) {
+    return <div className="py-6 text-center text-slate-500 text-xs">{error || 'Not enough data yet.'}</div>;
+  }
+
+  const biasColor = data.technical_bias?.startsWith('Bullish') ? 'text-emerald-400'
+    : data.technical_bias?.startsWith('Bearish') ? 'text-rose-400'
+    : 'text-slate-300';
+
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-white">{DISPLAY_NAME[indexName] || indexName} · Trend &amp; Momentum</h3>
+        <span className="text-[10px] text-slate-500">{data.sample_size} days of history</span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="bg-slate-900/60 rounded-lg p-2.5 text-center">
+          <p className="text-[9px] text-slate-500 uppercase">Closing Price</p>
+          <p className="text-sm font-bold text-white tabular-nums">{data.closing_price?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
+        </div>
+        <div className="bg-slate-900/60 rounded-lg p-2.5 text-center">
+          <p className="text-[9px] text-slate-500 uppercase">Technical Bias</p>
+          <p className={`text-sm font-bold ${biasColor}`}>{data.technical_bias}</p>
+        </div>
+        <div className="bg-slate-900/60 rounded-lg p-2.5 text-center">
+          <p className="text-[9px] text-slate-500 uppercase">Daily ATR (14)</p>
+          <p className="text-sm font-bold text-white tabular-nums">{data.daily_atr} pts</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <p className="text-[9px] text-slate-500 uppercase tracking-wide mb-1.5">Trend &amp; Momentum</p>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between"><span className="text-slate-400">RSI (14)</span><span className="text-white tabular-nums">{data.rsi_14}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">20-Day SMA</span><span className="text-white tabular-nums">{data.sma_20?.toLocaleString('en-IN')}</span></div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Distance from SMA</span>
+              <span className={`tabular-nums ${data.distance_from_sma_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {data.distance_from_sma_pct >= 0 ? '+' : ''}{data.distance_from_sma_pct}%
+              </span>
+            </div>
+            <div className="flex justify-between"><span className="text-slate-400">Annualized Volatility</span><span className="text-white tabular-nums">{data.annualized_volatility_pct}%</span></div>
+          </div>
+        </div>
+        <div>
+          <p className="text-[9px] text-slate-500 uppercase tracking-wide mb-1.5">Pivot Levels (not OI-based)</p>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between"><span className="text-slate-400">Resistance (R1)</span><span className="text-rose-400 tabular-nums">{data.pivot_resistance_r1?.toLocaleString('en-IN')}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Support (S1)</span><span className="text-emerald-400 tabular-nums">{data.pivot_support_s1?.toLocaleString('en-IN')}</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Expected Daily Range</span><span className="text-white tabular-nums">± {data.expected_daily_range} pts</span></div>
+            <div className="flex justify-between"><span className="text-slate-400">Volatility Environment</span><span className="text-white">{data.volatility_environment}</span></div>
+          </div>
+        </div>
+      </div>
+      <p className="text-[9px] text-slate-600 mt-3">
+        Pure price-action read (RSI/SMA/pivot points) -- a second opinion alongside the OI-based Sentiment above, not a replacement for it.
+      </p>
+    </div>
+  );
+}
+
 function BacktestSection({ indexName }) {
   const [show, setShow] = useState(false);
   const [data, setData] = useState(null);
@@ -455,6 +543,10 @@ function IndexSection({ indexName, showBacktest = true, topSideContent = null })
             {topSideContent}
           </div>
         )}
+      </div>
+
+      <div className="px-4 pt-4">
+        <TrendMomentumCard indexName={indexName} />
       </div>
 
       <div className="p-4">
