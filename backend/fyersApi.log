@@ -8263,3 +8263,4 @@
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-02 12:21:44,418+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-02 12:21:44,599+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/options-chain-v3","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-02 12:25:13,972+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/quotes","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-02 12:26:23,593+0530","service":"FyersAPI"}
