@@ -2071,6 +2071,28 @@ class IndexTrackerView(APIView):
         return Response(clean_json({"index": name, "date": date_str, "snapshots": rows}))
 
 
+class TrendMomentumView(APIView):
+    """
+    Sep 2 2026: pure price-action "Trend & Momentum" card (RSI/SMA/ATR/
+    pivot S-R/volatility/Technical Bias) -- genuine second opinion
+    alongside the options-derived Bias IndexTrackerView above already
+    serves, not a replacement. See get_trend_momentum_card()'s own
+    docstring in index_tracker.py for the full reasoning.
+    GET /api/trend-momentum/<NIFTY|BANKNIFTY>/"""
+    def get(self, request, index_name):
+        from .index_tracker import get_trend_momentum_card, INDEX_SYMBOLS
+        name = index_name.upper()
+        if name not in INDEX_SYMBOLS:
+            return Response({"error": f"index_name must be one of {list(INDEX_SYMBOLS)}"}, status=400)
+        with _cache_lock:
+            live_snapshot = _index_cache.get("nifty50" if name == "NIFTY" else "banknifty")
+        current_spot = (live_snapshot or {}).get("price")
+        card = get_trend_momentum_card(name, current_spot=current_spot)
+        if card is None:
+            return Response({"error": "Not enough real daily history yet to compute this -- try again shortly."}, status=503)
+        return Response(clean_json(card))
+
+
 class IndexTrackerAvailableDatesView(APIView):
     """Which dates actually have logged snapshot data for one index --
     lets the frontend offer a real, populated date picker rather than

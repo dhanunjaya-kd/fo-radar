@@ -14,7 +14,7 @@ from screener.views import (
     DailyBacktestRangeView, FiftyTwoWeekRangeView, BroaderIndicesView,
     StrategyBacktestRunView, StrategyBacktestStatusView,
     DailyBacktestRangeReportView, SectorStocksView, NoTradeLogView,
-    DataHealthView,
+    DataHealthView, TrendMomentumView,
 )
 
 urlpatterns = [
@@ -37,6 +37,9 @@ urlpatterns = [
     path('api/signals/export/<str:date_str>/', SignalExcelExportByDateView.as_view(), name='signals_export_by_date'),
     path('api/signals/watchlist-csv/', SignalWatchlistCsvView.as_view(), name='signals_watchlist_csv'),
     path('api/index-tracker/<str:index_name>/', IndexTrackerView.as_view(), name='index_tracker'),
+    # Sep 2 2026: pure price-action second opinion (RSI/SMA/ATR/pivot
+    # S-R/Technical Bias) -- see TrendMomentumView in views.py.
+    path('api/trend-momentum/<str:index_name>/', TrendMomentumView.as_view(), name='trend_momentum'),
     path('api/index-tracker/<str:index_name>/dates/', IndexTrackerAvailableDatesView.as_view(), name='index_tracker_dates'),
     path('api/index-tracker/<str:index_name>/export/', IndexTrackerExportView.as_view(), name='index_tracker_export'),
     path('api/index-backtest/<str:index_name>/', IndexBacktestView.as_view(), name='index_backtest'),
