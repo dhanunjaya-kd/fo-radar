@@ -291,6 +291,13 @@ def load_all_trades(capital_per_trade=DEFAULT_CAPITAL_PER_TRADE):
                 "target1_hit_at": _parse_hit_at("Target 1 Hit At"),
                 "target2_hit_at": _parse_hit_at("Target 2 Hit At"),
                 "target3_hit_at": _parse_hit_at("Target 3 Hit At"),
+                # Sep 2 2026: from today's excel_logger.py schema change --
+                # absent entirely on any row logged before today (row.get
+                # returns None for a column that doesn't exist on an older
+                # file's header, which is the honest, correct behavior,
+                # not an error).
+                "india_vix_at_signal": row.get("India VIX At Signal"),
+                "expiry_date": row.get("Expiry Date"),
             })
 
     trades.sort(key=lambda t: t["exit_dt"])
@@ -1079,6 +1086,91 @@ def compute_stop_first_rate(trades):
         return None
     sl_count = sum(1 for t in rule_resolved if categorize_exit_reason(t["exit_reason"]) == "SL")
     return {"stop_first_rate_pct": round(sl_count / len(rule_resolved) * 100, 1), "sl_count": sl_count, "rule_resolved_count": len(rule_resolved)}
+
+
+def compute_volatility_regime_breakdown(trades):
+    """
+    Sep 2 2026: pre-built for when real data exists under today's new
+    India VIX At Signal column -- every trade logged before today has
+    this as None (honest gap, not an error) and is excluded here, not
+    guessed into a band.
+
+    Bands are standard, widely-used India VIX conventions (calm/
+    normal/elevated/high) -- not thresholds fitted to this strategy's
+    own data, same distinction as the near-expiry-warning's 2-day
+    cutoff elsewhere in this project. A real regime ENGINE (gating
+    live signals by volatility) is a different, bigger thing,
+    deliberately not this -- this is read-only analysis of what
+    already happened.
+    """
+    bands = [
+        ("Calm (VIX<15)", 0, 15), ("Normal (15-20)", 15, 20),
+        ("Elevated (20-25)", 20, 25), ("High (VIX>=25)", 25, 999),
+    ]
+    result = {}
+    for label, lo, hi in bands:
+        band_trades = [t for t in trades if t.get("india_vix_at_signal") is not None and lo <= t["india_vix_at_signal"] < hi]
+        if not band_trades:
+            continue
+        rule_resolved = filter_rule_resolved(band_trades)
+        r_values = [t["r_multiple"] for t in rule_resolved if t.get("r_multiple") is not None]
+        wins = [t for t in rule_resolved if t["pnl"] > 0]
+        result[label] = {
+            "sample_size": len(band_trades),
+            "rule_resolved_count": len(rule_resolved),
+            "small_sample": len(rule_resolved) < 20,  # same floor used everywhere else in this file
+            "win_rate_pct": round(len(wins) / len(rule_resolved) * 100, 1) if rule_resolved else None,
+            "avg_r": round(sum(r_values) / len(r_values), 3) if r_values else None,
+        }
+    return result
+
+
+def compute_expiry_day_breakdown(trades):
+    """
+    Sep 2 2026: pre-built for when real data exists under today's new
+    Expiry Date column -- every trade logged before today has this as
+    None and is excluded, not guessed. Buckets by real calendar
+    distance from entry to that trade's own actual expiry (not an
+    assumed monthly/weekly calendar) -- "0 days" means entered ON
+    expiry day itself.
+    """
+    buckets = {"Expiry day (0 days)": [], "1-2 days out": [], "3-7 days out": [], "8+ days out": []}
+    for t in trades:
+        exp = t.get("expiry_date")
+        entry_dt = t.get("entry_dt")
+        if not exp or not entry_dt:
+            continue
+        try:
+            exp_date = datetime.strptime(str(exp), "%Y-%m-%d").date()
+        except Exception:
+            continue
+        days_out = (exp_date - entry_dt.date()).days
+        if days_out < 0:
+            continue  # corrupt/impossible -- excluded, not fabricated into a negative bucket
+        elif days_out == 0:
+            buckets["Expiry day (0 days)"].append(t)
+        elif days_out <= 2:
+            buckets["1-2 days out"].append(t)
+        elif days_out <= 7:
+            buckets["3-7 days out"].append(t)
+        else:
+            buckets["8+ days out"].append(t)
+
+    result = {}
+    for label, bucket_trades in buckets.items():
+        if not bucket_trades:
+            continue
+        rule_resolved = filter_rule_resolved(bucket_trades)
+        r_values = [t["r_multiple"] for t in rule_resolved if t.get("r_multiple") is not None]
+        wins = [t for t in rule_resolved if t["pnl"] > 0]
+        result[label] = {
+            "sample_size": len(bucket_trades),
+            "rule_resolved_count": len(rule_resolved),
+            "small_sample": len(rule_resolved) < 20,  # same floor used everywhere else in this file
+            "win_rate_pct": round(len(wins) / len(rule_resolved) * 100, 1) if rule_resolved else None,
+            "avg_r": round(sum(r_values) / len(r_values), 3) if r_values else None,
+        }
+    return result
 
 
 def compute_time_to_target(trades):
