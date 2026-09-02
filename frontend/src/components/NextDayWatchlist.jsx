@@ -49,6 +49,43 @@ export default function NextDayWatchlist() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Sep 2 2026: manual "run it now" trigger -- the automatic post-close
+  // scan only fires once a day and depends on the server being up when
+  // that window arrives; this lets a scan happen on demand instead.
+  const [scanStatus, setScanStatus] = useState(null); // {scan_in_progress, last_result}
+  const [triggering, setTriggering] = useState(false);
+  const [triggerMessage, setTriggerMessage] = useState(null);
+
+  const loadScanStatus = () => {
+    fetch(`${API_BASE}/api/next-day-watchlist/scan/`)
+      .then(r => r.json())
+      .then(setScanStatus)
+      .catch(() => {});
+  };
+
+  const runScanNow = async () => {
+    setTriggering(true);
+    setTriggerMessage(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/next-day-watchlist/scan/`, { method: 'POST' });
+      const d = await res.json();
+      setTriggerMessage(d.reason);
+      loadScanStatus();
+    } catch (e) {
+      setTriggerMessage(`Couldn't start scan: ${e.message}`);
+    } finally {
+      setTriggering(false);
+    }
+  };
+
+  useEffect(() => {
+    loadScanStatus();
+    // Poll status a bit faster while a scan might be running (this tab
+    // is exactly where someone watches it finish), separate from the
+    // main 5-min watchlist-data poll below.
+    const interval = setInterval(loadScanStatus, 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +127,26 @@ export default function NextDayWatchlist() {
         transparent, documented weights -- not an opaque single number. Sector Strength only computes for stocks
         with a known sector; the rest show Unknown honestly rather than a guess.
       </TabInfoBanner>
+
+      <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 gap-3">
+        <div className="min-w-0">
+          <p className="text-xs text-slate-300">
+            {scanStatus?.scan_in_progress
+              ? '🔄 Scan in progress — this typically takes several minutes for the full NSE universe.'
+              : scanStatus?.last_result
+                ? `Last run (${scanStatus.last_result.trigger}): ${scanStatus.last_result.universe} scanned, ${scanStatus.last_result.watchlist_len} ranked, finished ${new Date(scanStatus.last_result.finished_at).toLocaleTimeString('en-IN')}`
+                : 'No scan run yet this session.'}
+          </p>
+          {triggerMessage && <p className="text-[11px] text-slate-500 mt-1">{triggerMessage}</p>}
+        </div>
+        <button
+          onClick={runScanNow}
+          disabled={triggering || scanStatus?.scan_in_progress}
+          className="text-xs font-medium px-3 py-2 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/25 hover:bg-purple-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
+        >
+          {scanStatus?.scan_in_progress ? 'Running...' : '🔭 Run Scan Now'}
+        </button>
+      </div>
 
       {data && (
         <div className="grid grid-cols-3 gap-3">
