@@ -90,6 +90,18 @@ from .backtest_signal_pnl import (
 
 MIN_TRUSTWORTHY_SAMPLE = 20  # same floor used everywhere else in this project
 
+# Sep 2 2026: confirmed via git show -s --format=%ci on the Initial
+# commit (2026-08-08 07:59:01) AND empirically -- log_inventory.py's
+# CONFLICT-dates breakdown shows all 5 real historical CONFLICT rows
+# fall on Aug 4/5/7, ZERO from Aug 8 onward across 18 straight dates.
+# Two independent confirmations, not one assumption: git shows no
+# further changes to oi_adjustment/quality_signals since this commit,
+# and the actual logged data shows the CONFLICT-reject behavior has
+# held continuously since. Aug 3-7 predates git entirely (unknown
+# formula, confirmed different schema) and must never be blended into
+# a reconstruction-based comparison with the trusted window.
+TRUSTED_WINDOW_START = "2026-08-08"
+
 
 # ---------------------------------------------------------------------------
 # 1. Load real historical trades, WITH the extra fields (Confidence, PCR)
@@ -100,10 +112,13 @@ MIN_TRUSTWORTHY_SAMPLE = 20  # same floor used everywhere else in this project
 #    it's used by the live production PDF pipeline.
 # ---------------------------------------------------------------------------
 
-def load_trades_with_scoring():
+def load_trades_with_scoring(min_date=None):
     """Same row-reading/exclusion logic as load_all_trades(), extended to
     also capture confidence (int) and pcr (float|None) per trade -- needed
-    to reconstruct base_score_pre_oi. Returns (trades, excluded_count)."""
+    to reconstruct base_score_pre_oi. min_date ("YYYY-MM-DD"), when given,
+    skips any file dated before it entirely -- used to keep the pre-git,
+    formula-unconfirmed window out of any reconstruction-based comparison.
+    Returns (trades, excluded_count)."""
     if load_workbook is None:
         return [], 0
 
@@ -113,6 +128,8 @@ def load_trades_with_scoring():
     excluded = 0
 
     for date_str in list_signal_log_dates():
+        if min_date and date_str < min_date:
+            continue
         nested = os.path.join(LOG_DIR, date_str, f"signals_{date_str}.xlsx")
         flat = os.path.join(LOG_DIR, f"signals_{date_str}.xlsx")
         path = nested if os.path.exists(nested) else flat
@@ -425,21 +442,14 @@ def _fmt_group(g):
             f"Gross loss Rs {g['gross_loss_rs']} | Net P&L Rs {g['net_pnl_rs']}")
 
 
-def run():
-    trades, excluded = load_trades_with_scoring()
-    print(f"Loaded {len(trades)} resolved trades ({excluded} excluded -- still open or no priceable outcome).\n")
-    if not trades:
-        print("No trades to analyze.")
-        return
-
-    out_dir = os.path.join(LOG_DIR, "ablation_reports")
-    os.makedirs(out_dir, exist_ok=True)
-    today = datetime.now().strftime("%Y-%m-%d")
-    out_path = os.path.join(out_dir, f"ablation_{today}.txt")
-
+def _run_variant_comparison(trades, excluded, label):
+    """Runs the full variant comparison + verdict for one trade set,
+    returns the report lines. Extracted so it can run once for the
+    trusted Aug-8+ window and again for full history without
+    duplicating the loop."""
     lines = []
     lines.append("=" * 78)
-    lines.append(f"OFFLINE ABLATION TEST -- {today}")
+    lines.append(label)
     lines.append(f"{len(trades)} resolved trades loaded, {excluded} excluded (unpriceable/still open)")
     lines.append("=" * 78)
     lines.append("")
@@ -447,6 +457,11 @@ def run():
     for key, reason in NOT_TESTABLE.items():
         lines.append(f"  - {key}: {reason}")
     lines.append("")
+
+    if not trades:
+        lines.append("No trades in this window -- nothing to compare.")
+        lines.append("")
+        return lines
 
     variant_reports = {}
     for key, (desc, fn) in VARIANTS.items():
@@ -472,12 +487,79 @@ def run():
             lines.append(_fmt_group(g))
         lines.append("")
 
-    lines.append("=" * 78)
-    lines.append("VERDICT -- which change is actually supported by the data")
+    lines.append("VERDICT for this window -- which change is actually supported by the data")
     lines.append("(NOT simply the variant with the highest P&L -- see build_verdict()'s")
     lines.append(" own docstring for the exact criteria applied)")
-    lines.append("=" * 78)
+    lines.append("-" * 78)
     lines.extend(build_verdict(variant_reports))
+    lines.append("")
+    return lines
+
+
+def report_conflict_outcomes(all_trades):
+    """
+    Sep 2 2026: real historical CONFLICT rows (pre-Aug-8, under the
+    since-replaced -15-penalty rule) -- reported PLAINLY, one row per
+    trade, deliberately NOT run through compute_metrics()/the verdict
+    machinery. This project's own 20-trade floor makes n=5 meaningless
+    for a win-rate/PF figure; presenting an average here would imply a
+    confidence the sample can't support. This is the same thing the
+    original review already did with "the one CONFLICT signal that
+    had resolved" -- just with whatever more real data exists now,
+    still shown individually rather than averaged.
+    """
+    conflict_trades = [t for t in all_trades if t.get("oi_confirmation") == "CONFLICT"]
+    lines = []
+    lines.append("=" * 78)
+    lines.append("REAL CONFLICT-ROW OUTCOMES (pre-Aug-8 window, since-replaced -15-penalty era)")
+    lines.append("=" * 78)
+    lines.append(f"{len(conflict_trades)} trade(s) with a real, priceable resolution -- listed individually,")
+    lines.append("deliberately not averaged into a win-rate/PF (5 is far below the 20-trade floor")
+    lines.append("this project uses everywhere else for a trustworthy aggregate figure).")
+    lines.append("")
+    if not conflict_trades:
+        lines.append("None resolved with a real, priceable outcome.")
+    else:
+        for t in sorted(conflict_trades, key=lambda x: x["entry_dt"]):
+            r = f"{t['r_multiple']}R" if t.get("r_multiple") is not None else "N/A"
+            lines.append(f"  {t['entry_dt'].strftime('%Y-%m-%d')}  {t['symbol']:<12} {t['action']:<4} "
+                          f"{t['exit_reason']:<20} P&L Rs {t['pnl']:>10,.2f}  {r}")
+    lines.append("")
+    return lines
+
+
+def run():
+    all_trades, all_excluded = load_trades_with_scoring()
+    print(f"Loaded {len(all_trades)} resolved trades total ({all_excluded} excluded -- still open or no priceable outcome).\n")
+    if not all_trades:
+        print("No trades to analyze.")
+        return
+
+    trusted_trades, trusted_excluded = load_trades_with_scoring(min_date=TRUSTED_WINDOW_START)
+
+    out_dir = os.path.join(LOG_DIR, "ablation_reports")
+    os.makedirs(out_dir, exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    out_path = os.path.join(out_dir, f"ablation_{today}.txt")
+
+    lines = []
+    lines.append("#" * 78)
+    lines.append("# PRIMARY RESULT -- TRUSTED WINDOW ONLY")
+    lines.append(f"# From {TRUSTED_WINDOW_START} onward -- schema-consistent AND formula-stable,")
+    lines.append("# confirmed via git history AND zero CONFLICT rows logged since. Trust")
+    lines.append("# this section over the full-history one below it.")
+    lines.append("#" * 78)
+    lines.extend(_run_variant_comparison(trusted_trades, trusted_excluded, f"TRUSTED WINDOW ({TRUSTED_WINDOW_START} onward)"))
+
+    lines.append("#" * 78)
+    lines.append("# SECONDARY RESULT -- FULL HISTORY, INCLUDING THE PRE-GIT WINDOW")
+    lines.append("# Includes Aug 3-7, where schema AND formula are confirmed inconsistent")
+    lines.append("# with today's code. Shown for reference only -- do not treat this as")
+    lines.append("# more reliable than the trusted-window result above.")
+    lines.append("#" * 78)
+    lines.extend(_run_variant_comparison(all_trades, all_excluded, "FULL HISTORY (all dates)"))
+
+    lines.extend(report_conflict_outcomes(all_trades))
 
     report_text = "\n".join(lines)
     print(report_text)
