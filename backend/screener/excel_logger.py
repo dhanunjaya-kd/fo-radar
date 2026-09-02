@@ -51,6 +51,24 @@ COLUMNS = [
     "PCR", "IV %", "RSI", "ADX", "Sector", "Option Symbol",
     "SL Hit At", "Target 1 Hit At", "Target 2 Hit At", "Target 3 Hit At",
     "Outcome", "Exited At",
+    # Sep 2 2026: added so every FUTURE signal is self-documenting --
+    # no more reconstructing what formula/market-condition generated a
+    # trade after the fact. All four values already existed in the
+    # live signal dict, just never persisted:
+    #  - Signal Logic Version: which SIGNAL_LOGIC_VERSION (views.py)
+    #    generated this exact row. Directly closes the gap that took
+    #    a git-history dig + a code comment to work around for Aug 3-7.
+    #  - Base Score (Pre-OI): the exact technical_score BEFORE any OI
+    #    adjustment -- no more reconstructing it from Confidence minus
+    #    an assumed bonus.
+    #  - India VIX At Signal: real VIX reading at the moment this
+    #    signal fired -- enables an honest volatility-regime breakdown
+    #    later, which wasn't possible before (no historical VIX was
+    #    ever tied to a specific signal).
+    #  - Stock vs Sector %: real relative-strength reading at signal
+    #    time -- lets a future review actually check whether relative
+    #    strength predicts anything, instead of guessing.
+    "Signal Logic Version", "Base Score (Pre-OI)", "India VIX At Signal", "Stock vs Sector %",
 ]
 
 _lock = threading.Lock()
@@ -247,6 +265,8 @@ def _write_new_row(ws, signal):
         "", "", "", "",  # SL/Target 1/2/3 Hit At -- blank until it happens
         "",  # Outcome
         "",  # Exited At -- blank until it drops out
+        signal.get("signal_logic_version"), signal.get("technical_score"),
+        signal.get("india_vix_at_signal"), signal.get("stock_vs_sector_pct"),
     ]
     ws.append(row)
     row_num = ws.max_row

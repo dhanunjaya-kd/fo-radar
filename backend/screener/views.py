@@ -48,6 +48,19 @@ _index_cache_updated_at = 0.0  # Aug 20 2026: lets _build_all() below reuse what
 # on Fyers' /quotes endpoint, and this redundant double-fetch was a real,
 # substantial, previously-accepted-as-lightweight contributor to that).
 _signal_cache = []
+# Sep 2 2026: manually-bumped marker for the live SCORING/QUALIFICATION
+# logic specifically -- distinct from backtest_signal_pnl.py's own
+# STRATEGY_RULE_VERSION, which describes that file's report format,
+# not this. Exists because of a real, confirmed gap: the Aug 3-7
+# window's actual formula (CONFLICT was a -15 penalty, not a reject)
+# was only recoverable by combining git history with a comment left
+# in the code -- there was no direct record on the trades themselves.
+# Bump this by hand whenever the score/oi_adjustment/quality_signals
+# logic changes, so a future review never has to repeat that
+# archaeology. Persisted per-signal below, not just held in this one
+# global -- a global alone would only tell you TODAY's version, not
+# which version generated a signal logged weeks ago.
+SIGNAL_LOGIC_VERSION = "v1 (2026-09-02)"
 _no_trade_cache = []  # Aug 31 2026: P0-6 -- rejected candidates this cycle, with reasons
 _tech_cache = {}
 _cache_lock = threading.Lock()
@@ -1296,6 +1309,8 @@ def _build_all():
             "stock_target2": stock_t2, "stock_target3": stock_t3,
             "target1_beyond_resistance": target1_beyond_resistance,
             "setup_id": setup_id, "entry_time_bucket": entry_time_bucket,
+            "signal_logic_version": SIGNAL_LOGIC_VERSION,
+            "india_vix_at_signal": (cycle_vix or {}).get("price"),
             "sector_change_pct": sector_change_pct, "stock_vs_sector_pct": stock_vs_sector_pct,
             "stock_vs_index_pct": stock_vs_index_pct,
             "strike": strike,
