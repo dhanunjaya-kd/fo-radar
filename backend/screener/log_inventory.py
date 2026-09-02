@@ -70,6 +70,7 @@ def run():
     grade_values_seen = set()
     per_file_rows = {}
     unreadable = []
+    conflict_dates = {}  # date_str -> count of CONFLICT rows that day
 
     for date_str in sorted(dates):
         nested = os.path.join(LOG_DIR, date_str, f"signals_{date_str}.xlsx")
@@ -98,6 +99,8 @@ def run():
                     val = raw[col["OI Confirmation"]]
                     if val is not None:
                         oi_states_seen.add(str(val))
+                        if str(val) == "CONFLICT":
+                            conflict_dates[date_str] = conflict_dates.get(date_str, 0) + 1
                 if "Grade" in col:
                     val = raw[col["Grade"]]
                     if val is not None:
@@ -158,6 +161,24 @@ def run():
         lines.append("  before ever reaching the log.")
     else:
         lines.append("  No 'OI Confirmation' column found in any readable file, or all values blank.")
+    lines.append("")
+
+    lines.append("-" * 78)
+    lines.append("'CONFLICT' ROWS -- EXACTLY WHERE THEY ARE")
+    lines.append("-" * 78)
+    if conflict_dates:
+        total_conflict = sum(conflict_dates.values())
+        lines.append(f"  {total_conflict} row(s) with OI Confirmation == 'CONFLICT', across {len(conflict_dates)} date(s):")
+        for d in sorted(conflict_dates):
+            lines.append(f"    {d}: {conflict_dates[d]} row(s)")
+        lines.append("")
+        lines.append("  Raw row count -- still includes unresolved/no-outcome rows, not yet")
+        lines.append("  filtered down to only the ones with a real, priceable resolution. That")
+        lines.append("  filtering is exactly what ablation_test.py's loader already does for")
+        lines.append("  every other trade; same logic applies here once you're ready to look at")
+        lines.append("  what these specific rows actually resolved to.")
+    else:
+        lines.append("  None found. 'CONFLICT' never appears as a value in any readable file.")
     lines.append("")
 
     lines.append("-" * 78)
