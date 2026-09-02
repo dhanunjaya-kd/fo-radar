@@ -2,6 +2,7 @@ import os
 import time
 import threading
 from datetime import datetime, timedelta
+from datetime import time as dt_time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
@@ -1196,11 +1197,46 @@ def _build_all():
         # None only if that timestamp genuinely couldn't be recovered
         # (e.g. a pre-existing row from before this field existed).
         if locked and locked.get('created_at'):
-            signal_age_minutes = round((datetime.now() - locked['created_at']).total_seconds() / 60, 1)
+            signal_created_at = locked['created_at']
+            signal_age_minutes = round((datetime.now() - signal_created_at).total_seconds() / 60, 1)
         elif locked:
+            signal_created_at = None
             signal_age_minutes = None
         else:
+            signal_created_at = datetime.now()
             signal_age_minutes = 0.0
+
+        # Sep 1 2026: Section 16 from the V2 logic review, "create
+        # Signal IDs and Setup IDs" -- a stable identifier for THIS
+        # specific signal occurrence, so a recurring setup can be
+        # tracked as one thing across its lifetime instead of just
+        # symbol+action. Derived purely from data already available
+        # (symbol, action, signal_created_at) -- no new Excel column,
+        # no schema-change risk. entry_time_bucket reuses the EXACT
+        # same 6 windows backtest_signal_pnl.py's own
+        # compute_time_of_day_breakdown() already uses, so live
+        # signals and historical backtest buckets stay directly
+        # comparable rather than drifting apart. Both None only when
+        # signal_created_at itself couldn't be recovered (same rare
+        # case signal_age_minutes already handles above).
+        if signal_created_at:
+            setup_id = f"{sym}_{action}_{signal_created_at.strftime('%Y%m%d_%H%M%S')}"
+            entry_clock_time = signal_created_at.time()
+            entry_time_bucket = None
+            for label, b_start, b_end in [
+                ("09:15-10:00", dt_time(9, 15), dt_time(10, 0)),
+                ("10:00-11:00", dt_time(10, 0), dt_time(11, 0)),
+                ("11:00-12:00", dt_time(11, 0), dt_time(12, 0)),
+                ("12:00-13:00", dt_time(12, 0), dt_time(13, 0)),
+                ("13:00-14:00", dt_time(13, 0), dt_time(14, 0)),
+                ("14:00-15:30", dt_time(14, 0), dt_time(15, 30)),
+            ]:
+                if b_start <= entry_clock_time < b_end:
+                    entry_time_bucket = label
+                    break
+        else:
+            setup_id = None
+            entry_time_bucket = None
 
         # Sep 1 2026: FO-Radar/Sniper V2 logic review, "R:R and
         # structural feasibility" -- a target can be mathematically
@@ -1245,9 +1281,21 @@ def _build_all():
             "risk_reward": rr, "risk_amount": risk_amount, "reward_amount": reward_amount,
             "price_basis": price_basis, "signal_age_minutes": signal_age_minutes,
             "pcr_chg": None, "option_symbol": option_symbol, "expiry_date": signal_extra.get("expiry_date"),
+            # Sep 2 2026: Section 9, "change risk rules close to expiry."
+            # 2 days is a near-universal risk marker for options
+            # specifically (theta decay and pin risk both spike hard
+            # in the final 1-2 sessions, regardless of which strategy
+            # is being traded) -- different in kind from thresholds
+            # like the spread filter or a score floor, which genuinely
+            # are strategy-specific and were deliberately left for
+            # validated data rather than guessed. None when
+            # days_to_expiry itself isn't available -- never a
+            # guessed warning state.
+            "near_expiry_warning": (signal_extra.get("days_to_expiry") <= 2) if signal_extra.get("days_to_expiry") is not None else None,
             "stock_sl": stock_sl, "stock_target1": stock_t1,
             "stock_target2": stock_t2, "stock_target3": stock_t3,
             "target1_beyond_resistance": target1_beyond_resistance,
+            "setup_id": setup_id, "entry_time_bucket": entry_time_bucket,
             "sector_change_pct": sector_change_pct, "stock_vs_sector_pct": stock_vs_sector_pct,
             "stock_vs_index_pct": stock_vs_index_pct,
             "strike": strike,
