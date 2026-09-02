@@ -68,7 +68,15 @@ COLUMNS = [
     #  - Stock vs Sector %: real relative-strength reading at signal
     #    time -- lets a future review actually check whether relative
     #    strength predicts anything, instead of guessing.
+    #  - Stock vs Index %: same idea, against NIFTY instead of sector
+    #    -- completes the relative-strength picture rather than
+    #    leaving half of it unpersisted.
+    #  - Expiry Date: the real contract expiry, not just a day-count --
+    #    enables "expiry day vs non-expiry day" (a real, currently-
+    #    blocked PDF-recommended validation dimension) once enough
+    #    signals have accumulated.
     "Signal Logic Version", "Base Score (Pre-OI)", "India VIX At Signal", "Stock vs Sector %",
+    "Stock vs Index %", "Expiry Date",
 ]
 
 _lock = threading.Lock()
@@ -267,6 +275,7 @@ def _write_new_row(ws, signal):
         "",  # Exited At -- blank until it drops out
         signal.get("signal_logic_version"), signal.get("technical_score"),
         signal.get("india_vix_at_signal"), signal.get("stock_vs_sector_pct"),
+        signal.get("stock_vs_index_pct"), signal.get("expiry_date"),
     ]
     ws.append(row)
     row_num = ws.max_row
