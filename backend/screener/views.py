@@ -61,6 +61,52 @@ _signal_cache = []
 # global -- a global alone would only tell you TODAY's version, not
 # which version generated a signal logged weeks ago.
 SIGNAL_LOGIC_VERSION = "v1 (2026-09-02)"
+
+# Sep 2 2026: Section 9's "position sizing from real risk," done
+# correctly this time -- adds a lot-count MULTIPLIER on top of the
+# real, exchange-defined lot_size, never a replacement for it. The
+# Aug 27 fix elsewhere in this file (real lot size instead of
+# int(50000/entry)) exists specifically because deriving quantity from
+# rupees directly gave absurd, signal-quality-unrelated position sizes
+# -- this doesn't repeat that mistake, it only decides HOW MANY of the
+# real lot to take. Unset (None) is strictly opt-in -- returns exactly
+# today's unchanged 1-lot behavior, byte for byte, until a user
+# actually configures a budget. If even 1 real lot's risk exceeds the
+# configured budget, returns None with a reason -- skips the trade
+# rather than silently overriding the user's own stated risk limit.
+USER_SETTINGS_FILE = os.path.join(os.path.dirname(__file__), "user_settings.json")
+
+
+def get_risk_budget_rupees():
+    """Reads the persisted risk-budget-per-trade setting, or None if
+    never configured (the default, unchanged-behavior state)."""
+    import json
+    try:
+        if not os.path.exists(USER_SETTINGS_FILE):
+            return None
+        with open(USER_SETTINGS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        val = data.get("risk_budget_rupees")
+        return float(val) if val is not None else None
+    except Exception:
+        return None  # corrupt/unreadable settings file -- fall back to unset, never crash the scanner over this
+
+
+def compute_qty_with_risk_budget(lot_size, entry, sl, risk_budget_rupees):
+    """Returns (qty, skip_reason). qty is None (with a real reason) if
+    the configured budget can't cover even 1 real lot -- never a
+    fabricated smaller-than-a-lot quantity."""
+    if risk_budget_rupees is None:
+        return lot_size, None
+    risk_per_lot = abs(entry - sl) * lot_size
+    if risk_per_lot <= 0:
+        return lot_size, None
+    num_lots = int(risk_budget_rupees // risk_per_lot)
+    if num_lots < 1:
+        return None, f"1 lot risk (Rs {risk_per_lot:,.0f}) exceeds configured risk budget (Rs {risk_budget_rupees:,.0f})"
+    return num_lots * lot_size, None
+
+
 _no_trade_cache = []  # Aug 31 2026: P0-6 -- rejected candidates this cycle, with reasons
 _tech_cache = {}
 _cache_lock = threading.Lock()
@@ -1289,7 +1335,10 @@ def _build_all():
             if lot_size is None:
                 no_trade_log.append({"symbol": sym, "reason": "No confirmed live lot size"})
                 continue
-            qty = lot_size
+            qty, budget_skip_reason = compute_qty_with_risk_budget(lot_size, entry, sl, get_risk_budget_rupees())
+            if qty is None:
+                no_trade_log.append({"symbol": sym, "reason": budget_skip_reason})
+                continue
             risk = abs(entry - sl)
             rr = round(abs(t1 - entry) / risk, 2) if risk else 1.5
 
@@ -2280,6 +2329,35 @@ class NextDayWatchlistView(APIView):
         with open(RANKED_OUTPUT_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
         return Response(clean_json(data))
+
+
+class RiskBudgetSettingsView(APIView):
+    """
+    Sep 2 2026: read/write the persisted risk-budget-per-trade setting
+    -- see compute_qty_with_risk_budget()'s own docstring near the top
+    of this file for the full reasoning (a lot-count multiplier on the
+    real exchange lot size, never a rupee-derived quantity on its own).
+    GET returns the current value (null if never set -- the honest
+    default/unchanged-behavior state). POST {"risk_budget_rupees": N}
+    sets it; POST {"risk_budget_rupees": null} clears it back to
+    unset/default 1-lot behavior.
+    """
+    def get(self, request):
+        return Response({"risk_budget_rupees": get_risk_budget_rupees()})
+
+    def post(self, request):
+        import json
+        value = request.data.get("risk_budget_rupees")
+        if value is not None:
+            try:
+                value = float(value)
+                if value <= 0:
+                    return Response({"error": "risk_budget_rupees must be a positive number, or null to clear it"}, status=400)
+            except (TypeError, ValueError):
+                return Response({"error": "risk_budget_rupees must be a number or null"}, status=400)
+        with open(USER_SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump({"risk_budget_rupees": value}, f)
+        return Response({"risk_budget_rupees": value})
 
 
 class IndexTrackerAvailableDatesView(APIView):
