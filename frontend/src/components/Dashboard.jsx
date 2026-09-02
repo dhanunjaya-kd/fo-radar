@@ -4,6 +4,7 @@ import SectorStrength from './SectorStrength';
 import OISnapshot from './OISnapshot';
 import DataHealthStrip from './DataHealthStrip';
 import NoTradeLog from './NoTradeLog';
+import { TrendMomentumCard } from './IndexTracker';
 
 // Aug 28 2026: REBUILT per direct feedback -- "Dashboard should
 // answer in 5 seconds: market direction, strongest signals, OI
@@ -49,6 +50,16 @@ export default function Dashboard({ onNavigate }) {
   return (
     <div className="space-y-4">
       <DataHealthStrip />
+      {/* Sep 2 2026: moved here from Index Tracker per direct request --
+          "market direction" is the first thing this file's own header
+          comment says the dashboard should answer. Reuses the exact
+          same TrendMomentumCard component (now a named export from
+          IndexTracker.jsx) rather than a duplicate copy, so a future
+          change to the card only has to happen in one place. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <TrendMomentumCard indexName="NIFTY" />
+        <TrendMomentumCard indexName="BANKNIFTY" />
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <TopLiveSignals onViewAll={onNavigate ? () => onNavigate('signals') : null} limit={3} />

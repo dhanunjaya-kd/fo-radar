@@ -187,7 +187,7 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
 // Technical Bias) alongside the OI-based summary above -- see
 // TrendMomentumView/get_trend_momentum_card()'s own docstrings for why
 // this is deliberately separate, never sharing the "Bias" name.
-function TrendMomentumCard({ indexName }) {
+export function TrendMomentumCard({ indexName }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
