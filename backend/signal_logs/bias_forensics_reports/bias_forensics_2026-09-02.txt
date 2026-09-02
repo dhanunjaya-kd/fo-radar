@@ -1,0 +1,124 @@
+==============================================================================
+INDEX BIAS FORENSICS -- NIFTY
+4204 real logged snapshots loaded, all available dates
+==============================================================================
+
+------------------------------------------------------------------------------
+STEP 0 -- VALIDATION (read this first)
+------------------------------------------------------------------------------
+Checked: 4204 rows with enough history to reconstruct
+Exact match to real logged Bias: 2521 (60.0%)
+Same direction, different strength label: 89
+Genuine mismatch (different direction entirely): 1594 (37.9%)
+
+WARNING: mismatch rate above 10% -- treat everything below with real skepticism.
+Sample mismatches:
+  2026-08-10T10:22:35: real='Neutral' reconstructed='Bearish'
+  2026-08-10T10:25:25: real='Neutral' reconstructed='Bearish'
+  2026-08-10T10:28:16: real='Neutral' reconstructed='Bearish'
+  2026-08-10T10:30:48: real='Neutral' reconstructed='Bearish'
+  2026-08-10T10:47:21: real='Neutral' reconstructed='Bullish'
+
+------------------------------------------------------------------------------
+STEP 1 -- FLIP STATISTICS (real logged Bias, not reconstructed)
+------------------------------------------------------------------------------
+  flips: 3
+  flips_per_day: 0.2
+  avg_state_duration_minutes: 10090.0
+  median_state_duration_minutes: 10090.0
+  false_flip_rate_pct: 0.0
+  false_flip_definition: reversed again within 15 minutes
+
+------------------------------------------------------------------------------
+STEP 2 -- PER-FACTOR FORWARD ACCURACY
+------------------------------------------------------------------------------
+  pcr             5m: 49.2% (n=3507) 15m: 48.1% (n=3608) 30m: 49.7% (n=3599) 60m: 49.7% (n=3587)
+  oi_buildup      5m: 49.7% (n=2062) 15m: 48.8% (n=2122) 30m: 52.2% (n=2114) 60m: 52.0% (n=2114)
+  atm_balance     5m: 48.0% (n=2455) 15m: 45.5% (n=2558) 30m: 44.5% (n=2562) 60m: 44.1% (n=2540)
+  max_pain        5m: 51.8% (n=1653) 15m: 52.1% (n=1726) 30m: 51.5% (n=1718) 60m: 53.6% (n=1698)
+  vix_trend       5m: 54.3% (n=94) 15m: 62.6% (n=99) 30m: 66.7% (n=99) 60m: 48.0% (n=98)
+  momentum        5m: 48.2% (n=1557) 15m: 49.1% (n=1615) 30m: 52.0% (n=1611) 60m: 51.1% (n=1595)
+  (* = below 20-sample floor, treat as a first look, not a verified figure)
+
+------------------------------------------------------------------------------
+STEP 3 -- FACTOR CORRELATION (Section 3's claim, tested empirically)
+------------------------------------------------------------------------------
+  pcr             vs oi_buildup     : 95.9%  agreement (n=2023)
+  atm_balance     vs max_pain       : 94.5%  agreement (n=1154)
+  vix_trend       vs momentum       : 94.4%  agreement (n=71)
+  oi_buildup      vs vix_trend      : 75.9%  agreement (n=83)
+  pcr             vs vix_trend      : 70.2%  agreement (n=84)
+  oi_buildup      vs atm_balance    : 62.5%  agreement (n=1407)
+  oi_buildup      vs momentum       : 60.4%  agreement (n=869)
+  pcr             vs momentum       : 52.8%  agreement (n=1430)
+  pcr             vs atm_balance    : 52.4%  agreement (n=2197)
+  atm_balance     vs vix_trend      : 37.0%  agreement (n=73)
+  max_pain        vs momentum       : 30.0%  agreement (n=743)
+  atm_balance     vs momentum       : 27.4%  agreement (n=1040)
+  oi_buildup      vs max_pain       : 17.5%  agreement (n=895)
+  max_pain        vs vix_trend      : 14.6%  agreement (n=41)
+  pcr             vs max_pain       : 13.1%  agreement (n=1514)
+  (* = below 20-sample floor)
+
+
+==============================================================================
+INDEX BIAS FORENSICS -- BANKNIFTY
+4204 real logged snapshots loaded, all available dates
+==============================================================================
+
+------------------------------------------------------------------------------
+STEP 0 -- VALIDATION (read this first)
+------------------------------------------------------------------------------
+Checked: 4204 rows with enough history to reconstruct
+Exact match to real logged Bias: 2323 (55.3%)
+Same direction, different strength label: 101
+Genuine mismatch (different direction entirely): 1780 (42.3%)
+
+WARNING: mismatch rate above 10% -- treat everything below with real skepticism.
+Sample mismatches:
+  2026-08-11T12:26:32: real='Bearish' reconstructed='Neutral'
+  2026-08-11T12:26:49: real='Bearish' reconstructed='Neutral'
+  2026-08-11T12:27:03: real='Bearish' reconstructed='Neutral'
+  2026-08-11T12:28:06: real='Bearish' reconstructed='Neutral'
+  2026-08-11T12:29:10: real='Bearish' reconstructed='Neutral'
+
+------------------------------------------------------------------------------
+STEP 1 -- FLIP STATISTICS (real logged Bias, not reconstructed)
+------------------------------------------------------------------------------
+  flips: 1
+  flips_per_day: 0.07
+  avg_state_duration_minutes: None
+  median_state_duration_minutes: None
+  false_flip_rate_pct: None
+  false_flip_definition: reversed again within 15 minutes
+
+------------------------------------------------------------------------------
+STEP 2 -- PER-FACTOR FORWARD ACCURACY
+------------------------------------------------------------------------------
+  pcr             5m: 49.9% (n=3948) 15m: 50.2% (n=4064) 30m: 52.5% (n=4051) 60m: 50.8% (n=4031)
+  oi_buildup      5m: 45.0% (n=2099) 15m: 43.8% (n=2162) 30m: 42.7% (n=2161) 60m: 44.2% (n=2145)
+  atm_balance     5m: 54.3% (n=1888) 15m: 57.2% (n=1945) 30m: 61.6% (n=1934) 60m: 62.6% (n=1912)
+  max_pain        5m: 51.7% (n=2892) 15m: 52.3% (n=2969) 30m: 52.1% (n=2957) 60m: 53.8% (n=2936)
+  vix_trend       5m: 63.4% (n=93) 15m: 68.0% (n=97) 30m: 61.9% (n=97) 60m: 50.0% (n=96)
+  momentum        5m: 49.7% (n=1988) 15m: 48.7% (n=2056) 30m: 45.5% (n=2045) 60m: 45.5% (n=2033)
+  (* = below 20-sample floor, treat as a first look, not a verified figure)
+
+------------------------------------------------------------------------------
+STEP 3 -- FACTOR CORRELATION (Section 3's claim, tested empirically)
+------------------------------------------------------------------------------
+  pcr             vs atm_balance    : 87.3%  agreement (n=1899)
+  vix_trend       vs momentum       : 75.3%  agreement (n=73)
+  atm_balance     vs max_pain       : 66.6%  agreement (n=1393)
+  oi_buildup      vs atm_balance    : 58.2%  agreement (n=1215)
+  pcr             vs oi_buildup     : 58.0%  agreement (n=2100)
+  oi_buildup      vs vix_trend      : 53.5%  agreement (n=86)
+  oi_buildup      vs momentum       : 48.8%  agreement (n=1136)
+  pcr             vs momentum       : 48.0%  agreement (n=2036)
+  pcr             vs vix_trend      : 44.4%  agreement (n=99)
+  max_pain        vs momentum       : 41.6%  agreement (n=1461)
+  atm_balance     vs vix_trend      : 36.5%  agreement (n=85)
+  max_pain        vs vix_trend      : 34.7%  agreement (n=49)
+  atm_balance     vs momentum       : 32.5%  agreement (n=1110)
+  pcr             vs max_pain       : 28.6%  agreement (n=2951)
+  oi_buildup      vs max_pain       : 24.8%  agreement (n=1221)
+  (* = below 20-sample floor)

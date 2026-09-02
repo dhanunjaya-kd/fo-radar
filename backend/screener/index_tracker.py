@@ -318,6 +318,12 @@ COLUMNS = [
     # both are logged directly, no approximation needed.
     "PCR Vote", "OI Buildup Vote", "ATM Balance Vote", "Max Pain Vote", "VIX Trend Vote", "Momentum Vote",
     "Momentum %", "VIX Change %",
+    # Sep 2 2026: Phase 2 of the Index Bias audit -- decorrelated
+    # engine, logged in PARALLEL for future comparison only. Never
+    # read by any live signal-selection code; "Bias" above remains the
+    # only value anything downstream acts on. See derive_bias_v2()'s
+    # own docstring for the full evidence and honest caveats.
+    "Bias V2", "Positioning Vote (V2)", "Structure Vote (V2)",
 ]
 
 _lock = threading.Lock()
@@ -858,6 +864,100 @@ def get_bias_vote_breakdown(pcr, oi_buildup, pe_oi=None, ce_oi=None, price=None,
     }
 
 
+BIAS_V2_MARGIN_FOR_DIRECTION = 2
+BIAS_V2_MARGIN_FOR_STRONG = 3  # out of 4 effective votes -- same "reasonable first cut, not empirically tuned" status as every threshold in this file; needs a future Phase 1 run on real V2 data before being trusted
+
+# Sep 2 2026: real, evidence-based Phase 2 of the Index Bias audit.
+# index_bias_forensics.py's actual run against 4,204 real NIFTY/
+# BANKNIFTY snapshots confirmed Section 3's correlated-evidence claim
+# concretely -- PCR vs OI Buildup agreed 95.9%/58.0% of the time, ATM
+# Balance vs Max Pain agreed 94.5%/66.6% -- each pair voting as
+# essentially ONE opinion counted twice. This combines each pair into
+# a single effective vote instead. VIX-trend and Momentum stay
+# separate -- they weren't found strongly correlated with the pair
+# members.
+#
+# HONEST CAVEAT, stated as plainly as possible: the SAME forensics run
+# showed every one of the 4 fully-reliable factors individually near
+# 44-53% forward accuracy -- statistically indistinguishable from a
+# coin flip. Decorrelating removes DOUBLE-COUNTING and the resulting
+# false confidence of an inflated "Strong" label; it does NOT invent
+# predictive power that wasn't in the underlying factors to begin
+# with. Do not read a V2 "Strong" label as more likely to be right --
+# only as less likely to be an illusion of 4 independent opinions that
+# was really 2.
+#
+# DELIBERATELY NOT LIVE: computed and logged alongside the real Bias,
+# never replacing it, never read by any live signal-selection code.
+# Same "build in parallel, validate before switching" rule already
+# held everywhere on the F&O side of this project. Earns the right to
+# matter only once a FUTURE index_bias_forensics.py run can show V2's
+# own real forward accuracy against real data -- something that
+# doesn't exist yet, since V2 has never generated a single historical
+# reading.
+
+
+def _combine_correlated_pair(vote_a, vote_b):
+    """Two votes shown to be highly correlated -> one effective vote.
+    Both agree -> that direction (this is the normal, expected case
+    given how often they actually agree). They genuinely disagree ->
+    abstain, not an arbitrary pick -- given how rarely that happens
+    for real, a real disagreement is treated as real uncertainty, not
+    resolved by favoring either side. One abstains, the other has an
+    opinion -> use the one real opinion available."""
+    if vote_a is None:
+        return vote_b
+    if vote_b is None:
+        return vote_a
+    if vote_a == vote_b:
+        return vote_a
+    return None  # genuine disagreement between two usually-agreeing factors -- treated as real uncertainty
+
+
+def derive_bias_v2(pcr, oi_buildup, pe_oi=None, ce_oi=None, price=None, max_pain=None,
+                    vix_change_pct=None, momentum_pct=None):
+    """
+    The decorrelated engine -- 4 effective votes (Positioning =
+    combined PCR+OI Buildup, Structure = combined ATM Balance+Max
+    Pain, VIX trend, Momentum) instead of 6 raw ones. Same margin-
+    then-Neutral-then-Strong shape as _derive_bias(), recalibrated for
+    4 votes instead of 6. See this function's module-level comment
+    block above for the full evidence and the honest caveat about
+    what this does and doesn't fix.
+
+    Returns (bias_v2_string, breakdown_dict) -- breakdown includes
+    both the 4 effective votes AND the original 6 raw ones, so a
+    future comparison can see exactly which raw factors drove each
+    effective vote, not just the combined result.
+    """
+    raw_votes = get_bias_vote_breakdown(
+        pcr, oi_buildup, pe_oi=pe_oi, ce_oi=ce_oi, price=price, max_pain=max_pain,
+        vix_change_pct=vix_change_pct, momentum_pct=momentum_pct,
+    )
+
+    positioning = _combine_correlated_pair(raw_votes["pcr"], raw_votes["oi_buildup"])
+    structure = _combine_correlated_pair(raw_votes["atm_balance"], raw_votes["max_pain"])
+
+    effective_votes = {
+        "positioning": positioning,
+        "structure": structure,
+        "vix_trend": raw_votes["vix_trend"],
+        "momentum": raw_votes["momentum"],
+    }
+
+    bullish = sum(1 for v in effective_votes.values() if v == "bullish")
+    bearish = sum(1 for v in effective_votes.values() if v == "bearish")
+    margin = bullish - bearish
+
+    if abs(margin) < BIAS_V2_MARGIN_FOR_DIRECTION:
+        bias_v2 = "Neutral"
+    else:
+        direction = "Bullish" if margin > 0 else "Bearish"
+        bias_v2 = f"{direction} (Strong)" if abs(margin) >= BIAS_V2_MARGIN_FOR_STRONG else direction
+
+    return bias_v2, {"effective_votes": effective_votes, "raw_votes": raw_votes}
+
+
 def _status_label(oi_chg):
     """'Writing' (OI building up) vs 'Unwinding' (OI coming off) -- the
     reference table's own vocabulary."""
@@ -1163,6 +1263,15 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         price=oi.get("spot"), max_pain=oi.get("max_pain"),
         vix_change_pct=vix_trend_pct, momentum_pct=horizon_changes.get(15),
     )
+    # Sep 2 2026: parallel, logged-only -- see derive_bias_v2()'s own
+    # docstring. `bias` above (not bias_v2) is the only value anything
+    # downstream of this function reads.
+    bias_v2, v2_breakdown = derive_bias_v2(
+        oi.get("pcr"), oi.get("oi_buildup"),
+        pe_oi=pe_oi, ce_oi=ce_oi,
+        price=oi.get("spot"), max_pain=oi.get("max_pain"),
+        vix_change_pct=vix_trend_pct, momentum_pct=horizon_changes.get(15),
+    )
     confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
     per_horizon_confirms, horizons_summary = _multi_horizon_confirms(horizon_changes, bias)
     # Flagged separately rather than suppressing/altering Change % or
@@ -1209,6 +1318,9 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "ATM Balance Vote": vote_breakdown["atm_balance"], "Max Pain Vote": vote_breakdown["max_pain"],
         "VIX Trend Vote": vote_breakdown["vix_trend"], "Momentum Vote": vote_breakdown["momentum"],
         "Momentum %": horizon_changes.get(15), "VIX Change %": vix_trend_pct,
+        "Bias V2": bias_v2,
+        "Positioning Vote (V2)": v2_breakdown["effective_votes"]["positioning"],
+        "Structure Vote (V2)": v2_breakdown["effective_votes"]["structure"],
     }
 
     try:
@@ -1356,6 +1468,12 @@ def snapshot_commodity(name, base):
         price=fut_price, max_pain=oi.get("max_pain"),
         vix_change_pct=None, momentum_pct=horizon_changes.get(15),
     )
+    bias_v2, v2_breakdown = derive_bias_v2(
+        oi.get("pcr"), oi.get("oi_buildup"),
+        pe_oi=pe_oi, ce_oi=ce_oi,
+        price=fut_price, max_pain=oi.get("max_pain"),
+        vix_change_pct=None, momentum_pct=horizon_changes.get(15),
+    )
     confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
     per_horizon_confirms, horizons_summary = _multi_horizon_confirms(horizon_changes, bias)
 
@@ -1390,6 +1508,9 @@ def snapshot_commodity(name, base):
         "ATM Balance Vote": vote_breakdown["atm_balance"], "Max Pain Vote": vote_breakdown["max_pain"],
         "VIX Trend Vote": vote_breakdown["vix_trend"], "Momentum Vote": vote_breakdown["momentum"],
         "Momentum %": horizon_changes.get(15), "VIX Change %": None,  # no VIX for commodities, same as the row's VIX field above
+        "Bias V2": bias_v2,
+        "Positioning Vote (V2)": v2_breakdown["effective_votes"]["positioning"],
+        "Structure Vote (V2)": v2_breakdown["effective_votes"]["structure"],
     }
 
     # Aug 24 2026: feeds _get_cross_asset_snapshot() -- see that

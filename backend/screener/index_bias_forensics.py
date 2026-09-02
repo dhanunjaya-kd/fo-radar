@@ -418,3 +418,22 @@ def run_full_report(index_name, start_date=None, end_date=None):
     lines.append("")
 
     return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    import os
+    from datetime import datetime as _dt
+    from .index_tracker import LOG_DIR
+
+    full_output = []
+    for index_name in ("NIFTY", "BANKNIFTY"):
+        report = run_full_report(index_name)
+        print(report)
+        full_output.append(report)
+
+    out_dir = os.path.join(LOG_DIR, "bias_forensics_reports")
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, f"bias_forensics_{_dt.now().strftime('%Y-%m-%d')}.txt")
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write("\n\n".join(full_output))
+    print(f"\nSaved to: {out_path}")
