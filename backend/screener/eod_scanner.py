@@ -97,7 +97,20 @@ def fetch_quotes_batched(symbols, get_quotes_fn):
     time. Returns {symbol: {'price','change_percent','volume'}} --
     entries missing from the response are simply absent, never
     guessed at. Raises RateLimitStop immediately if Fyers signals a
-    real limit hit on any batch."""
+    real limit hit on any batch.
+
+    Sep 2 2026 FIX -- real bug, confirmed live: this had NO pacing
+    between batch calls at all. 50-symbol batching cuts the CALL
+    COUNT (2651 symbols -> ~54 calls instead of 2651), but each batch
+    is still one HTTP request -- firing them back-to-back with zero
+    delay is exactly what tripped Fyers' real per-second limit on a
+    live run (429 at batch 12, ~550 symbols in). The circuit breaker
+    caught it correctly and stopped clean, but the actual gap was
+    here: history calls got PAUSE_BETWEEN_HISTORY_CALLS, quote
+    batches got nothing. Now paced identically -- same conservative
+    per-minute budget applies across BOTH phases combined, not just
+    history alone, since Fyers' real limit is a request-rate ceiling
+    regardless of which endpoint or how many symbols one call covers."""
     result = {}
     for i in range(0, len(symbols), QUOTE_BATCH_SIZE):
         batch = symbols[i:i + QUOTE_BATCH_SIZE]
@@ -115,6 +128,7 @@ def fetch_quotes_batched(symbols, get_quotes_fn):
                 "change_percent": v.get("chp"),
                 "volume": v.get("volume"),
             }
+        time.sleep(PAUSE_BETWEEN_HISTORY_CALLS)
     return result
 
 

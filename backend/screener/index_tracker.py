@@ -307,6 +307,17 @@ COLUMNS = [
     "IV %", "IV %ile", "VIX", "Support", "Resistance", "Max Pain", "Max Pain Dist %",
     "OI Buildup", "Bias", "Price Confirms Bias",
     "Confirms 5min", "Confirms 30min", "Confirms 60min", "Horizons Confirming",
+    # Sep 2 2026: Section 17 of the Index Bias audit -- surfaces the
+    # vote breakdown _derive_bias() already computes internally but
+    # previously discarded, plus the exact raw Momentum %/VIX Change %
+    # values that vote used. Two purposes: (1) directly answers "show
+    # confidence and evidence domains," (2) makes FUTURE forensic
+    # analysis exact instead of approximated -- index_bias_forensics.py
+    # currently has to reconstruct momentum/VIX-change from a 15-min
+    # snapshot lookback since neither was persisted; from here forward,
+    # both are logged directly, no approximation needed.
+    "PCR Vote", "OI Buildup Vote", "ATM Balance Vote", "Max Pain Vote", "VIX Trend Vote", "Momentum Vote",
+    "Momentum %", "VIX Change %",
 ]
 
 _lock = threading.Lock()
@@ -823,6 +834,30 @@ def _derive_bias(pcr, oi_buildup, pe_oi=None, ce_oi=None, price=None, max_pain=N
     return direction
 
 
+def get_bias_vote_breakdown(pcr, oi_buildup, pe_oi=None, ce_oi=None, price=None, max_pain=None,
+                             vix_change_pct=None, momentum_pct=None):
+    """
+    Sep 2 2026: Section 17 of the Index Bias audit -- "show Confidence
+    and the evidence domains supporting it," "show the top reasons for
+    the current state and the strongest conflicting evidence." Same
+    exact inputs and same exact vote sub-functions _derive_bias()
+    itself uses -- this doesn't change or duplicate any decision
+    logic, it just returns what _derive_bias() already computes
+    internally and then discards (it only ever returned the final
+    string). Deliberately a SEPARATE function, not a signature change
+    to _derive_bias() -- every existing caller of that function keeps
+    working exactly as before, untouched.
+    """
+    return {
+        "pcr": _pcr_vote(pcr),
+        "oi_buildup": _oi_buildup_vote(oi_buildup),
+        "atm_balance": _atm_balance_vote(pe_oi, ce_oi),
+        "max_pain": _max_pain_vote(price, max_pain),
+        "vix_trend": _vix_trend_vote(vix_change_pct),
+        "momentum": _momentum_vote(momentum_pct),
+    }
+
+
 def _status_label(oi_chg):
     """'Writing' (OI building up) vs 'Unwinding' (OI coming off) -- the
     reference table's own vocabulary."""
@@ -1122,6 +1157,12 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         price=oi.get("spot"), max_pain=oi.get("max_pain"),
         vix_change_pct=vix_trend_pct, momentum_pct=horizon_changes.get(15),
     )
+    vote_breakdown = get_bias_vote_breakdown(
+        oi.get("pcr"), oi.get("oi_buildup"),
+        pe_oi=pe_oi, ce_oi=ce_oi,
+        price=oi.get("spot"), max_pain=oi.get("max_pain"),
+        vix_change_pct=vix_trend_pct, momentum_pct=horizon_changes.get(15),
+    )
     confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
     per_horizon_confirms, horizons_summary = _multi_horizon_confirms(horizon_changes, bias)
     # Flagged separately rather than suppressing/altering Change % or
@@ -1164,6 +1205,10 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "Confirms 30min": per_horizon_confirms[30],
         "Confirms 60min": per_horizon_confirms[60],
         "Horizons Confirming": horizons_summary,
+        "PCR Vote": vote_breakdown["pcr"], "OI Buildup Vote": vote_breakdown["oi_buildup"],
+        "ATM Balance Vote": vote_breakdown["atm_balance"], "Max Pain Vote": vote_breakdown["max_pain"],
+        "VIX Trend Vote": vote_breakdown["vix_trend"], "Momentum Vote": vote_breakdown["momentum"],
+        "Momentum %": horizon_changes.get(15), "VIX Change %": vix_trend_pct,
     }
 
     try:
@@ -1305,6 +1350,12 @@ def snapshot_commodity(name, base):
         price=fut_price, max_pain=oi.get("max_pain"),
         vix_change_pct=None, momentum_pct=horizon_changes.get(15),
     )
+    vote_breakdown = get_bias_vote_breakdown(
+        oi.get("pcr"), oi.get("oi_buildup"),
+        pe_oi=pe_oi, ce_oi=ce_oi,
+        price=fut_price, max_pain=oi.get("max_pain"),
+        vix_change_pct=None, momentum_pct=horizon_changes.get(15),
+    )
     confirms = _price_confirms_bias(horizon_changes.get(15), bias)  # unchanged 15min value -- stays comparable to the Aug 14 backtest baseline
     per_horizon_confirms, horizons_summary = _multi_horizon_confirms(horizon_changes, bias)
 
@@ -1335,6 +1386,10 @@ def snapshot_commodity(name, base):
         "Confirms 30min": per_horizon_confirms[30],
         "Confirms 60min": per_horizon_confirms[60],
         "Horizons Confirming": horizons_summary,
+        "PCR Vote": vote_breakdown["pcr"], "OI Buildup Vote": vote_breakdown["oi_buildup"],
+        "ATM Balance Vote": vote_breakdown["atm_balance"], "Max Pain Vote": vote_breakdown["max_pain"],
+        "VIX Trend Vote": vote_breakdown["vix_trend"], "Momentum Vote": vote_breakdown["momentum"],
+        "Momentum %": horizon_changes.get(15), "VIX Change %": None,  # no VIX for commodities, same as the row's VIX field above
     }
 
     # Aug 24 2026: feeds _get_cross_asset_snapshot() -- see that
