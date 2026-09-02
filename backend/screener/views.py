@@ -1620,6 +1620,62 @@ _daily_backtest_thread = threading.Thread(target=_daily_backtest_worker, daemon=
 _daily_backtest_thread.start()
 
 
+def _eod_scan_worker():
+    """
+    Sep 2 2026: automatic Next Day Watchlist scan -- full NSE universe,
+    once a day, post-close. Same daemon-thread/last-run-date pattern as
+    _daily_backtest_worker() directly above -- deliberately NOT another
+    manual script like fundamentals' runner.py turned out to be (real
+    lesson from this exact project: that one was never actually
+    automated, so fundamentals_data.json never got built).
+
+    Scheduled a half hour AFTER the daily backtest's own close-time run
+    (16:00), not at the same time -- both are heavy, real Fyers-call
+    background jobs; running them back-to-back rather than
+    simultaneously avoids compounding rate-limit load on top of
+    whatever the live F&O scanner is already doing this same minute.
+
+    See eod_scanner.py's own module docstring for the real, confirmed
+    Fyers rate-limit numbers this whole design is paced against, and
+    its RateLimitStop handling -- a real rate-limit hit during this
+    run stops immediately and saves progress; it does NOT retry within
+    the same day (that's exactly the behavior that caused the real
+    Aug 20 2026 lockout).
+    """
+    RUN_HOUR, RUN_MINUTE = 16, 30
+    last_run_date = None
+
+    while True:
+        try:
+            now = datetime.now()
+            today_str = now.strftime("%Y-%m-%d")
+            is_weekday = now.weekday() < 5
+
+            if is_weekday and now.hour == RUN_HOUR and now.minute >= RUN_MINUTE and last_run_date != today_str:
+                last_run_date = today_str
+                print(f"[{now}] EOD scan: starting scheduled Next Day Watchlist scan.")
+                from .fyers_client import get_quotes, get_history
+                from .eod_scanner import run as run_eod_scan
+                from .next_day_ranking import build_watchlist
+
+                raw_data, stopped_early = run_eod_scan(get_quotes, get_history)
+                if stopped_early:
+                    print(f"[{datetime.now()}] EOD scan: stopped early on a real rate-limit hit -- "
+                          f"whatever was scanned is saved; ranking runs on that partial set, not blocked.")
+
+                watchlist, universe, with_data = build_watchlist(sectors_map=SECTORS, raw_data=raw_data)
+                print(f"[{datetime.now()}] EOD scan: done. Universe {universe}, "
+                      f"{with_data} with enough data, {len(watchlist)} ranked.")
+
+            time.sleep(60)
+        except Exception as e:
+            print(f"[{datetime.now()}] EOD scan worker error: {e}")
+            time.sleep(60)
+
+_eod_scan_thread = threading.Thread(target=_eod_scan_worker, daemon=True)
+_eod_scan_thread.start()
+
+
 # ============================================================
 # VIEWS — READ FROM CACHE ONLY, NO BLOCKING
 # ============================================================
@@ -2091,6 +2147,29 @@ class TrendMomentumView(APIView):
         if card is None:
             return Response({"error": "Not enough real daily history yet to compute this -- try again shortly."}, status=503)
         return Response(clean_json(card))
+
+
+class NextDayWatchlistView(APIView):
+    """
+    Sep 2 2026: the full-NSE-universe Next Day Watchlist -- Trend
+    Status/Volume Status/Sector Strength/Score, ranked, built by the
+    automatic post-close scan (_eod_scan_worker above). Purely reads
+    next_day_ranking.py's already-written output file; this view does
+    NOT trigger a scan itself, same "serve what's there, don't fetch
+    live on request" principle as every other read-only reporting
+    view in this file.
+    GET /api/next-day-watchlist/"""
+    def get(self, request):
+        import json
+        from .next_day_ranking import RANKED_OUTPUT_FILE
+        if not os.path.exists(RANKED_OUTPUT_FILE):
+            return Response({
+                "error": "No scan has completed yet. The automatic scan runs on weekdays shortly after market close.",
+                "universe_scanned": 0, "stocks_with_enough_data": 0, "watchlist": [],
+            }, status=200)
+        with open(RANKED_OUTPUT_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return Response(clean_json(data))
 
 
 class IndexTrackerAvailableDatesView(APIView):
