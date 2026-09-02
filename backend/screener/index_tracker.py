@@ -1605,3 +1605,266 @@ def compute_cas_auction_moves(index_name):
         })
 
     return sorted(results, key=lambda r: r["date"], reverse=True)
+
+
+# ---------------------------------------------------------------------------
+# Trend & Momentum -- pure price-action second opinion, Sep 2 2026
+# ---------------------------------------------------------------------------
+# Genuine second read alongside the options-derived Bias above -- SAME
+# multi-factor-vote, abstain-on-missing-data, require-real-agreement
+# philosophy as _derive_bias(), built from classic price-action inputs
+# (RSI, distance from SMA, short-term momentum) instead of OI/PCR/max
+# pain. Deliberately never called "Bias" on its own, to avoid any
+# confusion with, or risk of overwriting, the read that's already been
+# tuned against real backtesting.
+#
+# Daily-frequency data (RSI/SMA/ATR/pivot don't change intraday) --
+# cached once per day, NOT logged into the ~60s-cadence Snapshots
+# sheet, which would mean hundreds of duplicate rows a day for numbers
+# that only actually update once.
+#
+# HONEST NOTE on "Expected Daily Range": inferred as roughly ATR/2 from
+# a single reference example (ATR 158.17 -> range +-78.31, a ~0.495
+# ratio) -- a reasonable, common convention, but reverse-engineered
+# from one data point, not confirmed as anyone's exact documented rule.
+# Everything else here (RSI/SMA/ATR/pivot formulas, volatility bands)
+# is standard, textbook technical analysis, not reverse-engineered from
+# the screenshot at all.
+
+import statistics
+
+TECH_BIAS_MARGIN_FOR_DIRECTION = 2
+TECH_BIAS_MARGIN_FOR_STRONG = 3
+
+_daily_history_cache = {}  # {index_name: {'date': 'YYYY-MM-DD', 'candles': [...]}}
+
+
+def compute_rsi(closes, period=14):
+    """Wilder's RSI -- the standard, original smoothed-average formula,
+    same one virtually every charting platform defaults to. Needs
+    period+1 closes minimum, else None (never a guessed value)."""
+    if len(closes) < period + 1:
+        return None
+    deltas = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
+    gains = [max(d, 0) for d in deltas]
+    losses = [max(-d, 0) for d in deltas]
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+    if avg_gain == 0 and avg_loss == 0:
+        return 50.0  # genuinely flat market -- neutral, not maximally bullish
+    if avg_loss == 0:
+        return 100.0
+    rs = avg_gain / avg_loss
+    return round(100 - (100 / (1 + rs)), 1)
+
+
+def compute_sma(closes, period=20):
+    if len(closes) < period:
+        return None
+    return round(sum(closes[-period:]) / period, 2)
+
+
+def compute_atr(candles, period=14):
+    """candles: list of {'high','low','close'}, oldest first. Wilder's
+    smoothed True Range average -- same smoothing convention as RSI
+    above, for consistency."""
+    if len(candles) < period + 1:
+        return None
+    trs = []
+    for i in range(1, len(candles)):
+        h, l, prev_c = candles[i]["high"], candles[i]["low"], candles[i - 1]["close"]
+        trs.append(max(h - l, abs(h - prev_c), abs(l - prev_c)))
+    atr = sum(trs[:period]) / period
+    for i in range(period, len(trs)):
+        atr = (atr * (period - 1) + trs[i]) / period
+    return round(atr, 2)
+
+
+def compute_pivot_levels(prev_high, prev_low, prev_close):
+    """Classic pivot point formula, using the most recent COMPLETE
+    day's H/L/C -- P=(H+L+C)/3, R1=2P-L, S1=2P-H. Deliberately named
+    pivot_resistance/pivot_support wherever this is consumed, never
+    just Support/Resistance -- this file already has OI-wall-based
+    Support/Resistance fields that mean something entirely different."""
+    pivot = (prev_high + prev_low + prev_close) / 3
+    r1 = round(2 * pivot - prev_low, 2)
+    s1 = round(2 * pivot - prev_high, 2)
+    return r1, s1
+
+
+def compute_annualized_volatility(closes):
+    """Std dev of daily returns, annualized via sqrt(252) trading days
+    -- the standard convention."""
+    if len(closes) < 2:
+        return None
+    returns = [(closes[i] / closes[i - 1] - 1) for i in range(1, len(closes))]
+    if len(returns) < 2:
+        return None
+    daily_std = statistics.stdev(returns)
+    return round(daily_std * (252 ** 0.5) * 100, 2)
+
+
+def classify_volatility_environment(annualized_vol_pct):
+    """Bands are standard, widely-used conventions for index
+    volatility -- not thresholds fitted to this project's own data.
+    Same "reasonable, not validated" status as every other non-
+    strategy-specific threshold in this project."""
+    if annualized_vol_pct is None:
+        return None
+    if annualized_vol_pct < 10:
+        return "Low (Complacent)"
+    elif annualized_vol_pct < 18:
+        return "Normal"
+    elif annualized_vol_pct < 28:
+        return "Elevated"
+    return "High (Stressed)"
+
+
+def _fetch_daily_history(index_name, days_back=60):
+    """Cached per index per calendar day -- same caching principle as
+    _front_month_bullion_symbol above (this data doesn't change
+    intraday, no reason to re-fetch every ~60s snapshot cycle).
+    Returns a list of {'date','open','high','low','close'} dicts,
+    oldest first, or [] if the fetch fails or Fyers has nothing."""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _daily_history_cache.get(index_name)
+    if cached and cached["date"] == today_str:
+        return cached["candles"]
+
+    from .fyers_client import get_history
+    fyers_symbol = INDEX_SYMBOLS.get(index_name)
+    if not fyers_symbol:
+        return []
+
+    range_to = datetime.now().strftime("%Y-%m-%d")
+    range_from = (datetime.now() - timedelta(days=days_back * 2)).strftime("%Y-%m-%d")
+    try:
+        resp = get_history(fyers_symbol, resolution="1D", range_from=range_from, range_to=range_to)
+    except Exception as e:
+        print(f"[IndexTracker] {index_name} daily history fetch failed: {e}")
+        return []
+    if not resp or resp.get("s") != "ok":
+        return []
+
+    candles = []
+    for c in resp.get("candles", []):
+        if len(c) < 5:
+            continue
+        candles.append({
+            "date": datetime.fromtimestamp(c[0]).strftime("%Y-%m-%d"),
+            "open": c[1], "high": c[2], "low": c[3], "close": c[4],
+        })
+    candles.sort(key=lambda x: x["date"])
+    if len(candles) > days_back:
+        candles = candles[-days_back:]
+
+    _daily_history_cache[index_name] = {"date": today_str, "candles": candles}
+    return candles
+
+
+def _tech_bias_vote_rsi(rsi):
+    if rsi is None:
+        return "abstain"
+    if rsi >= 55:
+        return "bullish"
+    if rsi <= 45:
+        return "bearish"
+    return "abstain"
+
+
+def _tech_bias_vote_sma_distance(distance_pct):
+    if distance_pct is None:
+        return "abstain"
+    if distance_pct >= 0.5:
+        return "bullish"
+    if distance_pct <= -0.5:
+        return "bearish"
+    return "abstain"
+
+
+def _tech_bias_vote_momentum(closes, lookback=5):
+    if len(closes) < lookback + 1:
+        return "abstain"
+    change_pct = (closes[-1] / closes[-1 - lookback] - 1) * 100
+    if change_pct >= 0.3:
+        return "bullish"
+    if change_pct <= -0.3:
+        return "bearish"
+    return "abstain"
+
+
+def _derive_technical_bias(rsi, sma_distance_pct, closes):
+    """3-vote version of _derive_bias()'s exact philosophy -- abstain
+    on missing data, require a real margin before committing to a
+    direction, a wider margin still for "Strong". Never returns
+    "Bias" as a label -- always "Technical Bias" wherever consumed."""
+    votes = [
+        _tech_bias_vote_rsi(rsi),
+        _tech_bias_vote_sma_distance(sma_distance_pct),
+        _tech_bias_vote_momentum(closes),
+    ]
+    bullish = votes.count("bullish")
+    bearish = votes.count("bearish")
+    margin = bullish - bearish
+    if abs(margin) < TECH_BIAS_MARGIN_FOR_DIRECTION:
+        return "Neutral"
+    direction = "Bullish" if margin > 0 else "Bearish"
+    if abs(margin) >= TECH_BIAS_MARGIN_FOR_STRONG:
+        return f"{direction} (Strong)"
+    return direction
+
+
+def get_trend_momentum_card(index_name, current_spot=None):
+    """
+    Sep 2 2026: the actual "Trend & Momentum" card -- pure price-action
+    read (RSI/SMA/ATR/pivot S-R/volatility/Technical Bias), completely
+    separate from the options-derived snapshot above. Works for any
+    name in INDEX_SYMBOLS (NIFTY and BANKNIFTY both), matching this
+    file's existing symmetric-handling convention rather than
+    singling either one out.
+
+    current_spot: pass in today's live price from the same source the
+    main snapshot already uses (oi.get('spot')) -- reused, not a
+    second fetch. Falls back to the last daily close if not given.
+
+    Returns None if there isn't enough real daily history to compute
+    from (Fyers History API unavailable, or fewer than 21 candles) --
+    never a guessed card.
+    """
+    candles = _fetch_daily_history(index_name)
+    if len(candles) < 21:
+        return None
+
+    closes = [c["close"] for c in candles]
+    rsi = compute_rsi(closes, period=14)
+    sma = compute_sma(closes, period=20)
+    atr = compute_atr(candles, period=14)
+    annualized_vol = compute_annualized_volatility(closes)
+    vol_environment = classify_volatility_environment(annualized_vol)
+
+    prev_day = candles[-1]
+    r1, s1 = compute_pivot_levels(prev_day["high"], prev_day["low"], prev_day["close"])
+
+    spot = current_spot if current_spot is not None else closes[-1]
+    distance_from_sma_pct = round((spot - sma) / sma * 100, 2) if sma else None
+
+    technical_bias = _derive_technical_bias(rsi, distance_from_sma_pct, closes)
+
+    return {
+        "index_name": index_name,
+        "closing_price": spot,
+        "technical_bias": technical_bias,
+        "daily_atr": atr,
+        "rsi_14": rsi,
+        "sma_20": sma,
+        "distance_from_sma_pct": distance_from_sma_pct,
+        "annualized_volatility_pct": annualized_vol,
+        "pivot_resistance_r1": r1,
+        "pivot_support_s1": s1,
+        "expected_daily_range": round(atr / 2, 2) if atr is not None else None,
+        "volatility_environment": vol_environment,
+        "sample_size": len(candles),
+    }
