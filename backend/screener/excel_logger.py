@@ -75,8 +75,21 @@ COLUMNS = [
     #    enables "expiry day vs non-expiry day" (a real, currently-
     #    blocked PDF-recommended validation dimension) once enough
     #    signals have accumulated.
+    #  - MFE/MAE Premium: Maximum Favorable/Adverse Excursion, in real
+    #    premium terms -- the best and worst price actually seen during
+    #    the trade's life, not just entry vs final exit. Both PDF
+    #    documents ask for this repeatedly. Tracked live in
+    #    check_outcomes() below, same polling cycle that already
+    #    checks SL/Target, not a separate fetch. HONEST LIMITATION:
+    #    if the server restarts mid-trade, the running high/low seen
+    #    SO FAR is lost (nothing in the Excel row itself records an
+    #    intratrade price path to rebuild from) -- tracking restarts
+    #    fresh from whatever the price is at restart, so MFE/MAE on a
+    #    position that survives a same-day restart will UNDERSTATE
+    #    the true excursion. Flagged here and in the rebuild code
+    #    below, not hidden.
     "Signal Logic Version", "Base Score (Pre-OI)", "India VIX At Signal", "Stock vs Sector %",
-    "Stock vs Index %", "Expiry Date",
+    "Stock vs Index %", "Expiry Date", "MFE Premium", "MAE Premium",
 ]
 
 _lock = threading.Lock()
@@ -249,6 +262,17 @@ def _ensure_fresh():
                     "sl": sl, "t1": t1, "t2": t2, "t3": t3,
                     "sl_hit": False, "furthest_target": furthest_target,
                     "created_at": created_at,
+                    # Sep 2 2026: restarts fresh from entry, same as a
+                    # brand new position -- the Excel row has no
+                    # intratrade price path to rebuild the TRUE
+                    # running high/low from, only entry/SL/target/
+                    # final exit. Any real excursion this position saw
+                    # BEFORE this restart is genuinely lost; MFE/MAE
+                    # for a position that survives a same-day restart
+                    # will understate the true excursion. Documented
+                    # here and in COLUMNS' own comment, not hidden.
+                    "max_premium_seen": ws.cell(row=row_num, column=col["Entry (Premium)"]).value,
+                    "min_premium_seen": ws.cell(row=row_num, column=col["Entry (Premium)"]).value,
                 }
                 rebuilt_open += 1
 
@@ -276,6 +300,7 @@ def _write_new_row(ws, signal):
         signal.get("signal_logic_version"), signal.get("technical_score"),
         signal.get("india_vix_at_signal"), signal.get("stock_vs_sector_pct"),
         signal.get("stock_vs_index_pct"), signal.get("expiry_date"),
+        "", "",  # MFE/MAE Premium -- blank until the position closes
     ]
     ws.append(row)
     row_num = ws.max_row
@@ -290,6 +315,7 @@ def _write_new_row(ws, signal):
             "sl": signal["sl"], "t1": signal["target1"], "t2": signal["target2"], "t3": signal["target3"],
             "sl_hit": False, "furthest_target": 0,
             "created_at": now,  # Aug 31 2026: Section 3 -- signal age, same source as the row's own Timestamp
+            "max_premium_seen": signal.get("entry"), "min_premium_seen": signal.get("entry"),
         }
     return row_num
 
@@ -417,6 +443,18 @@ def mark_exited(symbol, action):
             existing_outcome = ws.cell(row=existing["row"], column=outcome_col).value
             if not existing_outcome:
                 ws.cell(row=existing["row"], column=outcome_col).value = "Expired (no SL/Target hit)"
+            # Sep 2 2026: an EOD/manual exit still has real MFE/MAE data
+            # -- whatever excursion the position saw before it dropped
+            # out, not just its entry-to-final-mark move. Only writes
+            # if this position was actually being tracked (had a
+            # confirmed option chain in the first place); otherwise
+            # both cells stay honestly blank, not zeroed.
+            pos = _open_positions.get(key)
+            if pos is not None:
+                mfe_col = COLUMNS.index("MFE Premium") + 1
+                mae_col = COLUMNS.index("MAE Premium") + 1
+                ws.cell(row=existing["row"], column=mfe_col).value = pos.get("max_premium_seen")
+                ws.cell(row=existing["row"], column=mae_col).value = pos.get("min_premium_seen")
             wb.save(path)
             existing["exited_at"] = now
         except Exception as e:
@@ -521,6 +559,12 @@ def check_outcomes(get_quotes_fn):
                 if ltp is None:
                     continue
 
+                # Sep 2 2026: MFE/MAE -- update every poll, same cadence
+                # already used for the SL/Target checks right below,
+                # not a separate fetch.
+                pos["max_premium_seen"] = max(pos.get("max_premium_seen", pos["entry"]), ltp)
+                pos["min_premium_seen"] = min(pos.get("min_premium_seen", pos["entry"]), ltp)
+
                 if not pos["sl_hit"] and ltp <= pos["sl"]:
                     pos["sl_hit"] = True
                     ws.cell(row=pos["row"], column=COLUMNS.index("SL Hit At") + 1).value = now_str
@@ -539,6 +583,9 @@ def check_outcomes(get_quotes_fn):
                         break
 
                 if pos["sl_hit"] or pos["furthest_target"] >= 3:
+                    ws.cell(row=pos["row"], column=COLUMNS.index("MFE Premium") + 1).value = pos.get("max_premium_seen")
+                    ws.cell(row=pos["row"], column=COLUMNS.index("MAE Premium") + 1).value = pos.get("min_premium_seen")
+                    changed = True
                     del _open_positions[key]
 
             if changed:
