@@ -211,6 +211,11 @@ function DetailDrawer({ signal, onClose }) {
                   ? `Tap to open the exact ${signal.strike} ${isBuy ? 'CE' : 'PE'} chart`
                   : `Tap to open ${signal.symbol} chart (exact strike unavailable)`}
             </p>
+            {signal.near_expiry_warning === true && (
+              <p className="text-[10px] text-amber-400 text-center mt-1">
+                ⚠ Near expiry — theta decay and pin risk both elevated
+              </p>
+            )}
           </div>
 
           <div>
@@ -241,7 +246,39 @@ function DetailDrawer({ signal, onClose }) {
                 <p className="text-sm font-bold text-emerald-400/60 tabular-nums">{fmtPrice(signal.target3)}</p>
               </div>
             </div>
+            {(signal.risk_amount != null || signal.reward_amount != null) && (
+              <p className="text-[10px] text-slate-500 text-center mt-1.5">
+                Risk ₹{signal.risk_amount != null ? signal.risk_amount.toLocaleString('en-IN') : '—'}
+                {' · '}Reward ₹{signal.reward_amount != null ? signal.reward_amount.toLocaleString('en-IN') : '—'}
+                {signal.price_basis === 'option_premium' && ' (Option Premium)'}
+              </p>
+            )}
+            {signal.target1_beyond_resistance === true && (
+              <p className="text-[10px] text-amber-400 text-center mt-1">
+                ⚠ Target 1 requires clearing {isBuy ? 'resistance' : 'support'} first
+              </p>
+            )}
           </div>
+
+          {(signal.stock_vs_sector_pct != null || signal.stock_vs_index_pct != null) && (
+            <div>
+              <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1.5">Relative Strength</p>
+              <div className="bg-slate-800/60 rounded-lg p-3 flex items-center justify-around text-center">
+                <div>
+                  <p className="text-[9px] text-slate-500">vs Sector</p>
+                  <p className={`text-sm font-bold tabular-nums ${signal.stock_vs_sector_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {signal.stock_vs_sector_pct != null ? `${signal.stock_vs_sector_pct >= 0 ? '+' : ''}${signal.stock_vs_sector_pct}%` : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-slate-500">vs NIFTY</p>
+                  <p className={`text-sm font-bold tabular-nums ${signal.stock_vs_index_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {signal.stock_vs_index_pct != null ? `${signal.stock_vs_index_pct >= 0 ? '+' : ''}${signal.stock_vs_index_pct}%` : '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1.5">52-Week Range &amp; Technical</p>
@@ -275,6 +312,42 @@ function DetailDrawer({ signal, onClose }) {
               <p className="text-xs text-slate-300">{buildReason(signal)}</p>
             </div>
           </div>
+
+          {signal.score_breakdown && (
+            <div>
+              <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1.5">Score Breakdown</p>
+              <div className="bg-slate-800/60 rounded-lg p-3 space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">RSI favorable</span>
+                  <span className={signal.score_breakdown.rsi_favorable ? 'text-emerald-400' : 'text-slate-600'}>+{signal.score_breakdown.rsi_favorable ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Volume surge</span>
+                  <span className={signal.score_breakdown.volume_surge ? 'text-emerald-400' : 'text-slate-600'}>+{signal.score_breakdown.volume_surge ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Trend strength (ADX)</span>
+                  <span className={signal.score_breakdown.trend_strength_adx ? 'text-emerald-400' : 'text-slate-600'}>+{signal.score_breakdown.trend_strength_adx ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Directional alignment</span>
+                  <span className={signal.score_breakdown.directional_alignment ? 'text-emerald-400' : 'text-slate-600'}>+{signal.score_breakdown.directional_alignment ?? 0}</span>
+                </div>
+                <div className="border-t border-slate-700/50 pt-1 flex items-center justify-between text-xs font-semibold">
+                  <span className="text-slate-300">Technical subtotal (pre-OI)</span>
+                  <span className="text-white">{signal.technical_score ?? '—'}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400">OI / PCR adjustment</span>
+                  <span className={signal.oi_adjustment > 0 ? 'text-amber-400 font-medium' : 'text-slate-600'}>+{signal.oi_adjustment ?? 0}</span>
+                </div>
+                <div className="border-t border-slate-700/50 pt-1 flex items-center justify-between text-xs font-bold">
+                  <span className="text-white">Final score</span>
+                  <span className="text-white">{signal.confidence ?? '—'}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div>
             <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1.5">
