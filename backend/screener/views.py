@@ -2530,7 +2530,16 @@ class EODScanTriggerView(APIView):
     already running.
     """
     def get(self, request):
-        return Response({"scan_in_progress": _eod_scan_in_progress, "last_result": _eod_scan_last_result})
+        from .eod_scanner import get_scan_progress
+        return Response({
+            "scan_in_progress": _eod_scan_in_progress,
+            "last_result": _eod_scan_last_result,
+            # Sep 3 2026: real live progress -- was only ever visible in
+            # the terminal's own print() lines before. Zeros/None when
+            # nothing has run yet this process, which the frontend
+            # already treats the same as "no progress to show".
+            "progress": get_scan_progress(),
+        })
 
     def post(self, request):
         if _eod_scan_in_progress:

@@ -28,6 +28,22 @@ from .eod_scanner import OUTPUT_FILE as RAW_DATA_FILE
 RANKED_OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "next_day_watchlist.json")
 MIN_CANDLES_REQUIRED = 21  # 20 for SMA + 1 more for a volume-average baseline
 
+# Sep 3 2026: real, confirmed problem in a live scan -- the top-ranked
+# list included AKI (Rs5.48), ALOKINDS (Rs7.73), ANTELOPUS (Rs951.15),
+# ARIES (Rs495.35), all Unknown sector, all scoring exactly 75/100.
+# Root cause: compute_score() below rewards RSI extremeness + distance
+# from SMA + volume RATIO -- none of which need real size or liquidity
+# to max out. A stock that normally trades a few thousand shares a day
+# can hit an extreme volume RATIO on a tiny absolute move, and a
+# Rs5 stock can swing 10%+ on noise alone -- neither means the setup is
+# actually strong, just that it's small and erratic. These two filters
+# are REASONABLE, CLEARLY-LABELED starting points (same "not extracted
+# from anywhere, a defensible default" spirit as every other threshold
+# in this file), not values backtested to a proven optimum -- tune them
+# if real results say otherwise.
+MIN_PRICE = 50  # excludes sub-Rs50 stocks -- a common practical penny-stock line, not an NSE-official one
+MIN_AVG_VOLUME = 100000  # 1 lakh shares/day average -- genuine tradeable liquidity, not just a ratio spike on a thin stock
+
 
 def classify_trend_status(rsi, distance_from_sma_pct):
     """Reasonable, labeled tiers -- not extracted from anywhere.
@@ -181,6 +197,22 @@ def build_watchlist(sectors_map=None, top_n=30, min_score=0, raw_data=None):
         c["score_breakdown"] = breakdown
 
     candidates = [c for c in candidates if c["score"] >= min_score]
+    stocks_with_enough_data = len(candidates)  # original meaning preserved -- "had enough real history to be scoreable at all", captured before the quality gate below narrows the field further
+
+    # Sep 3 2026: quality gate -- see MIN_PRICE/MIN_AVG_VOLUME's own
+    # comment above for the real evidence behind this. Applied AFTER
+    # scoring (so score_breakdown still shows what each candidate
+    # would have earned, useful for debugging/tuning) but BEFORE
+    # ranking -- these aren't being scored down, they're being
+    # excluded as not genuinely tradeable/quality candidates at all.
+    excluded_low_price = sum(1 for c in candidates if c["eod_price"] is not None and c["eod_price"] < MIN_PRICE)
+    excluded_low_liquidity = sum(1 for c in candidates if c["avg_volume_20d"] is not None and c["avg_volume_20d"] < MIN_AVG_VOLUME)
+    candidates = [
+        c for c in candidates
+        if (c["eod_price"] is None or c["eod_price"] >= MIN_PRICE)
+        and (c["avg_volume_20d"] is None or c["avg_volume_20d"] >= MIN_AVG_VOLUME)
+    ]
+
     candidates.sort(key=lambda c: c["score"], reverse=True)
 
     ranked = candidates[:top_n]
@@ -190,10 +222,19 @@ def build_watchlist(sectors_map=None, top_n=30, min_score=0, raw_data=None):
     result = {
         "generated_at": datetime.now().isoformat(),
         "universe_scanned": len(raw_data),
-        "stocks_with_enough_data": len(candidates),
+        "stocks_with_enough_data": stocks_with_enough_data,
+        # Sep 3 2026: transparent, not silently baked into a smaller
+        # number -- shows exactly how many real candidates the new
+        # quality gate actually removed, same "show your work" spirit
+        # as score_breakdown.
+        "excluded_low_price": excluded_low_price,
+        "excluded_low_liquidity": excluded_low_liquidity,
+        "min_price_threshold": MIN_PRICE,
+        "min_avg_volume_threshold": MIN_AVG_VOLUME,
         "watchlist": ranked,
     }
     with open(RANKED_OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, default=str)
 
-    return ranked, len(raw_data), len(candidates)
+
+    return ranked, len(raw_data), stocks_with_enough_data

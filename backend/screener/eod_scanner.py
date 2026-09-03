@@ -40,6 +40,34 @@ CALL_TIMEOUT_SECONDS = 30  # generous for a normal Fyers call (which should comp
 
 OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "next_day_watchlist_raw.json")
 
+# Sep 3 2026: real live progress for the frontend -- until now, the
+# ONLY place scan progress was visible was the terminal's own print()
+# lines ("-- progress saved (450/2652)"), which the person watching
+# the app itself could never see -- they'd just see "Scan in progress"
+# with no sense of how far along or how much longer. Same in-memory
+# state pattern this whole codebase already uses (views.py's own
+# _eod_scan_in_progress etc.) -- read by EODScanTriggerView's GET
+# handler in views.py, no new storage, no new endpoint.
+_scan_progress = {"scanned": 0, "total": 0, "current_symbol": None}
+
+
+def get_scan_progress():
+    """Read-only snapshot for the frontend -- a plain dict copy, never
+    the live mutable one, so a caller can't accidentally corrupt scan
+    state just by holding a reference to what this returns."""
+    return dict(_scan_progress)
+
+
+def _reset_scan_progress(total):
+    _scan_progress["scanned"] = 0
+    _scan_progress["total"] = total
+    _scan_progress["current_symbol"] = None
+
+
+def _advance_scan_progress(symbol):
+    _scan_progress["scanned"] += 1
+    _scan_progress["current_symbol"] = symbol
+
 # Roughly HALF Fyers' documented ~200/min ceiling -- a deliberate
 # safety margin, not the theoretical max. Adjust down further, never
 # up, if a real run shows any sign of trouble.
@@ -261,6 +289,7 @@ def run(get_quotes_fn, get_history_fn, symbols=None, limit=None):
     if not to_scan:
         return existing, False
 
+    _reset_scan_progress(len(to_scan))
     stopped_early = False
     try:
         print(f"[EODScanner] Fetching quotes for {len(to_scan)} symbols (batched, {QUOTE_BATCH_SIZE}/call)...")
@@ -282,6 +311,7 @@ def run(get_quotes_fn, get_history_fn, symbols=None, limit=None):
                     "daily_candles": batch_result[symbol],
                     "fetched_at": datetime.now().isoformat(),
                 }
+            _advance_scan_progress(symbol)
             if (idx + 1) % SAVE_PROGRESS_EVERY == 0:
                 save_progress(existing)
                 print(f"[EODScanner]   -- progress saved ({idx + 1}/{len(to_scan)})")
