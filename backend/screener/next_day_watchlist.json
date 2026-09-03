@@ -1,7 +1,11 @@
 {
-  "generated_at": "2026-09-03T15:36:12.345708",
+  "generated_at": "2026-09-03T17:18:35.612993",
   "universe_scanned": 2652,
   "stocks_with_enough_data": 2481,
+  "excluded_low_price": 539,
+  "excluded_low_liquidity": 929,
+  "min_price_threshold": 50,
+  "min_avg_volume_threshold": 100000,
   "watchlist": [
     {
       "symbol": "NSE:MARUTI-EQ",
@@ -52,52 +56,6 @@
       "rank": 2
     },
     {
-      "symbol": "NSE:AKI-EQ",
-      "sector": "Unknown",
-      "eod_price": 5.48,
-      "change_percent": 19.91,
-      "rsi": 80.6,
-      "sma_20": 4.31,
-      "distance_from_sma_pct": 27.15,
-      "today_volume": 3044554,
-      "avg_volume_20d": 272876.0,
-      "volume_ratio": 11.16,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 3
-    },
-    {
-      "symbol": "NSE:ALOKINDS-EQ",
-      "sector": "Unknown",
-      "eod_price": 7.73,
-      "change_percent": 0.52,
-      "rsi": 6.7,
-      "sma_20": 10.9,
-      "distance_from_sma_pct": -29.08,
-      "today_volume": 117258835,
-      "avg_volume_20d": 16673707.0,
-      "volume_ratio": 7.03,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 4
-    },
-    {
       "symbol": "NSE:ANTELOPUS-EQ",
       "sector": "Unknown",
       "eod_price": 951.15,
@@ -118,7 +76,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 5
+      "rank": 3
     },
     {
       "symbol": "NSE:ARIES-EQ",
@@ -141,30 +99,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 6
-    },
-    {
-      "symbol": "NSE:AUSOMENT-EQ",
-      "sector": "Unknown",
-      "eod_price": 156.45,
-      "change_percent": 4.46,
-      "rsi": 78.7,
-      "sma_20": 146.01,
-      "distance_from_sma_pct": 7.15,
-      "today_volume": 19464,
-      "avg_volume_20d": 6357.0,
-      "volume_ratio": 3.06,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 7
+      "rank": 4
     },
     {
       "symbol": "NSE:AYMSYNTEX-EQ",
@@ -187,30 +122,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 8
-    },
-    {
-      "symbol": "NSE:BALAXI-EQ",
-      "sector": "Unknown",
-      "eod_price": 25.01,
-      "change_percent": 9.84,
-      "rsi": 65.0,
-      "sma_20": 23.4,
-      "distance_from_sma_pct": 6.88,
-      "today_volume": 302797,
-      "avg_volume_20d": 33476.0,
-      "volume_ratio": 9.05,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 9
+      "rank": 5
     },
     {
       "symbol": "NSE:BODALCHEM-EQ",
@@ -233,7 +145,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 10
+      "rank": 6
     },
     {
       "symbol": "NSE:CORDSCABLE-EQ",
@@ -256,53 +168,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 11
-    },
-    {
-      "symbol": "NSE:CYBERMEDIA-EQ",
-      "sector": "Unknown",
-      "eod_price": 19.9,
-      "change_percent": 6.65,
-      "rsi": 73.4,
-      "sma_20": 17.29,
-      "distance_from_sma_pct": 15.1,
-      "today_volume": 83153,
-      "avg_volume_20d": 24819.0,
-      "volume_ratio": 3.35,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 12
-    },
-    {
-      "symbol": "NSE:DAICHI-EQ",
-      "sector": "Unknown",
-      "eod_price": 352.3,
-      "change_percent": 3.92,
-      "rsi": 63.4,
-      "sma_20": 329.93,
-      "distance_from_sma_pct": 6.78,
-      "today_volume": 18127,
-      "avg_volume_20d": 5517.0,
-      "volume_ratio": 3.29,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 13
+      "rank": 7
     },
     {
       "symbol": "NSE:GLOBAL-EQ",
@@ -325,7 +191,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 14
+      "rank": 8
     },
     {
       "symbol": "NSE:GUJTHEM-EQ",
@@ -348,30 +214,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 15
-    },
-    {
-      "symbol": "NSE:ICDSLTD-EQ",
-      "sector": "Unknown",
-      "eod_price": 59.06,
-      "change_percent": 19.99,
-      "rsi": 82.7,
-      "sma_20": 42.33,
-      "distance_from_sma_pct": 39.52,
-      "today_volume": 122072,
-      "avg_volume_20d": 2593.0,
-      "volume_ratio": 47.08,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 16
+      "rank": 9
     },
     {
       "symbol": "NSE:IFCI-EQ",
@@ -394,99 +237,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 17
-    },
-    {
-      "symbol": "NSE:INDOCO-EQ",
-      "sector": "Unknown",
-      "eod_price": 273.77,
-      "change_percent": 12.27,
-      "rsi": 74.2,
-      "sma_20": 229.13,
-      "distance_from_sma_pct": 19.48,
-      "today_volume": 19225160,
-      "avg_volume_20d": 95448.0,
-      "volume_ratio": 201.42,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 18
-    },
-    {
-      "symbol": "NSE:INDOTHAI-EQ",
-      "sector": "Unknown",
-      "eod_price": 39.61,
-      "change_percent": -4.99,
-      "rsi": 2.5,
-      "sma_20": 67.57,
-      "distance_from_sma_pct": -41.38,
-      "today_volume": 6527923,
-      "avg_volume_20d": 1652418.0,
-      "volume_ratio": 3.95,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 19
-    },
-    {
-      "symbol": "NSE:IVC-EQ",
-      "sector": "Unknown",
-      "eod_price": 9.59,
-      "change_percent": 2.9,
-      "rsi": 80.3,
-      "sma_20": 8.43,
-      "distance_from_sma_pct": 13.76,
-      "today_volume": 1346252,
-      "avg_volume_20d": 380504.0,
-      "volume_ratio": 3.54,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 20
-    },
-    {
-      "symbol": "NSE:JINDALPOLY-EQ",
-      "sector": "Unknown",
-      "eod_price": 686.25,
-      "change_percent": -1.18,
-      "rsi": 62.8,
-      "sma_20": 645.03,
-      "distance_from_sma_pct": 6.39,
-      "today_volume": 98538,
-      "avg_volume_20d": 31551.0,
-      "volume_ratio": 3.12,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 21
+      "rank": 10
     },
     {
       "symbol": "NSE:JTEKTINDIA-EQ",
@@ -509,30 +260,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 22
-    },
-    {
-      "symbol": "NSE:KALYANIFRG-EQ",
-      "sector": "Unknown",
-      "eod_price": 1113.65,
-      "change_percent": 2.74,
-      "rsi": 90.2,
-      "sma_20": 722.17,
-      "distance_from_sma_pct": 54.21,
-      "today_volume": 82533,
-      "avg_volume_20d": 20657.0,
-      "volume_ratio": 4.0,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 23
+      "rank": 11
     },
     {
       "symbol": "NSE:MODISONLTD-EQ",
@@ -555,7 +283,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 24
+      "rank": 12
     },
     {
       "symbol": "NSE:NIACL-EQ",
@@ -578,30 +306,7 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 25
-    },
-    {
-      "symbol": "NSE:NIRAJISPAT-EQ",
-      "sector": "Unknown",
-      "eod_price": 429.65,
-      "change_percent": 10,
-      "rsi": 91.9,
-      "sma_20": 246.49,
-      "distance_from_sma_pct": 74.31,
-      "today_volume": 1061,
-      "avg_volume_20d": 283.0,
-      "volume_ratio": 3.75,
-      "sector_strength": null,
-      "sector_relative_pct": null,
-      "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 30
-      },
-      "rank": 26
+      "rank": 13
     },
     {
       "symbol": "NSE:OMAXE-EQ",
@@ -624,19 +329,19 @@
         "trend_distance": 25,
         "volume": 30
       },
-      "rank": 27
+      "rank": 14
     },
     {
-      "symbol": "NSE:PAR-EQ",
+      "symbol": "NSE:RAYMOND-EQ",
       "sector": "Unknown",
-      "eod_price": 168.25,
-      "change_percent": 19.67,
-      "rsi": 89.8,
-      "sma_20": 107.12,
-      "distance_from_sma_pct": 57.07,
-      "today_volume": 1507861,
-      "avg_volume_20d": 57979.0,
-      "volume_ratio": 26.01,
+      "eod_price": 667.25,
+      "change_percent": 5.03,
+      "rsi": 62.8,
+      "sma_20": 632.46,
+      "distance_from_sma_pct": 5.5,
+      "today_volume": 2180718,
+      "avg_volume_20d": 537707.0,
+      "volume_ratio": 4.06,
       "sector_strength": null,
       "sector_relative_pct": null,
       "trend_status": "Strong",
@@ -646,52 +351,354 @@
         "rsi": 20,
         "trend_distance": 25,
         "volume": 30
+      },
+      "rank": 15
+    },
+    {
+      "symbol": "NSE:RBZJEWEL-EQ",
+      "sector": "Unknown",
+      "eod_price": 161.47,
+      "change_percent": -4.46,
+      "rsi": 62.6,
+      "sma_20": 146.12,
+      "distance_from_sma_pct": 10.51,
+      "today_volume": 10355122,
+      "avg_volume_20d": 425838.0,
+      "volume_ratio": 24.32,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Strong",
+      "volume_status": "Heavy Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 30
+      },
+      "rank": 16
+    },
+    {
+      "symbol": "NSE:SAILIFE-EQ",
+      "sector": "Unknown",
+      "eod_price": 1587,
+      "change_percent": 4.54,
+      "rsi": 73.2,
+      "sma_20": 1455.61,
+      "distance_from_sma_pct": 9.03,
+      "today_volume": 2747154,
+      "avg_volume_20d": 667315.0,
+      "volume_ratio": 4.12,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Strong",
+      "volume_status": "Heavy Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 30
+      },
+      "rank": 17
+    },
+    {
+      "symbol": "NSE:SOTL-EQ",
+      "sector": "Unknown",
+      "eod_price": 752.6,
+      "change_percent": -2.44,
+      "rsi": 62.4,
+      "sma_20": 705.91,
+      "distance_from_sma_pct": 6.61,
+      "today_volume": 5145071,
+      "avg_volume_20d": 1227473.0,
+      "volume_ratio": 4.19,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Strong",
+      "volume_status": "Heavy Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 30
+      },
+      "rank": 18
+    },
+    {
+      "symbol": "NSE:TBZ-EQ",
+      "sector": "Unknown",
+      "eod_price": 418.25,
+      "change_percent": 14.03,
+      "rsi": 83.3,
+      "sma_20": 283.99,
+      "distance_from_sma_pct": 47.28,
+      "today_volume": 27976693,
+      "avg_volume_20d": 2317335.0,
+      "volume_ratio": 12.07,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Strong",
+      "volume_status": "Heavy Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 30
+      },
+      "rank": 19
+    },
+    {
+      "symbol": "NSE:UFLEX-EQ",
+      "sector": "Unknown",
+      "eod_price": 701.8,
+      "change_percent": 8.8,
+      "rsi": 80.8,
+      "sma_20": 581.27,
+      "distance_from_sma_pct": 20.74,
+      "today_volume": 2479035,
+      "avg_volume_20d": 734104.0,
+      "volume_ratio": 3.38,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Strong",
+      "volume_status": "Heavy Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 30
+      },
+      "rank": 20
+    },
+    {
+      "symbol": "NSE:UJJIVANSFB-EQ",
+      "sector": "Unknown",
+      "eod_price": 63.64,
+      "change_percent": -2.63,
+      "rsi": 34.5,
+      "sma_20": 70.09,
+      "distance_from_sma_pct": -9.2,
+      "today_volume": 49431916,
+      "avg_volume_20d": 12502478.0,
+      "volume_ratio": 3.95,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Strong",
+      "volume_status": "Heavy Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 30
+      },
+      "rank": 21
+    },
+    {
+      "symbol": "NSE:WINDLAS-EQ",
+      "sector": "Unknown",
+      "eod_price": 1096.6,
+      "change_percent": 8.75,
+      "rsi": 76.5,
+      "sma_20": 958.85,
+      "distance_from_sma_pct": 14.37,
+      "today_volume": 1564975,
+      "avg_volume_20d": 224822.0,
+      "volume_ratio": 6.96,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Strong",
+      "volume_status": "Heavy Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 30
+      },
+      "rank": 22
+    },
+    {
+      "symbol": "NSE:XTRANET-EQ",
+      "sector": "Unknown",
+      "eod_price": 193.68,
+      "change_percent": 3.38,
+      "rsi": 69.9,
+      "sma_20": 164.5,
+      "distance_from_sma_pct": 17.74,
+      "today_volume": 3941896,
+      "avg_volume_20d": 1301503.0,
+      "volume_ratio": 3.03,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Strong",
+      "volume_status": "Heavy Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 30
+      },
+      "rank": 23
+    },
+    {
+      "symbol": "NSE:PFC-EQ",
+      "sector": "Finance",
+      "eod_price": 346.5,
+      "change_percent": 0.2,
+      "rsi": 26.7,
+      "sma_20": 370.86,
+      "distance_from_sma_pct": -6.57,
+      "today_volume": 11746142,
+      "avg_volume_20d": 9124630.0,
+      "volume_ratio": 1.29,
+      "sector_relative_pct": 0.35,
+      "sector_strength": "Leading",
+      "trend_status": "Strong",
+      "volume_status": "Normal",
+      "score": 74,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 4,
+        "sector_strength": 25
+      },
+      "rank": 24
+    },
+    {
+      "symbol": "NSE:RISHABH-EQ",
+      "sector": "Unknown",
+      "eod_price": 746,
+      "change_percent": 7.23,
+      "rsi": 67.1,
+      "sma_20": 681.42,
+      "distance_from_sma_pct": 9.48,
+      "today_volume": 1177885,
+      "avg_volume_20d": 403093.0,
+      "volume_ratio": 2.92,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Strong",
+      "volume_status": "Accumulation",
+      "score": 74,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 29
+      },
+      "rank": 25
+    },
+    {
+      "symbol": "NSE:CLEAN-EQ",
+      "sector": "Unknown",
+      "eod_price": 863.15,
+      "change_percent": 4.36,
+      "rsi": 65.7,
+      "sma_20": 822.69,
+      "distance_from_sma_pct": 4.92,
+      "today_volume": 1112817,
+      "avg_volume_20d": 401641.0,
+      "volume_ratio": 2.77,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Moderate",
+      "volume_status": "Accumulation",
+      "score": 72,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 27
+      },
+      "rank": 26
+    },
+    {
+      "symbol": "NSE:GUFICBIO-EQ",
+      "sector": "Unknown",
+      "eod_price": 438.8,
+      "change_percent": 4.22,
+      "rsi": 64.3,
+      "sma_20": 420.43,
+      "distance_from_sma_pct": 4.37,
+      "today_volume": 693834,
+      "avg_volume_20d": 119706.0,
+      "volume_ratio": 5.8,
+      "sector_strength": null,
+      "sector_relative_pct": null,
+      "trend_status": "Moderate",
+      "volume_status": "Heavy Accumulation",
+      "score": 72,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 22,
+        "volume": 30
+      },
+      "rank": 27
+    },
+    {
+      "symbol": "NSE:POLYCAB-EQ",
+      "sector": "Consumer Durables",
+      "eod_price": 8804,
+      "change_percent": -1.03,
+      "rsi": 39.8,
+      "sma_20": 9151.12,
+      "distance_from_sma_pct": -3.79,
+      "today_volume": 434543,
+      "avg_volume_20d": 284171.0,
+      "volume_ratio": 1.53,
+      "sector_relative_pct": 0.5,
+      "sector_strength": "Leading",
+      "trend_status": "Moderate",
+      "volume_status": "Accumulation",
+      "score": 72,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 19,
+        "volume": 8,
+        "sector_strength": 25
       },
       "rank": 28
     },
     {
-      "symbol": "NSE:PLAZACABLE-EQ",
+      "symbol": "NSE:GFLLIMITED-EQ",
       "sector": "Unknown",
-      "eod_price": 61.8,
-      "change_percent": 4.89,
-      "rsi": 74.3,
-      "sma_20": 52.48,
-      "distance_from_sma_pct": 17.76,
-      "today_volume": 303102,
-      "avg_volume_20d": 89498.0,
-      "volume_ratio": 3.39,
+      "eod_price": 58.82,
+      "change_percent": 4.48,
+      "rsi": 69.4,
+      "sma_20": 53.11,
+      "distance_from_sma_pct": 10.75,
+      "today_volume": 346841,
+      "avg_volume_20d": 128496.0,
+      "volume_ratio": 2.7,
       "sector_strength": null,
       "sector_relative_pct": null,
       "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
+      "volume_status": "Accumulation",
+      "score": 71,
       "score_breakdown": {
         "rsi": 20,
         "trend_distance": 25,
-        "volume": 30
+        "volume": 26
       },
       "rank": 29
     },
     {
-      "symbol": "NSE:PNC-EQ",
-      "sector": "Unknown",
-      "eod_price": 16.37,
-      "change_percent": -3.08,
-      "rsi": 31.0,
-      "sma_20": 18.13,
-      "distance_from_sma_pct": -9.71,
-      "today_volume": 39970,
-      "avg_volume_20d": 12406.0,
-      "volume_ratio": 3.22,
-      "sector_strength": null,
-      "sector_relative_pct": null,
+      "symbol": "NSE:ADANIENSOL-EQ",
+      "sector": "Power",
+      "eod_price": 1396.6,
+      "change_percent": 1.06,
+      "rsi": 30.3,
+      "sma_20": 1561.99,
+      "distance_from_sma_pct": -10.59,
+      "today_volume": 4214587,
+      "avg_volume_20d": 4401192.0,
+      "volume_ratio": 0.96,
+      "sector_relative_pct": 0.18,
+      "sector_strength": "Leading",
       "trend_status": "Strong",
-      "volume_status": "Heavy Accumulation",
-      "score": 75,
+      "volume_status": "Normal",
+      "score": 70,
       "score_breakdown": {
         "rsi": 20,
         "trend_distance": 25,
-        "volume": 30
+        "volume": 0,
+        "sector_strength": 25
       },
       "rank": 30
     }
