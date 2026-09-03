@@ -110,6 +110,79 @@ def compute_qty_with_risk_budget(lot_size, entry, sl, risk_budget_rupees):
 _no_trade_cache = []  # Aug 31 2026: P0-6 -- rejected candidates this cycle, with reasons
 _tech_cache = {}
 _cache_lock = threading.Lock()
+
+# Sep 3 2026: hysteresis for live signal-list inclusion -- built after
+# real evidence from a full historical analysis (22 real trading days,
+# 463 logged signals): 59.6% of every signal ever logged was a same-day
+# repeat of a symbol that already fired that day, and repeats were
+# measurably WORSE trades (Target-hit 24.7% vs 31.5% for first signals;
+# closed unresolved-down at EOD 37.1% vs 23.1%). Root cause: the score
+# gate below used to be a single flat cutoff recomputed fresh every
+# cycle with zero memory -- a stock sitting at 49/51/49/51 would blink
+# in and out of the live list every single cycle.
+#
+# This is a SEPARATE mechanism from excel_logger.py's own 30-minute
+# reactivation cooldown -- that one only merges duplicate SPREADSHEET
+# rows for very fast (<30min) flicker and has no effect on which
+# stocks actually appear in the live list. Confirmed it wasn't the
+# fix: the historical repeats' median gap was 44 minutes, already past
+# that 30-min window, so most of what got measured wasn't even
+# touched by it.
+#
+# ENTRY_SCORE_THRESHOLD (50) is unchanged -- same bar as always to
+# first qualify. EXIT_SCORE_THRESHOLD (35) is deliberately LOWER --
+# once a stock is already "in" today, it stays in until its score
+# drops meaningfully, not just back below 50. The 15-point gap is a
+# reasoned starting default (a standard hysteresis-band width), NOT
+# something backtested to an exact optimum -- there's no granular
+# historical score-history logged to validate the precise number
+# against, only the entry/exit snapshot at qualification time. The
+# DIRECTION (hysteresis beats a flat cutoff here) is what's actually
+# evidence-backed; this exact number is a place to start, tunable
+# later once real data accumulates under it.
+#
+# In-memory only, resets on server restart -- same honest limitation
+# already true of every other cache in this file (_stock_cache,
+# _signal_cache, etc.), not a new one introduced here. A restart mid-
+# day means a stock sitting between 35-49 (already qualified, in the
+# hysteresis band) needs to re-cross 50 fresh afterward, same as if it
+# had never qualified today.
+_qualification_state = {}  # {(symbol, action): {'date': 'YYYY-MM-DD', 'qualified': bool}}
+ENTRY_SCORE_THRESHOLD = 50
+EXIT_SCORE_THRESHOLD = 35
+
+
+def _is_qualified_with_hysteresis(symbol, action, score, state_dict=None, today=None):
+    """
+    Whether (symbol, action) should be included as a live signal THIS
+    cycle. Pure enough to unit test directly -- state_dict/today are
+    injectable (default to the real module state / real today) so a
+    test can pass its own dict and fixed date without touching global
+    state or depending on wall-clock time.
+
+    Mutates state_dict as a side effect -- call exactly once per
+    (symbol, action) per cycle, same call-once contract the rest of
+    this file's per-cycle logic already follows.
+    """
+    if state_dict is None:
+        state_dict = _qualification_state
+    if today is None:
+        today = datetime.now().strftime("%Y-%m-%d")
+
+    key = (symbol, action)
+    state = state_dict.get(key)
+    if state is None or state.get('date') != today:
+        state = {'date': today, 'qualified': False}
+        state_dict[key] = state
+
+    if state['qualified']:
+        if score < EXIT_SCORE_THRESHOLD:
+            state['qualified'] = False
+    else:
+        if score >= ENTRY_SCORE_THRESHOLD:
+            state['qualified'] = True
+
+    return state['qualified']
 _last_fetch = 0
 CACHE_TTL = 60
 
@@ -1053,12 +1126,17 @@ def _build_all():
         bearish_aligned = price < vwap and macd < 0
         if bullish_aligned or bearish_aligned:
             score += 30
-        
-        if score < 50:
-            no_trade_log.append({"symbol": sym, "reason": f"Technical score {score} below 50 threshold"})
+
+        # Sep 3 2026: action needs to exist BEFORE the gate now -- the
+        # hysteresis check below is keyed per (symbol, action), and
+        # both bullish_aligned/bearish_aligned are already known at
+        # this point, so this is just a reorder, not new logic.
+        action = "BUY" if bullish_aligned else "SELL"
+
+        if not _is_qualified_with_hysteresis(sym, action, score):
+            no_trade_log.append({"symbol": sym, "reason": f"Technical score {score} below qualification threshold (hysteresis: needs {ENTRY_SCORE_THRESHOLD} to enter, {EXIT_SCORE_THRESHOLD} to exit)"})
             continue
         
-        action = "BUY" if bullish_aligned else "SELL"
         atr = tech['atr']
         # These used to be atr*2/3/4 for targets and atr*1.5 for SL -- that's
         # sized for a multi-day swing, not an intraday option trade. One ATR
