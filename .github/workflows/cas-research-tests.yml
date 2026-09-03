@@ -45,7 +45,7 @@ jobs:
 
       - name: CAS research tests
         working-directory: backend
-        run: python manage.py test screener.tests.test_cas_radar screener.tests.test_cas_research -v 2
+        run: python manage.py test screener.tests.test_cas_radar screener.tests.test_cas_research screener.tests.test_cas_validation -v 2
 
       - name: Set up Node
         uses: actions/setup-node@v4
