@@ -9,6 +9,9 @@ This is a research/backtest layer only. It does not generate trading signals.
 """
 from datetime import datetime, time, timedelta
 
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .index_tracker import get_snapshots_for_date, list_available_dates
 
 CAS_START = time(15, 15)
@@ -23,15 +26,10 @@ def _to_dt(date_str, time_value):
         return time_value
     if not time_value:
         return None
-    if hasattr(time_value, "time") and not isinstance(time_value, str):
-        return datetime.combine(datetime.strptime(date_str, "%Y-%m-%d").date(), time_value.time())
     text = str(time_value).strip()
     for fmt in ("%H:%M:%S", "%H:%M"):
         try:
-            return datetime.combine(
-                datetime.strptime(date_str, "%Y-%m-%d").date(),
-                datetime.strptime(text, fmt).time(),
-            )
+            return datetime.combine(datetime.strptime(date_str, "%Y-%m-%d").date(), datetime.strptime(text, fmt).time())
         except ValueError:
             pass
     return None
@@ -54,27 +52,21 @@ def _pct_move(start, end):
 def _max_abs_move_pct(base, future_rows):
     values = [_pct_move(base, _num(r, "Spot")) for r in future_rows]
     values = [v for v in values if v is not None]
-    if not values:
-        return None
-    return max(values, key=abs)
+    return max(values, key=abs) if values else None
 
 
 def _direction(move_pct):
     if move_pct is None:
         return None
-    if move_pct > 0:
-        return "up"
-    if move_pct < 0:
-        return "down"
-    return "flat"
+    return "up" if move_pct > 0 else "down" if move_pct < 0 else "flat"
 
 
 def _expiry_candidate(index_name, date_obj):
     """Weekday candidate only; holidays are not guessed as expiries."""
     if index_name == "NIFTY":
-        return date_obj.weekday() == 3  # Thursday
+        return date_obj.weekday() == 3
     if index_name == "BANKNIFTY":
-        return date_obj.weekday() == 2  # Wednesday
+        return date_obj.weekday() == 2
     return False
 
 
@@ -104,12 +96,11 @@ def build_cas_event_dataset(index_name, start_time=EARLY_WARNING_START, end_time
         for event_dt, row in day_rows:
             if not (start_time <= event_dt.time() <= end_time):
                 continue
-
             spot = _num(row, "Spot")
             if spot is None:
                 continue
 
-            future = [(dt, r) for dt, r in day_rows if dt > event_dt and dt.time() <= CAS_END]
+            future = [(dt, r) for dt, r in day_rows if event_dt < dt and dt.time() <= CAS_END]
             outcomes = {}
             for horizon in OUTCOME_HORIZONS_MIN:
                 cutoff = event_dt + timedelta(minutes=horizon)
@@ -121,7 +112,7 @@ def build_cas_event_dataset(index_name, start_time=EARLY_WARNING_START, end_time
             first_after = next((r for dt, r in future if dt <= event_dt + timedelta(minutes=5)), None)
             first_move = _pct_move(spot, _num(first_after, "Spot")) if first_after else None
 
-            event = {
+            events.append({
                 "index": name,
                 "date": date_str,
                 "event_time": event_dt.strftime("%H:%M:%S"),
@@ -138,8 +129,7 @@ def build_cas_event_dataset(index_name, start_time=EARLY_WARNING_START, end_time
                 "bias_v2": row.get("Bias V2"),
                 "first_forward_move_5m_pct": round(first_move, 5) if first_move is not None else None,
                 **outcomes,
-            }
-            events.append(event)
+            })
 
     return sorted(events, key=lambda r: (r["date"], r["event_time"]), reverse=True)
 
@@ -147,7 +137,6 @@ def build_cas_event_dataset(index_name, start_time=EARLY_WARNING_START, end_time
 def summarize_cas_events(events, large_move_threshold_pct=0.25):
     """Summarize sample size and large-move hit rates without fitting a model."""
     valid = [e for e in events if e.get("max_abs_move_5m_pct") is not None]
-    large = [e for e in valid if abs(e["max_abs_move_5m_pct"]) >= large_move_threshold_pct]
     expiry = [e for e in valid if e.get("expiry_weekday_candidate")]
     non_expiry = [e for e in valid if not e.get("expiry_weekday_candidate")]
 
@@ -157,7 +146,7 @@ def summarize_cas_events(events, large_move_threshold_pct=0.25):
     return {
         "sample_size": len(valid),
         "large_move_threshold_pct": large_move_threshold_pct,
-        "large_move_count": len(large),
+        "large_move_count": sum(abs(e["max_abs_move_5m_pct"]) >= large_move_threshold_pct for e in valid),
         "large_move_rate_pct": rate(valid),
         "expiry_candidate_sample": len(expiry),
         "expiry_candidate_large_move_rate_pct": rate(expiry),
@@ -166,3 +155,22 @@ def summarize_cas_events(events, large_move_threshold_pct=0.25):
         "status": "insufficient_sample" if len(valid) < 30 else "research_sample",
         "warning": "Expiry classification is weekday-based and must be checked against the official holiday-adjusted expiry calendar before model fitting.",
     }
+
+
+class CASResearchDatasetView(APIView):
+    """Research endpoint; intentionally returns no trade recommendation."""
+    def get(self, request, index_name):
+        try:
+            events = build_cas_event_dataset(index_name)
+            threshold = float(request.query_params.get("threshold", 0.25))
+            return Response({
+                "index": index_name.upper(),
+                "research_only": True,
+                "summary": summarize_cas_events(events, threshold),
+                "events": events[:500],
+            })
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=400)
+        except Exception as exc:
+            print(f"[CASResearch] request failed: {exc}")
+            return Response({"error": "CAS research data unavailable"}, status=503)
