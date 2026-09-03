@@ -42,16 +42,41 @@ function fmtOi(n) {
 
 function fmtVol(n) {
   if (n == null) return '—';
+  // Sep 3 2026: real bug, visible directly in a real screenshot --
+  // "99794K" / "135915K". Volume can genuinely run into the millions
+  // for NIFTY, and this never rolled over past K, so it just kept
+  // printing more and more digits instead of switching units. Now
+  // escalates the same way fmtOi already does (K -> L), so large
+  // volumes read the same way large OI already does elsewhere on this
+  // exact chart.
+  if (n >= 100000) return `${(n / 100000).toFixed(1)}L`;
   return n >= 1000 ? `${(n / 1000).toFixed(0)}K` : String(n);
+}
+
+// Sep 3 2026: per-strike PCR + sentiment -- same exact formula and
+// thresholds already built and tested in StrikeOIChart.jsx (duplicated
+// here rather than imported, matching this project's own established
+// preference for small duplicated logic over a shared-file dependency
+// -- see IconBell in App.jsx for the precedent).
+function computeStrikePcr(ceOi, peOi) {
+  if (!ceOi || !peOi || ceOi <= 0) return null;
+  return peOi / ceOi;
+}
+function pcrSentimentLabel(pcr) {
+  if (pcr == null) return { label: '—', color: 'text-slate-400' };
+  if (pcr > 1.05) return { label: 'Bullish', color: 'text-emerald-400' };
+  if (pcr < 0.95) return { label: 'Bearish', color: 'text-rose-400' };
+  return { label: 'Neutral', color: 'text-amber-400' };
 }
 
 // Sep 3 2026: pulled out as its own pure function (was inline in the
 // component before) -- now also carries ce_volume/pe_volume/ce_ltp/
-// pe_ltp through, which the backend was already returning in
-// ceData/peData (same fields Analytics.jsx already maps for its own
-// table) but this component was silently dropping, keeping only `oi`.
-// Real data that already existed, just never reached this component's
-// own row shape -- not a new backend call.
+// pe_ltp/ce_oi_chg/pe_oi_chg/ce_iv/pe_iv/ce_delta/pe_delta through,
+// which the backend was already returning in ceData/peData (same raw
+// fields Analytics.jsx already maps for its own table -- oi_chg_pct,
+// iv, delta) but this component was silently dropping, keeping only
+// `oi`. Real data that already existed, just never reached this
+// component's own row shape -- not a new backend call.
 function mergeOIRows(ceData, peData) {
   const byStrike = {};
   let totalCeOi = 0, totalPeOi = 0;
@@ -60,6 +85,9 @@ function mergeOIRows(ceData, peData) {
     byStrike[c.strike].ce_oi = c.oi || 0;
     byStrike[c.strike].ce_volume = c.volume ?? null;
     byStrike[c.strike].ce_ltp = c.ltp ?? null;
+    byStrike[c.strike].ce_oi_chg = c.oi_chg_pct ?? null;
+    byStrike[c.strike].ce_iv = c.iv ?? null;
+    byStrike[c.strike].ce_delta = c.delta ?? null;
     totalCeOi += c.oi || 0;
   }
   for (const p of peData || []) {
@@ -67,6 +95,9 @@ function mergeOIRows(ceData, peData) {
     byStrike[p.strike].pe_oi = p.oi || 0;
     byStrike[p.strike].pe_volume = p.volume ?? null;
     byStrike[p.strike].pe_ltp = p.ltp ?? null;
+    byStrike[p.strike].pe_oi_chg = p.oi_chg_pct ?? null;
+    byStrike[p.strike].pe_iv = p.iv ?? null;
+    byStrike[p.strike].pe_delta = p.delta ?? null;
     totalPeOi += p.oi || 0;
   }
   const rows = Object.values(byStrike).sort((a, b) => a.strike - b.strike);
@@ -193,17 +224,49 @@ export default function OIDistribution() {
               )}
             </svg>
 
-            {hoverIdx != null && rows[hoverIdx] && (
-              <div className="absolute top-1 left-1 bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs shadow-xl pointer-events-none min-w-[170px]">
-                <p className="text-white font-bold mb-1.5">Strike ₹{rows[hoverIdx].strike.toLocaleString('en-IN')}</p>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                  <span className="text-emerald-400">Call OI</span><span className="text-right text-slate-200">{fmtOi(rows[hoverIdx].ce_oi)}</span>
-                  <span className="text-emerald-400">Call Vol</span><span className="text-right text-slate-200">{fmtVol(rows[hoverIdx].ce_volume)}</span>
-                  <span className="text-rose-400">Put OI</span><span className="text-right text-slate-200">{fmtOi(rows[hoverIdx].pe_oi)}</span>
-                  <span className="text-rose-400">Put Vol</span><span className="text-right text-slate-200">{fmtVol(rows[hoverIdx].pe_volume)}</span>
+            {hoverIdx != null && rows[hoverIdx] && (() => {
+              const r = rows[hoverIdx];
+              const pcr = computeStrikePcr(r.ce_oi, r.pe_oi);
+              const sentiment = pcrSentimentLabel(pcr);
+              return (
+                <div className="absolute top-1 left-1 bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs shadow-xl pointer-events-none min-w-[210px]">
+                  <p className="text-white font-bold mb-2">Strike ₹{r.strike.toLocaleString('en-IN')}</p>
+
+                  <p className="text-[9px] text-emerald-400 uppercase tracking-wide font-semibold mb-1">Call (CE)</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-2">
+                    <span className="text-slate-400">OI</span><span className="text-right text-slate-200">{fmtOi(r.ce_oi)}</span>
+                    <span className="text-slate-400">LTP</span><span className="text-right text-slate-200">{r.ce_ltp != null ? `₹${r.ce_ltp}` : '—'}</span>
+                    <span className="text-slate-400">OI Chg</span>
+                    <span className={`text-right ${r.ce_oi_chg == null ? 'text-slate-200' : r.ce_oi_chg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {r.ce_oi_chg != null ? `${r.ce_oi_chg.toFixed(1)}%` : '—'}
+                    </span>
+                    <span className="text-slate-400">Volume</span><span className="text-right text-slate-200">{fmtVol(r.ce_volume)}</span>
+                    <span className="text-slate-400">IV</span><span className="text-right text-slate-200">{r.ce_iv != null ? `${r.ce_iv.toFixed(1)}%` : '—'}</span>
+                    <span className="text-slate-400">Delta</span><span className="text-right text-slate-200">{r.ce_delta ?? '—'}</span>
+                  </div>
+
+                  <p className="text-[9px] text-rose-400 uppercase tracking-wide font-semibold mb-1">Put (PE)</p>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-2">
+                    <span className="text-slate-400">OI</span><span className="text-right text-slate-200">{fmtOi(r.pe_oi)}</span>
+                    <span className="text-slate-400">LTP</span><span className="text-right text-slate-200">{r.pe_ltp != null ? `₹${r.pe_ltp}` : '—'}</span>
+                    <span className="text-slate-400">OI Chg</span>
+                    <span className={`text-right ${r.pe_oi_chg == null ? 'text-slate-200' : r.pe_oi_chg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {r.pe_oi_chg != null ? `${r.pe_oi_chg.toFixed(1)}%` : '—'}
+                    </span>
+                    <span className="text-slate-400">Volume</span><span className="text-right text-slate-200">{fmtVol(r.pe_volume)}</span>
+                    <span className="text-slate-400">IV</span><span className="text-right text-slate-200">{r.pe_iv != null ? `${r.pe_iv.toFixed(1)}%` : '—'}</span>
+                    <span className="text-slate-400">Delta</span><span className="text-right text-slate-200">{r.pe_delta ?? '—'}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-700">
+                    <span className="text-amber-400 font-semibold">PCR</span>
+                    <span className="text-slate-200">
+                      {pcr != null ? pcr.toFixed(2) : '—'} <span className={sentiment.color}>({sentiment.label})</span>
+                    </span>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
           <div className="flex justify-between text-[9px] text-slate-500 mt-1">
             <span>{layout.bars[0]?.strike.toLocaleString('en-IN')}</span>
