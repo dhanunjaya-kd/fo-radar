@@ -18,7 +18,6 @@ import FundamentalsWatchlist from './components/FundamentalsWatchlist';
 import NextDayWatchlist from './components/NextDayWatchlist';
 import DailyBacktestTab from './components/DailyBacktestTab';
 import Dashboard from './components/Dashboard';
-import OIDistribution from './components/OIDistribution';
 import SettingsPanel from './components/SettingsPanel';
 import StrategyBacktest from './components/StrategyBacktest';
 
@@ -283,20 +282,10 @@ function AppShell() {
         {activeTab === 'settings' && <SettingsPanel onDensityChange={setDensity} />}
         {activeTab === 'signals' && <SignalList />}
         {activeTab === 'oi' && (
-          <div className="space-y-4">
-            {/* Sep 3 2026: real fix for "Details ->" on the Dashboard's
-                NIFTY OI Positioning card -- onNavigate('oi') was always
-                correctly routing here, but this tab only ever rendered
-                <Analytics />, a generic per-stock search page with no
-                NIFTY default. OIDistribution already existed (built Aug
-                28, own layout math already tested in
-                test_oi_distribution.js) with a NIFTY/BANKNIFTY toggle
-                defaulting to NIFTY -- it just was never imported or
-                rendered anywhere in this file. This wires it in rather
-                than building a second version of the same thing. */}
-            <OIDistribution />
-            <Analytics />
-          </div>
+          // Sep 3 2026: OIDistribution moved to Dashboard.jsx instead --
+          // showing it here too would be the exact same chart twice.
+          // This tab stays the per-stock search/deep-dive (Analytics.jsx).
+          <Analytics />
         )}
         {activeTab === 'index' && <IndexTracker />}
         {activeTab === 'market' && <MarketView />}
