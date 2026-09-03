@@ -3,20 +3,14 @@
 This module deliberately builds on the project's existing Fyers-backed
 Index Tracker snapshots. It does NOT invent IEP/imbalance fields and does
 not turn the existing Bias/OI values into a trading recommendation.
-
-The first version is intentionally narrow: expose the latest observable
-snapshot, the existing complete CAS pre/post history, and a machine-readable
-capability flag for auction microstructure fields. This gives the frontend a
-real CAS tab without creating a second market-data pipeline.
 """
 from datetime import datetime, time as dt_time
 from zoneinfo import ZoneInfo
 
-IST = ZoneInfo("Asia/Kolkata")
+from rest_framework.views import APIView
+from rest_framework.response import Response
 
-# These are the names used by NSE's CAS session. Keep the window definition
-# here local and explicit; the existing market-hours helper is still the
-# source of truth for whether the scanner should be fetching data.
+IST = ZoneInfo("Asia/Kolkata")
 CAS_START = dt_time(15, 15)
 CAS_END = dt_time(15, 35)
 
@@ -27,11 +21,7 @@ def _cas_window_now():
 
 
 def _microstructure_capabilities(rows):
-    """Detect auction fields only when they genuinely exist in stored data.
-
-    Existing rows use the Index Tracker schema. We deliberately do not
-    derive an IEP or imbalance proxy and label it as IEP/imbalance.
-    """
+    """Detect auction fields only when they genuinely exist in stored data."""
     keys = set()
     for row in rows or []:
         keys.update(row.keys())
@@ -44,11 +34,7 @@ def _microstructure_capabilities(rows):
         "sell_quantity": ("Sell Quantity", "sell_quantity", "Indicative Sell Quantity"),
     }
     found = {name: any(alias in keys for alias in candidates) for name, candidates in aliases.items()}
-    return {
-        **found,
-        "available": any(found.values()),
-        "source": "Fyers project feed",
-    }
+    return {**found, "available": any(found.values()), "source": "Fyers project feed"}
 
 
 def get_cas_radar(index_name):
@@ -64,8 +50,6 @@ def get_cas_radar(index_name):
     latest = today_rows[0] if today_rows else None
     capabilities = _microstructure_capabilities(today_rows)
 
-    # Keep the API explicit about the absence of auction fields. A future
-    # provider can populate these without changing the frontend contract.
     return {
         "index": name,
         "timestamp": datetime.now(IST).isoformat(),
@@ -82,3 +66,15 @@ def get_cas_radar(index_name):
             "reason": "No validated CAS predictor is fitted; historical timestamps are retained for lead-time research.",
         },
     }
+
+
+class CASRadarView(APIView):
+    """HTTP adapter for the dedicated CAS Radar research tab."""
+    def get(self, request, index_name):
+        try:
+            return Response(get_cas_radar(index_name))
+        except ValueError as e:
+            return Response({"error": str(e)}, status=400)
+        except Exception as e:
+            print(f"[CASRadar] request failed: {e}")
+            return Response({"error": "CAS Radar data unavailable"}, status=503)
