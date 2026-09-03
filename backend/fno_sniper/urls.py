@@ -19,6 +19,23 @@ from screener.views import (
 )
 from screener.cas_radar import CASRadarView
 from screener.cas_research import CASResearchDatasetView
+from screener.cas_readiness import build_cas_readiness
+from django.http import JsonResponse
+
+
+class CASReadinessView:
+    @classmethod
+    def as_view(cls):
+        def view(request, index_name):
+            try:
+                return JsonResponse(build_cas_readiness(index_name))
+            except ValueError as exc:
+                return JsonResponse({"error": str(exc)}, status=400)
+            except Exception as exc:
+                print(f"[CASReadiness] request failed: {exc}")
+                return JsonResponse({"error": "CAS readiness unavailable"}, status=503)
+        return view
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -51,6 +68,7 @@ urlpatterns = [
     path('api/cas-auction-moves/<str:index_name>/', CASAuctionMovesView.as_view(), name='cas_auction_moves'),
     path('api/cas-radar/<str:index_name>/', CASRadarView.as_view(), name='cas_radar'),
     path('api/cas-research/<str:index_name>/', CASResearchDatasetView.as_view(), name='cas_research'),
+    path('api/cas-readiness/<str:index_name>/', CASReadinessView.as_view(), name='cas_readiness'),
     path('api/index-signals/', IndexSignalView.as_view(), name='index_signals'),
     path('api/commodity-symbol/<str:base_name>/', CommodityCurrentSymbolView.as_view(), name='commodity_symbol'),
     path('api/daily-backtest/status/', DailyBacktestStatusView.as_view(), name='daily_backtest_status'),
