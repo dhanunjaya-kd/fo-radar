@@ -19,23 +19,7 @@ from screener.views import (
 )
 from screener.cas_radar import CASRadarView
 from screener.cas_research import CASResearchDatasetView
-from screener.cas_readiness import build_cas_readiness
-from django.http import JsonResponse
-
-
-class CASReadinessView:
-    @classmethod
-    def as_view(cls):
-        def view(request, index_name):
-            try:
-                return JsonResponse(build_cas_readiness(index_name))
-            except ValueError as exc:
-                return JsonResponse({"error": str(exc)}, status=400)
-            except Exception as exc:
-                print(f"[CASReadiness] request failed: {exc}")
-                return JsonResponse({"error": "CAS readiness unavailable"}, status=503)
-        return view
-
+from screener.cas_readiness import CASReadinessView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
