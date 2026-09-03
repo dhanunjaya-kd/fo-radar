@@ -2,6 +2,7 @@ import TopLiveSignals from './TopLiveSignals';
 import MarketSentimentGauge from './MarketSentimentGauge';
 import SectorStrength from './SectorStrength';
 import OISnapshot from './OISnapshot';
+import OIDistribution from './OIDistribution';
 import DataHealthStrip from './DataHealthStrip';
 import NoTradeLog from './NoTradeLog';
 import { TrendMomentumCard } from './IndexTracker';
@@ -70,6 +71,12 @@ export default function Dashboard({ onNavigate }) {
         <NoTradeLog />
         <OISnapshot onNavigate={onNavigate} />
       </div>
+      {/* Sep 3 2026: reverses the Aug 28 decision that deliberately kept
+          this off the Dashboard ("genuinely detailed analysis... belongs
+          in investigation-tool tabs, not a 5-second scan") -- per direct
+          request this time. Same component used on the OI Analytics tab,
+          not a duplicate. */}
+      <OIDistribution />
       <SectorStrength onNavigate={onNavigate} />
     </div>
   );

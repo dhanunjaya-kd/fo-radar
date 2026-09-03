@@ -40,11 +40,45 @@ function fmtOi(n) {
   return `${(n / 100000).toFixed(1)}L`;
 }
 
+function fmtVol(n) {
+  if (n == null) return '—';
+  return n >= 1000 ? `${(n / 1000).toFixed(0)}K` : String(n);
+}
+
+// Sep 3 2026: pulled out as its own pure function (was inline in the
+// component before) -- now also carries ce_volume/pe_volume/ce_ltp/
+// pe_ltp through, which the backend was already returning in
+// ceData/peData (same fields Analytics.jsx already maps for its own
+// table) but this component was silently dropping, keeping only `oi`.
+// Real data that already existed, just never reached this component's
+// own row shape -- not a new backend call.
+function mergeOIRows(ceData, peData) {
+  const byStrike = {};
+  let totalCeOi = 0, totalPeOi = 0;
+  for (const c of ceData || []) {
+    byStrike[c.strike] = byStrike[c.strike] || { strike: c.strike, ce_oi: 0, pe_oi: 0 };
+    byStrike[c.strike].ce_oi = c.oi || 0;
+    byStrike[c.strike].ce_volume = c.volume ?? null;
+    byStrike[c.strike].ce_ltp = c.ltp ?? null;
+    totalCeOi += c.oi || 0;
+  }
+  for (const p of peData || []) {
+    byStrike[p.strike] = byStrike[p.strike] || { strike: p.strike, ce_oi: 0, pe_oi: 0 };
+    byStrike[p.strike].pe_oi = p.oi || 0;
+    byStrike[p.strike].pe_volume = p.volume ?? null;
+    byStrike[p.strike].pe_ltp = p.ltp ?? null;
+    totalPeOi += p.oi || 0;
+  }
+  const rows = Object.values(byStrike).sort((a, b) => a.strike - b.strike);
+  return { rows, totalCeOi, totalPeOi };
+}
+
 export default function OIDistribution() {
   const [selected, setSelected] = useState('NIFTY');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [hoverIdx, setHoverIdx] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -80,22 +114,14 @@ export default function OIDistribution() {
   const WIDTH = 700, HEIGHT = 220;
 
   // Merge ceData/peData (each a flat list of {strike, oi, ...}) into
-  // one row per strike -- the shape computeOIDistributionLayout wants.
+  // one row per strike -- see mergeOIRows() above.
   let rows = [];
   let totalCeOi = 0, totalPeOi = 0;
   if (data) {
-    const byStrike = {};
-    for (const c of data.ceData || []) {
-      byStrike[c.strike] = byStrike[c.strike] || { strike: c.strike, ce_oi: 0, pe_oi: 0 };
-      byStrike[c.strike].ce_oi = c.oi || 0;
-      totalCeOi += c.oi || 0;
-    }
-    for (const p of data.peData || []) {
-      byStrike[p.strike] = byStrike[p.strike] || { strike: p.strike, ce_oi: 0, pe_oi: 0 };
-      byStrike[p.strike].pe_oi = p.oi || 0;
-      totalPeOi += p.oi || 0;
-    }
-    rows = Object.values(byStrike).sort((a, b) => a.strike - b.strike);
+    const merged = mergeOIRows(data.ceData, data.peData);
+    rows = merged.rows;
+    totalCeOi = merged.totalCeOi;
+    totalPeOi = merged.totalPeOi;
   }
   const layout = rows.length > 0 ? computeOIDistributionLayout(rows, data?.maxPain, WIDTH, HEIGHT) : null;
   const totalOi = totalCeOi + totalPeOi;
@@ -142,22 +168,43 @@ export default function OIDistribution() {
             </span>
           </div>
 
-          <svg viewBox={`0 0 ${WIDTH} ${HEIGHT + 20}`} className="w-full h-auto" style={{ maxHeight: HEIGHT + 20 }}>
-            {layout.bars.map((b) => (
-              <g key={b.strike}>
-                <rect x={b.ceX} y={b.ceY} width={b.barWidth} height={b.ceHeight} fill="#34d399" opacity="0.85" />
-                <rect x={b.peX} y={b.peY} width={b.barWidth} height={b.peHeight} fill="#fb7185" opacity="0.85" />
-              </g>
-            ))}
-            {layout.maxPainX != null && (
-              <>
-                <line x1={layout.maxPainX} y1="0" x2={layout.maxPainX} y2={HEIGHT} stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="4,3" />
-                <text x={layout.maxPainX} y={HEIGHT + 14} textAnchor="middle" fill="#fbbf24" fontSize="10">
-                  Max Pain {data.maxPain?.toLocaleString('en-IN')}
-                </text>
-              </>
+          <div className="relative">
+            <svg viewBox={`0 0 ${WIDTH} ${HEIGHT + 20}`} className="w-full h-auto" style={{ maxHeight: HEIGHT + 20 }}>
+              {layout.bars.map((b, i) => (
+                <g key={b.strike}
+                   onMouseEnter={() => setHoverIdx(i)}
+                   onMouseLeave={() => setHoverIdx(null)}
+                   style={{ cursor: 'pointer' }}>
+                  <rect x={b.ceX} y={b.ceY} width={b.barWidth} height={b.ceHeight} fill="#34d399"
+                        opacity={hoverIdx === null || hoverIdx === i ? 0.85 : 0.3} />
+                  <rect x={b.peX} y={b.peY} width={b.barWidth} height={b.peHeight} fill="#fb7185"
+                        opacity={hoverIdx === null || hoverIdx === i ? 0.85 : 0.3} />
+                  {/* invisible full-height hit area -- easier to hover accurately than the thin bars alone */}
+                  <rect x={b.groupX} y="0" width={b.groupWidth} height={HEIGHT} fill="transparent" />
+                </g>
+              ))}
+              {layout.maxPainX != null && (
+                <>
+                  <line x1={layout.maxPainX} y1="0" x2={layout.maxPainX} y2={HEIGHT} stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="4,3" />
+                  <text x={layout.maxPainX} y={HEIGHT + 14} textAnchor="middle" fill="#fbbf24" fontSize="10">
+                    Max Pain {data.maxPain?.toLocaleString('en-IN')}
+                  </text>
+                </>
+              )}
+            </svg>
+
+            {hoverIdx != null && rows[hoverIdx] && (
+              <div className="absolute top-1 left-1 bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs shadow-xl pointer-events-none min-w-[170px]">
+                <p className="text-white font-bold mb-1.5">Strike ₹{rows[hoverIdx].strike.toLocaleString('en-IN')}</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                  <span className="text-emerald-400">Call OI</span><span className="text-right text-slate-200">{fmtOi(rows[hoverIdx].ce_oi)}</span>
+                  <span className="text-emerald-400">Call Vol</span><span className="text-right text-slate-200">{fmtVol(rows[hoverIdx].ce_volume)}</span>
+                  <span className="text-rose-400">Put OI</span><span className="text-right text-slate-200">{fmtOi(rows[hoverIdx].pe_oi)}</span>
+                  <span className="text-rose-400">Put Vol</span><span className="text-right text-slate-200">{fmtVol(rows[hoverIdx].pe_volume)}</span>
+                </div>
+              </div>
             )}
-          </svg>
+          </div>
           <div className="flex justify-between text-[9px] text-slate-500 mt-1">
             <span>{layout.bars[0]?.strike.toLocaleString('en-IN')}</span>
             <span>{layout.bars[layout.bars.length - 1]?.strike.toLocaleString('en-IN')}</span>
