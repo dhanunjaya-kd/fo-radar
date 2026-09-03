@@ -17,10 +17,10 @@ from screener.views import (
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
     EODScanTriggerView, OptionHistoryView,
 )
+from screener.cas_radar import CASRadarView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-
     path('api/market-summary/', MarketSummaryOldView.as_view(), name='market_summary'),
     path('api/stocks/fo-list/', FoStockListOldView.as_view(), name='fo_stock_list'),
     path('api/market-data/', MarketDataView.as_view(), name='market_data'),
@@ -64,7 +64,6 @@ urlpatterns = [
     path('api/strategy-backtest/run/', StrategyBacktestRunView.as_view(), name='strategy_backtest_run'),
     path('api/strategy-backtest/status/', StrategyBacktestStatusView.as_view(), name='strategy_backtest_status'),
     path('api/option-history/', OptionHistoryView.as_view(), name='option_history'),
-
     path('api/screener/', include('screener.urls')),
     path('api/options/', include('options.urls')),
     path('api/news/', include('news.urls')),
