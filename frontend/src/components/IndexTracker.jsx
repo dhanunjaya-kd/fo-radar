@@ -545,9 +545,15 @@ function IndexSection({ indexName, showBacktest = true, topSideContent = null })
         )}
       </div>
 
-      <div className="px-4 pt-4">
-        <TrendMomentumCard indexName={indexName} />
-      </div>
+      {/* Sep 3 2026: Trend & Momentum card removed from here -- it's
+          already shown on the Dashboard (this component is exported
+          and reused there), so rendering it a second time here was a
+          pure UI duplicate. Removing the render call also stops this
+          tab from firing its own separate /api/trend-momentum/<name>/
+          fetch every time this tab is opened, on top of whatever the
+          Dashboard already fetched -- real duplicate request, not just
+          duplicate pixels. TrendMomentumCard itself is untouched below
+          (still exported) since Dashboard still needs it. */}
 
       <div className="p-4">
         {loading && rows.length === 0 && (
