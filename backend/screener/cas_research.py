@@ -7,7 +7,7 @@ columns describe what happened afterwards.
 
 This is a research/backtest layer only. It does not generate trading signals.
 """
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -21,18 +21,32 @@ EARLY_WARNING_END = time(15, 18, 59)
 OUTCOME_HORIZONS_MIN = (1, 2, 3, 5)
 
 
-def _to_dt(date_str, time_value):
+def _to_dt(date_value, time_value):
+    """Normalize tracker date/time values without assuming string-only input."""
     if isinstance(time_value, datetime):
         return time_value
     if not time_value:
         return None
+    if isinstance(date_value, date):
+        date_obj = date_value
+    else:
+        try:
+            date_obj = datetime.strptime(str(date_value), "%Y-%m-%d").date()
+        except ValueError:
+            return None
     text = str(time_value).strip()
     for fmt in ("%H:%M:%S", "%H:%M"):
         try:
-            return datetime.combine(datetime.strptime(date_str, "%Y-%m-%d").date(), datetime.strptime(text, fmt).time())
+            return datetime.combine(date_obj, datetime.strptime(text, fmt).time())
         except ValueError:
             pass
     return None
+
+
+def _date_str(value):
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+    return str(value)
 
 
 def _num(row, key):
@@ -50,8 +64,8 @@ def _pct_move(start, end):
 
 
 def _max_abs_move_pct(base, future_rows):
-    values = [_pct_move(base, _num(r, "Spot")) for future_rows in (future_rows,)]
-    values = [v for v in values[0] if v is not None]
+    values = [_pct_move(base, _num(row, "Spot")) for row in future_rows]
+    values = [value for value in values if value is not None]
     return max(values, key=abs) if values else None
 
 
@@ -70,10 +84,16 @@ def _expiry_candidate(index_name, date_obj):
     return False
 
 
-def _rows_for_day(index_name, date_str):
-    rows = get_snapshots_for_date(index_name, date_str, limit=None)
+def _rows_for_day(index_name, date_value):
+    date_str = _date_str(date_value)
+    try:
+        rows = get_snapshots_for_date(index_name, date_str, limit=None)
+    except TypeError:
+        # Compatibility with implementations whose helper only accepts
+        # positional/default arguments. Never let the research layer invent data.
+        rows = get_snapshots_for_date(index_name, date_str)
     dated = []
-    for row in rows:
+    for row in rows or []:
         dt = _to_dt(date_str, row.get("Time"))
         if dt is not None:
             dated.append((dt, row))
@@ -87,7 +107,8 @@ def build_cas_event_dataset(index_name, start_time=EARLY_WARNING_START, end_time
         raise ValueError("index_name must be NIFTY or BANKNIFTY")
 
     events = []
-    for date_str in list_available_dates(name):
+    for raw_date in list_available_dates(name):
+        date_str = _date_str(raw_date)
         day_rows = _rows_for_day(name, date_str)
         if not day_rows:
             continue
@@ -134,7 +155,14 @@ def build_cas_event_dataset(index_name, start_time=EARLY_WARNING_START, end_time
     return sorted(events, key=lambda r: (r["date"], r["event_time"]), reverse=True)
 
 
-def _classification_metrics(events, feature_key, threshold, direction="absolute", outcome_key="max_abs_move_5m_pct"):
+def _classification_metrics(
+    events,
+    feature_key,
+    threshold,
+    direction="absolute",
+    outcome_key="max_abs_move_5m_pct",
+    outcome_threshold=0.25,
+):
     """Evaluate a simple, auditable threshold rule; no model fitting."""
     rows = [e for e in events if e.get(feature_key) is not None and e.get(outcome_key) is not None]
     if direction == "absolute":
@@ -143,7 +171,7 @@ def _classification_metrics(events, feature_key, threshold, direction="absolute"
         predicted = [float(e[feature_key]) >= threshold for e in rows]
     else:
         predicted = [float(e[feature_key]) <= -threshold for e in rows]
-    actual = [abs(float(e[outcome_key])) >= 0.25 for e in rows]
+    actual = [abs(float(e[outcome_key])) >= outcome_threshold for e in rows]
     tp = sum(p and a for p, a in zip(predicted, actual))
     fp = sum(p and not a for p, a in zip(predicted, actual))
     fn = sum((not p) and a for p, a in zip(predicted, actual))
@@ -154,6 +182,7 @@ def _classification_metrics(events, feature_key, threshold, direction="absolute"
     return {
         "feature": feature_key,
         "threshold": threshold,
+        "outcome_threshold_pct": outcome_threshold,
         "direction": direction,
         "sample_size": len(rows),
         "tp": tp, "fp": fp, "fn": fn, "tn": tn,
@@ -182,7 +211,12 @@ def summarize_cas_events(events, large_move_threshold_pct=0.25):
 
     metrics = []
     for feature, threshold in (("momentum_pct", 0.05), ("change_pct", 0.25)):
-        metrics.append(_classification_metrics(minute_events, feature, threshold))
+        metrics.append(_classification_metrics(
+            minute_events,
+            feature,
+            threshold,
+            outcome_threshold=large_move_threshold_pct,
+        ))
 
     return {
         "sample_size": len(valid),
