@@ -50,8 +50,8 @@ def _pct_move(start, end):
 
 
 def _max_abs_move_pct(base, future_rows):
-    values = [_pct_move(base, _num(r, "Spot")) for r in future_rows]
-    values = [v for v in values if v is not None]
+    values = [_pct_move(base, _num(r, "Spot")) for future_rows in (future_rows,)]
+    values = [v for v in values[0] if v is not None]
     return max(values, key=abs) if values else None
 
 
@@ -134,6 +134,36 @@ def build_cas_event_dataset(index_name, start_time=EARLY_WARNING_START, end_time
     return sorted(events, key=lambda r: (r["date"], r["event_time"]), reverse=True)
 
 
+def _classification_metrics(events, feature_key, threshold, direction="absolute", outcome_key="max_abs_move_5m_pct"):
+    """Evaluate a simple, auditable threshold rule; no model fitting."""
+    rows = [e for e in events if e.get(feature_key) is not None and e.get(outcome_key) is not None]
+    if direction == "absolute":
+        predicted = [abs(float(e[feature_key])) >= threshold for e in rows]
+    elif direction == "positive":
+        predicted = [float(e[feature_key]) >= threshold for e in rows]
+    else:
+        predicted = [float(e[feature_key]) <= -threshold for e in rows]
+    actual = [abs(float(e[outcome_key])) >= 0.25 for e in rows]
+    tp = sum(p and a for p, a in zip(predicted, actual))
+    fp = sum(p and not a for p, a in zip(predicted, actual))
+    fn = sum((not p) and a for p, a in zip(predicted, actual))
+    tn = sum((not p) and (not a) for p, a in zip(predicted, actual))
+    precision = tp / (tp + fp) if tp + fp else None
+    recall = tp / (tp + fn) if tp + fn else None
+    accuracy = (tp + tn) / len(rows) if rows else None
+    return {
+        "feature": feature_key,
+        "threshold": threshold,
+        "direction": direction,
+        "sample_size": len(rows),
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+        "precision_pct": round(100 * precision, 1) if precision is not None else None,
+        "recall_pct": round(100 * recall, 1) if recall is not None else None,
+        "accuracy_pct": round(100 * accuracy, 1) if accuracy is not None else None,
+        "status": "research_sample" if len(rows) >= 30 else "insufficient_sample",
+    }
+
+
 def summarize_cas_events(events, large_move_threshold_pct=0.25):
     """Summarize sample size and large-move hit rates without fitting a model."""
     valid = [e for e in events if e.get("max_abs_move_5m_pct") is not None]
@@ -143,8 +173,20 @@ def summarize_cas_events(events, large_move_threshold_pct=0.25):
     def rate(rows):
         return round(100 * sum(abs(r["max_abs_move_5m_pct"]) >= large_move_threshold_pct for r in rows) / len(rows), 1) if rows else None
 
+    # One observation per minute is useful for a first diagnostic, but
+    # the full event table remains available for lead-time analysis.
+    minute_groups = {}
+    for event in valid:
+        minute_groups.setdefault((event["date"], event["event_time"][:5]), event)
+    minute_events = list(minute_groups.values())
+
+    metrics = []
+    for feature, threshold in (("momentum_pct", 0.05), ("change_pct", 0.25)):
+        metrics.append(_classification_metrics(minute_events, feature, threshold))
+
     return {
         "sample_size": len(valid),
+        "minute_level_sample_size": len(minute_events),
         "large_move_threshold_pct": large_move_threshold_pct,
         "large_move_count": sum(abs(e["max_abs_move_5m_pct"]) >= large_move_threshold_pct for e in valid),
         "large_move_rate_pct": rate(valid),
@@ -152,8 +194,10 @@ def summarize_cas_events(events, large_move_threshold_pct=0.25):
         "expiry_candidate_large_move_rate_pct": rate(expiry),
         "non_expiry_sample": len(non_expiry),
         "non_expiry_large_move_rate_pct": rate(non_expiry),
+        "simple_threshold_metrics": metrics,
         "status": "insufficient_sample" if len(valid) < 30 else "research_sample",
         "warning": "Expiry classification is weekday-based and must be checked against the official holiday-adjusted expiry calendar before model fitting.",
+        "warning_2": "Events from the same day are correlated; minute-level metrics are diagnostic only and are not a substitute for an out-of-sample time-series test.",
     }
 
 
