@@ -34,6 +34,9 @@ import json
 import os
 import time
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+
+CALL_TIMEOUT_SECONDS = 30  # generous for a normal Fyers call (which should complete in well under a second), but bounded -- see _call_with_timeout()'s docstring for why this exists at all
 
 OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "next_day_watchlist_raw.json")
 
@@ -44,6 +47,57 @@ HISTORY_CALLS_PER_MINUTE = 90
 PAUSE_BETWEEN_HISTORY_CALLS = 60.0 / HISTORY_CALLS_PER_MINUTE
 QUOTE_BATCH_SIZE = 50
 SAVE_PROGRESS_EVERY = 50
+
+
+class CallTimedOut(Exception):
+    """Raised when a single Fyers call exceeds CALL_TIMEOUT_SECONDS.
+    Different from RateLimitStop on purpose -- a timeout isn't Fyers
+    telling us to slow down, it's a single call that just never came
+    back. Treated as a skip-and-continue failure for that one symbol/
+    batch, same as any other non-rate-limit failure -- never treated
+    as a reason to stop the whole scan."""
+    pass
+
+
+def _call_with_timeout(fn, *args, **kwargs):
+    """
+    Sep 2 2026: real bug, confirmed live -- neither get_quotes() nor
+    get_history() in fyers_client.py sets any timeout on the
+    underlying HTTP call. One slow or unresponsive request could hang
+    this ENTIRE scan indefinitely, with nothing to detect or recover
+    from it -- exactly the "still says Running many hours later"
+    symptom seen live. This can't be fixed by adding a timeout kwarg
+    to those functions without knowing whether the underlying fyers_
+    apiv3 SDK even accepts one -- enforced here instead, external to
+    the SDK entirely, so it works regardless of what that library
+    does or doesn't support.
+
+    A FRESH, single-use executor per call, not a shared one -- caught
+    live in testing: a shared worker means a hung call's thread (which
+    Python cannot forcibly kill) stays stuck occupying the ONLY
+    worker, so every call AFTER the hung one queues up behind it and
+    also appears to time out, even though each one's own timeout
+    check correctly gave up on time. A fresh executor per call means a
+    hung call's orphaned background thread is isolated to its own
+    discarded executor -- it never blocks anything that comes after
+    it. shutdown(wait=False) on both the success and timeout paths is
+    what makes this actually work -- the default wait=True would block
+    THIS call on the hung thread finishing, defeating the entire
+    point of timing out in the first place.
+
+    Raises CallTimedOut if fn doesn't return within CALL_TIMEOUT_
+    SECONDS -- the calling code decides what "give up on this one"
+    means (skip a symbol, skip a batch), never lets it hang.
+    """
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(fn, *args, **kwargs)
+    try:
+        result = future.result(timeout=CALL_TIMEOUT_SECONDS)
+        executor.shutdown(wait=False)
+        return result
+    except FuturesTimeoutError:
+        executor.shutdown(wait=False)  # do NOT wait for the hung thread -- let it become orphaned, isolated from every future call
+        raise CallTimedOut(f"{getattr(fn, '__name__', fn)} did not return within {CALL_TIMEOUT_SECONDS}s")
 
 
 class RateLimitStop(Exception):
@@ -114,7 +168,11 @@ def fetch_quotes_batched(symbols, get_quotes_fn):
     result = {}
     for i in range(0, len(symbols), QUOTE_BATCH_SIZE):
         batch = symbols[i:i + QUOTE_BATCH_SIZE]
-        resp = get_quotes_fn(batch)
+        try:
+            resp = _call_with_timeout(get_quotes_fn, batch)
+        except CallTimedOut as e:
+            print(f"[EODScanner] Quotes batch at index {i} timed out ({e}) -- skipped, continuing.")
+            continue
         if _is_rate_limit_response(resp):
             raise RateLimitStop(f"Rate limit hit on quotes batch starting at index {i}: {resp}")
         if not resp or resp.get("s") != "ok":
@@ -144,7 +202,7 @@ def fetch_daily_history_paced(symbols, get_history_fn, days_back=30):
 
     for symbol in symbols:
         try:
-            resp = get_history_fn(symbol, resolution="1D", range_from=range_from, range_to=range_to)
+            resp = _call_with_timeout(get_history_fn, symbol, resolution="1D", range_from=range_from, range_to=range_to)
         except Exception as e:
             print(f"[EODScanner] {symbol}: history fetch raised {e}")
             time.sleep(PAUSE_BETWEEN_HISTORY_CALLS)
