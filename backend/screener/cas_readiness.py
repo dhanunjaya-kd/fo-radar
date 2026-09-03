@@ -7,6 +7,9 @@ samples are reported, never interpolated or fabricated.
 """
 from datetime import datetime, time
 
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .index_tracker import get_snapshots_for_date, list_available_dates
 
 CAS_START = time(15, 15)
@@ -92,3 +95,15 @@ def build_cas_readiness(index_name):
         "definition": "At least two snapshots between 15:16:00 and 15:18:59 IST; no interpolation.",
         "days": days[:120],
     }
+
+
+class CASReadinessView(APIView):
+    """Readiness endpoint over existing tracker files; no market-data calls."""
+    def get(self, request, index_name):
+        try:
+            return Response(build_cas_readiness(index_name))
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=400)
+        except Exception as exc:
+            print(f"[CASReadiness] request failed: {exc}")
+            return Response({"error": "CAS readiness unavailable"}, status=503)
