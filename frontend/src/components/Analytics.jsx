@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import TabInfoBanner from './TabInfoBanner';
+import StrikeOIChart from './StrikeOIChart';
 
 const IconBarChart = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>
@@ -230,6 +231,12 @@ const Analytics = ({ stock, onStockSelect }) => {
         </div>
 
         <MarketPositionBar spot={spot} support={oiData.support} resistance={oiData.resistance} />
+
+        {/* Sep 3 2026: the Opstra-style strike-by-strike OI chart --
+            pure presentation of ceData/peData, which were already being
+            fetched and rendered as the table further down. No new
+            fetch, no new backend call. */}
+        <StrikeOIChart ceData={ceData} peData={peData} atmStrike={atmStrike} />
 
         {/* Aug 22 2026: moved here from the bottom of the page -- he
             pointed out the summary/interpretation content shouldn't
