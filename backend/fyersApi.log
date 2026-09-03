@@ -8818,3 +8818,8 @@
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-03 14:12:48,969+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-03 14:12:48,989+0530","service":"FyersAPI"}
 {"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-03 14:12:48,989+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"code":-300,"message":"Please provide a valid symbol","s":"error"}},"timestamp":"2026-09-03 14:13:07,654+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-03 14:13:07,659+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-03 14:13:07,659+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-03 14:13:07,659+0530","service":"FyersAPI"}
+{"level":"ERROR","location":"[get_call:170] fyersModel","message":{"API":"/depth","Error":{"message":"request limit reached","code":429,"s":"error"}},"timestamp":"2026-09-03 14:13:07,659+0530","service":"FyersAPI"}
