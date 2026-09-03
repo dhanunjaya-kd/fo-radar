@@ -1826,61 +1826,12 @@ def _run_eod_scan_now(trigger_label):
             _eod_scan_in_progress = False
 
 
-def _eod_scan_worker():
-    """
-    Sep 2 2026: automatic Next Day Watchlist scan -- full NSE universe,
-    once a day, post-close. Same daemon-thread/last-run-date pattern as
-    _daily_backtest_worker() directly above -- deliberately NOT another
-    manual script like fundamentals' runner.py turned out to be (real
-    lesson from this exact project: that one was never actually
-    automated, so fundamentals_data.json never got built).
-
-    Scheduled a half hour AFTER the daily backtest's own close-time run
-    (16:00), not at the same time -- both are heavy, real Fyers-call
-    background jobs; running them back-to-back rather than
-    simultaneously avoids compounding rate-limit load on top of
-    whatever the live F&O scanner is already doing this same minute.
-
-    Sep 2 2026 FIX -- real bug, confirmed live: this used to check
-    now.hour == RUN_HOUR (an EXACT hour match). If the server isn't
-    already running continuously through the 16:30-16:59 window --
-    which doesn't match how this project is actually run (started
-    fresh each session, not kept running 24/7) -- that window passes
-    with nobody there to catch it, and the scan silently never fires
-    for the entire rest of the day. Now checks whether the current
-    time is AT OR PAST the scheduled time (not equal to one specific
-    hour) AND today hasn't run yet -- catches up immediately on
-    whatever the next 60s check is, however many hours late the
-    server actually started.
-
-    See eod_scanner.py's own module docstring for the real, confirmed
-    Fyers rate-limit numbers this whole design is paced against, and
-    its RateLimitStop handling -- a real rate-limit hit during this
-    run stops immediately and saves progress; it does NOT retry within
-    the same day (that's exactly the behavior that caused the real
-    Aug 20 2026 lockout).
-    """
-    RUN_HOUR, RUN_MINUTE = 16, 30
-    last_run_date = None
-
-    while True:
-        try:
-            now = datetime.now()
-            today_str = now.strftime("%Y-%m-%d")
-            is_weekday = now.weekday() < 5
-
-            if is_weekday and (now.hour, now.minute) >= (RUN_HOUR, RUN_MINUTE) and last_run_date != today_str:
-                last_run_date = today_str
-                _run_eod_scan_now("scheduled")
-
-            time.sleep(60)
-        except Exception as e:
-            print(f"[{datetime.now()}] EOD scan worker error: {e}")
-            time.sleep(60)
-
-_eod_scan_thread = threading.Thread(target=_eod_scan_worker, daemon=True)
-_eod_scan_thread.start()
-
+# Sep 2 2026: automatic scheduled scanning removed per direct request
+# -- manual trigger only now, via EODScanTriggerView's POST endpoint.
+# _run_eod_scan_now() (the actual scan-and-rank logic, and its
+# overlap-prevention lock) is untouched and still does all the real
+# work -- this only removes the background clock that used to call it
+# on its own. Nothing else about the scan changed.
 
 # ============================================================
 # VIEWS — READ FROM CACHE ONLY, NO BLOCKING
