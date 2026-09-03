@@ -49,7 +49,7 @@ export default function NextDayWatchlist() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // Sep 2 2026: manual "run it now" trigger -- the automatic post-close
+  // Sep 2 2026: manual "run it now" trigger -- automatic scheduling was
   // scan only fires once a day and depends on the server being up when
   // that window arrives; this lets a scan happen on demand instead.
   const [scanStatus, setScanStatus] = useState(null); // {scan_in_progress, last_result}
@@ -101,7 +101,7 @@ export default function NextDayWatchlist() {
         .finally(() => { if (!cancelled) setLoading(false); });
     };
     load();
-    // 5 min -- this only changes once a day (the automatic post-close
+    // 5 min -- this only changes when a scan is manually run, no need
     // scan), no need to poll faster.
     const interval = setInterval(load, 300000);
     return () => { cancelled = true; clearInterval(interval); };
@@ -121,7 +121,7 @@ export default function NextDayWatchlist() {
   return (
     <div className="space-y-4">
       <TabInfoBanner>
-        Full-NSE-universe scan, built automatically every weekday shortly after market close -- 100% Fyers-sourced
+        Full-NSE-universe scan, run manually via the button below -- 100% Fyers-sourced
         (no Screener.in, no third-party data). Trend Status, Volume Status, Sector Strength, and Score are real,
         computed indicators (RSI, distance from 20-day SMA, volume vs. its own 20-day average) combined with
         transparent, documented weights -- not an opaque single number. Sector Strength only computes for stocks
@@ -173,9 +173,16 @@ export default function NextDayWatchlist() {
         </p>
       )}
 
+      {watchlist.length > 0 && (
+        <div className="flex items-center gap-2 pt-1">
+          <div className="w-1 h-5 bg-purple-500 rounded-full" />
+          <h2 className="text-base font-semibold text-white">Next Day Watchlist (Top {watchlist.length} Setups)</h2>
+        </div>
+      )}
+
       {watchlist.length === 0 ? (
         <div className="py-10 text-center text-slate-500 text-sm max-w-md mx-auto">
-          {data?.error || 'No scan has completed yet. The automatic scan runs weekdays shortly after market close.'}
+          {data?.error || 'No scan run yet. Tap "Run Scan Now" above to generate today\'s watchlist.'}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-800">
