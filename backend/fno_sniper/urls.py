@@ -15,7 +15,7 @@ from screener.views import (
     StrategyBacktestRunView, StrategyBacktestStatusView,
     DailyBacktestRangeReportView, SectorStocksView, NoTradeLogView,
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
-    EODScanTriggerView,
+    EODScanTriggerView, OptionHistoryView,
 )
 
 urlpatterns = [
@@ -104,6 +104,11 @@ urlpatterns = [
     # can't be part of any backtestable strategy.
     path('api/strategy-backtest/run/', StrategyBacktestRunView.as_view(), name='strategy_backtest_run'),
     path('api/strategy-backtest/status/', StrategyBacktestStatusView.as_view(), name='strategy_backtest_status'),
+    # Sep 3 2026: real historical candles for ONE option contract,
+    # for the chart shown inline in the signal drawer -- see
+    # OptionHistoryView in views.py for the full reasoning (built after
+    # trade.fyers.in/TradingView deep-links both failed to actually work).
+    path('api/option-history/', OptionHistoryView.as_view(), name='option_history'),
 
     # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
