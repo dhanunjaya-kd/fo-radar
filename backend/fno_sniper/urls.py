@@ -17,7 +17,6 @@ from screener.views import (
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
     EODScanTriggerView, OptionHistoryView,
 )
-from screener.cas_radar import CASRadarView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -48,7 +47,6 @@ urlpatterns = [
     path('api/weekly-report/', WeeklyReportView.as_view(), name='weekly_report'),
     path('api/fundamentals-watchlist/', FundamentalsWatchlistView.as_view(), name='fundamentals_watchlist'),
     path('api/cas-auction-moves/<str:index_name>/', CASAuctionMovesView.as_view(), name='cas_auction_moves'),
-    path('api/cas-radar/<str:index_name>/', CASRadarView.as_view(), name='cas_radar'),
     path('api/index-signals/', IndexSignalView.as_view(), name='index_signals'),
     path('api/commodity-symbol/<str:base_name>/', CommodityCurrentSymbolView.as_view(), name='commodity_symbol'),
     path('api/daily-backtest/status/', DailyBacktestStatusView.as_view(), name='daily_backtest_status'),
