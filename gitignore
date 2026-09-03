@@ -1,0 +1,51 @@
+# Sep 3 2026: this project had no real .gitignore anywhere -- confirmed
+# both by inspecting the live public repo directly and by the 5 local
+# .gitignore files uploaded here, every one of which was empty except
+# for the single line "!.gitignore" (a placeholder, never real rules).
+# This is why backend/venv (486MB), frontend/node_modules (124MB),
+# backend/.env, backend/db.sqlite3, and the log files all ended up
+# committed. One root-level file, not one per folder -- git applies
+# these path patterns from wherever this file sits, so backend/ and
+# frontend/ don't each need their own copy.
+
+# --- Secrets -- never commit real credentials ---
+.env
+backend/.env
+*.env
+!.env.example
+!backend/.env.example
+
+# --- Python / Django ---
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+db.sqlite3
+backend/db.sqlite3
+*.log
+backend/*.log
+
+# --- Node / React / Vite ---
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+.vite/
+
+# --- OS/editor noise ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- This project's own generated/runtime data --
+# (signal_logs and fundamentals_data.json are real trading history and
+# fundamentals cache this project generates as it runs -- excluded
+# since regenerated data doesn't belong in source control the same way
+# actual code does. Uncomment the next two lines if you want them
+# tracked instead -- that's a real choice, not a mistake either way.)
+# backend/signal_logs/
+# backend/fundamentals_data.json
