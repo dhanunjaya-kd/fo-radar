@@ -22,10 +22,13 @@ function SessionBadge() {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
-  const mins = now.getHours() * 60 + now.getMinutes();
+  const parts = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(now);
+  const h = Number(parts.find(p => p.type === 'hour')?.value || 0);
+  const m = Number(parts.find(p => p.type === 'minute')?.value || 0);
+  const mins = h * 60 + m;
   const inCas = mins >= 915 && mins < 935;
   const label = inCas ? 'CAS WINDOW' : mins < 915 ? 'PRE-CAS' : 'POST-CAS';
-  return <span className={`px-2 py-1 rounded-md border text-[10px] font-semibold tracking-wide ${inCas ? 'text-amber-300 bg-amber-500/10 border-amber-500/30' : 'text-slate-300 bg-slate-800/60 border-slate-700'}`}>{label} · {now.toLocaleTimeString('en-IN', { hour12: false })}</span>;
+  return <span className={`px-2 py-1 rounded-md border text-[10px] font-semibold tracking-wide ${inCas ? 'text-amber-300 bg-amber-500/10 border-amber-500/30' : 'text-slate-300 bg-slate-800/60 border-slate-700'}`}>{label} · {parts.map(p => p.value).join('')}</span>;
 }
 
 function Metric({ label, value, sub, className = 'text-white' }) {
@@ -36,6 +39,7 @@ export default function CASRadar() {
   const [indexName, setIndexName] = useState('NIFTY');
   const [snapshots, setSnapshots] = useState([]);
   const [moves, setMoves] = useState([]);
+  const [research, setResearch] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updated, setUpdated] = useState(null);
@@ -61,9 +65,19 @@ export default function CASRadar() {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || `CAS HTTP ${res.status}`);
       setMoves(data.moves || []);
-      setError(null);
     } catch (e) {
       setError(e.message);
+    }
+  };
+
+  const loadResearch = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/cas-research/${indexName}/?threshold=0.25`);
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `CAS research HTTP ${res.status}`);
+      setResearch(data);
+    } catch (e) {
+      setResearch(null);
     }
   };
 
@@ -71,15 +85,20 @@ export default function CASRadar() {
     let cancelled = false;
     const runTracker = () => { if (!cancelled) loadTracker(); };
     const runHistory = () => { if (!cancelled) loadHistory(); };
+    const runResearch = () => { if (!cancelled) loadResearch(); };
     runTracker();
     runHistory();
+    runResearch();
     const trackerId = setInterval(runTracker, 15000);
     const historyId = setInterval(runHistory, 60000);
-    return () => { cancelled = true; clearInterval(trackerId); clearInterval(historyId); };
+    const researchId = setInterval(runResearch, 60000);
+    return () => { cancelled = true; clearInterval(trackerId); clearInterval(historyId); clearInterval(researchId); };
   }, [indexName]);
 
   const latest = snapshots[0];
   const latestMove = moves[0];
+  const summary = research?.summary;
+  const momentumMetric = summary?.simple_threshold_metrics?.find(m => m.feature === 'momentum_pct');
 
   return (
     <div className="space-y-4">
@@ -100,6 +119,21 @@ export default function CASRadar() {
           <Metric label="Pre→Post CAS" value={pct(latestMove?.move_pct)} className={tone(latestMove?.move_pct)} sub={latestMove?.date || 'No complete session'} />
           <Metric label="PCR" value={fmt(latest?.PCR)} />
           <Metric label="IV" value={latest?.['IV %'] != null ? `${fmt(latest['IV %'], 1)}%` : '—'} />
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div><div className="font-semibold text-white text-sm">CAS Early-Warning Research</div><div className="text-[10px] text-slate-500 mt-0.5">Uses only information available at 15:16–15:18 and measures the following 5-minute underlying move.</div></div>
+            <span className="text-[10px] px-2 py-1 rounded-md border border-slate-700 text-slate-400">{summary?.status || 'No dataset'}</span>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mt-3">
+            <Metric label="Valid events" value={fmt(summary?.sample_size, 0)} />
+            <Metric label="Large move rate" value={summary ? `${fmt(summary.large_move_rate_pct, 1)}%` : '—'} sub="≥ 0.25% in 5m" />
+            <Metric label="Expiry candidate" value={summary ? `${fmt(summary.expiry_candidate_large_move_rate_pct, 1)}%` : '—'} sub={summary ? `${summary.expiry_candidate_sample} events` : 'Weekday proxy'} />
+            <Metric label="Non-expiry" value={summary ? `${fmt(summary.non_expiry_large_move_rate_pct, 1)}%` : '—'} sub={summary ? `${summary.non_expiry_sample} events` : '—'} />
+            <Metric label="Momentum ≥ 0.05%" value={momentumMetric?.precision_pct != null ? `${fmt(momentumMetric.precision_pct, 1)}%` : '—'} sub={momentumMetric ? `precision · n=${momentumMetric.sample_size}` : 'Not enough data'} />
+          </div>
+          <div className="mt-3 text-[10px] leading-5 text-slate-500">This is a diagnostic, not a trading edge. Same-day observations are correlated, expiry is currently a weekday candidate, and no probability or BUY/SELL rule is produced.</div>
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
