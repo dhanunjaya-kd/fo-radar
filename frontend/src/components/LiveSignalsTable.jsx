@@ -116,14 +116,30 @@ function DetailDrawer({ signal, onClose }) {
   const contractLabel = formatOptionContractLabel(signal);
   const age = formatSignalAge(signal.timestamp);
 
-  // Sep 2 2026: switched to Fyers on request, accepting the known
-  // tradeoff -- confirmed (again) via a fresh search that no working
-  // per-symbol trade.fyers.in URL exists (same finding as Aug 31,
-  // re-verified rather than assumed stale). This opens Fyers' generic
-  // trading terminal, NOT the specific contract's chart -- clipboard-
-  // copy of the exact option symbol is now the primary way to actually
-  // find the contract once there, not a bonus alongside a deep link.
+  // Sep 3 2026: trade.fyers.in genuinely has no per-symbol URL (re-
+  // confirmed again -- same finding as Aug 31/Sep 2, no working
+  // deep-link exists there). But Fyers' own charts run on TradingView's
+  // engine, and TradingView's OWN site documents a real per-contract
+  // ticker format: UNDERLYING + YYMMDD (exact expiry date) + C/P +
+  // STRIKE, e.g. their own example "NIFTY240314C22450" -- opening
+  // https://www.tradingview.com/chart/?symbol=NSE:<ticker> jumps
+  // straight to that exact contract's chart, no manual paste needed.
+  // signal.expiry_date is the REAL exact expiry (ISO "YYYY-MM-DD",
+  // already computed server-side in fyers_client.py's
+  // get_option_analytics() specifically for this) -- never guessed
+  // here. Falls back to the old copy+open-generic-Fyers flow when
+  // expiry_date isn't available for this signal (e.g. its OI fetch
+  // failed) rather than building a ticker from a guessed date.
   const handleOpenChart = async () => {
+    if (signal.expiry_date && signal.strike != null) {
+      const yymmdd = signal.expiry_date.replace(/-/g, '').slice(2);
+      const optType = signal.action === 'BUY' ? 'C' : 'P';
+      const tvTicker = `${signal.symbol}${yymmdd}${optType}${Math.round(signal.strike)}`;
+      window.open(`https://www.tradingview.com/chart/?symbol=NSE:${tvTicker}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    // No real expiry_date for this signal -- same copy+open-Fyers
+    // fallback as before, rather than building an untrustworthy ticker.
     if (signal.option_symbol) {
       try {
         await navigator.clipboard.writeText(signal.option_symbol);
