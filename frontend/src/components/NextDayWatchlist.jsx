@@ -125,27 +125,45 @@ export default function NextDayWatchlist() {
         (no Screener.in, no third-party data). Trend Status, Volume Status, Sector Strength, and Score are real,
         computed indicators (RSI, distance from 20-day SMA, volume vs. its own 20-day average) combined with
         transparent, documented weights -- not an opaque single number. Sector Strength only computes for stocks
-        with a known sector; the rest show Unknown honestly rather than a guess.
+        with a known sector; the rest show Unknown honestly rather than a guess. Sep 3 2026: stocks under ₹50 or
+        averaging under 1L shares/day are excluded before ranking -- a thin, cheap stock can hit an extreme score
+        on noise alone; these floors are reasonable starting defaults, not backtested to a proven optimum.
       </TabInfoBanner>
 
-      <div className="flex items-center justify-between bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 gap-3">
-        <div className="min-w-0">
-          <p className="text-xs text-slate-300">
-            {scanStatus?.scan_in_progress
-              ? '🔄 Scan in progress — this typically takes several minutes for the full NSE universe.'
-              : scanStatus?.last_result
-                ? `Last run (${scanStatus.last_result.trigger}): ${scanStatus.last_result.universe} scanned, ${scanStatus.last_result.watchlist_len} ranked, finished ${new Date(scanStatus.last_result.finished_at).toLocaleTimeString('en-IN')}`
-                : 'No scan run yet this session.'}
-          </p>
-          {triggerMessage && <p className="text-[11px] text-slate-500 mt-1">{triggerMessage}</p>}
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs text-slate-300">
+              {scanStatus?.scan_in_progress
+                ? (scanStatus.progress?.total > 0
+                    ? `🔄 Scanning: ${scanStatus.progress.scanned} / ${scanStatus.progress.total} (${scanStatus.progress.current_symbol?.replace('NSE:', '').replace('-EQ', '') || '…'})`
+                    : '🔄 Scan starting — fetching the full symbol list...')
+                : scanStatus?.last_result
+                  ? `Last run (${scanStatus.last_result.trigger}): ${scanStatus.last_result.universe} scanned, ${scanStatus.last_result.watchlist_len} ranked, finished ${new Date(scanStatus.last_result.finished_at).toLocaleTimeString('en-IN')}`
+                  : 'No scan run yet this session.'}
+            </p>
+            {triggerMessage && <p className="text-[11px] text-slate-500 mt-1">{triggerMessage}</p>}
+          </div>
+          <button
+            onClick={runScanNow}
+            disabled={triggering || scanStatus?.scan_in_progress}
+            className="text-xs font-medium px-3 py-2 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/25 hover:bg-purple-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
+          >
+            {scanStatus?.scan_in_progress ? 'Running...' : '🔭 Run Scan Now'}
+          </button>
         </div>
-        <button
-          onClick={runScanNow}
-          disabled={triggering || scanStatus?.scan_in_progress}
-          className="text-xs font-medium px-3 py-2 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/25 hover:bg-purple-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
-        >
-          {scanStatus?.scan_in_progress ? 'Running...' : '🔭 Run Scan Now'}
-        </button>
+        {/* Sep 3 2026: real progress bar -- was invisible before, only
+            ever printed to the terminal. scanned/total come straight
+            from eod_scanner.py's own live counter, updated after every
+            single symbol, not just every 50th one it saves to disk. */}
+        {scanStatus?.scan_in_progress && scanStatus.progress?.total > 0 && (
+          <div className="mt-2.5 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+            <div
+              className="h-full bg-purple-500 transition-all duration-500"
+              style={{ width: `${Math.min(100, (scanStatus.progress.scanned / scanStatus.progress.total) * 100)}%` }}
+            />
+          </div>
+        )}
       </div>
 
       {data && (
@@ -204,9 +222,22 @@ export default function NextDayWatchlist() {
                 <tr key={s.symbol} className={`border-t border-slate-800/60 hover:bg-slate-900/40 transition-colors ${i === 0 ? 'bg-slate-900/30' : ''}`}>
                   <td className="px-3 py-2.5 text-slate-400">#{s.rank}</td>
                   <td className="px-3 py-2.5">
-                    <span className="font-semibold text-sky-400 whitespace-nowrap">
+                    {/* Sep 3 2026: click-to-chart. Different, much more
+                        reliable case than the option-contract TradingView
+                        attempt that failed earlier tonight -- this is a
+                        PLAIN NSE EQUITY symbol (e.g. NSE:MARUTI), which
+                        TradingView natively and directly supports, no
+                        expiry-date encoding or ticker-format guessing
+                        involved at all. Still hasn't been click-tested
+                        against the real site from here -- confirm it
+                        actually lands correctly the first time you use it. */}
+                    <button
+                      onClick={() => window.open(`https://www.tradingview.com/chart/?symbol=NSE:${s.symbol.replace('NSE:', '').replace('-EQ', '')}`, '_blank', 'noopener,noreferrer')}
+                      className="font-semibold text-sky-400 hover:text-sky-300 hover:underline whitespace-nowrap transition-colors"
+                      title={`Open ${s.symbol.replace('NSE:', '').replace('-EQ', '')} chart on TradingView`}
+                    >
                       {s.symbol.replace('NSE:', '').replace('-EQ', '')}
-                    </span>
+                    </button>
                   </td>
                   <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">{s.sector}</td>
                   <td className="px-3 py-2.5 text-right text-white whitespace-nowrap">₹{fmt(s.eod_price)}</td>
