@@ -33,9 +33,9 @@ class CASResearchTests(SimpleTestCase):
 
     def test_summary_does_not_claim_prediction(self):
         events = [
-            {"max_abs_move_5m_pct": 0.30, "expiry_weekday_candidate": True},
-            {"max_abs_move_5m_pct": 0.10, "expiry_weekday_candidate": False},
-            {"max_abs_move_5m_pct": 0.40, "expiry_weekday_candidate": True},
+            {"date": "2026-09-03", "event_time": "15:16:00", "momentum_pct": 0.08, "change_pct": 0.30, "max_abs_move_5m_pct": 0.30, "expiry_weekday_candidate": True},
+            {"date": "2026-09-02", "event_time": "15:17:00", "momentum_pct": 0.01, "change_pct": 0.10, "max_abs_move_5m_pct": 0.10, "expiry_weekday_candidate": False},
+            {"date": "2026-09-03", "event_time": "15:18:00", "momentum_pct": -0.09, "change_pct": 0.40, "max_abs_move_5m_pct": 0.40, "expiry_weekday_candidate": True},
         ]
         result = summarize_cas_events(events, large_move_threshold_pct=0.25)
         self.assertEqual(result["sample_size"], 3)
