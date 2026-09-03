@@ -44,6 +44,34 @@ MIN_CANDLES_REQUIRED = 21  # 20 for SMA + 1 more for a volume-average baseline
 MIN_PRICE = 50  # excludes sub-Rs50 stocks -- a common practical penny-stock line, not an NSE-official one
 MIN_AVG_VOLUME = 100000  # 1 lakh shares/day average -- genuine tradeable liquidity, not just a ratio spike on a thin stock
 
+# Sep 3 2026: real, confirmed problem, visible in an actual live run --
+# 8 of 10 ranked slots were "Unknown" sector stocks (ANTELOPUS, ARIES,
+# AYMSYNTEX, BODALCHEM, CORDSCABLE, GLOBAL, GUJTHEM, IFCI), several
+# with volume ratios in the 12x-100x range, ALL scoring exactly 75 --
+# the max reachable without a known sector (20 RSI + 25 trend + 30
+# volume, capped). MIN_PRICE/MIN_AVG_VOLUME above didn't catch this --
+# these genuinely clear both thresholds, they're just extremely
+# volatile, thinly-covered names, not literally penny stocks.
+#
+# Root cause: RSI/SMA-distance/volume-ratio are purely technical --
+# they can't distinguish a real, liquid, well-covered stock (MARUTI)
+# moving sharply from an obscure micro-cap spiking on no visible
+# reason. "Unknown sector" isn't just a missing bonus point in that
+# gap -- it's a real signal that this stock has so little research
+# coverage this project doesn't even know its industry, which is a
+# reasonable proxy for "not enough real conviction to trust a single-
+# day technical spike from."
+#
+# REQUIRE_KNOWN_SECTOR: when True, Unknown-sector stocks are held out
+# of the ranked top_n list entirely (not deleted -- still counted in
+# excluded_unknown_sector below, same transparency as the other
+# filters). HONEST LIMITATION: this is reasoned, not backtested --
+# unlike MIN_PRICE/MIN_AVG_VOLUME, this hasn't been checked against
+# real historical next-day outcomes for Known vs Unknown sector stocks
+# specifically. Toggle it off (set False) if it turns out to be too
+# aggressive once real results come in.
+REQUIRE_KNOWN_SECTOR = True
+
 
 def classify_trend_status(rsi, distance_from_sma_pct):
     """Reasonable, labeled tiers -- not extracted from anywhere.
@@ -207,10 +235,12 @@ def build_watchlist(sectors_map=None, top_n=10, min_score=0, raw_data=None):
     # excluded as not genuinely tradeable/quality candidates at all.
     excluded_low_price = sum(1 for c in candidates if c["eod_price"] is not None and c["eod_price"] < MIN_PRICE)
     excluded_low_liquidity = sum(1 for c in candidates if c["avg_volume_20d"] is not None and c["avg_volume_20d"] < MIN_AVG_VOLUME)
+    excluded_unknown_sector = sum(1 for c in candidates if REQUIRE_KNOWN_SECTOR and c["sector"] == "Unknown")
     candidates = [
         c for c in candidates
         if (c["eod_price"] is None or c["eod_price"] >= MIN_PRICE)
         and (c["avg_volume_20d"] is None or c["avg_volume_20d"] >= MIN_AVG_VOLUME)
+        and (not REQUIRE_KNOWN_SECTOR or c["sector"] != "Unknown")
     ]
 
     candidates.sort(key=lambda c: c["score"], reverse=True)
@@ -229,8 +259,10 @@ def build_watchlist(sectors_map=None, top_n=10, min_score=0, raw_data=None):
         # as score_breakdown.
         "excluded_low_price": excluded_low_price,
         "excluded_low_liquidity": excluded_low_liquidity,
+        "excluded_unknown_sector": excluded_unknown_sector,
         "min_price_threshold": MIN_PRICE,
         "min_avg_volume_threshold": MIN_AVG_VOLUME,
+        "require_known_sector": REQUIRE_KNOWN_SECTOR,
         "watchlist": ranked,
     }
     with open(RANKED_OUTPUT_FILE, "w", encoding="utf-8") as f:
