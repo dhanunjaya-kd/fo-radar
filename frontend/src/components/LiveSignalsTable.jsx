@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import OptionPriceChart from './OptionPriceChart';
 
 // Relative on purpose -- same note as SignalList.jsx / IndexTracker.jsx.
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -189,6 +190,15 @@ function DetailDrawer({ signal, onClose }) {
               </p>
             )}
           </div>
+
+          {/* Sep 3 2026: the actual point of this whole thread -- the
+              contract's own chart, rendered here directly instead of
+              sending the user out to an external site that either has
+              no per-symbol link (Fyers) or didn't resolve for a real
+              stock option (TradingView, tested and failed). Only
+              rendered when option_symbol exists -- same guard the
+              "Open Fyers" button above already uses. */}
+          {signal.option_symbol && <OptionPriceChart optionSymbol={signal.option_symbol} />}
 
           <div>
             <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1.5">Entry / Exit Levels</p>

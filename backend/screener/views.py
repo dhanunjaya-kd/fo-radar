@@ -2830,6 +2830,66 @@ class FiftyTwoWeekRangeView(APIView):
         }))
 
 
+class OptionHistoryView(APIView):
+    """
+    Sep 3 2026: real historical candles for ONE SPECIFIC option
+    contract, fetched live from Fyers' history() endpoint -- built
+    after two failed attempts to send the user to an EXTERNAL site's
+    chart for the exact contract (trade.fyers.in has no per-symbol URL
+    at all, confirmed multiple times; a TradingView chart-URL attempt
+    also failed real testing on an actual signal). This sidesteps that
+    whole class of problem by rendering the contract's own chart INSIDE
+    this app, using data this project already has real access to.
+
+    Feasibility confirmed via Fyers' own community forum + their own
+    notice-board outage notice: historical data is available for
+    ACTIVE (not-yet-expired) option contracts specifically -- expired-
+    contract history is NOT available (a real, separate Fyers
+    limitation, unrelated to this project's code). Every live signal
+    here is always for a currently-active contract, so that gap doesn't
+    apply to this use case.
+
+    GET /api/option-history/?symbol=NSE:SUZLON26SEP46PE&resolution=5
+    resolution: Fyers' own resolution strings -- "5"/"15"/"30"/"60" for
+    minute candles, "D" for daily. Defaults to "5" (5-minute candles),
+    matching what a just-fired intraday signal actually needs to show.
+    Fixed 5-calendar-day lookback -- deliberately NOT the same 1D/5D/1M/
+    3M range picker IndexPriceChart.jsx offers; a monthly option
+    contract has only ever existed for at most a few weeks, so multi-
+    month ranges don't apply the way they do for NIFTY/BANKNIFTY.
+    """
+    def get(self, request):
+        symbol = request.GET.get("symbol")
+        if not symbol:
+            return Response({"error": "symbol query param is required"}, status=400)
+        resolution = request.GET.get("resolution", "5")
+
+        if not is_authenticated():
+            return Response({"error": "Not authenticated with Fyers -- no data available"}, status=503)
+
+        range_to = datetime.now().date()
+        range_from = range_to - timedelta(days=5)
+        try:
+            resp = get_history(symbol, resolution=resolution,
+                                range_from=str(range_from), range_to=str(range_to))
+        except Exception as e:
+            print(f"[OptionHistory] {symbol} fetch failed: {e}")
+            return Response({"error": f"History fetch failed: {e}"}, status=502)
+
+        if not resp or resp.get("s") != "ok" or not resp.get("candles"):
+            return Response({
+                "error": "No real historical data available for this contract right now.",
+                "symbol": symbol,
+            }, status=503)
+
+        candles = resp.get("candles", [])
+        points = [
+            {"time": c[0], "open": c[1], "high": c[2], "low": c[3], "close": c[4], "volume": c[5]}
+            for c in candles if len(c) >= 6
+        ]
+        return Response(clean_json({"symbol": symbol, "resolution": resolution, "candles": points}))
+
+
 class BroaderIndicesView(APIView):
     """
     Aug 28 2026: real quotes for the broader NSE indices (Next 50, 100,
