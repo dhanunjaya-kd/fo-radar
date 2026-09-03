@@ -1,10 +1,8 @@
 import TopLiveSignals from './TopLiveSignals';
 import MarketSentimentGauge from './MarketSentimentGauge';
 import SectorStrength from './SectorStrength';
-import OISnapshot from './OISnapshot';
 import OIDistribution from './OIDistribution';
 import DataHealthStrip from './DataHealthStrip';
-import NoTradeLog from './NoTradeLog';
 import { TrendMomentumCard } from './IndexTracker';
 
 // Aug 28 2026: REBUILT per direct feedback -- "Dashboard should
@@ -67,10 +65,11 @@ export default function Dashboard({ onNavigate }) {
         </div>
         <MarketSentimentGauge />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <NoTradeLog />
-        <OISnapshot onNavigate={onNavigate} />
-      </div>
+      {/* Sep 3 2026: NoTradeLog + OISnapshot removed per direct request
+          ("no use of this 2") -- OISnapshot's PCR/Sentiment/Max Pain
+          summary became redundant once the full OIDistribution chart
+          (below) landed on the Dashboard too. Neither component file
+          was deleted, just no longer rendered here. */}
       {/* Sep 3 2026: reverses the Aug 28 decision that deliberately kept
           this off the Dashboard ("genuinely detailed analysis... belongs
           in investigation-tool tabs, not a 5-second scan") -- per direct
