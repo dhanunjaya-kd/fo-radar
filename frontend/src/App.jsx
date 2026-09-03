@@ -13,7 +13,6 @@ import IndexTracker from './components/IndexTracker';
 import MarketView from './components/MarketView';
 import CrudeOilTracker from './components/CrudeOilTracker';
 import BullionTracker from './components/BullionTracker';
-import NewsFeed from './components/NewsFeed';
 import FundamentalsWatchlist from './components/FundamentalsWatchlist';
 import NextDayWatchlist from './components/NextDayWatchlist';
 import DailyBacktestTab from './components/DailyBacktestTab';
@@ -41,7 +40,7 @@ const IconMaximize = ({ size = 17 }) => (
 // Aug 28 2026: added 'dashboard' -- new home tab for the Dashboard-
 // specific panels from the 12-screen redesign reference (Sector
 // Performance now, more to follow).
-const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'nextday', 'backtest', 'settings', 'strategy'];
+const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'value', 'nextday', 'backtest', 'settings', 'strategy'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -111,7 +110,6 @@ function AppShell() {
     { id: 'market', label: 'Market View', count: null },
     { id: 'crude', label: 'Crude Oil', count: null },
     { id: 'bullion', label: 'Gold & Silver', count: null },
-    { id: 'news', label: 'News', count: null },
     { id: 'value', label: 'Value Watchlist', count: null },
     { id: 'nextday', label: 'Next Day', count: null },
     { id: 'backtest', label: 'Daily Backtest', count: null },
@@ -137,7 +135,7 @@ function AppShell() {
   // folded into Live Signals' own detail drawer instead
   // (LiveSignalsTable.jsx). Order now: Dashboard, Live Signals, OI
   // Analytics, Index Tracker, Market View, Crude Oil, Gold & Silver,
-  // News, Value Watchlist, Daily Backtest, Settings. 'strategy'
+  // Value Watchlist, Daily Backtest, Settings. 'strategy'
   // (Strategy Backtest) deliberately excluded from this visible list --
   // same feedback explicitly dropped it ("don't add more tabs just
   // because there's space"). Still reachable via direct navigation --
@@ -151,13 +149,13 @@ function AppShell() {
   // that don't do anything yet. Placed next to 'value' -- both are
   // watchlist-style screens for browsing when there's a moment, not
   // live-monitoring tabs like Live Signals or Index Tracker.
-  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'news', 'value', 'nextday', 'backtest', 'settings'];
+  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'market', 'crude', 'bullion', 'value', 'nextday', 'backtest', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   const tabIcon = (id) => ({
     dashboard: '🏠', settings: '⚙️', signals: '⚡',
     oi: '📊', index: '📈', market: '📋', crude: '🛢️', bullion: '🥇',
-    news: '📰', value: '💎', nextday: '🔭', backtest: '🧮', strategy: '🧪',
+    value: '💎', nextday: '🔭', backtest: '🧮', strategy: '🧪',
   }[id] || '');
 
   const TabButton = ({ tab }) => (
@@ -291,7 +289,6 @@ function AppShell() {
         {activeTab === 'market' && <MarketView />}
         {activeTab === 'crude' && <CrudeOilTracker />}
         {activeTab === 'bullion' && <BullionTracker />}
-        {activeTab === 'news' && <NewsFeed />}
         {activeTab === 'value' && <FundamentalsWatchlist />}
         {activeTab === 'nextday' && <NextDayWatchlist />}
         {activeTab === 'backtest' && <DailyBacktestTab />}
