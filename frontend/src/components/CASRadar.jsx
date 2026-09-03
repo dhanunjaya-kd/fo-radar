@@ -6,7 +6,7 @@ function fmt(n, digits = 2) {
   if (n == null || Number.isNaN(Number(n))) return '—';
   return Number(n).toLocaleString('en-IN', { maximumFractionDigits: digits });
 }
-function pct(n, digits = 3) {
+function pct(n, digits = 2) {
   if (n == null || Number.isNaN(Number(n))) return '—';
   const v = Number(n);
   return `${v >= 0 ? '+' : ''}${v.toFixed(digits)}%`;
@@ -33,6 +33,10 @@ function SessionBadge() {
 
 function Metric({ label, value, sub, className = 'text-white' }) {
   return <div className="rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-3"><div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div><div className={`mt-1 text-lg font-semibold ${className}`}>{value}</div>{sub && <div className="mt-0.5 text-[10px] text-slate-500">{sub}</div>}</div>;
+}
+
+function RateMetric({ label, value, sub }) {
+  return <Metric label={label} value={value == null ? '—' : `${fmt(value, 1)}%`} sub={sub} />;
 }
 
 export default function CASRadar() {
@@ -99,6 +103,9 @@ export default function CASRadar() {
   const latestMove = moves[0];
   const summary = research?.summary;
   const momentumMetric = summary?.simple_threshold_metrics?.find(m => m.feature === 'momentum_pct');
+  const conservative = summary?.conservative_validation;
+  const lead = summary?.lead_time_profile || [];
+  const readiness = summary?.status === 'research_sample' ? 'Research sample available' : 'Collecting sample';
 
   return (
     <div className="space-y-4">
@@ -108,8 +115,8 @@ export default function CASRadar() {
       </div>
 
       <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3">
-        <div className="text-xs font-semibold text-amber-300">Important data boundary</div>
-        <div className="mt-1 text-[11px] leading-5 text-slate-400">The existing project data is Fyers-backed. Standard stored snapshots do not contain CAS IEP, indicative quantity or buy/sell imbalance, so this screen never invents those values. We first measure the observable underlying/options reaction; a real auction-feed provider can be added later without changing the research definition.</div>
+        <div className="text-xs font-semibold text-amber-300">Research mode · no fabricated auction fields</div>
+        <div className="mt-1 text-[11px] leading-5 text-slate-400">The existing project data is Fyers-backed. Standard stored snapshots do not contain CAS IEP, indicative quantity or buy/sell imbalance, so this screen never invents those values. The research layer measures the observable underlying/options reaction first.</div>
       </div>
 
       {loading && !latest ? <div className="py-12 text-center text-xs text-slate-500">Loading CAS data…</div> : error ? <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4 text-xs text-rose-300">{error}</div> : <>
@@ -123,17 +130,24 @@ export default function CASRadar() {
 
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div><div className="font-semibold text-white text-sm">CAS Early-Warning Research</div><div className="text-[10px] text-slate-500 mt-0.5">Uses only information available at 15:16–15:18 and measures the following 5-minute underlying move.</div></div>
-            <span className="text-[10px] px-2 py-1 rounded-md border border-slate-700 text-slate-400">{summary?.status || 'No dataset'}</span>
+            <div><div className="font-semibold text-white text-sm">CAS Early-Warning Research</div><div className="text-[10px] text-slate-500 mt-0.5">Features are read at 15:16–15:18; outcomes are measured only afterwards. No look-ahead feature is used.</div></div>
+            <span className="text-[10px] px-2 py-1 rounded-md border border-slate-700 text-slate-400">{readiness}</span>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mt-3">
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 mt-3">
             <Metric label="Valid events" value={fmt(summary?.sample_size, 0)} />
-            <Metric label="Large move rate" value={summary ? `${fmt(summary.large_move_rate_pct, 1)}%` : '—'} sub="≥ 0.25% in 5m" />
-            <Metric label="Expiry candidate" value={summary ? `${fmt(summary.expiry_candidate_large_move_rate_pct, 1)}%` : '—'} sub={summary ? `${summary.expiry_candidate_sample} events` : 'Weekday proxy'} />
-            <Metric label="Non-expiry" value={summary ? `${fmt(summary.non_expiry_large_move_rate_pct, 1)}%` : '—'} sub={summary ? `${summary.non_expiry_sample} events` : '—'} />
-            <Metric label="Momentum ≥ 0.05%" value={momentumMetric?.precision_pct != null ? `${fmt(momentumMetric.precision_pct, 1)}%` : '—'} sub={momentumMetric ? `precision · n=${momentumMetric.sample_size}` : 'Not enough data'} />
+            <RateMetric label="Large move rate" value={summary?.large_move_rate_pct} sub="≥ 0.25% in 5m" />
+            <RateMetric label="Expiry candidate" value={summary?.expiry_candidate_large_move_rate_pct} sub={summary ? `${summary.expiry_candidate_sample} events` : 'Weekday proxy'} />
+            <RateMetric label="Non-expiry" value={summary?.non_expiry_large_move_rate_pct} sub={summary ? `${summary.non_expiry_sample} events` : '—'} />
+            <Metric label="Momentum precision" value={momentumMetric?.precision_pct != null ? `${fmt(momentumMetric.precision_pct, 1)}%` : '—'} sub={momentumMetric ? `≥0.05% · n=${momentumMetric.sample_size}` : 'Not enough data'} />
+            <Metric label="Day-level precision" value={conservative?.precision_pct != null ? `${fmt(conservative.precision_pct, 1)}%` : '—'} sub={conservative ? `earliest/day · n=${conservative.sample_size_days}` : 'Not enough data'} />
           </div>
-          <div className="mt-3 text-[10px] leading-5 text-slate-500">This is a diagnostic, not a trading edge. Same-day observations are correlated, expiry is currently a weekday candidate, and no probability or BUY/SELL rule is produced.</div>
+          <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+            <div className="text-[10px] uppercase tracking-wide text-slate-600">Lead-time profile · 5-minute-separated observations</div>
+            <div className="grid grid-cols-4 gap-2 mt-2">
+              {lead.map(item => <div key={item.horizon_minutes} className="text-center"><div className="text-sm font-semibold text-slate-200">{item.large_move_rate_pct == null ? '—' : `${fmt(item.large_move_rate_pct, 1)}%`}</div><div className="text-[10px] text-slate-600">{item.horizon_minutes}m · n={item.sample_size}</div></div>)}
+            </div>
+          </div>
+          <div className="mt-3 text-[10px] leading-5 text-slate-500">These are diagnostics, not a trading edge. Same-day observations are correlated; expiry is currently a weekday candidate; no probability or BUY/SELL rule is produced.</div>
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden">
@@ -145,8 +159,8 @@ export default function CASRadar() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-3">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4"><div className="text-sm font-semibold text-white">What we can measure now</div><ul className="mt-2 space-y-1.5 text-[11px] text-slate-500 leading-5 list-disc pl-4"><li>Pre-CAS underlying level and options context already logged by Index Tracker.</li><li>Actual post-CAS displacement and its date/time, without pretending the move occurred at a fixed minute.</li><li>Expiry-day versus non-expiry-day outcomes once the historical sample is large enough.</li><li>Lead-time research after we have sufficiently granular observations.</li></ul></div>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4"><div className="text-sm font-semibold text-white">Not yet claimed</div><ul className="mt-2 space-y-1.5 text-[11px] text-slate-500 leading-5 list-disc pl-4"><li>No 3:19 PM fixed-time rule.</li><li>No BUY/SELL rule from PCR, OI or Bias alone.</li><li>No IEP/imbalance values unless a verified feed supplies them.</li><li>No probability score until it is fitted and evaluated out-of-sample.</li></ul></div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4"><div className="text-sm font-semibold text-white">Current research protocol</div><ul className="mt-2 space-y-1.5 text-[11px] text-slate-500 leading-5 list-disc pl-4"><li>Use only 15:16–15:18 information for early-warning features.</li><li>Measure actual forward movement at 1, 2, 3 and 5 minutes.</li><li>Use 5-minute-separated observations and earliest-event-per-day validation.</li><li>Compare expiry candidates with non-expiry controls before fitting anything.</li></ul></div>
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4"><div className="text-sm font-semibold text-white">Hard safety boundaries</div><ul className="mt-2 space-y-1.5 text-[11px] text-slate-500 leading-5 list-disc pl-4"><li>No 3:19 PM fixed-time rule.</li><li>No BUY/SELL rule from PCR, OI or Bias alone.</li><li>No IEP/imbalance values unless a verified feed supplies them.</li><li>No probability score until an out-of-sample time-series test supports calibration.</li></ul></div>
         </div>
       </>}
     </div>
