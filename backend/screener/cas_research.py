@@ -12,6 +12,7 @@ from datetime import date, datetime, time, timedelta
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .cas_validation import lead_time_profile, select_non_overlapping_events, validate_early_warning
 from .index_tracker import get_snapshots_for_date, list_available_dates
 
 CAS_START = time(15, 15)
@@ -89,8 +90,6 @@ def _rows_for_day(index_name, date_value):
     try:
         rows = get_snapshots_for_date(index_name, date_str, limit=None)
     except TypeError:
-        # Compatibility with implementations whose helper only accepts
-        # positional/default arguments. Never let the research layer invent data.
         rows = get_snapshots_for_date(index_name, date_str)
     dated = []
     for row in rows or []:
@@ -194,7 +193,7 @@ def _classification_metrics(
 
 
 def summarize_cas_events(events, large_move_threshold_pct=0.25):
-    """Summarize sample size and large-move hit rates without fitting a model."""
+    """Summarize raw diagnostics plus conservative day-level validation."""
     valid = [e for e in events if e.get("max_abs_move_5m_pct") is not None]
     expiry = [e for e in valid if e.get("expiry_weekday_candidate")]
     non_expiry = [e for e in valid if not e.get("expiry_weekday_candidate")]
@@ -202,12 +201,11 @@ def summarize_cas_events(events, large_move_threshold_pct=0.25):
     def rate(rows):
         return round(100 * sum(abs(r["max_abs_move_5m_pct"]) >= large_move_threshold_pct for r in rows) / len(rows), 1) if rows else None
 
-    # One observation per minute is useful for a first diagnostic, but
-    # the full event table remains available for lead-time analysis.
     minute_groups = {}
     for event in valid:
         minute_groups.setdefault((event["date"], event["event_time"][:5]), event)
     minute_events = list(minute_groups.values())
+    non_overlapping = select_non_overlapping_events(valid, gap_minutes=5)
 
     metrics = []
     for feature, threshold in (("momentum_pct", 0.05), ("change_pct", 0.25)):
@@ -221,6 +219,7 @@ def summarize_cas_events(events, large_move_threshold_pct=0.25):
     return {
         "sample_size": len(valid),
         "minute_level_sample_size": len(minute_events),
+        "non_overlapping_sample_size": len(non_overlapping),
         "large_move_threshold_pct": large_move_threshold_pct,
         "large_move_count": sum(abs(e["max_abs_move_5m_pct"]) >= large_move_threshold_pct for e in valid),
         "large_move_rate_pct": rate(valid),
@@ -229,9 +228,15 @@ def summarize_cas_events(events, large_move_threshold_pct=0.25):
         "non_expiry_sample": len(non_expiry),
         "non_expiry_large_move_rate_pct": rate(non_expiry),
         "simple_threshold_metrics": metrics,
+        "lead_time_profile": lead_time_profile(non_overlapping, large_move_threshold_pct),
+        "conservative_validation": validate_early_warning(
+            non_overlapping,
+            threshold=0.05,
+            outcome_threshold=large_move_threshold_pct,
+        ),
         "status": "insufficient_sample" if len(valid) < 30 else "research_sample",
         "warning": "Expiry classification is weekday-based and must be checked against the official holiday-adjusted expiry calendar before model fitting.",
-        "warning_2": "Events from the same day are correlated; minute-level metrics are diagnostic only and are not a substitute for an out-of-sample time-series test.",
+        "warning_2": "Raw minute observations are correlated. Conservative metrics use a minimum 5-minute event gap and should still be treated as research until an out-of-sample time-series test has enough trading days.",
     }
 
 
