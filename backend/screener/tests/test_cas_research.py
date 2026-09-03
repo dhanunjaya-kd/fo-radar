@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.test import SimpleTestCase
 
 from screener.cas_research import _classification_metrics, _pct_move, _expiry_candidate, summarize_cas_events
@@ -10,7 +12,6 @@ class CASResearchTests(SimpleTestCase):
 
     def test_expiry_weekday_candidates(self):
         # 2026-09-03 is Thursday; 2026-09-02 is Wednesday.
-        from datetime import date
         self.assertTrue(_expiry_candidate("NIFTY", date(2026, 9, 3)))
         self.assertTrue(_expiry_candidate("BANKNIFTY", date(2026, 9, 2)))
         self.assertFalse(_expiry_candidate("NIFTY", date(2026, 9, 2)))
@@ -30,6 +31,21 @@ class CASResearchTests(SimpleTestCase):
         self.assertEqual(result["tn"], 2)
         self.assertEqual(result["precision_pct"], 100.0)
         self.assertEqual(result["recall_pct"], 100.0)
+        self.assertEqual(result["outcome_threshold_pct"], 0.25)
+
+    def test_custom_outcome_threshold_is_honored(self):
+        events = [
+            {"momentum_pct": 0.08, "max_abs_move_5m_pct": 0.30},
+            {"momentum_pct": 0.01, "max_abs_move_5m_pct": 0.20},
+        ]
+        result = _classification_metrics(
+            events, "momentum_pct", 0.05, outcome_threshold=0.35
+        )
+        self.assertEqual(result["outcome_threshold_pct"], 0.35)
+        self.assertEqual(result["tp"], 0)
+        self.assertEqual(result["fp"], 1)
+        self.assertEqual(result["fn"], 0)
+        self.assertEqual(result["tn"], 1)
 
     def test_summary_does_not_claim_prediction(self):
         events = [
@@ -44,3 +60,6 @@ class CASResearchTests(SimpleTestCase):
         self.assertEqual(result["non_expiry_sample"], 1)
         self.assertEqual(result["status"], "insufficient_sample")
         self.assertIn("simple_threshold_metrics", result)
+        self.assertEqual(
+            result["simple_threshold_metrics"][0]["outcome_threshold_pct"], 0.25
+        )
