@@ -3,6 +3,7 @@ from django.test import SimpleTestCase
 from screener.cas_validation import (
     aggregate_day_level,
     lead_time_profile,
+    select_first_event_per_day,
     select_non_overlapping_events,
     validate_early_warning,
 )
@@ -21,23 +22,27 @@ class CASValidationTests(SimpleTestCase):
         self.assertEqual(len(selected), 2)
         self.assertEqual(selected[0]["date"], "2026-09-03")
 
-    def test_day_level_uses_largest_forward_move(self):
+    def test_first_event_per_day_is_forward_safe(self):
+        selected = select_first_event_per_day(self.events)
+        self.assertEqual(len(selected), 2)
+        day = next(r for r in selected if r["date"] == "2026-09-03")
+        self.assertEqual(day["event_time"], "15:16:00")
+
+    def test_day_level_uses_selected_event_outcome(self):
         rows = aggregate_day_level(self.events, threshold=0.25)
         self.assertEqual(len(rows), 2)
         day = next(r for r in rows if r["date"] == "2026-09-03")
-        self.assertEqual(day["max_abs_move_5m_pct"], 0.5)
+        self.assertEqual(day["max_abs_move_5m_pct"], 0.4)
         self.assertTrue(day["large_move"])
 
     def test_lead_time_profile(self):
         profile = lead_time_profile(self.events, threshold=0.25)
         self.assertEqual([p["horizon_minutes"] for p in profile], [1, 2, 3, 5])
-        # Both supplied 5-minute outcomes are >= 0.25%; this test should
-        # validate the helper's actual threshold semantics rather than
-        # encode the old, incorrect expectation of one hit.
         self.assertEqual(profile[-1]["large_move_count"], 2)
 
     def test_validation_is_day_level_and_conservative(self):
         result = validate_early_warning(self.events, threshold=0.05, outcome_threshold=0.25)
         self.assertEqual(result["sample_size_days"], 2)
         self.assertEqual(result["outcome_threshold_pct"], 0.25)
+        self.assertEqual(result["selection_rule"], "earliest_event_per_day")
         self.assertEqual(result["status"], "insufficient_sample")
