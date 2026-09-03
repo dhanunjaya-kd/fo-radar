@@ -116,30 +116,24 @@ function DetailDrawer({ signal, onClose }) {
   const contractLabel = formatOptionContractLabel(signal);
   const age = formatSignalAge(signal.timestamp);
 
-  // Sep 3 2026: trade.fyers.in genuinely has no per-symbol URL (re-
-  // confirmed again -- same finding as Aug 31/Sep 2, no working
-  // deep-link exists there). But Fyers' own charts run on TradingView's
-  // engine, and TradingView's OWN site documents a real per-contract
-  // ticker format: UNDERLYING + YYMMDD (exact expiry date) + C/P +
-  // STRIKE, e.g. their own example "NIFTY240314C22450" -- opening
-  // https://www.tradingview.com/chart/?symbol=NSE:<ticker> jumps
-  // straight to that exact contract's chart, no manual paste needed.
-  // signal.expiry_date is the REAL exact expiry (ISO "YYYY-MM-DD",
-  // already computed server-side in fyers_client.py's
-  // get_option_analytics() specifically for this) -- never guessed
-  // here. Falls back to the old copy+open-generic-Fyers flow when
-  // expiry_date isn't available for this signal (e.g. its OI fetch
-  // failed) rather than building a ticker from a guessed date.
+  // Sep 3 2026: REVERTED -- tried routing this through a TradingView
+  // chart URL (UNDERLYING+YYMMDD+C/P+STRIKE, matching TradingView's own
+  // documented NIFTY example), but real testing on an actual signal
+  // (INOXWIND) came back "This symbol doesn't exist" on TradingView's
+  // side. Root cause unconfirmed -- could be that TradingView's own
+  // symbol-search parsing (which the documented example was about)
+  // doesn't resolve the same raw ticker string the same way when passed
+  // as a URL's ?symbol= parameter, or that individual STOCK options
+  // aren't covered the same way NIFTY/BANKNIFTY index options are in
+  // TradingView's data feed -- not verified either way, since this
+  // sandbox can't browse TradingView live. Rather than guess at a THIRD
+  // unverified URL scheme, reverted to the copy+open-Fyers flow this
+  // project already knew worked, same as before Sep 2/3's attempts.
+  // See fyers_client.py's own comment: no working per-symbol
+  // trade.fyers.in URL exists either (confirmed multiple times) -- this
+  // is the honest, known-reliable fallback, not a placeholder for a
+  // future deep-link.
   const handleOpenChart = async () => {
-    if (signal.expiry_date && signal.strike != null) {
-      const yymmdd = signal.expiry_date.replace(/-/g, '').slice(2);
-      const optType = signal.action === 'BUY' ? 'C' : 'P';
-      const tvTicker = `${signal.symbol}${yymmdd}${optType}${Math.round(signal.strike)}`;
-      window.open(`https://www.tradingview.com/chart/?symbol=NSE:${tvTicker}`, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    // No real expiry_date for this signal -- same copy+open-Fyers
-    // fallback as before, rather than building an untrustworthy ticker.
     if (signal.option_symbol) {
       try {
         await navigator.clipboard.writeText(signal.option_symbol);
