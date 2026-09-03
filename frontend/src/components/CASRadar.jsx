@@ -40,17 +40,12 @@ export default function CASRadar() {
   const [error, setError] = useState(null);
   const [updated, setUpdated] = useState(null);
 
-  const load = async () => {
+  const loadTracker = async () => {
     try {
-      const [trackerRes, casRes] = await Promise.all([
-        fetch(`${API_BASE}/index-tracker/${indexName}/`),
-        fetch(`${API_BASE}/cas-auction-moves/${indexName}/`),
-      ]);
-      const [tracker, cas] = await Promise.all([trackerRes.json(), casRes.json()]);
-      if (!trackerRes.ok || tracker.error) throw new Error(tracker.error || `Index Tracker HTTP ${trackerRes.status}`);
-      if (!casRes.ok || cas.error) throw new Error(cas.error || `CAS HTTP ${casRes.status}`);
-      setSnapshots(tracker.snapshots || []);
-      setMoves(cas.moves || []);
+      const res = await fetch(`${API_BASE}/index-tracker/${indexName}/`);
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `Index Tracker HTTP ${res.status}`);
+      setSnapshots(data.snapshots || []);
       setError(null);
       setUpdated(new Date());
     } catch (e) {
@@ -60,12 +55,27 @@ export default function CASRadar() {
     }
   };
 
+  const loadHistory = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/cas-auction-moves/${indexName}/`);
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `CAS HTTP ${res.status}`);
+      setMoves(data.moves || []);
+      setError(null);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
-    const run = () => { if (!cancelled) load(); };
-    run();
-    const id = setInterval(run, 15000);
-    return () => { cancelled = true; clearInterval(id); };
+    const runTracker = () => { if (!cancelled) loadTracker(); };
+    const runHistory = () => { if (!cancelled) loadHistory(); };
+    runTracker();
+    runHistory();
+    const trackerId = setInterval(runTracker, 15000);
+    const historyId = setInterval(runHistory, 60000);
+    return () => { cancelled = true; clearInterval(trackerId); clearInterval(historyId); };
   }, [indexName]);
 
   const latest = snapshots[0];
