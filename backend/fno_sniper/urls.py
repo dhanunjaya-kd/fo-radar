@@ -17,11 +17,12 @@ from screener.views import (
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
     EODScanTriggerView, OptionHistoryView,
 )
+from screener.cas_radar import CASRadarView
+from screener.cas_research import CASResearchDatasetView
+from screener.cas_readiness import CASReadinessView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-
-    # OLD endpoints — frontend inka ivi call chestundi
     path('api/market-summary/', MarketSummaryOldView.as_view(), name='market_summary'),
     path('api/stocks/fo-list/', FoStockListOldView.as_view(), name='fo_stock_list'),
     path('api/market-data/', MarketDataView.as_view(), name='market_data'),
@@ -38,17 +39,9 @@ urlpatterns = [
     path('api/signals/export/<str:date_str>/', SignalExcelExportByDateView.as_view(), name='signals_export_by_date'),
     path('api/signals/watchlist-csv/', SignalWatchlistCsvView.as_view(), name='signals_watchlist_csv'),
     path('api/index-tracker/<str:index_name>/', IndexTrackerView.as_view(), name='index_tracker'),
-    # Sep 2 2026: pure price-action second opinion (RSI/SMA/ATR/pivot
-    # S-R/Technical Bias) -- see TrendMomentumView in views.py.
     path('api/trend-momentum/<str:index_name>/', TrendMomentumView.as_view(), name='trend_momentum'),
-    # Sep 2 2026: full-NSE Next Day Watchlist, built by the automatic
-    # post-close scan -- see NextDayWatchlistView in views.py.
     path('api/next-day-watchlist/', NextDayWatchlistView.as_view(), name='next_day_watchlist'),
-    # Sep 2 2026: read/write the risk-budget-per-trade setting -- see
-    # RiskBudgetSettingsView in views.py.
     path('api/settings/risk-budget/', RiskBudgetSettingsView.as_view(), name='risk_budget_settings'),
-    # Sep 2 2026: manual "run it now" for the Next Day Watchlist scan --
-    # see EODScanTriggerView in views.py.
     path('api/next-day-watchlist/scan/', EODScanTriggerView.as_view(), name='eod_scan_trigger'),
     path('api/index-tracker/<str:index_name>/dates/', IndexTrackerAvailableDatesView.as_view(), name='index_tracker_dates'),
     path('api/index-tracker/<str:index_name>/export/', IndexTrackerExportView.as_view(), name='index_tracker_export'),
@@ -57,60 +50,24 @@ urlpatterns = [
     path('api/weekly-report/', WeeklyReportView.as_view(), name='weekly_report'),
     path('api/fundamentals-watchlist/', FundamentalsWatchlistView.as_view(), name='fundamentals_watchlist'),
     path('api/cas-auction-moves/<str:index_name>/', CASAuctionMovesView.as_view(), name='cas_auction_moves'),
-    # Aug 27 2026: index option calls (NIFTY/BANKNIFTY) -- see
-    # index_signal.py for the strike/SL/Target methodology.
+    path('api/cas-radar/<str:index_name>/', CASRadarView.as_view(), name='cas_radar'),
+    path('api/cas-research/<str:index_name>/', CASResearchDatasetView.as_view(), name='cas_research'),
+    path('api/cas-readiness/<str:index_name>/', CASReadinessView.as_view(), name='cas_readiness'),
     path('api/index-signals/', IndexSignalView.as_view(), name='index_signals'),
-    # Aug 27 2026: live-resolved Fyers front-month symbol for a
-    # commodity (Crude/Gold/Silver) -- powers MarketBanner.jsx's
-    # Crude Oil chart link.
     path('api/commodity-symbol/<str:base_name>/', CommodityCurrentSymbolView.as_view(), name='commodity_symbol'),
-    # Aug 27 2026: combined daily backtest checklist (backfill + stock
-    # P&L + NIFTY/BANKNIFTY positional) -- see daily_backtest.py.
     path('api/daily-backtest/status/', DailyBacktestStatusView.as_view(), name='daily_backtest_status'),
     path('api/daily-backtest/run/', DailyBacktestRunView.as_view(), name='daily_backtest_run'),
     path('api/daily-backtest/download/<str:report_type>/', DailyBacktestReportDownloadView.as_view(), name='daily_backtest_download'),
     path('api/daily-backtest/range/', DailyBacktestRangeView.as_view(), name='daily_backtest_range'),
-    # Aug 29 2026: the actual downloadable PDF for a specific date
-    # range -- the line above only ever returns a JSON preview, by
-    # design (see DailyBacktestRangeView's own docstring). This is the
-    # real counterpart, see DailyBacktestRangeReportView/
-    # daily_backtest.run_range_report() for why it needed its own
-    # endpoint rather than overloading the preview one.
     path('api/daily-backtest/range/report/', DailyBacktestRangeReportView.as_view(), name='daily_backtest_range_report'),
-    # Aug 28 2026: real 52-week high/low for the upcoming Watchlist
-    # redesign -- see views.py's get_52_week_high_low() for why this
-    # needs its own Fyers History API call (the Quotes API confirmed
-    # NOT to provide this field at all).
     path('api/52-week-range/<str:symbol>/', FiftyTwoWeekRangeView.as_view(), name='fifty_two_week_range'),
-    # Aug 28 2026: broader NSE indices for Market View's Indices
-    # Performance table -- own endpoint, own cadence, see
-    # BroaderIndicesView's docstring for why this is separate from
-    # market-summary.
     path('api/broader-indices/', BroaderIndicesView.as_view(), name='broader_indices'),
-    # Aug 30 2026: Market Heatmap's sector click-through -- given a
-    # sector name, returns that sector's stocks with live OI buildup
-    # fetched at request time (deliberately not reused from the main
-    # scan cycle's already-filtered signal data). See SectorStocksView
-    # in views.py for the full reasoning.
     path('api/sector-stocks/<str:sector>/', SectorStocksView.as_view(), name='sector_stocks'),
-    # Aug 31 2026: P0-6 -- explicit NO TRADE log, this cycle's rejected
-    # candidates with real reasons. See NoTradeLogView in views.py.
     path('api/no-trade-log/', NoTradeLogView.as_view(), name='no_trade_log'),
-    # Aug 31 2026: Section 18 -- Data Health Center. See DataHealthView
-    # in views.py for exactly what's real vs. deliberately left out.
     path('api/data-health/', DataHealthView.as_view(), name='data_health'),
-    # Aug 28 2026: price-action strategy backtest (Module 10) -- see
-    # strategy_backtest.py for the full engine and why OI-confirmation
-    # can't be part of any backtestable strategy.
     path('api/strategy-backtest/run/', StrategyBacktestRunView.as_view(), name='strategy_backtest_run'),
     path('api/strategy-backtest/status/', StrategyBacktestStatusView.as_view(), name='strategy_backtest_status'),
-    # Sep 3 2026: real historical candles for ONE option contract,
-    # for the chart shown inline in the signal drawer -- see
-    # OptionHistoryView in views.py for the full reasoning (built after
-    # trade.fyers.in/TradingView deep-links both failed to actually work).
     path('api/option-history/', OptionHistoryView.as_view(), name='option_history'),
-
-    # App-based endpoints (new structure)
     path('api/screener/', include('screener.urls')),
     path('api/options/', include('options.urls')),
     path('api/news/', include('news.urls')),

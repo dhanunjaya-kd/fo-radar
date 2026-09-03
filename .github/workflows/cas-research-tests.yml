@@ -1,0 +1,63 @@
+name: CAS Research Tests
+
+on:
+  pull_request:
+    paths:
+      - 'backend/screener/cas_*.py'
+      - 'backend/screener/tests/test_cas_*.py'
+      - 'backend/fno_sniper/**'
+      - 'backend/requirements*.txt'
+      - 'backend/requirements/**'
+      - 'frontend/src/components/CASRadar.jsx'
+      - 'frontend/package.json'
+      - 'frontend/package-lock.json'
+      - '.github/workflows/cas-research-tests.yml'
+  push:
+    branches:
+      - cas-radar
+
+jobs:
+  test-cas-research:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements/*.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        shell: bash
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -d requirements ]; then for f in requirements/*.txt; do [ -f "$f" ] && pip install -r "$f"; done; fi
+
+      - name: Django system check
+        working-directory: backend
+        run: python manage.py check
+
+      - name: CAS research tests
+        working-directory: backend
+        run: python manage.py test screener.tests.test_cas_radar screener.tests.test_cas_research screener.tests.test_cas_validation -v 2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend production build
+        working-directory: frontend
+        run: npm run build
