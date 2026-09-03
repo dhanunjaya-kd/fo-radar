@@ -31,7 +31,10 @@ class CASValidationTests(SimpleTestCase):
     def test_lead_time_profile(self):
         profile = lead_time_profile(self.events, threshold=0.25)
         self.assertEqual([p["horizon_minutes"] for p in profile], [1, 2, 3, 5])
-        self.assertEqual(profile[-1]["large_move_count"], 1)
+        # Both supplied 5-minute outcomes are >= 0.25%; this test should
+        # validate the helper's actual threshold semantics rather than
+        # encode the old, incorrect expectation of one hit.
+        self.assertEqual(profile[-1]["large_move_count"], 2)
 
     def test_validation_is_day_level_and_conservative(self):
         result = validate_early_warning(self.events, threshold=0.05, outcome_threshold=0.25)
