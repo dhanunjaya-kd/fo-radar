@@ -120,21 +120,114 @@ def is_authenticated():
     return result
 
 
+# ============================================================
+# RATE-LIMIT CIRCUIT BREAKER
+# ============================================================
+# Sep 3 2026: real bug, confirmed live -- screenshots showed 429
+# ({'s': 'error', 'code': 429, 'message': 'Bad request'}) on every
+# single quote/option-chain call, continuously, 09:15:43-09:20:19 with
+# zero recovery in between. Root cause traced in views.py: _fetch_index()
+# fired 3 separate single-symbol calls where 1 batched call would do
+# (fixed there), but the bigger problem was here -- nothing in this
+# module ever backed off on a 429. Every function below just logged the
+# error and returned, then the exact same call volume repeated again
+# next cycle (60-90s later), re-tripping the same limit every time with
+# no chance for it to clear. eod_scanner.py already has a working
+# circuit breaker for this exact scenario (see its own comments); the
+# live-scanner/index-worker path never got one.
+#
+# This tracks CONSECUTIVE 429s across every Fyers call (all of them
+# funnel through this one module), and once a real threshold is
+# crossed, stops making actual network calls for a cooldown window --
+# callers get None back immediately instead of adding another request
+# to the pile. Escalates the cooldown on repeated trips (60s -> 120s ->
+# 240s, capped at 300s) since a single flat cooldown clearly wasn't
+# guaranteed to be enough on its own. Any real non-429 response (a
+# genuine success OR a different kind of error) resets the counter and
+# the escalation back to baseline -- this only reacts to confirmed,
+# repeated rate-limit signals, never to an unrelated error.
+#
+# The {'s': 'error', 'code': 429} envelope is CONFIRMED live for quotes
+# and option-chain (the two endpoints in the actual screenshots).
+# get_history()/get_market_depth() are assumed to share the same SDK
+# response envelope (every other endpoint in this file already checks
+# resp.get('s') the same way) but that specific 429 shape hasn't been
+# independently observed live on those two -- if it turns out different,
+# the worst case is those two simply never trip or reset the breaker
+# themselves, which is safe; they still RESPECT an active breaker
+# tripped by quotes/option-chain either way.
+_rate_limit_state = {"consecutive_429s": 0, "blocked_until": 0.0, "cooldown_seconds": 60}
+_RATE_LIMIT_TRIP_THRESHOLD = 2  # back off once this many 429s land in a row
+_RATE_LIMIT_MAX_COOLDOWN = 300
+
+
+def _rate_limited_now():
+    """True while a backoff window is active -- callers should skip the
+    real network call entirely and return None rather than add to the
+    pile."""
+    return time.time() < _rate_limit_state["blocked_until"]
+
+
+def _is_429(resp):
+    return bool(resp) and resp.get("s") == "error" and resp.get("code") == 429
+
+
+def _note_429():
+    """Record a real 429. Below the trip threshold this just counts --
+    one isolated 429 can be a harmless transient blip, not yet evidence
+    of a real block."""
+    _rate_limit_state["consecutive_429s"] += 1
+    if _rate_limit_state["consecutive_429s"] >= _RATE_LIMIT_TRIP_THRESHOLD:
+        cooldown = min(_rate_limit_state["cooldown_seconds"], _RATE_LIMIT_MAX_COOLDOWN)
+        _rate_limit_state["blocked_until"] = time.time() + cooldown
+        print(f"[Fyers] Rate-limit circuit breaker TRIPPED -- backing off {cooldown}s "
+              f"(consecutive 429s: {_rate_limit_state['consecutive_429s']})")
+        _rate_limit_state["cooldown_seconds"] = min(cooldown * 2, _RATE_LIMIT_MAX_COOLDOWN)
+
+
+def _note_success():
+    """Record a real non-429 response -- resets the consecutive count
+    and the escalating cooldown back to baseline, since this is genuine
+    evidence the limit has cleared."""
+    if _rate_limit_state["consecutive_429s"] > 0:
+        print("[Fyers] Rate-limit circuit breaker reset -- real response received.")
+    _rate_limit_state["consecutive_429s"] = 0
+    _rate_limit_state["cooldown_seconds"] = 60
+
+
 def get_quotes(symbols):
     """
     Fetch quotes for given symbols.
     symbols: list like ["NSE:RELIANCE-EQ", "NSE:NIFTY50-INDEX"]
+
+    Sep 3 2026: now respects the rate-limit circuit breaker above --
+    returns None immediately without a real network call while a
+    backoff window is active, and updates the breaker's state on every
+    real response (429 or not). See the breaker's own comments for why.
     """
+    if _rate_limited_now():
+        print("[Fyers] Quotes: circuit breaker open -- skipping real call.")
+        return None
     try:
         fyers = get_fyers_client()
-        return fyers.quotes({"symbols": ",".join(symbols)})
+        resp = fyers.quotes({"symbols": ",".join(symbols)})
+        if _is_429(resp):
+            _note_429()
+        else:
+            _note_success()
+        return resp
     except Exception as e:
         print(f"[Fyers] Quote error: {e}")
         return None
 
 
 def get_history(symbol, resolution="1D", range_from=None, range_to=None):
-    """Fetch historical data."""
+    """Fetch historical data. Sep 3 2026: respects the shared circuit
+    breaker (see get_quotes above) -- skips the real call while a
+    backoff window from quotes/option-chain is active."""
+    if _rate_limited_now():
+        print(f"[Fyers] History: circuit breaker open -- skipping real call for {symbol}.")
+        return None
     try:
         fyers = get_fyers_client()
         data = {
@@ -145,17 +238,27 @@ def get_history(symbol, resolution="1D", range_from=None, range_to=None):
             "range_to": range_to,
             "cont_flag": "1"
         }
-        return fyers.history(data)
+        resp = fyers.history(data)
+        if _is_429(resp):
+            _note_429()
+        return resp
     except Exception as e:
         print(f"[Fyers] History error: {e}")
         return None
 
 
 def get_market_depth(symbol):
-    """Fetch market depth (order book)."""
+    """Fetch market depth (order book). Sep 3 2026: respects the
+    shared circuit breaker (see get_quotes above)."""
+    if _rate_limited_now():
+        print(f"[Fyers] Depth: circuit breaker open -- skipping real call for {symbol}.")
+        return None
     try:
         fyers = get_fyers_client()
-        return fyers.depth({"symbol": symbol, "ohlcv_flag": "1"})
+        resp = fyers.depth({"symbol": symbol, "ohlcv_flag": "1"})
+        if _is_429(resp):
+            _note_429()
+        return resp
     except Exception as e:
         print(f"[Fyers] Depth error: {e}")
         return None
@@ -176,10 +279,18 @@ def get_option_chain(symbol, strikecount=10, timestamp=""):
     Returns the raw dict response (or None on failure) -- pass it straight
     to screener.options_analytics.analyze_option_chain().
     """
+    if _rate_limited_now():
+        print(f"[Fyers] Option chain: circuit breaker open -- skipping real call for {symbol}.")
+        return None
     try:
         fyers = get_fyers_client()
         data = {"symbol": symbol, "strikecount": strikecount, "timestamp": timestamp}
-        return fyers.optionchain(data=data)
+        resp = fyers.optionchain(data=data)
+        if _is_429(resp):
+            _note_429()
+        else:
+            _note_success()
+        return resp
     except Exception as e:
         print(f"[Fyers] Option chain error for {symbol}: {e}")
         return None

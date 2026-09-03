@@ -286,6 +286,68 @@ def _fetch_index(name, fallbacks=None):
     return {'price': 0, 'change': 0, 'change_percent': 0}
 
 
+def _fetch_indices_batched():
+    """
+    Sep 3 2026: real bug -- NIFTY/BANKNIFTY/VIX used to be fetched via 3
+    SEPARATE _fetch_index() calls below, each its own get_quotes()
+    round-trip to Fyers, instead of 1 batched call for all 3 symbols
+    together -- unlike fetch_broader_indices() above, which already
+    batches its own (unrelated) set of index symbols correctly in one
+    call. Confirmed live (screenshots, 09:15:43-09:20:19 Sep 3):
+    continuous 429s on every quote call including these -- firing 3
+    calls where 1 would do adds real, avoidable load onto an already-
+    strained rate limit, every single cycle (60s in
+    _index_snapshot_worker, up to 90s+ in _build_all).
+
+    Same per-index parsing and zeroed-placeholder-with-logging fallback
+    as _fetch_index() -- one index missing/unusable in the batch doesn't
+    affect the others -- just done as one network round-trip for all 3
+    instead of three.
+    """
+    zeroed = {'price': 0, 'change': 0, 'change_percent': 0}
+    out = {name: dict(zeroed) for name in FYERS_INDEX_SYMBOLS}
+
+    if not is_authenticated():
+        print("[Fyers] Not authenticated -- skipping batched index fetch (no Yahoo fallback)")
+        return out
+
+    fyers_symbols = list(FYERS_INDEX_SYMBOLS.values())
+    symbol_to_name = {v: k for k, v in FYERS_INDEX_SYMBOLS.items()}
+    try:
+        resp = get_quotes(fyers_symbols)
+    except Exception as e:
+        print(f"[Fyers] Batched index fetch error: {e}")
+        return out
+
+    if not resp or resp.get('s') != 'ok':
+        print(f"[Fyers] Batched index fetch: response not ok -- {resp}")
+        return out
+
+    seen = set()
+    for item in resp.get('d', []):
+        if item.get('s') != 'ok':
+            continue
+        fyers_sym = item.get('n')
+        name = symbol_to_name.get(fyers_sym)
+        if not name:
+            continue
+        v = item.get('v', {}) or {}
+        price = v.get('lp')
+        if price and not (isinstance(price, float) and math.isnan(price)):
+            out[name] = {
+                'price': round(price, 2),
+                'change': round(v.get('ch', 0) or 0, 2),
+                'change_percent': round(v.get('chp', 0) or 0, 2),
+            }
+            seen.add(name)
+
+    missing = set(FYERS_INDEX_SYMBOLS) - seen
+    if missing:
+        print(f"[Fyers] Batched index fetch: no usable price for {sorted(missing)} -- {resp}")
+
+    return out
+
+
 # Aug 28 2026: SEPARATE dict from FYERS_INDEX_SYMBOLS above -- these
 # broader indices (Next 50, 100, Midcap 100, Smallcap 100) are NOT
 # verified against a live Fyers connection the way NIFTY50/BANKNIFTY/
@@ -378,6 +440,14 @@ def _fetch_all_quotes_fyers(symbols):
     fyers_symbols = [f"NSE:{s}-EQ" for s in symbols]
     for i in range(0, len(fyers_symbols), 50):
         batch = fyers_symbols[i:i + 50]
+        if i > 0:
+            # Sep 3 2026: real bug -- these 5 batches (208 stocks / 50
+            # per batch) used to fire back-to-back with zero delay,
+            # unlike eod_scanner.py's already-paced version. Confirmed
+            # live (09:15:43-09:20:19 Sep 3 screenshots) contributing to
+            # continuous 429s. Skipped before the FIRST batch only --
+            # no point delaying a fresh cycle's opening call.
+            time.sleep(0.4)
         try:
             resp = get_quotes(batch)
         except Exception as e:
@@ -824,9 +894,13 @@ def _build_all():
         bank = cached_indices.get("banknifty", {'price': 0, 'change': 0, 'change_percent': 0})
         vix = cached_indices.get("india_vix", {'price': 0, 'change': 0, 'change_percent': 0})
     else:
-        nifty = _fetch_index("NIFTY 50", ["^NSEI", "NSEI.NS", "^NSEI.NS"])
-        bank = _fetch_index("BANKNIFTY", ["^NSEBANK", "NSEBANK.NS", "NIFTY_BANK.NS", "^NSEBANK.NS"])
-        vix = _fetch_index("INDIA VIX", ["^INDIAVIX", "INDIAVIX.NS", "^INDIAVIX.NS"])
+        # Sep 3 2026: was 3 separate _fetch_index() calls -- see
+        # _fetch_indices_batched()'s docstring for why that's a real,
+        # confirmed problem, not just a style nitpick.
+        _batched_idx = _fetch_indices_batched()
+        nifty = _batched_idx["NIFTY 50"]
+        bank = _batched_idx["BANKNIFTY"]
+        vix = _batched_idx["INDIA VIX"]
         with _cache_lock:
             _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix}
             _index_cache_updated_at = time.time()
@@ -1640,9 +1714,12 @@ def _index_snapshot_worker():
         try:
             nse_open = is_market_hours()
             if nse_open:
-                nifty = _fetch_index("NIFTY 50", ["^NSEI", "NSEI.NS", "^NSEI.NS"])
-                bank = _fetch_index("BANKNIFTY", ["^NSEBANK", "NSEBANK.NS", "NIFTY_BANK.NS", "^NSEBANK.NS"])
-                vix = _fetch_index("INDIA VIX", ["^INDIAVIX", "INDIAVIX.NS", "^INDIAVIX.NS"])
+                # Sep 3 2026: was 3 separate _fetch_index() calls -- see
+                # _fetch_indices_batched()'s docstring.
+                _batched_idx = _fetch_indices_batched()
+                nifty = _batched_idx["NIFTY 50"]
+                bank = _batched_idx["BANKNIFTY"]
+                vix = _batched_idx["INDIA VIX"]
                 global _index_cache, _index_cache_updated_at
                 with _cache_lock:
                     _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix}
