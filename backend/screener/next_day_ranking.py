@@ -119,7 +119,7 @@ def compute_score(rsi, distance_from_sma_pct, volume_ratio, sector_relative_pct)
     return min(100, score), breakdown
 
 
-def build_watchlist(sectors_map=None, top_n=30, min_score=0, raw_data=None):
+def build_watchlist(sectors_map=None, top_n=10, min_score=0, raw_data=None):
     """
     Reads eod_scanner.py's raw output (or accepts raw_data directly,
     for testing), computes real indicators per symbol, ranks best-
