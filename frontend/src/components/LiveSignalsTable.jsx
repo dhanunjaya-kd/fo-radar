@@ -92,8 +92,6 @@ function DetailDrawer({ signal, onClose }) {
   const age = formatSignalAge(signal.timestamp);
 
   const handleOpenChart = () => {
-    // The optional browser extension uses the underlying stock symbol here.
-    // This intentionally does NOT attempt exact option-strike navigation.
     const underlyingSymbol = signal.symbol ? `NSE:${signal.symbol}-EQ` : null;
     if (!underlyingSymbol) return;
 
@@ -103,14 +101,19 @@ function DetailDrawer({ signal, onClose }) {
       // Clipboard is only a convenience; opening FYERS still works.
     }
 
-    const event = new CustomEvent('fyers-stock-open', {
-      detail: { symbol: underlyingSymbol },
-      bubbles: true,
-    });
-    document.dispatchEvent(event);
+    // If the optional FYERS stock opener extension is installed, let it
+    // open FYERS and select the underlying equity. Otherwise open FYERS
+    // normally and leave the user's normal/default chart untouched.
+    const hasStockExtension = document.documentElement.dataset.fyersStockExtension === '1';
+    if (hasStockExtension) {
+      document.dispatchEvent(new CustomEvent('fyers-stock-open', {
+        detail: { symbol: underlyingSymbol },
+        bubbles: true,
+      }));
+    } else {
+      window.open('https://trade.fyers.in/', '_blank', 'noopener,noreferrer');
+    }
 
-    // Without the optional extension, simply open FYERS normally.
-    window.open('https://trade.fyers.in/', '_blank', 'noopener,noreferrer');
     setFyersOpened(true);
     setTimeout(() => setFyersOpened(false), 3500);
   };
