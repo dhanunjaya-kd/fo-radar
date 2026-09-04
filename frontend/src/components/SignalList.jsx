@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import LiveSignalsTable from './LiveSignalsTable';
+import AdvanceDeclineDonut from './AdvanceDeclineDonut';
 
 // Relative on purpose -- Vite's dev-server proxy (vite.config.js) forwards
 // /api/* to the Django backend on this same machine, so this works
@@ -147,53 +148,53 @@ export default function LiveSignals() {
     );
   }
 
-  if (uniqueSignals.length === 0) {
-    return (
-      <div className="text-center py-16">
-        <div className="text-slate-600 mb-3 flex justify-center"><IconBolt size={36} /></div>
-        <h3 className="text-lg font-bold text-white mb-1">No SNIPER signals right now</h3>
-        <p className="text-slate-400 text-sm mb-4">Market conditions don't meet criteria. Check back in a minute.</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <span className="text-amber-500"><IconBolt size={18} /></span>
-            SNIPER Signals
-            <span className="text-xs font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
-              {uniqueSignals.length} active
-            </span>
-          </h2>
-          <div className="flex items-center gap-2">
-            {availableDates.length > 0 && (
-              <select
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                title="Pick a date to download that day's log instead of today's"
-                className="h-9 text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 text-slate-300 focus:outline-none focus:border-emerald-500"
-              >
-                <option value="">Today</option>
-                {availableDates.map(d => (
-                  <option key={d} value={d}>
-                    {new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                  </option>
-                ))}
-              </select>
-            )}
-            <a
-              href={selectedDate ? `${API_BASE}/api/signals/export/${selectedDate}/` : `${API_BASE}/api/signals/export/`}
-              title={selectedDate ? `Download ${selectedDate}'s log (Excel)` : "Download today's log (Excel)"}
-              aria-label={selectedDate ? `Download ${selectedDate}'s log (Excel)` : "Download today's log (Excel)"}
-              className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
-              download
-            >
-              <IconDownload size={16} />
-            </a>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2 shrink-0">
+          <span className="text-amber-500"><IconBolt size={18} /></span>
+          SNIPER Signals
+          <span className="text-xs font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
+            {uniqueSignals.length} active
+          </span>
+        </h2>
+
+        {/* Compact vertical breadth block moved here from the global header.
+            The three A/D readings stay stacked so the block remains narrow
+            and does not consume a full horizontal row above the tab content. */}
+        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800 shrink-0">
+          <div className="text-[9px] text-slate-500 uppercase tracking-wider leading-tight text-center">
+            <div>A/D</div>
+            <div className="text-[8px]">Breadth</div>
           </div>
+          <AdvanceDeclineDonut compact />
+        </div>
+
+        <div className="flex items-center gap-2 ml-auto">
+          {availableDates.length > 0 && (
+            <select
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              title="Pick a date to download that day's log instead of today's"
+              className="h-9 text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 text-slate-300 focus:outline-none focus:border-emerald-500"
+            >
+              <option value="">Today</option>
+              {availableDates.map(d => (
+                <option key={d} value={d}>
+                  {new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </option>
+              ))}
+            </select>
+          )}
+          <a
+            href={selectedDate ? `${API_BASE}/api/signals/export/${selectedDate}/` : `${API_BASE}/api/signals/export/`}
+            title={selectedDate ? `Download ${selectedDate}'s log (Excel)` : "Download today's log (Excel)"}
+            aria-label={selectedDate ? `Download ${selectedDate}'s log (Excel)` : "Download today's log (Excel)"}
+            className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
+            download
+          >
+            <IconDownload size={16} />
+          </a>
         </div>
       </div>
 
@@ -203,7 +204,15 @@ export default function LiveSignals() {
         </div>
       )}
 
-      <LiveSignalsTable signals={uniqueSignals} />
+      {uniqueSignals.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="text-slate-600 mb-3 flex justify-center"><IconBolt size={36} /></div>
+          <h3 className="text-lg font-bold text-white mb-1">No SNIPER signals right now</h3>
+          <p className="text-slate-400 text-sm mb-4">Market conditions don't meet criteria. Check back in a minute.</p>
+        </div>
+      ) : (
+        <LiveSignalsTable signals={uniqueSignals} />
+      )}
     </div>
   );
 }
