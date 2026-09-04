@@ -101,7 +101,7 @@ function DetailDrawer({ signal, onClose }) {
   // `if (!signal) return null` below, or this would violate React's
   // Rules of Hooks (a conditional early return before a hook call).
   const [rangeData, setRangeData] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [fyersOpened, setFyersOpened] = useState(false);
   useEffect(() => {
     if (!signal) { setRangeData(null); return; }
     let cancelled = false;
@@ -117,34 +117,20 @@ function DetailDrawer({ signal, onClose }) {
   const contractLabel = formatOptionContractLabel(signal);
   const age = formatSignalAge(signal.timestamp);
 
-  // Sep 3 2026: REVERTED -- tried routing this through a TradingView
-  // chart URL (UNDERLYING+YYMMDD+C/P+STRIKE, matching TradingView's own
-  // documented NIFTY example), but real testing on an actual signal
-  // (INOXWIND) came back "This symbol doesn't exist" on TradingView's
-  // side. Root cause unconfirmed -- could be that TradingView's own
-  // symbol-search parsing (which the documented example was about)
-  // doesn't resolve the same raw ticker string the same way when passed
-  // as a URL's ?symbol= parameter, or that individual STOCK options
-  // aren't covered the same way NIFTY/BANKNIFTY index options are in
-  // TradingView's data feed -- not verified either way, since this
-  // sandbox can't browse TradingView live. Rather than guess at a THIRD
-  // unverified URL scheme, reverted to the copy+open-Fyers flow this
-  // project already knew worked, same as before Sep 2/3's attempts.
-  // See fyers_client.py's own comment: no working per-symbol
-  // trade.fyers.in URL exists either (confirmed multiple times) -- this
-  // is the honest, known-reliable fallback, not a placeholder for a
-  // future deep-link.
-  const handleOpenChart = async () => {
-    if (signal.option_symbol) {
-      try {
-        await navigator.clipboard.writeText(signal.option_symbol);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      } catch (e) {
-        // clipboard blocked -- still open Fyers below
-      }
+  // FYERS Trader exposes a supported popout chart URL with an exact
+  // trading-symbol query parameter. The scanner already has the exact
+  // option symbol (e.g. NSE:ANGELONE26SEP300PE), so use it unchanged.
+  // This opens the actual FYERS chart rather than only copying the symbol
+  // and leaving the user to search manually.
+  const handleOpenChart = () => {
+    if (!signal.option_symbol) return;
+    const fyersChartUrl =
+      `https://trade.fyers.in/popout/popout.html?symbol=${encodeURIComponent(signal.option_symbol)}&resolution=5&theme=dark`;
+    const popup = window.open(fyersChartUrl, '_blank', 'noopener,noreferrer');
+    if (popup) {
+      setFyersOpened(true);
+      setTimeout(() => setFyersOpened(false), 2500);
     }
-    window.open('https://trade.fyers.in/', '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -166,8 +152,9 @@ function DetailDrawer({ signal, onClose }) {
           <div className={`rounded-lg p-3 text-center border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-rose-500/10 border-rose-500/25'}`}>
             <button
               onClick={handleOpenChart}
-              title={signal.option_symbol ? `Copy ${signal.option_symbol} and open Fyers -- paste into Fyers' search to find this exact contract` : 'Open Fyers'}
-              className={`text-base font-bold underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}
+              disabled={!signal.option_symbol}
+              title={signal.option_symbol ? `Open ${signal.option_symbol} in FYERS 5-minute chart` : 'Exact option contract symbol unavailable'}
+              className={`text-base font-bold underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity disabled:opacity-50 ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}
             >
               {contractLabel}
             </button>
@@ -178,11 +165,11 @@ function DetailDrawer({ signal, onClose }) {
               {age && <span className="text-[10px] text-slate-500">{age}</span>}
             </div>
             <p className="text-[9px] text-slate-500 mt-1.5">
-              {copied
-                ? `✓ ${signal.option_symbol} copied — paste into Fyers' search`
+              {fyersOpened
+                ? `✓ Opened ${signal.option_symbol} in FYERS`
                 : signal.option_symbol
-                  ? `Tap to copy ${signal.option_symbol} and open Fyers (no per-symbol link exists on their platform)`
-                  : `Tap to open Fyers (exact contract symbol unavailable)`}
+                  ? `Click to open the exact ${signal.option_symbol} chart in FYERS`
+                  : `Exact contract symbol unavailable`}
             </p>
             {signal.near_expiry_warning === true && (
               <p className="text-[10px] text-amber-400 text-center mt-1">
@@ -191,13 +178,9 @@ function DetailDrawer({ signal, onClose }) {
             )}
           </div>
 
-          {/* Sep 3 2026: the actual point of this whole thread -- the
-              contract's own chart, rendered here directly instead of
-              sending the user out to an external site that either has
-              no per-symbol link (Fyers) or didn't resolve for a real
-              stock option (TradingView, tested and failed). Only
-              rendered when option_symbol exists -- same guard the
-              "Open Fyers" button above already uses. */}
+          {/* The same exact contract is also shown in the scanner's own
+              option chart. This remains unchanged; the button above is
+              the external FYERS chart shortcut. */}
           {signal.option_symbol && <OptionPriceChart optionSymbol={signal.option_symbol} />}
 
           <div>
