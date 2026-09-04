@@ -150,27 +150,28 @@ export default function LiveSignals() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="text-lg font-bold text-white flex items-center gap-2 shrink-0">
-          <span className="text-amber-500"><IconBolt size={18} /></span>
-          SNIPER Signals
-          <span className="text-xs font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
-            {uniqueSignals.length} active
-          </span>
-        </h2>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-4 min-w-0">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2 shrink-0">
+            <span className="text-amber-500"><IconBolt size={18} /></span>
+            SNIPER Signals
+            <span className="text-xs font-normal text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
+              {uniqueSignals.length} active
+            </span>
+          </h2>
 
-        {/* Compact vertical breadth block moved here from the global header.
-            The three A/D readings stay stacked so the block remains narrow
-            and does not consume a full horizontal row above the tab content. */}
-        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800 shrink-0">
-          <div className="text-[9px] text-slate-500 uppercase tracking-wider leading-tight text-center">
-            <div>A/D</div>
-            <div className="text-[8px]">Breadth</div>
+          {/* Compact A/D breadth block stays on the same row as the
+              SNIPER title and uses the narrow vertical presentation. */}
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-900/60 border border-slate-800 shrink-0">
+            <div className="text-[9px] text-slate-500 uppercase tracking-wider leading-tight text-center">
+              <div>A/D</div>
+              <div className="text-[8px]">Breadth</div>
+            </div>
+            <AdvanceDeclineDonut compact />
           </div>
-          <AdvanceDeclineDonut compact />
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 shrink-0">
           {availableDates.length > 0 && (
             <select
               value={selectedDate}
