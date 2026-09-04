@@ -1,40 +1,24 @@
-// Marker visible to the page DOM so the React app knows the extension is
-// installed. The extension owns exact-strike navigation.
-document.documentElement.dataset.fyersExactStrikeExtension = '1';
+// Optional helper: when installed, the extension opens the signal's
+// underlying NSE equity in FYERS. It intentionally does not attempt to
+// select the option strike.
+document.documentElement.dataset.fyersStockExtension = '1';
 
-function openExactStrike(symbol) {
+function openUnderlyingStock(symbol) {
   if (!symbol) return;
 
   chrome.runtime.sendMessage({
-    type: 'FO_RADAR_OPEN_OPTION',
+    type: 'FO_RADAR_OPEN_STOCK',
     symbol
   }).then((result) => {
     if (!result?.ok) {
-      console.warn('[F&O Radar] FYERS exact-strike extension:', result?.error || 'not available');
+      console.warn('[F&O Radar] FYERS stock opener:', result?.error || 'not available');
     }
   }).catch(() => {
-    console.warn('[F&O Radar] FYERS exact-strike extension is unavailable.');
+    console.warn('[F&O Radar] FYERS stock opener is unavailable.');
   });
 }
 
-// Preferred path: the React app explicitly hands the clicked contract to the
-// extension. This avoids relying on event-ordering between an isolated-world
-// content script and React's delegated click handler.
-document.addEventListener('fyers-exact-strike-open', (event) => {
-  const symbol = event.detail?.symbol || event.target?.getAttribute?.('data-fyers-option-symbol');
-  openExactStrike(symbol);
+document.addEventListener('fyers-stock-open', (event) => {
+  const symbol = event.detail?.symbol;
+  openUnderlyingStock(symbol);
 }, false);
-
-// Fallback path: intercept a direct click on the contract button.
-document.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-fyers-option-symbol]');
-  if (!button) return;
-
-  const symbol = button.getAttribute('data-fyers-option-symbol');
-  if (!symbol) return;
-
-  event.preventDefault();
-  event.stopPropagation();
-  event.stopImmediatePropagation();
-  openExactStrike(symbol);
-}, true);
