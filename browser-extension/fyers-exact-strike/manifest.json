@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "F&O Radar – FYERS Exact Strike",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Opens the exact option contract selected in F&O Radar inside FYERS Web.",
   "permissions": [
     "tabs"
@@ -28,7 +28,8 @@
         "https://trade.fyers.in/*"
       ],
       "js": ["fyers-controller.js"],
-      "run_at": "document_idle"
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "action": {
