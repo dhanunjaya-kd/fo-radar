@@ -24,19 +24,26 @@ from screener.market_hours import is_market_hours
 
 
 # Only endpoints that represent live/current market state are frozen.
-# Historical exports, backtests, settings, and authentication endpoints
-# must remain normal after close.
+# Historical exports, backtests, settings, news, and authentication-token
+# endpoints remain normal after close.
 LIVE_API_PREFIXES = (
     "/api/market-summary/",
+    "/api/market-data/",
+    "/api/stocks/fo-list/",
+    "/api/ticker/",
+    "/api/stock-detail/",
+    "/api/fyers-status/",
     "/api/commodity-symbol/",
     "/api/index-tracker/",
+    "/api/index-signals/",
+    "/api/trend-momentum/",
+    "/api/option-analytics/",
     "/api/signals/",
     "/api/sniper-only/",
-    "/api/option-analytics/",
-    "/api/trend-momentum/",
     "/api/data-health/",
-    "/api/market-data/",
+    "/api/broader-indices/",
     "/api/sector-stocks/",
+    "/api/no-trade-log/",
 )
 
 _snapshot_lock = threading.Lock()
