@@ -6,7 +6,6 @@ import ThemeToggle from './components/ThemeToggle';
 import './components/theme-overrides.css';
 import './components/density-overrides.css';
 import MarketBanner from './components/MarketBanner';
-import MarketBreadth from './components/MarketBreadth';
 import SignalList from './components/SignalList';
 import Analytics from './components/Analytics';
 import IndexTracker from './components/IndexTracker';
@@ -158,7 +157,7 @@ function AppShell() {
         </div>
       </div>
 
-      <div className="px-4 pb-2"><MarketBanner /><MarketBreadth /></div>
+      <div className="px-4 pb-2"><MarketBanner /></div>
 
       <div className="px-4 mb-4 flex gap-1 flex-wrap">{primaryTabs.map(tab => <TabButton key={tab.id} tab={tab} />)}</div>
 
