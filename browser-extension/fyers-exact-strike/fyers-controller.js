@@ -29,20 +29,14 @@
   function fireInput(input, value) {
     input.focus();
     if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
-      const proto = input instanceof HTMLTextAreaElement
-        ? HTMLTextAreaElement.prototype
-        : HTMLInputElement.prototype;
+      const proto = input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
       const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
       if (setter) setter.call(input, value);
       else input.value = value;
     } else {
       input.textContent = value;
     }
-    input.dispatchEvent(new InputEvent('input', {
-      bubbles: true,
-      inputType: 'insertText',
-      data: value
-    }));
+    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
@@ -65,8 +59,7 @@
   }
 
   function clickSymbolSearchLauncher() {
-    const candidates = [...document.querySelectorAll('button,[role="button"],[tabindex="0"]')]
-      .filter(visible);
+    const candidates = [...document.querySelectorAll('button,[role="button"],[tabindex="0"]')].filter(visible);
     const launcher = candidates.find((el) => {
       const text = (el.textContent || '').trim().toUpperCase();
       const aria = (el.getAttribute('aria-label') || '').toUpperCase();
@@ -126,7 +119,7 @@
     return false;
   }
 
-  async function selectExactOption(symbol, requestId) {
+  async function selectStock(symbol, requestId) {
     if (handledRequest === requestId) return true;
 
     const input = await waitForInput();
@@ -146,20 +139,19 @@
       handledRequest = null;
     }
 
-    // FYERS Trader documents that typing a symbol while the chart is active
-    // changes the chart symbol. Use that native chart shortcut when the search
-    // dialog is not exposed to the content script.
+    // FYERS documents that typing a symbol while the chart is active changes
+    // the chart symbol. Use that native chart shortcut as the fallback.
     return typeSymbolIntoChart(symbol);
   }
 
   chrome.runtime.onMessage.addListener((message) => {
-    if (message?.type !== 'FO_RADAR_SELECT_OPTION' || !message.symbol) return;
+    if (message?.type !== 'FO_RADAR_SELECT_STOCK' || !message.symbol) return;
 
     const requestId = message.requestId || crypto.randomUUID();
     let attempts = 0;
     const timer = setInterval(async () => {
       attempts += 1;
-      const done = await selectExactOption(message.symbol, requestId);
+      const done = await selectStock(message.symbol, requestId);
       if (done || attempts >= 20) clearInterval(timer);
     }, 500);
 
