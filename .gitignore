@@ -41,11 +41,9 @@ Thumbs.db
 .vscode/
 .idea/
 
-# --- This project's own generated/runtime data --
-# (signal_logs and fundamentals_data.json are real trading history and
-# fundamentals cache this project generates as it runs -- excluded
-# since regenerated data doesn't belong in source control the same way
-# actual code does. Uncomment the next two lines if you want them
-# tracked instead -- that's a real choice, not a mistake either way.)
-# backend/signal_logs/
-# backend/fundamentals_data.json
+# --- This project's own generated/runtime data ---
+# Signal logs, fundamentals cache, and market-close snapshots are runtime
+# data and must not be committed to source control.
+backend/signal_logs/
+backend/fundamentals_data.json
+backend/runtime/market_close_snapshots.json
