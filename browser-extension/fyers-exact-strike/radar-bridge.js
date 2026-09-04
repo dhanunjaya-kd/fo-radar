@@ -1,5 +1,5 @@
-// Marker visible to the page DOM so the React app can choose the
-// extension-controlled path instead of opening a second FYERS tab itself.
+// Marker visible to the page DOM so the React app knows the extension is
+// installed. The extension owns the click before React's onClick runs.
 document.documentElement.dataset.fyersExactStrikeExtension = '1';
 
 document.addEventListener('click', (event) => {
@@ -8,6 +8,11 @@ document.addEventListener('click', (event) => {
 
   const symbol = button.getAttribute('data-fyers-option-symbol');
   if (!symbol) return;
+
+  // Prevent the React fallback from opening a second FYERS tab. The
+  // extension will open FYERS and select the exact contract.
+  event.preventDefault();
+  event.stopPropagation();
 
   chrome.runtime.sendMessage({
     type: 'FO_RADAR_OPEN_OPTION',
@@ -19,4 +24,4 @@ document.addEventListener('click', (event) => {
   }).catch(() => {
     console.warn('[F&O Radar] FYERS exact-strike extension is unavailable.');
   });
-});
+}, true);
