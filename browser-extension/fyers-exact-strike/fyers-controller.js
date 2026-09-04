@@ -58,9 +58,13 @@
       });
   }
 
+  function chartLooksLike(symbol) {
+    const bare = symbol.replace(/^NSE:/i, '').toUpperCase();
+    const text = (document.body?.innerText || '').toUpperCase();
+    return text.includes(bare);
+  }
+
   function clickSymbolSearchLauncher() {
-    // FYERS often keeps the current symbol in a clickable header control
-    // rather than exposing a search input until that control is opened.
     const candidates = [...document.querySelectorAll('button,[role="button"],[tabindex="0"]')]
       .filter(visible);
     const launcher = candidates.find((el) => {
@@ -75,7 +79,7 @@
     return false;
   }
 
-  async function waitForInput(timeoutMs = 8000) {
+  async function waitForInput(timeoutMs = 6000) {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       const input = findSearchInput();
@@ -86,30 +90,66 @@
     return null;
   }
 
+  function key(target, type, keyValue) {
+    target.dispatchEvent(new KeyboardEvent(type, {
+      key: keyValue,
+      code: keyValue === 'Enter' ? 'Enter' : `Key${keyValue}`,
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    }));
+  }
+
+  async function typeSymbolIntoChart(symbol) {
+    const bare = symbol.replace(/^NSE:/i, '').toUpperCase();
+    const target = document.querySelector('canvas') || document.body;
+    if (!target) return false;
+
+    target.focus?.();
+    target.click?.();
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    for (const char of bare) {
+      key(target, 'keydown', char);
+      key(target, 'keypress', char);
+      key(target, 'keyup', char);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    key(target, 'keydown', 'Enter');
+    key(target, 'keyup', 'Enter');
+
+    const start = Date.now();
+    while (Date.now() - start < 8000) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (exactSymbolText(symbol) || chartLooksLike(symbol)) return true;
+    }
+    return false;
+  }
+
   async function selectExactOption(symbol, requestId) {
     if (handledRequest === requestId) return true;
 
     const input = await waitForInput();
-    if (!input) return false;
+    if (input) {
+      handledRequest = requestId;
+      fireInput(input, symbol);
 
-    handledRequest = requestId;
-    fireInput(input, symbol);
-
-    // Give FYERS's React search/autocomplete enough time to populate.
-    const start = Date.now();
-    while (Date.now() - start < 10_000) {
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      const exact = exactSymbolText(symbol);
-      if (exact) {
-        exact.click();
-        return true;
+      const start = Date.now();
+      while (Date.now() - start < 8000) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const exact = exactSymbolText(symbol);
+        if (exact) {
+          exact.click();
+          return true;
+        }
       }
+      handledRequest = null;
     }
 
-    // Do not press Enter as a blind fallback: FYERS may select a different
-    // highlighted contract. If the exact row is not visible, fail safely.
-    handledRequest = null;
-    return false;
+    // FYERS Trader documents that typing a symbol while the chart is active
+    // changes the chart symbol. Use that native chart shortcut when the search
+    // dialog is not exposed to the content script.
+    return typeSymbolIntoChart(symbol);
   }
 
   chrome.runtime.onMessage.addListener((message) => {
@@ -120,10 +160,10 @@
     const timer = setInterval(async () => {
       attempts += 1;
       const done = await selectExactOption(message.symbol, requestId);
-      if (done || attempts >= 40) clearInterval(timer);
+      if (done || attempts >= 20) clearInterval(timer);
     }, 500);
 
-    setTimeout(() => clearInterval(timer), 25_000);
+    setTimeout(() => clearInterval(timer), 20_000);
   });
 
   chrome.runtime.sendMessage({ type: 'FO_RADAR_FYERS_READY' }).catch(() => {});
