@@ -1,21 +1,30 @@
-from fyers_apiv3 import fyersModel
-import webbrowser
 import json
+import os
+import webbrowser
 from urllib.parse import urlparse, parse_qs
 
-# ─── YOUR CREDENTIALS ───
-CLIENT_ID    = "LYNP1Z6GGG-100"
-SECRET_KEY   = "ZJGKUS4OBB"
-REDIRECT_URI = "https://trade.fyers.in/api-login/redirect-uri/index.html"
+from environ import Env
+from fyers_apiv3 import fyersModel
 
-# ─── STEP 1: Open browser for login ───
+# Credentials are loaded from backend/.env; never commit client secrets.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+env = Env()
+env.read_env(os.path.join(BASE_DIR, ".env"))
+CLIENT_ID = env.str("FYERS_APP_ID")
+SECRET_KEY = env.str("FYERS_APP_SECRET", default=env.str("FYERS_SECRET_KEY", default=""))
+REDIRECT_URI = env.str("FYERS_REDIRECT_URI", default="https://trade.fyers.in/api-login/redirect-uri/index.html")
+
+if not SECRET_KEY:
+    raise RuntimeError("FYERS_APP_SECRET/FYERS_SECRET_KEY is missing from backend/.env")
+
+# STEP 1: Open browser for login
 session = fyersModel.SessionModel(
     client_id=CLIENT_ID,
     secret_key=SECRET_KEY,
     redirect_uri=REDIRECT_URI,
     response_type="code",
     grant_type="authorization_code",
-    state="sample_state"
+    state="sample_state",
 )
 
 auth_url = session.generate_authcode()
@@ -23,32 +32,30 @@ print("=" * 60)
 print("OPENING FYERS LOGIN...")
 print("=" * 60)
 print(f"\nIf browser doesn't open, use this URL:\n{auth_url}\n")
-
 webbrowser.open(auth_url)
 
-# ─── STEP 2: Paste the FULL redirected URL ───
+# STEP 2: Paste the FULL redirected URL
 print("\nAfter login, paste the FULL URL from your browser below:")
-print("(Right-click address bar → Copy → Paste here)")
+print("(Right-click address bar -> Copy -> Paste here)")
 redirect_url = input("\nPaste URL: ").strip()
 
-# ─── Auto-extract auth code ───
 parsed = urlparse(redirect_url)
-auth_code = parse_qs(parsed.query).get('auth_code', [None])[0]
+auth_code = parse_qs(parsed.query).get("auth_code", [None])[0]
 
 if not auth_code:
-    print("\n❌ Could not find auth_code in URL!")
-    exit(1)
+    print("\nCould not find auth_code in URL!")
+    raise SystemExit(1)
 
-print(f"\n✅ Auth code extracted ({len(auth_code)} chars)")
+print(f"\nAuth code extracted ({len(auth_code)} chars)")
 
-# ─── STEP 3: Exchange for access token ───
+# STEP 3: Exchange auth code for access + refresh tokens
 session.set_token(auth_code)
 response = session.generate_token()
 
 print("\n" + "=" * 60)
 print("FYERS RESPONSE:")
 print("=" * 60)
-print(json.dumps(response, indent=2))
+print(json.dumps({k: ("<redacted>" if "token" in k.lower() else v) for k, v in response.items()}, indent=2))
 
 if "access_token" in response:
     token_data = {
@@ -56,9 +63,10 @@ if "access_token" in response:
         "access_token": response["access_token"],
         "refresh_token": response.get("refresh_token", ""),
     }
-    with open("fyers_auth.json", "w") as f:
+    token_path = os.path.join(BASE_DIR, "fyers_auth.json")
+    with open(token_path, "w") as f:
         json.dump(token_data, f, indent=2)
-    print("\n🎉 SUCCESS! Token saved to fyers_auth.json")
-    print(f"Token: {response['access_token'][:50]}...")
+    print(f"\nSUCCESS! Token pair saved to {token_path}")
+    print("The live scanner can now automatically refresh an expired access token while the refresh token remains valid.")
 else:
-    print("\n❌ FAILED:", response.get("message", "Unknown error"))
+    print("\nFAILED:", response.get("message", "Unknown error"))
