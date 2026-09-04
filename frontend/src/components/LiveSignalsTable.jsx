@@ -92,20 +92,21 @@ function DetailDrawer({ signal, onClose }) {
   const age = formatSignalAge(signal.timestamp);
 
   const handleOpenChart = () => {
+    // We intentionally open the signal's underlying NSE equity, not the option strike.
+    // If the optional FYERS Stock Opener extension is installed, it handles the
+    // navigation itself. Avoid opening a second FYERS tab, which could race the
+    // extension and leave the wrong/default chart visible.
     const underlyingSymbol = signal.symbol ? `NSE:${signal.symbol}-EQ` : null;
     if (!underlyingSymbol) return;
 
     try {
       navigator.clipboard.writeText(underlyingSymbol);
     } catch (_) {
-      // Clipboard is only a convenience; opening FYERS still works.
+      // Clipboard is only a convenience.
     }
 
-    // If the optional FYERS stock opener extension is installed, let it
-    // open FYERS and select the underlying equity. Otherwise open FYERS
-    // normally and leave the user's normal/default chart untouched.
-    const hasStockExtension = document.documentElement.dataset.fyersStockExtension === '1';
-    if (hasStockExtension) {
+    const extensionInstalled = document.documentElement.dataset.fyersStockExtension === '1';
+    if (extensionInstalled) {
       document.dispatchEvent(new CustomEvent('fyers-stock-open', {
         detail: { symbol: underlyingSymbol },
         bubbles: true,
