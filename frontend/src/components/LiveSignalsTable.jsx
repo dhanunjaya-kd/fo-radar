@@ -91,20 +91,25 @@ function DetailDrawer({ signal, onClose }) {
   const contractLabel = formatOptionContractLabel(signal);
   const age = formatSignalAge(signal.timestamp);
 
-  const handleOpenChart = async () => {
-    if (!signal.option_symbol) return;
+  const handleOpenChart = () => {
+    // The optional browser extension uses the underlying stock symbol here.
+    // This intentionally does NOT attempt exact option-strike navigation.
+    const underlyingSymbol = signal.symbol ? `NSE:${signal.symbol}-EQ` : null;
+    if (!underlyingSymbol) return;
 
-    // If the optional Chrome extension is installed, its content script
-    // intercepts this exact button via data-fyers-option-symbol and drives
-    // FYERS Web's symbol search. This is the only path intended to select
-    // the exact strike automatically; the normal webpage cannot control a
-    // cross-origin FYERS UI.
     try {
-      await navigator.clipboard.writeText(signal.option_symbol);
+      navigator.clipboard.writeText(underlyingSymbol);
     } catch (_) {
-      // Clipboard may be blocked by browser permissions.
+      // Clipboard is only a convenience; opening FYERS still works.
     }
 
+    const event = new CustomEvent('fyers-stock-open', {
+      detail: { symbol: underlyingSymbol },
+      bubbles: true,
+    });
+    document.dispatchEvent(event);
+
+    // Without the optional extension, simply open FYERS normally.
     window.open('https://trade.fyers.in/', '_blank', 'noopener,noreferrer');
     setFyersOpened(true);
     setTimeout(() => setFyersOpened(false), 3500);
@@ -129,9 +134,8 @@ function DetailDrawer({ signal, onClose }) {
           <div className={`rounded-lg p-3 text-center border ${isBuy ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-rose-500/10 border-rose-500/25'}`}>
             <button
               onClick={handleOpenChart}
-              disabled={!signal.option_symbol}
-              data-fyers-option-symbol={signal.option_symbol || undefined}
-              title={signal.option_symbol ? `Open exact ${signal.option_symbol} in FYERS` : 'Exact option contract symbol unavailable'}
+              disabled={!signal.symbol}
+              title={signal.symbol ? `Open ${signal.symbol} stock in FYERS` : 'Stock symbol unavailable'}
               className={`text-base font-bold underline decoration-dotted underline-offset-2 hover:opacity-80 transition-opacity disabled:opacity-50 ${isBuy ? 'text-emerald-400' : 'text-rose-400'}`}
             >
               {contractLabel}
@@ -144,10 +148,10 @@ function DetailDrawer({ signal, onClose }) {
             </div>
             <p className="text-[9px] text-slate-500 mt-1.5">
               {fyersOpened
-                ? `✓ ${signal.option_symbol} copied — FYERS opened`
-                : signal.option_symbol
-                  ? `Click to open exact ${signal.option_symbol} in FYERS`
-                  : `Exact contract symbol unavailable`}
+                ? `✓ NSE:${signal.symbol}-EQ copied — FYERS opened`
+                : signal.symbol
+                  ? `Click to open ${signal.symbol} stock in FYERS`
+                  : `Stock symbol unavailable`}
             </p>
             {signal.near_expiry_warning === true && (
               <p className="text-[10px] text-amber-400 text-center mt-1">
