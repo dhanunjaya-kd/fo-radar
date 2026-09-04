@@ -1,12 +1,14 @@
 (() => {
-  let handled = false;
+  let handledRequest = null;
 
-  const SELECTORS = [
+  const INPUT_SELECTORS = [
     'input[placeholder*="Search" i]',
     'input[placeholder*="symbol" i]',
     'input[placeholder*="scrip" i]',
     'input[aria-label*="Search" i]',
-    'input[type="search"]'
+    'input[type="search"]',
+    'input[role="combobox"]',
+    '[contenteditable="true"]'
   ];
 
   function visible(element) {
@@ -17,7 +19,7 @@
   }
 
   function findSearchInput() {
-    for (const selector of SELECTORS) {
+    for (const selector of INPUT_SELECTORS) {
       const candidates = [...document.querySelectorAll(selector)].filter(visible);
       if (candidates.length) return candidates[0];
     }
@@ -25,61 +27,103 @@
   }
 
   function fireInput(input, value) {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-    if (setter) setter.call(input, value);
-    else input.value = value;
-    input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: value }));
+    input.focus();
+    if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
+      const proto = input instanceof HTMLTextAreaElement
+        ? HTMLTextAreaElement.prototype
+        : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+      if (setter) setter.call(input, value);
+      else input.value = value;
+    } else {
+      input.textContent = value;
+    }
+    input.dispatchEvent(new InputEvent('input', {
+      bubbles: true,
+      inputType: 'insertText',
+      data: value
+    }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  function textMatch(symbol) {
-    const normalized = symbol.replace(/^NSE:/, '').toUpperCase();
+  function exactSymbolText(symbol) {
+    const full = symbol.toUpperCase();
+    const bare = full.replace(/^NSE:/, '');
     return [...document.querySelectorAll('body *')]
       .filter(visible)
+      .filter((el) => el.children.length === 0)
       .find((el) => {
         const text = (el.textContent || '').trim().toUpperCase();
-        return text === symbol || text === normalized || text.includes(symbol);
+        return text === full || text === bare;
       });
   }
 
-  async function selectExactOption(symbol) {
-    if (handled) return false;
-
-    const input = findSearchInput();
-    if (!input) return false;
-
-    handled = true;
-    input.focus();
-    fireInput(input, symbol);
-
-    await new Promise((resolve) => setTimeout(resolve, 700));
-
-    // Prefer an exact symbol row/text. We deliberately do not click a merely
-    // similar result: opening the wrong strike is worse than doing nothing.
-    const exact = textMatch(symbol);
-    if (exact) {
-      exact.click();
-      await new Promise((resolve) => setTimeout(resolve, 900));
+  function clickSymbolSearchLauncher() {
+    // FYERS often keeps the current symbol in a clickable header control
+    // rather than exposing a search input until that control is opened.
+    const candidates = [...document.querySelectorAll('button,[role="button"],[tabindex="0"]')]
+      .filter(visible);
+    const launcher = candidates.find((el) => {
+      const text = (el.textContent || '').trim().toUpperCase();
+      const aria = (el.getAttribute('aria-label') || '').toUpperCase();
+      return /SEARCH|SYMBOL|SCRIPT|SCRIP/.test(`${text} ${aria}`);
+    });
+    if (launcher) {
+      launcher.click();
       return true;
     }
+    return false;
+  }
 
-    // Some FYERS builds use Enter to select the highlighted exact search hit.
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-    input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    return true;
+  async function waitForInput(timeoutMs = 8000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const input = findSearchInput();
+      if (input) return input;
+      clickSymbolSearchLauncher();
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return null;
+  }
+
+  async function selectExactOption(symbol, requestId) {
+    if (handledRequest === requestId) return true;
+
+    const input = await waitForInput();
+    if (!input) return false;
+
+    handledRequest = requestId;
+    fireInput(input, symbol);
+
+    // Give FYERS's React search/autocomplete enough time to populate.
+    const start = Date.now();
+    while (Date.now() - start < 10_000) {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      const exact = exactSymbolText(symbol);
+      if (exact) {
+        exact.click();
+        return true;
+      }
+    }
+
+    // Do not press Enter as a blind fallback: FYERS may select a different
+    // highlighted contract. If the exact row is not visible, fail safely.
+    handledRequest = null;
+    return false;
   }
 
   chrome.runtime.onMessage.addListener((message) => {
     if (message?.type !== 'FO_RADAR_SELECT_OPTION' || !message.symbol) return;
-    handled = false;
 
+    const requestId = message.requestId || crypto.randomUUID();
+    let attempts = 0;
     const timer = setInterval(async () => {
-      const done = await selectExactOption(message.symbol);
-      if (done) clearInterval(timer);
+      attempts += 1;
+      const done = await selectExactOption(message.symbol, requestId);
+      if (done || attempts >= 40) clearInterval(timer);
     }, 500);
 
-    setTimeout(() => clearInterval(timer), 20_000);
+    setTimeout(() => clearInterval(timer), 25_000);
   });
 
   chrome.runtime.sendMessage({ type: 'FO_RADAR_FYERS_READY' }).catch(() => {});
