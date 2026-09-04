@@ -13,6 +13,7 @@ document.addEventListener('click', (event) => {
   // extension will open FYERS and select the exact contract.
   event.preventDefault();
   event.stopPropagation();
+  event.stopImmediatePropagation();
 
   chrome.runtime.sendMessage({
     type: 'FO_RADAR_OPEN_OPTION',
