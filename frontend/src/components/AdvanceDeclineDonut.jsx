@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -45,9 +45,23 @@ function computeDonutSegments(advances, declines, unchanged) {
   return result;
 }
 
-export default function AdvanceDeclineDonut() {
+export default function AdvanceDeclineDonut({ compact = false }) {
   const [breadth, setBreadth] = useState(null);
   const [loading, setLoading] = useState(true);
+  const rootRef = useRef(null);
+
+  // IndexTracker used to host this widget inside a dedicated side column.
+  // Keep the old call backward-compatible while the widget is migrated to
+  // Live Signals: when compact=false, remove that legacy side column after
+  // mount. The actual visible implementation now uses compact=true.
+  useEffect(() => {
+    if (compact || !rootRef.current) return undefined;
+    const legacyColumn = rootRef.current.closest('.lg\\:w-80');
+    if (!legacyColumn) return undefined;
+    const previousDisplay = legacyColumn.style.display;
+    legacyColumn.style.display = 'none';
+    return () => { legacyColumn.style.display = previousDisplay; };
+  }, [compact]);
 
   useEffect(() => {
     let mounted = true;
@@ -69,17 +83,54 @@ export default function AdvanceDeclineDonut() {
   }, []);
 
   if (loading) {
-    return <div className="h-40 w-40 mx-auto rounded-full bg-slate-900/30 animate-pulse" />;
+    if (compact) return <div className="h-12 w-12 rounded-full bg-slate-900/50 animate-pulse" />;
+    return <div ref={rootRef} className="h-40 w-40 mx-auto rounded-full bg-slate-900/30 animate-pulse" />;
   }
   if (!breadth || breadth.total === 0) {
-    return <p className="text-xs text-slate-500 text-center py-4">No breadth data yet.</p>;
+    if (compact) return <span ref={rootRef} className="text-[10px] text-slate-500">—</span>;
+    return <span ref={rootRef} />;
   }
 
-  const cx = 100, cy = 100, r = 70;
+  const cx = 100, cy = 100;
+  const r = compact ? 36 : 70;
+  const svgSize = compact ? 64 : 140;
+  const strokeWidth = compact ? 12 : 24;
   const segments = computeDonutSegments(breadth.advances, breadth.declines, breadth.unchanged);
 
+  if (compact) {
+    return (
+      <div ref={rootRef} className="flex items-center gap-2">
+        <svg width={svgSize} height={svgSize} viewBox="0 0 200 200" className="shrink-0">
+          {segments.map(seg => (
+            <path
+              key={seg.label}
+              d={arcPolylinePath(cx, cy, r, seg.startAngle, seg.endAngle)}
+              fill="none"
+              stroke={SEGMENT_COLOR[seg.label]}
+              strokeWidth={strokeWidth}
+              strokeLinecap="butt"
+            />
+          ))}
+          <text x={cx} y={cy + 6} textAnchor="middle" fill="#f1f5f9" style={{ fontSize: '25px', fontWeight: 'bold' }}>
+            {breadth.total}
+          </text>
+        </svg>
+        <div className="flex flex-col gap-0.5 leading-tight">
+          {segments.map(seg => (
+            <div key={seg.label} className="flex items-center gap-1 text-[9px] whitespace-nowrap">
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: SEGMENT_COLOR[seg.label] }} />
+              <span className="text-slate-400">{seg.label === 'Advances' ? 'Adv' : seg.label === 'Declines' ? 'Dec' : 'Unch'}</span>
+              <span className="text-white font-semibold tabular-nums">{seg.value}</span>
+              <span className="text-slate-600">{seg.pct.toFixed(0)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-4">
+    <div ref={rootRef} className="flex items-center gap-4">
       <svg width="140" height="140" viewBox="0 0 200 200" className="shrink-0">
         {segments.map(seg => (
           <path
