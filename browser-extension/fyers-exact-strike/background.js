@@ -4,13 +4,13 @@ function normalizeSymbol(symbol) {
   return String(symbol || '').trim().toUpperCase();
 }
 
-function isOptionSymbol(symbol) {
-  return /^NSE:[A-Z0-9&.-]+\d{2}(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\d+(CE|PE)$/.test(symbol);
+function isNseEquitySymbol(symbol) {
+  return /^NSE:[A-Z0-9&.-]+-EQ$/.test(symbol);
 }
 
 function sendSelection(tabId, requestId, symbol) {
   chrome.tabs.sendMessage(tabId, {
-    type: 'FO_RADAR_SELECT_OPTION',
+    type: 'FO_RADAR_SELECT_STOCK',
     requestId,
     symbol
   }).catch(() => {});
@@ -26,8 +26,6 @@ async function cdpSelectSymbol(tabId, symbol) {
       });
     });
 
-    // Find the active chart area. Clicking it first is important because FYERS
-    // documents symbol-change-by-typing while the chart is active.
     const evalResult = await new Promise((resolve, reject) => {
       chrome.debugger.sendCommand(target, 'Runtime.evaluate', {
         expression: `(() => {
@@ -54,11 +52,7 @@ async function cdpSelectSymbol(tabId, symbol) {
 
     await new Promise((resolve, reject) => {
       chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {
-        type: 'mousePressed',
-        x: evalResult.x,
-        y: evalResult.y,
-        button: 'left',
-        clickCount: 1
+        type: 'mousePressed', x: evalResult.x, y: evalResult.y, button: 'left', clickCount: 1
       }, (result) => {
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
         else resolve(result);
@@ -66,11 +60,7 @@ async function cdpSelectSymbol(tabId, symbol) {
     });
     await new Promise((resolve, reject) => {
       chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', {
-        type: 'mouseReleased',
-        x: evalResult.x,
-        y: evalResult.y,
-        button: 'left',
-        clickCount: 1
+        type: 'mouseReleased', x: evalResult.x, y: evalResult.y, button: 'left', clickCount: 1
       }, (result) => {
         if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
         else resolve(result);
@@ -81,10 +71,7 @@ async function cdpSelectSymbol(tabId, symbol) {
     for (const char of bare) {
       await new Promise((resolve, reject) => {
         chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
-          type: 'keyDown',
-          key: char,
-          text: char,
-          unmodifiedText: char
+          type: 'keyDown', key: char, text: char, unmodifiedText: char
         }, (result) => {
           if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
           else resolve(result);
@@ -92,8 +79,7 @@ async function cdpSelectSymbol(tabId, symbol) {
       });
       await new Promise((resolve, reject) => {
         chrome.debugger.sendCommand(target, 'Input.dispatchKeyEvent', {
-          type: 'keyUp',
-          key: char
+          type: 'keyUp', key: char
         }, (result) => {
           if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
           else resolve(result);
@@ -126,25 +112,23 @@ async function cdpSelectSymbol(tabId, symbol) {
   }
 }
 
-async function driveExactStrike(tabId, requestId, symbol) {
-  // Give the FYERS application a moment to render its chart before the
-  // browser-level input fallback runs.
+async function driveStock(tabId, requestId, symbol) {
   await new Promise((resolve) => setTimeout(resolve, 1800));
   try {
     const ok = await cdpSelectSymbol(tabId, symbol);
     if (ok) return;
   } catch (error) {
-    console.warn('[F&O Radar] CDP exact-strike input failed:', error?.message || error);
+    console.warn('[F&O Radar] CDP stock selection failed:', error?.message || error);
   }
   sendSelection(tabId, requestId, symbol);
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type !== 'FO_RADAR_OPEN_OPTION') return;
+  if (message?.type !== 'FO_RADAR_OPEN_STOCK') return;
 
   const symbol = normalizeSymbol(message.symbol);
-  if (!isOptionSymbol(symbol)) {
-    sendResponse({ ok: false, error: 'Invalid NSE option symbol' });
+  if (!isNseEquitySymbol(symbol)) {
+    sendResponse({ ok: false, error: 'Invalid NSE equity symbol' });
     return;
   }
 
@@ -166,7 +150,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (updatedTabId !== tab.id || changeInfo.status !== 'complete') return;
       chrome.tabs.onUpdated.removeListener(listener);
       const current = pending.get(requestId);
-      if (current) driveExactStrike(tab.id, requestId, current.symbol);
+      if (current) driveStock(tab.id, requestId, current.symbol);
     };
     chrome.tabs.onUpdated.addListener(listener);
   });
@@ -183,7 +167,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       continue;
     }
     if (value.tabId === sender.tab.id) {
-      driveExactStrike(sender.tab.id, requestId, value.symbol);
+      driveStock(sender.tab.id, requestId, value.symbol);
       pending.delete(requestId);
       break;
     }
