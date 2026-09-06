@@ -1467,7 +1467,26 @@ def _build_all():
             # a straight delta-only translation, which would understate real
             # option risk.
             entry = round(premium_entry, 2)
-            sl = round(max(0.05, premium_entry - d * abs(price - stock_sl) * 1.4), 2)
+            # Sep 6 2026: real bug, traced from a concrete pattern in the
+            # actual backtest data -- 10 trades on 2026-08-25 alone, all
+            # entering at genuinely cheap premiums (Rs 0.60-2.85), all
+            # showing an exit of exactly Rs 0.05 with outcome "SL Hit".
+            # Root cause: this formula's raw SL distance easily exceeds a
+            # cheap premium itself, going negative -- and `max(0.05, ...)`
+            # was silently forcing that through as if Rs 0.05 were a real,
+            # meaningful stop level, rather than recognizing that no sane
+            # SL exists for this premium at this delta. A near-zero SL is
+            # nearly guaranteed to be hit by ordinary theta decay alone,
+            # regardless of whether the underlying thesis was even right --
+            # not a real bounded-risk setup, just a broken calculation
+            # forced through. Same "skip rather than fabricate" rule the
+            # spread check right above this already follows -- this is the
+            # option-premium equivalent, just never applied here before.
+            raw_sl = premium_entry - d * abs(price - stock_sl) * 1.4
+            if raw_sl <= 0.05:
+                no_trade_log.append({"symbol": sym, "reason": f"No sane SL for {strike} {opt_side}: premium Rs {premium_entry} too cheap for this delta/distance to translate into a real stop level"})
+                continue
+            sl = round(raw_sl, 2)
             t1 = round(premium_entry + d * abs(stock_t1 - price), 2)
             t2 = round(premium_entry + d * abs(stock_t2 - price), 2)
             t3 = round(premium_entry + d * abs(stock_t3 - price), 2)
@@ -1880,7 +1899,13 @@ def _news_alert_worker():
         time.sleep(300)
 
 _news_alert_thread = threading.Thread(target=_news_alert_worker, daemon=True)
-_news_alert_thread.start()
+# Sep 4 2026: NOT started, per direct request -- removing the News
+# tab from the frontend didn't stop these, since this thread never
+# checked any UI state to begin with; it just runs on its own clock
+# regardless. Commenting out the one line that starts it (rather than
+# deleting the function) keeps this a one-line toggle if news alerts
+# are ever wanted back, instead of lost work.
+# _news_alert_thread.start()
 
 
 def _daily_backtest_worker():
@@ -2954,6 +2979,24 @@ class OptionHistoryView(APIView):
         if not is_authenticated():
             return Response({"error": "Not authenticated with Fyers -- no data available"}, status=503)
 
+        # Sep 4 2026: real confusion, confirmed live -- a brand-new
+        # signal (KEI, "just now") showed "No real historical data
+        # available for this contract right now", which reads like the
+        # CONTRACT has no data. The far more likely real cause, given
+        # this account has been intermittently rate-limited most of
+        # today: the shared circuit breaker (fyers_client.py) was open
+        # at that moment, so get_history() below would've returned None
+        # without even attempting a real call -- nothing to do with
+        # this specific contract at all. Checking that directly here so
+        # the message can honestly say which of the two real situations
+        # this actually is, instead of one message covering both.
+        from .fyers_client import _rate_limited_now
+        if _rate_limited_now():
+            return Response({
+                "error": "Fyers is currently rate-limited (same account-wide block affecting the rest of the app right now) -- this recovers on its own, try again shortly.",
+                "symbol": symbol,
+            }, status=503)
+
         range_to = datetime.now().date()
         range_from = range_to - timedelta(days=5)
         try:
@@ -2974,6 +3017,16 @@ class OptionHistoryView(APIView):
             {"time": c[0], "open": c[1], "high": c[2], "low": c[3], "close": c[4], "volume": c[5]}
             for c in candles if len(c) >= 6
         ]
+        # Sep 4 2026: real bug, confirmed live -- the chart's own time
+        # labels showed a later time on the left and an earlier time on
+        # the right (11:35 before 11:00), meaning Fyers' raw candle
+        # order isn't guaranteed to be chronological here, same lesson
+        # eod_scanner.py's fetch_daily_history_paced() already learned
+        # and handles with its own explicit sort -- this view just never
+        # had the equivalent. Sorting by the real timestamp fixes both
+        # the mislabeled axis AND the line's actual left-to-right shape,
+        # since both were reading the same wrongly-ordered data.
+        points.sort(key=lambda p: p["time"])
         return Response(clean_json({"symbol": symbol, "resolution": resolution, "candles": points}))
 
 
