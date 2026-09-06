@@ -10,14 +10,39 @@ function RateMetric({ label, value, sub }) { return <Metric label={label} value=
 
 export default function CASRadar() {
   const [indexName, setIndexName] = useState('NIFTY'); const [snapshots, setSnapshots] = useState([]); const [moves, setMoves] = useState([]); const [research, setResearch] = useState(null); const [readiness, setReadiness] = useState(null); const [loading, setLoading] = useState(true); const [error, setError] = useState(null); const [updated, setUpdated] = useState(null);
-  const loadTracker = async () => { try { const res = await fetch(`${API_BASE}/index-tracker/${indexName}/`); const data = await res.json(); if (!res.ok || data.error) throw new Error(data.error || `Index Tracker HTTP ${res.status}`); setSnapshots(data.snapshots || []); setError(null); setUpdated(new Date()); } catch (e) { setError(e.message); } finally { setLoading(false); } };
-  const loadHistory = async () => { try { const res = await fetch(`${API_BASE}/cas-auction-moves/${indexName}/`); const data = await res.json(); if (!res.ok || data.error) throw new Error(data.error || `CAS HTTP ${res.status}`); setMoves(data.moves || []); } catch (e) { setError(e.message); } };
-  const loadResearch = async () => { try { const res = await fetch(`${API_BASE}/cas-research/${indexName}/?threshold=0.25`); const data = await res.json(); if (!res.ok || data.error) throw new Error(data.error || `CAS research HTTP ${res.status}`); setResearch(data); } catch { setResearch(null); } };
-  const loadReadiness = async () => { try { const res = await fetch(`${API_BASE}/cas-readiness/${indexName}/`); const data = await res.json(); if (!res.ok || data.error) throw new Error(data.error || `CAS readiness HTTP ${res.status}`); setReadiness(data); } catch { setReadiness(null); } };
-  useEffect(() => { let cancelled = false; const run = fn => () => { if (!cancelled) fn(); }; loadTracker(); loadHistory(); loadResearch(); loadReadiness(); const a = setInterval(run(loadTracker), 15000), b = setInterval(run(loadHistory), 60000), c = setInterval(run(loadResearch), 60000), d = setInterval(run(loadReadiness), 60000); return () => { cancelled = true; clearInterval(a); clearInterval(b); clearInterval(c); clearInterval(d); }; }, [indexName]);
+  const loadTracker = async () => { try { const res = await fetch(`${API_BASE}/index-tracker/${indexName}/`, { cache: 'no-store' }); const data = await res.json(); if (!res.ok || data.error) throw new Error(data.error || `Index Tracker HTTP ${res.status}`); setSnapshots(data.snapshots || []); setError(null); setUpdated(new Date()); } catch (e) { setError(e.message); } finally { setLoading(false); } };
+  const loadHistory = async () => { try { const res = await fetch(`${API_BASE}/cas-auction-moves/${indexName}/`, { cache: 'no-store' }); const data = await res.json(); if (!res.ok || data.error) throw new Error(data.error || `CAS HTTP ${res.status}`); setMoves(data.moves || []); } catch (e) { setError(e.message); } };
+  const loadResearch = async () => { try { const res = await fetch(`${API_BASE}/cas-research/${indexName}/?threshold=0.25`, { cache: 'no-store' }); const data = await res.json(); if (!res.ok || data.error) throw new Error(data.error || `CAS research HTTP ${res.status}`); setResearch(data); } catch { setResearch(null); } };
+  const loadReadiness = async () => { try { const res = await fetch(`${API_BASE}/cas-readiness/${indexName}/`, { cache: 'no-store' }); const data = await res.json(); if (!res.ok || data.error) throw new Error(data.error || `CAS readiness HTTP ${res.status}`); setReadiness(data); } catch { setReadiness(null); } };
+
+  // CAS-only fast refresh: this page may poll the existing tracker endpoint
+  // every 2 seconds while the 15:15–15:35 CAS observation window is active.
+  // It does NOT change the scanner, Fyers fetch cadence, or any other app tab.
+  // The endpoint reads the already-collected tracker snapshots; it never
+  // creates an extra Fyers request merely because the browser refreshed.
+  useEffect(() => {
+    let cancelled = false;
+    const run = fn => () => { if (!cancelled) fn(); };
+    loadTracker(); loadHistory(); loadResearch(); loadReadiness();
+    const clock = setInterval(() => {
+      if (cancelled) return;
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(now);
+      const h = Number(parts.find(p => p.type === 'hour')?.value || 0);
+      const m = Number(parts.find(p => p.type === 'minute')?.value || 0);
+      const mins = h * 60 + m;
+      // Fast CAS refresh only during 15:15–15:35 IST. Outside CAS we keep
+      // the existing lightweight refresh cadence instead of polling rapidly.
+      if (mins >= 915 && mins < 935) loadTracker();
+    }, 2000);
+    const normalTracker = setInterval(run(loadTracker), 15000);
+    const b = setInterval(run(loadHistory), 60000), c = setInterval(run(loadResearch), 60000), d = setInterval(run(loadReadiness), 60000);
+    return () => { cancelled = true; clearInterval(clock); clearInterval(normalTracker); clearInterval(b); clearInterval(c); clearInterval(d); };
+  }, [indexName]);
   const latest = snapshots[0], latestMove = moves[0], summary = research?.summary, momentumMetric = summary?.simple_threshold_metrics?.find(m => m.feature === 'momentum_pct'), conservative = summary?.conservative_validation, lead = summary?.lead_time_profile || [];
+  const inCasWindow = (() => { const parts = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date()); const h = Number(parts.find(p => p.type === 'hour')?.value || 0), m = Number(parts.find(p => p.type === 'minute')?.value || 0); const mins = h * 60 + m; return mins >= 915 && mins < 935; })();
   return <div className="space-y-4">
-    <div className="flex items-center justify-between gap-3 flex-wrap"><div><h2 className="text-lg font-semibold text-white">CAS Radar</h2><p className="text-xs text-slate-500 mt-0.5">Closing Auction Session · observation and validation layer</p></div><div className="flex items-center gap-2"><SessionBadge /><select value={indexName} onChange={e => setIndexName(e.target.value)} className="bg-slate-900 border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-slate-200"><option>NIFTY</option><option>BANKNIFTY</option></select></div></div>
+    <div className="flex items-center justify-between gap-3 flex-wrap"><div><h2 className="text-lg font-semibold text-white">CAS Radar</h2><p className="text-xs text-slate-500 mt-0.5">Closing Auction Session · observation and validation layer</p></div><div className="flex items-center gap-2">{inCasWindow && <span className="px-2 py-1 rounded-md border border-emerald-500/30 bg-emerald-500/5 text-[10px] font-semibold text-emerald-300">● LIVE 2s</span>}<SessionBadge /><select value={indexName} onChange={e => setIndexName(e.target.value)} className="bg-slate-900 border border-slate-700 rounded-md px-2.5 py-1.5 text-xs text-slate-200"><option>NIFTY</option><option>BANKNIFTY</option></select></div></div>
     <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3"><div className="text-xs font-semibold text-amber-300">Research mode · no fabricated auction fields</div><div className="mt-1 text-[11px] leading-5 text-slate-400">The existing project data is Fyers-backed. Standard stored snapshots do not contain CAS IEP, indicative quantity or buy/sell imbalance, so this screen never invents those values. The research layer measures the observable underlying/options reaction first.</div></div>
     {loading && !latest ? <div className="py-12 text-center text-xs text-slate-500">Loading CAS data…</div> : error ? <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4 text-xs text-rose-300">{error}</div> : <>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2"><Metric label="Latest Spot" value={fmt(latest?.Spot)} sub={latest?.Time || 'No snapshot'} /><Metric label="Day Change" value={pct(latest?.['Change %'])} className={tone(latest?.['Change %'])} /><Metric label="Pre→Post CAS" value={pct(latestMove?.move_pct)} className={tone(latestMove?.move_pct)} sub={latestMove?.date || 'No complete session'} /><Metric label="PCR" value={fmt(latest?.PCR)} /><Metric label="IV" value={latest?.['IV %'] != null ? `${fmt(latest['IV %'], 1)}%` : '—'} /></div>
