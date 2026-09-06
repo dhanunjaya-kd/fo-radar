@@ -191,15 +191,39 @@ export function TrendMomentumCard({ indexName }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [frozen, setFrozen] = useState(false);
+  const [capturedAt, setCapturedAt] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch(`${API_BASE}/api/trend-momentum/${indexName}/`)
-      .then(r => r.json())
-      .then(d => {
+      .then(res => {
+        const isFrozen = res.headers.get('X-Market-Data-Frozen') === '1';
+        const snapshotTime = res.headers.get('X-Market-Data-Snapshot');
+        return res.json().then(d => ({ d, isFrozen, snapshotTime }));
+      })
+      .then(({ d, isFrozen, snapshotTime }) => {
         if (cancelled) return;
-        if (d.error) { setError(d.error); setData(null); }
-        else { setData(d); setError(null); }
+        // Sep 6 2026: real bug -- this used to show d.error (the raw
+        // machine code, e.g. "market_closed_no_snapshot") directly on
+        // screen. market_close_middleware.py already provides a real,
+        // human-readable d.message alongside that code specifically so
+        // callers don't have to show the code itself -- this just never
+        // used it. Special-cased the specific "nothing captured yet"
+        // situation with its own clear wording, since that's the one
+        // that actually needs explaining (not just "here's an error").
+        if (d.error === 'market_closed_no_snapshot') {
+          setError('Market closed — no closing snapshot captured yet this session. Fills in automatically after the next full trading session.');
+          setData(null);
+        } else if (d.error) {
+          setError(d.message || d.error);
+          setData(null);
+        } else {
+          setData(d);
+          setError(null);
+          setFrozen(isFrozen);
+          setCapturedAt(snapshotTime);
+        }
       })
       .catch(e => { if (!cancelled) setError(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -221,7 +245,14 @@ export function TrendMomentumCard({ indexName }) {
     <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-white">{DISPLAY_NAME[indexName] || indexName} · Trend &amp; Momentum</h3>
-        <span className="text-[10px] text-slate-500">{data.sample_size} days of history</span>
+        <div className="flex items-center gap-2">
+          {frozen && (
+            <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-500" title={capturedAt ? `Captured at ${capturedAt}` : undefined}>
+              CLOSED · LAST
+            </span>
+          )}
+          <span className="text-[10px] text-slate-500">{data.sample_size} days of history</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3">
