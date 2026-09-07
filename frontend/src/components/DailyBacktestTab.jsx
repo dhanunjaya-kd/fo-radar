@@ -1,0 +1,420 @@
+import { useEffect, useState } from 'react';
+import TabInfoBanner from './TabInfoBanner';
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
+const IconPlay = ({ size = 14 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+);
+const IconDownload = ({ size = 14 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+);
+const IconAlertTriangle = ({ size = 13 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+);
+const IconClock = ({ size = 13 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+);
+const IconCalendar = ({ size = 13, className = '' }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+);
+
+function EquityCurveChart({ points, width = 280, height = 100 }) {
+  if (!points || points.length < 2) {
+    return (
+      <div className="h-[100px] flex items-center justify-center text-[10px] text-slate-600">
+        Not enough trades yet for a curve
+      </div>
+    );
+  }
+  const padding = 4;
+  const equities = points.map(p => p.equity);
+  const minEq = Math.min(...equities);
+  const maxEq = Math.max(...equities);
+  const range = maxEq - minEq || 1;
+  const usableH = height - padding * 2;
+  const stepX = width / (points.length - 1);
+  const coords = points.map((p, i) => {
+    const x = i * stepX;
+    const y = padding + usableH - ((p.equity - minEq) / range) * usableH;
+    return [x, y];
+  });
+  const linePath = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+  const areaPath = `${linePath} L ${coords[coords.length - 1][0].toFixed(1)} ${height} L 0 ${height} Z`;
+  const isUp = points[points.length - 1].cumulative_pnl >= 0;
+  const strokeColor = isUp ? '#34d399' : '#fb7185';
+  const fillId = `eq-fill-${isUp ? 'up' : 'down'}-${Math.round(minEq)}`;
+  const firstDate = new Date(points[0].date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  const lastDate = new Date(points[points.length - 1].date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  return (
+    <div>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible">
+        <defs>
+          <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={strokeColor} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill={`url(#${fillId})`} stroke="none" />
+        <path d={linePath} fill="none" stroke={strokeColor} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <div className="flex items-center justify-between text-[9px] text-slate-500 mt-1">
+        <span>{firstDate}</span>
+        <span>{lastDate}</span>
+      </div>
+    </div>
+  );
+}
+
+function RecentTradesTable({ stockTrades, niftyTrades, bankniftyTrades, limit = 15 }) {
+  const tagged = [
+    ...(stockTrades || []).map(t => ({ ...t, source: 'Stock' })),
+    ...(niftyTrades || []).map(t => ({ ...t, source: 'NIFTY' })),
+    ...(bankniftyTrades || []).map(t => ({ ...t, source: 'BANKNIFTY' })),
+  ];
+  const merged = tagged.sort((a, b) => new Date(b.exit_dt) - new Date(a.exit_dt)).slice(0, limit);
+  if (merged.length === 0) {
+    return (
+      <div className="rounded-lg bg-slate-800/50 border border-slate-700/40 p-4 text-center">
+        <p className="text-xs text-slate-500">No resolved trades yet across any strategy.</p>
+      </div>
+    );
+  }
+  const sourceBadge = (source) => {
+    const styles = {
+      Stock: 'text-indigo-300 bg-indigo-500/10 border-indigo-500/25',
+      NIFTY: 'text-amber-300 bg-amber-500/10 border-amber-500/25',
+      BANKNIFTY: 'text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/25',
+    };
+    return styles[source] || styles.Stock;
+  };
+  return (
+    <div className="rounded-lg bg-slate-800/50 border border-slate-700/40 overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-700/40">
+        <h3 className="text-sm font-bold text-white">Recent Trades</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-[9px] text-slate-500 uppercase border-b border-slate-700/30">
+              <th className="text-left px-4 py-2 font-medium">Date</th>
+              <th className="text-left px-2 py-2 font-medium">Source</th>
+              <th className="text-left px-2 py-2 font-medium">Symbol</th>
+              <th className="text-left px-2 py-2 font-medium">Action</th>
+              <th className="text-right px-2 py-2 font-medium">Entry</th>
+              <th className="text-right px-2 py-2 font-medium">Exit</th>
+              <th className="text-right px-4 py-2 font-medium">P&L</th>
+            </tr>
+          </thead>
+          <tbody>
+            {merged.map((t, i) => {
+              const isWin = (t.pnl || 0) >= 0;
+              return (
+                <tr key={i} className="border-b border-slate-700/20 last:border-0 hover:bg-slate-900/30">
+                  <td className="px-4 py-2 text-slate-400 whitespace-nowrap">
+                    {new Date(t.exit_dt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </td>
+                  <td className="px-2 py-2">
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${sourceBadge(t.source)}`}>{t.source}</span>
+                  </td>
+                  <td className="px-2 py-2 text-white font-medium">{t.symbol || '—'}</td>
+                  <td className="px-2 py-2 text-slate-400">{t.action || '—'}</td>
+                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{t.entry != null ? `₹${t.entry.toFixed(2)}` : '—'}</td>
+                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{t.exit_price != null ? `₹${t.exit_price.toFixed(2)}` : '—'}</td>
+                  <td className={`px-4 py-2 text-right font-bold tabular-nums ${isWin ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {t.pnl != null ? `${isWin ? '+' : ''}₹${t.pnl.toFixed(2)}` : '—'}
+                    {t.pnl_pct != null && <span className="text-[9px] font-normal opacity-70 ml-1">({isWin ? '+' : ''}{t.pnl_pct.toFixed(1)}%)</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve, downloadUrl }) {
+  const hasData = !!summary;
+  const href = downloadUrl || `${API_BASE}/api/daily-backtest/download/${pdfKey}/`;
+  return (
+    <div className="rounded-lg bg-slate-800/50 border border-slate-700/40 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-bold text-white">{title}</h3>
+        {pdfPath && (
+          <a
+            href={href}
+            title={`Download ${title} report (PDF)`}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
+            download
+          >
+            <IconDownload size={13} />
+          </a>
+        )}
+      </div>
+      {hasData && (
+        <div className="mb-3 bg-slate-900/30 rounded-md p-2">
+          <EquityCurveChart points={equityCurve} />
+        </div>
+      )}
+      {!hasData ? (
+        <p className="text-xs text-slate-500">No trades yet -- not enough data resolved for this report.</p>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 text-center">
+          <div className="bg-slate-900/40 rounded-md p-2">
+            <p className="text-[9px] text-slate-500 uppercase">Trades</p>
+            <p className="text-sm font-bold text-white">{summary.total_trades}</p>
+          </div>
+          <div className="bg-slate-900/40 rounded-md p-2">
+            <p className="text-[9px] text-slate-500 uppercase">Net P&L</p>
+            <p className={`text-sm font-bold ${(summary.net_pnl_pct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {summary.net_pnl_pct != null ? `${summary.net_pnl_pct >= 0 ? '+' : ''}${summary.net_pnl_pct}%` : '—'}
+            </p>
+          </div>
+          <div className="bg-slate-900/40 rounded-md p-2">
+            <p className="text-[9px] text-slate-500 uppercase">Win Rate</p>
+            <p className="text-sm font-bold text-white">{summary.win_rate_pct != null ? `${summary.win_rate_pct}%` : '—'}</p>
+          </div>
+          <div className="bg-slate-900/40 rounded-md p-2">
+            <p className="text-[9px] text-slate-500 uppercase">Profit Factor</p>
+            <p className="text-sm font-bold text-white">{summary.profit_factor != null ? summary.profit_factor : '—'}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function DailyBacktestTab() {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/daily-backtest/status/`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setStatus(json);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const runNow = async () => {
+    setRunning(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/daily-backtest/run/`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const clickedAt = new Date().toISOString();
+      const poll = setInterval(async () => {
+        const r = await fetch(`${API_BASE}/api/daily-backtest/status/`);
+        if (r.ok) {
+          const j = await r.json();
+          if (j.started_at && j.started_at > clickedAt && j.finished_at) {
+            setStatus(j);
+            setRunning(false);
+            clearInterval(poll);
+          }
+        }
+      }, 5000);
+      setTimeout(() => { clearInterval(poll); setRunning(false); }, 10 * 60 * 1000);
+    } catch (err) {
+      setError(err.message);
+      setRunning(false);
+    }
+  };
+
+  const [rangeStart, setRangeStart] = useState('');
+  const [rangeEnd, setRangeEnd] = useState('');
+  const [rangeResult, setRangeResult] = useState(null);
+  const [rangeLoading, setRangeLoading] = useState(false);
+  // Sep 7 2026: real bug, traced without needing a repro -- the label
+  // ("Showing: X to Y") and the PDF download link both used to read
+  // rangeStart/rangeEnd directly, the LIVE date-picker values. Since
+  // rangeResult (the actual displayed numbers) only updates when
+  // "View Range" is clicked, changing the date pickers WITHOUT
+  // clicking it again made the label and download link silently jump
+  // to the new, not-yet-fetched dates while the cards below kept
+  // showing the old range's data -- three different "truths" on
+  // screen at once. confirmedStart/End are set ONLY alongside
+  // rangeResult, inside viewRange() itself, so everything displayed
+  // always reflects what was actually fetched, never what's merely
+  // sitting in the inputs.
+  const [confirmedStart, setConfirmedStart] = useState('');
+  const [confirmedEnd, setConfirmedEnd] = useState('');
+
+  const viewRange = async () => {
+    if (!rangeStart || !rangeEnd) return;
+    setRangeLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/daily-backtest/range/?start=${rangeStart}&end=${rangeEnd}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setRangeResult(json);
+      setConfirmedStart(rangeStart);
+      setConfirmedEnd(rangeEnd);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRangeLoading(false);
+    }
+  };
+
+  const clearRange = () => {
+    setRangeResult(null);
+    setRangeStart('');
+    setRangeEnd('');
+    setConfirmedStart('');
+    setConfirmedEnd('');
+  };
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-40 rounded-lg bg-slate-800/30 animate-pulse border border-slate-700/30" />
+        ))}
+      </div>
+    );
+  }
+
+  const neverRun = !status || !status.started_at;
+  const isRangeView = !!rangeResult;
+
+  const displayStock = isRangeView ? rangeResult.stock : { summary: status?.stock_summary, equity_curve: status?.stock_equity_curve, recent_trades: status?.stock_recent_trades };
+  const displayNifty = isRangeView ? rangeResult.nifty : { summary: status?.nifty_summary, equity_curve: status?.nifty_equity_curve, recent_trades: status?.nifty_recent_trades };
+  const displayBanknifty = isRangeView ? rangeResult.banknifty : { summary: status?.banknifty_summary, equity_curve: status?.banknifty_equity_curve, recent_trades: status?.banknifty_recent_trades };
+
+  return (
+    <div className="space-y-4">
+      <TabInfoBanner>
+        Backtests EVERY logged signal from day one to today, not a recent window — the underlying engine
+        scans every dated log file with no limit. Runs automatically ~4:00 PM (after close) and ~8:00 AM
+        (before open), backfilling the last 7 days to catch anything a missed run would otherwise skip.
+        The date range picker below re-slices this same full history into a specific window; it doesn't
+        run a separate backtest.
+      </TabInfoBanner>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-lg font-bold text-white">Daily Backtest</h2>
+          <p className="text-[11px] text-slate-500">
+            Runs automatically ~4:00 PM (after close) and ~8:00 AM (before open). Backfill looks back 7 days to catch anything missed.
+          </p>
+        </div>
+        <button
+          onClick={runNow}
+          disabled={running}
+          className={`text-xs font-medium rounded-lg px-3 py-1.5 flex items-center gap-1.5 border transition-colors ${
+            running
+              ? 'text-slate-500 bg-slate-800 border-slate-700 cursor-wait'
+              : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25 hover:bg-emerald-500/20'
+          }`}
+        >
+          <IconPlay size={13} /> {running ? 'Running…' : 'Run Now'}
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap bg-slate-800/30 border border-slate-700/30 rounded-lg px-3 py-2">
+        <IconCalendar size={13} className="text-slate-500" />
+        <span className="text-[11px] text-slate-500">Custom range:</span>
+        <input
+          type="date"
+          value={rangeStart}
+          onChange={(e) => setRangeStart(e.target.value)}
+          className="h-7 text-xs bg-slate-900/60 border border-slate-700 rounded px-2 text-slate-300 focus:outline-none focus:border-emerald-500"
+        />
+        <span className="text-slate-600 text-xs">to</span>
+        <input
+          type="date"
+          value={rangeEnd}
+          onChange={(e) => setRangeEnd(e.target.value)}
+          className="h-7 text-xs bg-slate-900/60 border border-slate-700 rounded px-2 text-slate-300 focus:outline-none focus:border-emerald-500"
+        />
+        <button
+          onClick={viewRange}
+          disabled={!rangeStart || !rangeEnd || rangeLoading}
+          className="h-7 text-xs font-medium rounded px-3 text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {rangeLoading ? 'Loading…' : 'View Range'}
+        </button>
+        {isRangeView && (
+          <button onClick={clearRange} className="h-7 text-xs font-medium rounded px-3 text-slate-400 bg-slate-800 border border-slate-700 hover:text-slate-200 transition-colors">
+            Show Latest Run
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="text-xs text-amber-400 bg-amber-500/10 px-3 py-2 rounded-lg border border-amber-500/20 flex items-center gap-1.5">
+          <IconAlertTriangle size={13} /> {error}
+        </div>
+      )}
+
+      {isRangeView ? (
+        <>
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <IconCalendar size={11} /> Showing: {confirmedStart} to {confirmedEnd}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <SummaryCard
+              title="Stock Signals"
+              pdfKey="stock"
+              summary={displayStock.summary}
+              pdfPath={displayStock.summary ? 'range-report' : null}
+              downloadUrl={`${API_BASE}/api/daily-backtest/range/report/?start=${confirmedStart}&end=${confirmedEnd}`}
+              equityCurve={displayStock.equity_curve}
+            />
+            <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={null} equityCurve={displayNifty.equity_curve} />
+            <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={null} equityCurve={displayBanknifty.equity_curve} />
+          </div>
+          <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} />
+        </>
+      ) : neverRun ? (
+        <div className="text-center py-12">
+          <div className="text-slate-600 mb-3 flex justify-center"><IconClock size={32} /></div>
+          <h3 className="text-base font-bold text-white mb-1">No backtest run yet</h3>
+          <p className="text-slate-400 text-sm">Wait for the next scheduled run, or hit "Run Now" above.</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-3 text-[11px] text-slate-500 flex-wrap">
+            <span className="flex items-center gap-1"><IconClock size={11} /> Last run: {new Date(status.finished_at || status.started_at).toLocaleString('en-IN')}</span>
+            <span className="text-slate-600">·</span>
+            <span>Trigger: {status.trigger}</span>
+            <span className="text-slate-600">·</span>
+            <span>Backfill: {status.backfill_range}</span>
+          </div>
+
+          {status.errors && status.errors.length > 0 && (
+            <div className="text-xs text-rose-400 bg-rose-500/10 px-3 py-2 rounded-lg border border-rose-500/20">
+              <p className="font-medium mb-1 flex items-center gap-1.5"><IconAlertTriangle size={13} /> {status.errors.length} step(s) had errors:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-rose-300/80">
+                {status.errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <SummaryCard title="Stock Signals" pdfKey="stock" summary={displayStock.summary} pdfPath={status.stock_pdf} equityCurve={displayStock.equity_curve} />
+            <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={status.nifty_pdf} equityCurve={displayNifty.equity_curve} />
+            <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={status.banknifty_pdf} equityCurve={displayBanknifty.equity_curve} />
+          </div>
+          <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} />
+        </>
+      )}
+    </div>
+  );
+}
