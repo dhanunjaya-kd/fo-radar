@@ -22,6 +22,27 @@
    slate/emerald/rose/amber/indigo palette across every table built
    tonight, coverage should already be high. */
 
+/* ---- Sep 7 2026: MarketSentimentGauge.jsx real bug -- its needle,
+   center dot, and score number were hardcoded to #e2e8f0/#f1f5f9
+   (near-white), correct on a dark card but making the score number
+   nearly invisible against a near-white card in light mode (text and
+   background landing on almost the same color). These are raw SVG
+   fill/stroke attributes, not Tailwind classes, so no class-name
+   override above can reach them -- CSS variables are the one
+   justified exception to this file's class-name-only approach.
+   Defaults here match the ORIGINAL hardcoded hex exactly (zero
+   change to dark mode); .light gets real dark, readable values.
+   Requires MarketSentimentGauge.jsx's 3 hex attributes to reference
+   these vars instead (delivered alongside this file). */
+:root {
+  --gauge-needle: #e2e8f0;
+  --gauge-score-text: #f1f5f9;
+}
+.light {
+  --gauge-needle: #334155;
+  --gauge-score-text: #0f172a;
+}
+
 /* ---- Backgrounds (near-black -> near-white) ---- */
 /* Sep 7 2026: real bug, confirmed from screenshots -- card fills
    (bg-slate-800 family) were mapped to #e2e8f0, which is nearly
@@ -69,6 +90,21 @@
 .light .text-slate-400 { color: #475569 !important; }
 .light .text-slate-500 { color: #64748b !important; }
 .light .text-slate-600 { color: #64748b !important; }
+
+/* ---- Sep 7 2026: TopLiveSignals.jsx (Dashboard) -- 6 real gaps,
+   confirmed by grep against the class names it actually uses, not
+   guessed. bg-lime-500/10 is the B-grade badge tint (grade badges
+   otherwise reuse colors already covered). bg-blue-500/10 +
+   border-blue-500/25 is the "Open" status pill. bg-slate-500/10 +
+   border-slate-500/25 is the unknown/fallback status pill. border-
+   slate-700/20 is the row divider -- /30 and /40 were already
+   covered from an earlier pass, /20 wasn't. ---- */
+.light .bg-lime-500\/10 { background-color: rgba(132, 204, 22, 0.12) !important; }
+.light .bg-blue-500\/10 { background-color: rgba(59, 130, 246, 0.12) !important; }
+.light .border-blue-500\/25 { border-color: rgba(29, 78, 216, 0.35) !important; }
+.light .bg-slate-500\/10 { background-color: rgba(100, 116, 139, 0.12) !important; }
+.light .border-slate-500\/25 { border-color: rgba(100, 116, 139, 0.35) !important; }
+.light .border-slate-700\/20 { border-color: rgba(203, 213, 225, 0.4) !important; }
 
 /* ---- Semantic accent colors -- kept recognizable, darkened for
    contrast against a white background instead of a near-black one ---- */

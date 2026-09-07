@@ -95,9 +95,9 @@ export default function MarketSentimentGauge() {
               strokeLinecap="butt"
             />
           ))}
-          <line x1={cx} y1={cy} x2={needleTip.x} y2={needleTip.y} stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
-          <circle cx={cx} cy={cy} r="5" fill="#e2e8f0" />
-          <text x={cx} y={cy + 24} textAnchor="middle" fill="#f1f5f9" style={{ fontSize: '22px', fontWeight: 'bold' }}>
+          <line x1={cx} y1={cy} x2={needleTip.x} y2={needleTip.y} style={{ stroke: 'var(--gauge-needle)' }} strokeWidth="3" strokeLinecap="round" />
+          <circle cx={cx} cy={cy} r="5" style={{ fill: 'var(--gauge-needle)' }} />
+          <text x={cx} y={cy + 24} textAnchor="middle" style={{ fill: 'var(--gauge-score-text)', fontSize: '22px', fontWeight: 'bold' }}>
             {Math.round(score)}
           </text>
         </svg>
