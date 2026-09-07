@@ -15,7 +15,7 @@ from screener.views import (
     StrategyBacktestRunView, StrategyBacktestStatusView,
     DailyBacktestRangeReportView, SectorStocksView, NoTradeLogView,
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
-    EODScanTriggerView, OptionHistoryView,
+    EODScanTriggerView, OptionHistoryView, CandleChartView,
 )
 from screener.cas_radar import CASRadarView
 from screener.cas_research import CASResearchDatasetView
@@ -68,6 +68,7 @@ urlpatterns = [
     path('api/strategy-backtest/run/', StrategyBacktestRunView.as_view(), name='strategy_backtest_run'),
     path('api/strategy-backtest/status/', StrategyBacktestStatusView.as_view(), name='strategy_backtest_status'),
     path('api/option-history/', OptionHistoryView.as_view(), name='option_history'),
+    path('api/candles/<str:symbol>/', CandleChartView.as_view(), name='candle_chart'),
     path('api/screener/', include('screener.urls')),
     path('api/options/', include('options.urls')),
     path('api/news/', include('news.urls')),
