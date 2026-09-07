@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import ChartModal from './ChartModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -27,6 +28,9 @@ function statusStyle(status) {
 export default function TopLiveSignals({ onViewAll, limit = 5 }) {
   const [signals, setSignals] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Sep 7 2026: which symbol's chart popup is open, if any -- click on
+  // a row's symbol opens ChartModal for it, null means closed.
+  const [chartSymbol, setChartSymbol] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -66,6 +70,7 @@ export default function TopLiveSignals({ onViewAll, limit = 5 }) {
   const topSignals = (signals || []).slice(0, limit);
 
   return (
+    <>
     <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/40">
         <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
@@ -103,7 +108,9 @@ export default function TopLiveSignals({ onViewAll, limit = 5 }) {
                 const isBuy = s.action === 'BUY';
                 return (
                   <tr key={s.symbol} className="border-b border-slate-700/20 last:border-0 hover:bg-slate-900/30">
-                    <td className="px-4 py-2 text-white font-medium whitespace-nowrap">{s.symbol}</td>
+                    <td className="px-4 py-2 font-medium whitespace-nowrap">
+                      <button onClick={() => setChartSymbol(s.symbol)} className="text-white hover:text-blue-400 hover:underline">{s.symbol}</button>
+                    </td>
                     <td className="px-2 py-2 text-right text-slate-300 tabular-nums">₹{s.price != null ? s.price.toFixed(2) : '—'}</td>
                     <td className={`px-2 py-2 text-right font-medium tabular-nums ${isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {isPos ? '+' : ''}{s.change_percent != null ? s.change_percent.toFixed(2) : '0.00'}%
@@ -129,5 +136,7 @@ export default function TopLiveSignals({ onViewAll, limit = 5 }) {
         </div>
       )}
     </div>
+    {chartSymbol && <ChartModal symbol={chartSymbol} onClose={() => setChartSymbol(null)} />}
+    </>
   );
 }
