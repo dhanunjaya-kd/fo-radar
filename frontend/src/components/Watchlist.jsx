@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useSignals } from '../hooks/useSignals'
+import ChartModal from './ChartModal'
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -65,6 +66,9 @@ export default function Watchlist() {
   // whole table -- missing/failed entries just render as an honest
   // dash, never a guess.
   const [rangeData, setRangeData] = useState({})
+  // Sep 7 2026: which symbol's chart popup is open, if any -- click on
+  // a row's symbol opens ChartModal for it, null means closed.
+  const [chartSymbol, setChartSymbol] = useState(null)
 
   useEffect(() => {
     if (!signals || signals.length === 0) return
@@ -101,6 +105,7 @@ export default function Watchlist() {
   const fmt = (n) => (n == null || isNaN(n)) ? '—' : Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })
 
   return (
+    <>
     <div className="overflow-x-auto rounded-xl border border-slate-800">
       <table className="w-full text-xs sm:text-sm">
         <thead>
@@ -129,7 +134,9 @@ export default function Watchlist() {
         <tbody>
           {signals.map((s) => (
             <tr key={s.symbol} className="border-t border-slate-800/60 hover:bg-slate-900/40 transition-colors">
-              <td className="px-2.5 sm:px-4 py-2.5 sm:py-3 font-semibold text-sky-400 whitespace-nowrap">{s.symbol}</td>
+              <td className="px-2.5 sm:px-4 py-2.5 sm:py-3 font-semibold whitespace-nowrap">
+                <button onClick={() => setChartSymbol(s.symbol)} className="text-sky-400 hover:underline">{s.symbol}</button>
+              </td>
               <td className="px-2 sm:px-4 py-2.5 sm:py-3 text-right text-white whitespace-nowrap">₹{fmt(s.price)}</td>
               <td className={`px-2 sm:px-4 py-2.5 sm:py-3 text-right font-medium whitespace-nowrap ${(s.change_percent || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {(s.change_percent || 0) >= 0 ? '+' : ''}{s.change_percent}%
@@ -172,5 +179,7 @@ export default function Watchlist() {
         </tbody>
       </table>
     </div>
+    {chartSymbol && <ChartModal symbol={chartSymbol} onClose={() => setChartSymbol(null)} />}
+    </>
   )
 }
