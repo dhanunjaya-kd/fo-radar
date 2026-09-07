@@ -23,14 +23,31 @@
    tonight, coverage should already be high. */
 
 /* ---- Backgrounds (near-black -> near-white) ---- */
+/* Sep 7 2026: real bug, confirmed from screenshots -- card fills
+   (bg-slate-800 family) were mapped to #e2e8f0, which is nearly
+   IDENTICAL to border-slate-800's own #e2e8f0 below. In dark mode
+   those are two genuinely different steps (slate-900 vs slate-800
+   are distinct dark tones), so the border reads as a crisp edge. In
+   light mode, mapping each class name to its literal same-named
+   light equivalent collapsed that gap -- fill and border ended up
+   the same color, so cards lost their edge definition and read as
+   one flat gray block instead of a white/near-white panel with a
+   visible hairline border, unlike the flat white reference site.
+   Fix: push bg-slate-800 fills further toward white (#f1f5f9-based)
+   so they sit clearly lighter than the #e2e8f0 border again, and
+   make the page root (bg-slate-900) pure #ffffff instead of #f8fafc
+   to match the reference exactly. Not yet verified against the
+   actual Dashboard card component (not seen this session) -- if
+   dashboard cards use a class not in this file at all, this won't
+   fully fix it; see chat for what's still needed. */
 .light .bg-slate-950 { background-color: #ffffff !important; }
-.light .bg-slate-900 { background-color: #f8fafc !important; }
-.light .bg-slate-900\/50 { background-color: #f1f5f9 !important; }
-.light .bg-slate-800 { background-color: #e2e8f0 !important; }
-.light .bg-slate-800\/20 { background-color: rgba(226, 232, 240, 0.5) !important; }
-.light .bg-slate-800\/30 { background-color: rgba(226, 232, 240, 0.6) !important; }
-.light .bg-slate-800\/50 { background-color: rgba(226, 232, 240, 0.7) !important; }
-.light .bg-slate-800\/60 { background-color: rgba(226, 232, 240, 0.8) !important; }
+.light .bg-slate-900 { background-color: #ffffff !important; }
+.light .bg-slate-900\/50 { background-color: #f8fafc !important; }
+.light .bg-slate-800 { background-color: #f1f5f9 !important; }
+.light .bg-slate-800\/20 { background-color: rgba(241, 245, 249, 0.5) !important; }
+.light .bg-slate-800\/30 { background-color: rgba(241, 245, 249, 0.6) !important; }
+.light .bg-slate-800\/50 { background-color: rgba(241, 245, 249, 0.75) !important; }
+.light .bg-slate-800\/60 { background-color: rgba(226, 232, 240, 0.5) !important; }
 .light .bg-slate-700 { background-color: #cbd5e1 !important; }
 .light .bg-slate-700\/30 { background-color: rgba(203, 213, 225, 0.5) !important; }
 .light .bg-slate-700\/50 { background-color: rgba(203, 213, 225, 0.6) !important; }
