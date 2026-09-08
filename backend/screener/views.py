@@ -1002,6 +1002,68 @@ def _calc_tech(symbol, live_quote=None):
 # BACKGROUND WORKER
 # ============================================================
 
+# Sep 8 2026: NIFTY's own multi-factor market regime, computed ONCE
+# per _build_all() cycle (see _update_market_regime_cache() below),
+# not re-derived per stock -- _evaluate_and_log_shadow() below reads
+# this cache for the market_regime component of the shadow quality
+# score instead of the hardcoded None it used before this. Module-
+# level, same simple-dict-cache pattern _index_cache already uses.
+_current_market_regime = {"state": None}
+
+
+def _update_market_regime_cache():
+    """
+    Sep 8 2026: SHADOW MODE ONLY -- computes NIFTY's regime via
+    quality_engine.classify_market_regime(), reusing
+    _calc_index_indicators() (same cached pipeline _calc_index_atr()
+    already uses for the LIVE index-call engine, zero new Fyers calls
+    beyond what that already costs) plus the already-cached
+    _index_cache/_stock_cache. Called once at the top of _build_all(),
+    never inside the per-stock loop. Own try/except -- a regime-calc
+    failure degrades to "unavailable" (None), never raises into the
+    live scan loop that calls this.
+    """
+    try:
+        from . import quality_engine as qe
+        indicators = _calc_index_indicators("NIFTY", "NSE:NIFTY50-INDEX")
+        if not indicators:
+            _current_market_regime["state"] = None
+            return
+
+        adx_dir = qe.classify_adx_direction(indicators.get('adx'), indicators.get('plus_di'), indicators.get('minus_di'))
+
+        with _cache_lock:
+            nifty_price = (_index_cache.get("nifty50") or {}).get("price")
+            vix_change_pct = (_index_cache.get("india_vix") or {}).get("change_percent")
+            stocks_snapshot = list(_stock_cache.values())
+
+        price_structure = {"state": "INSUFFICIENT_DATA"}
+        price_above_vwap = None
+        price_above_ema20 = None
+        if nifty_price is not None:
+            hist_df = _cached_index_history_df("NIFTY", "NSE:NIFTY50-INDEX", days=100)
+            if hist_df is not None and len(hist_df) >= 21:
+                price_structure = qe.detect_price_structure(
+                    list(hist_df['Close']) + [nifty_price],
+                    list(hist_df['High']) + [nifty_price],
+                    list(hist_df['Low']) + [nifty_price],
+                )
+            if indicators.get('vwap') is not None:
+                price_above_vwap = nifty_price > indicators['vwap']
+            if indicators.get('ema20') is not None:
+                price_above_ema20 = nifty_price > indicators['ema20']
+
+        breadth_data = _compute_breadth(stocks_snapshot)
+        regime = qe.classify_market_regime(
+            adx_dir['state'], price_structure['state'], price_above_vwap, price_above_ema20,
+            breadth_data.get('advances_pct'), breadth_data.get('declines_pct'), vix_change_pct,
+        )
+        _current_market_regime["state"] = regime['state']
+    except Exception as e:
+        print(f"[MarketRegime] update failed (shadow mode unaffected): {e}")
+        _current_market_regime["state"] = None
+
+
 def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
                               v3_decision, v3_score, v3_grade, v3_reason, oi=None, signal_extra=None):
     """
@@ -1078,8 +1140,31 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
                 return max_pts * 0.3
             return 0.0
 
+        # Sep 8 2026: real market_regime scoring -- reads the SAME
+        # regime _update_market_regime_cache() already computed once
+        # this cycle (see call site in _build_all() below), scored
+        # against THIS stock's own action. Full credit when the
+        # regime genuinely agrees with the direction (BUY+TREND_UP or
+        # SELL+TREND_DOWN); zero when it's fighting the market; a
+        # smaller partial credit for RANGE/MIXED (no real edge either
+        # way) than the standard NEUTRAL 30%, and smaller still for
+        # HIGH_VOLATILITY -- spec: "reduce confidence/quality and
+        # apply stricter confirmation" is explicitly MORE cautious
+        # than an ordinary range-bound read, not the same as one.
+        regime_state = _current_market_regime.get("state")
+        if regime_state is None or regime_state == "INSUFFICIENT_DATA":
+            market_regime_score = None
+        elif (action == "BUY" and regime_state == "TREND_UP") or (action == "SELL" and regime_state == "TREND_DOWN"):
+            market_regime_score = 15.0
+        elif (action == "BUY" and regime_state == "TREND_DOWN") or (action == "SELL" and regime_state == "TREND_UP"):
+            market_regime_score = 0.0
+        elif regime_state == "HIGH_VOLATILITY":
+            market_regime_score = 15 * 0.15
+        else:  # RANGE or MIXED
+            market_regime_score = 15 * 0.3
+
         evidence = {
-            "market_regime": None,  # Market Regime engine not built yet -- honestly unavailable
+            "market_regime": market_regime_score,
             "multi_tf_trend": None,  # structurally unavailable, see quality_engine.py module docstring
             "price_structure": _sub_score(price_structure['state'], 15, ("BULLISH_STRUCTURE", "BEARISH_STRUCTURE")),
             "volume_rvol": _sub_score(rvol_result['state'], 15, ("STRONG", "EXCEPTIONAL")),
@@ -1164,6 +1249,11 @@ def _build_all():
             _last_fetch = time.time()
     # else: this cycle got nothing -- _stock_cache deliberately left
     # untouched, same principle as the PCR fix above.
+
+    # Sep 8 2026: SHADOW MODE ONLY -- once per cycle (not per stock),
+    # now that both _index_cache and _stock_cache are populated for
+    # this cycle. See _update_market_regime_cache()'s own docstring.
+    _update_market_regime_cache()
 
     # 3. PCR -- this used to be declines/advances among the scanned stock
     # universe (an advance-decline ratio, a completely different market

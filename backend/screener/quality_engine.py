@@ -606,3 +606,86 @@ def compute_index_quality_score(evidence):
         "components_scored": list(available.keys()),
         "components_unavailable": missing,
     }
+
+
+# =============================================================================
+# 11. MARKET REGIME ENGINE  (spec section 2) -- top of the INDEX -> MARKET
+#     REGIME -> SECTOR -> STOCK cascade
+# =============================================================================
+
+def classify_market_regime(adx_state, price_structure_state, price_above_vwap, price_above_ema20,
+                            breadth_advances_pct, breadth_declines_pct, vix_change_pct,
+                            high_vol_threshold=10.0, min_aligned_factors=3):
+    """
+    Multi-factor regime classification for a benchmark index (real
+    usage: NIFTY). Spec's explicit anti-pattern, quoted directly:
+    "Do not classify the market as bullish merely because NIFTY is
+    green." -- this requires genuine alignment across independent
+    factors (real trend strength+direction from ADX+DI, real price
+    structure, VWAP/EMA20 positioning, and F&O-universe breadth),
+    never a single input deciding the regime alone.
+
+    adx_state: output of classify_adx_direction()['state'].
+    price_structure_state: output of detect_price_structure()['state'].
+    price_above_vwap/price_above_ema20: bool or None.
+    breadth_advances_pct/breadth_declines_pct: from _compute_breadth(),
+    already scoped to the real F&O universe this project actually
+    tracks -- NOT full-market breadth (that doesn't exist in this
+    codebase), disclosed here rather than silently assumed broader.
+    vix_change_pct: today's VIX % change.
+
+    HIGH_VOLATILITY takes priority over any trend read -- spec: "When
+    volatility expands significantly, reduce confidence/quality and
+    apply stricter confirmation," which only makes sense as an
+    override, not something a strong trend read can mask.
+
+    min_aligned_factors=3 (of up to 4 possible: adx_direction,
+    price_structure, vwap, ema20, plus breadth as a 5th when
+    available) is a configurable default, not a claimed-optimal
+    number, matching spec's explicit "thresholds must be configurable"
+    requirement everywhere else in this file.
+
+    Returns {'state', 'aligned_factors', 'conflicting_factors'}.
+    state in: TREND_UP, TREND_DOWN, RANGE, HIGH_VOLATILITY, MIXED,
+    INSUFFICIENT_DATA.
+    """
+    if adx_state is None or price_structure_state is None or price_above_vwap is None or price_above_ema20 is None:
+        return {"state": "INSUFFICIENT_DATA", "aligned_factors": [], "conflicting_factors": []}
+
+    if vix_change_pct is not None and vix_change_pct >= high_vol_threshold:
+        return {"state": "HIGH_VOLATILITY", "aligned_factors": [], "conflicting_factors": []}
+
+    if adx_state == "RANGE":
+        # Spec: "If trend strength is weak and price is oscillating
+        # around VWAP/EMA structure, avoid aggressive momentum
+        # signals" -- weak ADX alone is sufficient to call RANGE,
+        # regardless of what the other factors individually show,
+        # since there's no real trend STRENGTH underneath any of them.
+        return {"state": "RANGE", "aligned_factors": [], "conflicting_factors": []}
+
+    bullish, bearish = [], []
+    if adx_state == "BULLISH_TREND":
+        bullish.append("adx_direction")
+    elif adx_state == "BEARISH_TREND":
+        bearish.append("adx_direction")
+
+    if price_structure_state == "BULLISH_STRUCTURE":
+        bullish.append("price_structure")
+    elif price_structure_state == "BEARISH_STRUCTURE":
+        bearish.append("price_structure")
+
+    (bullish if price_above_vwap else bearish).append("vwap")
+    (bullish if price_above_ema20 else bearish).append("ema20")
+
+    if breadth_advances_pct is not None and breadth_advances_pct >= 55:
+        bullish.append("breadth")
+    elif breadth_declines_pct is not None and breadth_declines_pct >= 55:
+        bearish.append("breadth")
+
+    if len(bullish) >= min_aligned_factors and len(bullish) > len(bearish):
+        return {"state": "TREND_UP", "aligned_factors": bullish, "conflicting_factors": bearish}
+    if len(bearish) >= min_aligned_factors and len(bearish) > len(bullish):
+        return {"state": "TREND_DOWN", "aligned_factors": bearish, "conflicting_factors": bullish}
+
+    dominant, other = (bullish, bearish) if len(bullish) >= len(bearish) else (bearish, bullish)
+    return {"state": "MIXED", "aligned_factors": dominant, "conflicting_factors": other}
