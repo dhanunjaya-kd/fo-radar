@@ -2324,7 +2324,7 @@ _worker_thread = threading.Thread(target=_background_worker, daemon=True)
 _worker_thread.start()
 
 
-def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call):
+def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call, price_change_pct=None, fut_oi_chg_pct=None):
     """
     Sep 8 2026: SHADOW MODE ONLY -- index counterpart to
     _evaluate_and_log_shadow() above. Same non-negotiable: this NEVER
@@ -2333,15 +2333,17 @@ def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call
     observer, own try/except so a shadow-evaluation problem can never
     affect the real index call loop.
 
-    HONEST, DISCLOSED GAP: futures_oi and options_structure are always
-    None here -- index_tracker.get_last_oi_snapshot()'s exact field
-    names for Futures OI change and CE/PE OI change totals weren't
-    confirmed against real index_tracker.py source this session (only
-    oi['rows']/oi['support']/oi['resistance'] are confirmed, from
-    index_signal.py's own docstring). Guessing a field name that might
-    silently return None -- or worse, silently read the WRONG field --
-    is worse than leaving it honestly unavailable. price_structure,
-    breadth, and vix ARE wired below with confirmed real data only.
+    Sep 8 2026, UPDATED: futures_oi and options_structure were
+    honestly None all session, blocked on index_tracker.py's exact
+    field names. Now confirmed directly from that file's real source:
+    row["Fut OI Chg %"] (a signed %, Fyers' own oipercent, already on
+    the same row dict the caller already has) and row["Change %"] for
+    price_change_pct. options_structure needed NOTHING new -- oi here
+    comes from the identical get_option_analytics() call stocks use
+    (index_tracker.py's snapshot_index(): oi = get_option_analytics(
+    fyers_symbol, strikecount=10)), so it already carries the same
+    ce_oi_chg/pe_oi_chg/pcr fields evaluate_options_structure() above
+    was built for -- reused verbatim, not reimplemented.
     """
     try:
         from . import quality_engine as qe
@@ -2371,6 +2373,14 @@ def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call
         )
         vix_result = qe.evaluate_index_vix(index_direction, vix_snapshot.get("change_percent"))
 
+        futures_oi_result = qe.evaluate_futures_oi_structure(action, price_change_pct, fut_oi_chg_pct)
+
+        options_structure_result = {"state": "INSUFFICIENT_DATA"}
+        if oi:
+            options_structure_result = qe.evaluate_options_structure(
+                action, price_change_pct, oi.get("ce_oi_chg"), oi.get("pe_oi_chg"), oi.get("pcr"),
+            )
+
         def _sub_score(state, max_pts, good_states):
             if state == "INSUFFICIENT_DATA":
                 return None
@@ -2382,18 +2392,48 @@ def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call
 
         evidence = {
             "price_structure": _sub_score(price_structure['state'], 25, ("BULLISH_STRUCTURE", "BEARISH_STRUCTURE")),
-            "futures_oi": None,  # honestly unavailable this pass -- see docstring
-            "options_structure": None,  # honestly unavailable this pass -- see docstring
+            "futures_oi": _sub_score(futures_oi_result['state'], 20, ("CONFIRMED",)),
+            "options_structure": _sub_score(options_structure_result['state'], 25, ("CONFIRMED",)),
             "breadth": _sub_score(breadth_result['state'], 15, ("CONFIRMED",)),
             "vix": _sub_score(vix_result['state'], 15, ("SUPPORTIVE",)),
         }
         quality_result = qe.compute_index_quality_score(evidence)
+        quality_result['futures_oi_quadrant'] = futures_oi_result.get('quadrant')
+        quality_result['options_ce_quadrant'] = options_structure_result.get('ce_quadrant')
+        quality_result['options_pe_quadrant'] = options_structure_result.get('pe_quadrant')
+
+        # Sep 8 2026: same explainable-signals treatment as the stock
+        # glue function -- compiled from state already computed above,
+        # nothing new fetched.
+        reasons = []
+        if price_structure['state'] in ("BULLISH_STRUCTURE", "BEARISH_STRUCTURE"):
+            tag = "Bullish" if price_structure['state'] == "BULLISH_STRUCTURE" else "Bearish"
+            brk = f", {price_structure['breakout']} breakout" if price_structure.get('breakout') else ""
+            reasons.append(f"{tag} price structure{brk}")
+        if breadth_result['state'] == "CONFIRMED":
+            reasons.append(f"Breadth confirms ({index_direction} move with strong participation)")
+        elif breadth_result['state'] == "WEAK":
+            reasons.append(f"Weak breadth -- {index_direction} move not broadly participated")
+        if vix_result['state'] == "SUPPORTIVE":
+            reasons.append("VIX environment supportive")
+        elif vix_result['state'] == "CAUTION":
+            reasons.append("VIX expanding sharply -- caution warranted")
+        if futures_oi_result['state'] == "CONFIRMED":
+            reasons.append(f"Futures OI confirms ({futures_oi_result['quadrant']})")
+        elif futures_oi_result['state'] == "CONFLICT":
+            reasons.append(f"Futures OI conflicts ({futures_oi_result['quadrant']})")
+        if options_structure_result['state'] == "CONFIRMED":
+            reasons.append(f"Options structure confirms (CE {options_structure_result['ce_quadrant']}, PE {options_structure_result['pe_quadrant']})")
+        elif options_structure_result['state'] == "CONFLICT":
+            reasons.append(f"Options structure conflicts (CE {options_structure_result['ce_quadrant']}, PE {options_structure_result['pe_quadrant']})")
+        if quality_result['confirmations_count'] < 4:
+            reasons.append(f"Only {quality_result['confirmations_count']} of 5 evidence groups confirm -- spec prefers >=4")
 
         v3_decision = "SIGNAL" if call else "NO_TRADE"
         v3_reason = None if call else "Bias neutral or no live premium/delta at the target wall strike"
 
         from . import shadow_logger
-        shadow_logger.log_shadow_candidate(name, action, spot, v3_decision, None, None, v3_reason, quality_result)
+        shadow_logger.log_shadow_candidate(name, action, spot, v3_decision, None, None, v3_reason, quality_result, reasons=reasons)
     except Exception as e:
         print(f"[ShadowMode] {name} index evaluation failed (v3.0 unaffected): {e}")
 
@@ -2478,7 +2518,10 @@ def _index_snapshot_worker():
                         # _evaluate_and_log_index_shadow()'s own
                         # docstring for what's confirmed-available vs
                         # honestly disclosed as unavailable this pass.
-                        _evaluate_and_log_index_shadow(name, fyers_symbol, row.get("Bias"), row.get("Spot"), atr, oi, call)
+                        _evaluate_and_log_index_shadow(
+                            name, fyers_symbol, row.get("Bias"), row.get("Spot"), atr, oi, call,
+                            price_change_pct=row.get("Change %"), fut_oi_chg_pct=row.get("Fut OI Chg %"),
+                        )
 
                         # Outcome check only when a call is actually locked
                         # and we have its exact option_symbol -- one small

@@ -872,3 +872,62 @@ def rank_sectors(sector_change_pcts, strong_pct=0.3, weak_pct=0.3):
             state = "NEUTRAL"
         result[sector] = {"state": state, "rank": rank, "total_sectors": total, "percentile": percentile}
     return result
+
+
+# =============================================================================
+# 14. INDEX FUTURES OI STRUCTURE  (spec section 10, applied to the index
+#     engine's own Futures/OI evidence group) -- the piece that was
+#     blocked all session on index_tracker.py's exact field names.
+#     Confirmed directly from that file's real source: snapshot_index()
+#     stores "Fut OI Chg %" (a signed % from Fyers' own oipercent) on
+#     the same row dict already passed to generate_index_call()'s
+#     caller -- no new Fyers call, no guessed field name.
+# =============================================================================
+
+def evaluate_futures_oi_structure(action, price_change_pct, fut_oi_chg_pct):
+    """
+    Real 4-quadrant classification via the SAME classify_side_buildup()
+    already reused for stock options in evaluate_options_structure()
+    above -- not a second, different OI-quadrant implementation.
+
+    Long Buildup (price up + futures OI up) = fresh long positions,
+    the strongest real confirmation of a BUY. Short Buildup (price
+    down + OI up) = fresh shorts, confirms a SELL. Short Covering and
+    Long Unwinding are both OI DECREASING (existing positions closing,
+    not fresh conviction in either direction) -- scored NEUTRAL rather
+    than a false confirm/conflict, since closing activity alone doesn't
+    reliably indicate what happens next the way fresh buildup does.
+
+    Spec section 10's explicit warning -- "OI change is NOT the same
+    thing as aggressor-side buying/selling... do not claim OI up =
+    buyers are buying unless actual order-flow/aggressor data exists"
+    -- is respected the same way it already is for stocks: this reads
+    OI change ALONGSIDE real price direction (the 4-quadrant model),
+    never OI change alone as a directional claim.
+
+    Returns {'state', 'quadrant'}. state in: CONFIRMED, CONFLICT,
+    NEUTRAL, INSUFFICIENT_DATA.
+    """
+    from .options_analytics import classify_side_buildup
+
+    if action not in ("BUY", "SELL") or price_change_pct is None or fut_oi_chg_pct is None:
+        return {"state": "INSUFFICIENT_DATA", "quadrant": None}
+
+    quadrant = classify_side_buildup(price_change_pct, fut_oi_chg_pct)
+
+    if action == "BUY":
+        if quadrant == "Long Buildup":
+            state = "CONFIRMED"
+        elif quadrant == "Short Buildup":
+            state = "CONFLICT"
+        else:
+            state = "NEUTRAL"
+    else:
+        if quadrant == "Short Buildup":
+            state = "CONFIRMED"
+        elif quadrant == "Long Buildup":
+            state = "CONFLICT"
+        else:
+            state = "NEUTRAL"
+
+    return {"state": state, "quadrant": quadrant}
