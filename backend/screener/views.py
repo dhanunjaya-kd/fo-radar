@@ -2370,6 +2370,38 @@ class FyersStatusView(APIView):
         })
 
 
+class FyersDisconnectView(APIView):
+    """
+    Sep 8 2026: real disconnect -- deletes the saved Fyers token files
+    (fyers_access_token.txt, fyers_auth.json) and resets the in-memory
+    auth cache immediately, rather than waiting out its own TTL. This
+    can't call a real Fyers-side disconnect (fyers-apiv3 exposes no
+    such endpoint) -- it disconnects THIS app's saved credentials
+    instead, which has the same practical effect: every live call
+    fails honestly (is_authenticated() -> False) until re-authenticated.
+
+    No matching "connect" button exists anywhere in this app to pair
+    with this -- see FyersStatusView above and _FyersCompat.get_auth_url()
+    in fyers_client.py: login has only ever been the manual
+    get_fyers_token.py script. Reconnecting after this still means
+    running that script again, same as today.
+    POST /api/fyers-disconnect/
+    """
+    def post(self, request):
+        from . import fyers_client
+        removed = []
+        for path in (fyers_client.TOKEN_PATH, fyers_client.TOKEN_JSON_PATH):
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                    removed.append(os.path.basename(path))
+            except OSError as e:
+                return Response({"error": f"Could not remove {os.path.basename(path)}: {e}"}, status=500)
+        fyers_client._auth_cache["value"] = False
+        fyers_client._auth_cache["checked_at"] = 0.0
+        return Response({"disconnected": True, "removed_files": removed})
+
+
 class SignalExcelExportView(APIView):
     """Download today's auto-logged signal Excel file (entry time, entry/
     SL/targets, exit time for each signal that's dropped out of the
