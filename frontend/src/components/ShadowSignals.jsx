@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, Fragment } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -33,6 +33,7 @@ export default function ShadowSignals() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all' | 'disagree'
+  const [expandedKey, setExpandedKey] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -131,40 +132,72 @@ export default function ShadowSignals() {
                 <th className="text-right px-2 py-2 font-medium">Q Score</th>
                 <th className="text-center px-2 py-2 font-medium">Agreement</th>
                 <th className="text-right px-2 py-2 font-medium">MFE</th>
-                <th className="text-right px-3 py-2 font-medium">MAE</th>
+                <th className="text-right px-2 py-2 font-medium">MAE</th>
+                <th className="text-center px-3 py-2 font-medium">Why</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={`${r.Symbol}-${r.Action}-${i}`} className="border-t border-slate-800/60 hover:bg-slate-900/40 transition-colors">
-                  <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{r.Timestamp ? r.Timestamp.split(' ')[1] : '—'}</td>
-                  <td className="px-3 py-2 text-white font-medium whitespace-nowrap">{r.Symbol}</td>
-                  <td className="px-2 py-2 text-center">
-                    <span className={r.Action === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>{r.Action}</span>
-                  </td>
-                  <td className="px-2 py-2 text-center whitespace-nowrap" title={r['V3 Reason'] || ''}>
-                    {r['V3 Decision'] === 'SIGNAL'
-                      ? <span className={`font-semibold ${GRADE_STYLES[r['V3 Grade']] || 'text-slate-300'}`}>{r['V3 Grade'] || 'Signal'}</span>
-                      : <span className="text-slate-500">No trade</span>}
-                  </td>
-                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{fmtScore(r['V3 Score'])}</td>
-                  <td className="px-2 py-2 text-center whitespace-nowrap">
-                    {r['Quality Verdict'] === 'TRADE'
-                      ? <span className={`font-semibold ${GRADE_STYLES[r['Quality Grade']] || 'text-slate-300'}`}>{r['Quality Grade'] || 'Trade'}</span>
-                      : r['Quality Verdict'] === 'WATCH'
-                        ? <span className="text-amber-400">Watch</span>
-                        : <span className="text-slate-500">Ignore</span>}
-                  </td>
-                  <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{fmtScore(r['Quality Score'])}</td>
-                  <td className="px-2 py-2 text-center">
-                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${AGREEMENT_STYLES[r.Agreement] || 'text-slate-400 bg-slate-700/30 border-slate-600/30'}`}>
-                      {AGREEMENT_LABELS[r.Agreement] || r.Agreement || '—'}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 text-right text-emerald-400 tabular-nums">{fmtPct(r['MFE %'])}</td>
-                  <td className="px-3 py-2 text-right text-rose-400 tabular-nums">{fmtPct(r['MAE %'])}</td>
-                </tr>
-              ))}
+              {rows.map((r, i) => {
+                const rowKey = `${r.Symbol}-${r.Action}-${i}`;
+                const isExpanded = expandedKey === rowKey;
+                const reasonList = (r.Reasons || '').split(';').map((s) => s.trim()).filter(Boolean);
+                return (
+                  <Fragment key={rowKey}>
+                    <tr
+                      onClick={() => reasonList.length > 0 && setExpandedKey(isExpanded ? null : rowKey)}
+                      className={`border-t border-slate-800/60 hover:bg-slate-900/40 transition-colors ${reasonList.length > 0 ? 'cursor-pointer' : ''}`}
+                    >
+                      <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{r.Timestamp ? r.Timestamp.split(' ')[1] : '—'}</td>
+                      <td className="px-3 py-2 text-white font-medium whitespace-nowrap">{r.Symbol}</td>
+                      <td className="px-2 py-2 text-center">
+                        <span className={r.Action === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>{r.Action}</span>
+                      </td>
+                      <td className="px-2 py-2 text-center whitespace-nowrap" title={r['V3 Reason'] || ''}>
+                        {r['V3 Decision'] === 'SIGNAL'
+                          ? <span className={`font-semibold ${GRADE_STYLES[r['V3 Grade']] || 'text-slate-300'}`}>{r['V3 Grade'] || 'Signal'}</span>
+                          : <span className="text-slate-500">No trade</span>}
+                      </td>
+                      <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{fmtScore(r['V3 Score'])}</td>
+                      <td className="px-2 py-2 text-center whitespace-nowrap">
+                        {r['Quality Verdict'] === 'TRADE'
+                          ? <span className={`font-semibold ${GRADE_STYLES[r['Quality Grade']] || 'text-slate-300'}`}>{r['Quality Grade'] || 'Trade'}</span>
+                          : r['Quality Verdict'] === 'WATCH'
+                            ? <span className="text-amber-400">Watch</span>
+                            : <span className="text-slate-500">Ignore</span>}
+                      </td>
+                      <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{fmtScore(r['Quality Score'])}</td>
+                      <td className="px-2 py-2 text-center">
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border whitespace-nowrap ${AGREEMENT_STYLES[r.Agreement] || 'text-slate-400 bg-slate-700/30 border-slate-600/30'}`}>
+                          {AGREEMENT_LABELS[r.Agreement] || r.Agreement || '—'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 text-right text-emerald-400 tabular-nums">{fmtPct(r['MFE %'])}</td>
+                      <td className="px-2 py-2 text-right text-rose-400 tabular-nums">{fmtPct(r['MAE %'])}</td>
+                      <td className="px-3 py-2 text-center text-slate-500">
+                        {reasonList.length > 0 ? (isExpanded ? '▲' : '▼') : '—'}
+                      </td>
+                    </tr>
+                    {isExpanded && reasonList.length > 0 && (
+                      <tr className="bg-slate-900/40 border-t border-slate-800/40">
+                        <td colSpan={11} className="px-4 py-2.5">
+                          <ul className="space-y-1">
+                            {reasonList.map((reason, ri) => {
+                              const isWarning = reason.toLowerCase().includes('gate') || reason.toLowerCase().includes('extended')
+                                || reason.toLowerCase().includes('weak') || reason.toLowerCase().includes('against') || reason.toLowerCase().includes('conflict');
+                              return (
+                                <li key={ri} className={`text-xs flex items-start gap-1.5 ${isWarning ? 'text-amber-400' : 'text-slate-300'}`}>
+                                  <span className="shrink-0">{isWarning ? '⚠' : '✓'}</span>
+                                  <span>{reason}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
