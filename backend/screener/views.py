@@ -970,6 +970,113 @@ def _calc_tech(symbol, live_quote=None):
 # BACKGROUND WORKER
 # ============================================================
 
+def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                              v3_decision, v3_score, v3_grade, v3_reason, oi=None, signal_extra=None):
+    """
+    Sep 8 2026: SHADOW MODE glue -- converts this cycle's already-
+    computed tech/oi/stock data into quality_engine's function
+    signatures, computes an independent quality assessment, and logs
+    it via shadow_logger alongside v3.0's REAL decision for the SAME
+    candidate. This function NEVER influences v3.0's decision -- it's
+    always called AFTER that decision is already final (a no_trade_log
+    entry was already appended, or a signal was already appended to
+    signals[]), purely as an observer.
+
+    Zero new Fyers calls: price structure reuses _cached_history_df's
+    same-day in-memory cache (already populated by _calc_tech() for
+    this exact symbol, this exact cycle -- calling it again here is a
+    pure dict lookup); everything else is data _build_all() already
+    fetched this cycle for its own use.
+
+    market_regime and futures_oi are deliberately always None here
+    (honestly unavailable, not guessed) -- Market Regime engine and
+    confirmed stock-level futures OI aren't built/available yet, per
+    the Phase 0 audit. multi_tf_trend is always None -- see
+    quality_engine.py's module docstring for why that's structural,
+    not an oversight.
+
+    Wrapped in try/except by BOTH call sites in _build_all() as well as
+    internally here -- shadow mode must never be able to break the live
+    scan loop, belt-and-braces on purpose.
+    """
+    try:
+        from . import quality_engine as qe
+
+        adx_dir = qe.classify_adx_direction(tech.get('adx'), tech.get('plus_di'), tech.get('minus_di'))
+        price_above_vwap = (price > tech['vwap']) if tech.get('vwap') is not None else None
+        rvol_result = qe.classify_rvol(stock.get('volume'), tech.get('volume_avg'))
+        volume_confirmed = rvol_result['state'] in ('CONFIRMATION', 'STRONG', 'EXCEPTIONAL')
+        rsi_regime = qe.classify_rsi_regime(tech.get('rsi'), adx_dir['state'], price_above_vwap, volume_confirmed)
+        extension = qe.classify_extension(price, tech.get('ema20'), tech.get('atr'))
+
+        hist_df = _cached_history_df(sym)
+        if hist_df is not None and len(hist_df) >= 21:
+            today_high = stock.get('high') or price
+            today_low = stock.get('low') or price
+            price_structure = qe.detect_price_structure(
+                list(hist_df['Close']) + [price],
+                list(hist_df['High']) + [today_high],
+                list(hist_df['Low']) + [today_low],
+            )
+        else:
+            price_structure = {"state": "INSUFFICIENT_DATA"}
+
+        sector_change_pct = sector_change_map.get(stock.get("sector"))
+        sector_result = qe.evaluate_sector_alignment(action, stock.get('change_percent'), sector_change_pct, nifty_change_pct)
+
+        options_result = {"state": "INSUFFICIENT_DATA"}
+        if oi and signal_extra:
+            options_result = qe.evaluate_options_structure(
+                action, stock.get('change_percent'),
+                signal_extra.get('ce_oi_chg'), signal_extra.get('pe_oi_chg'), signal_extra.get('pcr'),
+            )
+
+        # Maps each classifier's real state into a 0..max-weight sub-
+        # score for the aggregator: full weight for a genuinely good
+        # state, partial (30%) for NEUTRAL (real but non-committal
+        # evidence, not silence), zero for a real-but-unfavorable read,
+        # and None (never a guessed number) when the classifier itself
+        # reported INSUFFICIENT_DATA.
+        def _sub_score(state, max_pts, good_states):
+            if state == "INSUFFICIENT_DATA":
+                return None
+            if state in good_states:
+                return max_pts
+            if state == "NEUTRAL":
+                return max_pts * 0.3
+            return 0.0
+
+        evidence = {
+            "market_regime": None,  # Market Regime engine not built yet -- honestly unavailable
+            "multi_tf_trend": None,  # structurally unavailable, see quality_engine.py module docstring
+            "price_structure": _sub_score(price_structure['state'], 15, ("BULLISH_STRUCTURE", "BEARISH_STRUCTURE")),
+            "volume_rvol": _sub_score(rvol_result['state'], 15, ("STRONG", "EXCEPTIONAL")),
+            "momentum": _sub_score(rsi_regime['state'], 10, ("BULLISH_CONTINUATION", "BEARISH_CONTINUATION")),
+            "futures_oi": None,  # stock-level futures OI not confirmed available -- honestly unavailable
+            "options_confirmation": _sub_score(options_result['state'], 10, ("CONFIRMED",)),
+            "sector_alignment": _sub_score(sector_result['state'], 5, ("ALIGNED",)),
+        }
+        quality_result = qe.compute_stock_quality_score(evidence)
+
+        # Extension filter (spec section 16) -- a SEPARATE modifier, not
+        # one of the 8 weighted components above. Spec: highly extended
+        # -> no new entry (capped at WATCH here, never a fresh TRADE
+        # verdict); moderately extended -> a real point penalty, not a
+        # hard block ("the purpose is to avoid late entries, not to
+        # prevent momentum trades").
+        if extension['state'] == "HIGHLY_EXTENDED" and quality_result['verdict'] == "TRADE":
+            quality_result['verdict'] = "WATCH"
+            quality_result['grade'] = "B"
+        elif extension['state'] == "MODERATELY_EXTENDED" and quality_result['score'] is not None:
+            quality_result['score'] = round(max(0.0, quality_result['score'] - 5), 1)
+        quality_result['extension'] = extension['state']
+
+        from . import shadow_logger
+        shadow_logger.log_shadow_candidate(sym, action, price, v3_decision, v3_score, v3_grade, v3_reason, quality_result)
+    except Exception as e:
+        print(f"[ShadowMode] {sym} evaluation failed (v3.0 unaffected): {e}")
+
+
 def _build_all():
     """Fetch everything: indices, stocks, signals. Cache all."""
     global _stock_cache, _index_cache, _index_cache_updated_at, _signal_cache, _tech_cache, _last_fetch, _no_trade_cache
@@ -1159,6 +1266,19 @@ def _build_all():
 
         if not _is_qualified_with_hysteresis(sym, action, score):
             no_trade_log.append({"symbol": sym, "reason": f"Technical score {score} below qualification threshold (hysteresis: needs {ENTRY_SCORE_THRESHOLD} to enter, {EXIT_SCORE_THRESHOLD} to exit)"})
+            # Sep 8 2026: SHADOW MODE ONLY (see quality_engine.py/
+            # shadow_logger.py) -- logs an independent quality
+            # assessment for this same rejected candidate using
+            # whatever's already available at this point (tech +
+            # sector; OI isn't fetched here since this stock never
+            # passed the gate v3.0 requires before spending an OI call
+            # on it -- no new Fyers traffic added). Purely an observer;
+            # the continue below (v3.0's real decision) already happened.
+            _evaluate_and_log_shadow(
+                sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
+                v3_reason="Technical score below hysteresis threshold",
+            )
             continue
         
         atr = tech['atr']
@@ -1678,6 +1798,18 @@ def _build_all():
             ),
             **signal_extra,
         })
+
+        # Sep 8 2026: SHADOW MODE ONLY -- same as the hysteresis-fail
+        # hook above, but for a candidate that made it all the way to a
+        # real v3.0 signal, so the richer OI-informed evidence (oi,
+        # signal_extra) is available too. Still purely an observer --
+        # signals.append() above is v3.0's real, final decision; nothing
+        # here can alter it.
+        _evaluate_and_log_shadow(
+            sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+            v3_decision="SIGNAL", v3_score=score, v3_grade=grade, v3_reason=None,
+            oi=oi, signal_extra=signal_extra,
+        )
     
     signals.sort(key=lambda x: int(x['confidence'].replace('%', '')), reverse=True)
 
@@ -1743,6 +1875,11 @@ def _build_all():
                 check_positional_outcomes(get_quotes)
             except Exception as e:
                 print(f"[PositionalLog] Failed to check positional outcomes: {e}")
+            try:
+                from .shadow_logger import check_shadow_outcomes
+                check_shadow_outcomes(get_quotes)
+            except Exception as e:
+                print(f"[ShadowMode] Failed to check shadow outcomes: {e}")
     except Exception as e:
         print(f"[ExcelLog] sync failed: {e}")
 
