@@ -2800,21 +2800,32 @@ class DailyBacktestRangeReportView(APIView):
     compute_metrics()/write_pdf_report() pipeline (Strategy Scorecard,
     R-Multiple, Long vs Short, every section) the full daily-cycle PDF
     already uses, scoped to just the requested window.
-    GET /api/daily-backtest/range/report/?start=YYYY-MM-DD&end=YYYY-MM-DD
+
+    Sep 8 2026: extended with an optional ?index=NIFTY|BANKNIFTY param,
+    routing to the new run_range_index_report() for those two. Default
+    behavior (no index param) is UNCHANGED -- still the stock-signals
+    range PDF via run_range_report() -- so the existing Stock Signals
+    download link in DailyBacktestTab.jsx keeps working exactly as
+    before with zero changes needed on its end.
+    GET /api/daily-backtest/range/report/?start=YYYY-MM-DD&end=YYYY-MM-DD[&index=NIFTY|BANKNIFTY]
     """
     def get(self, request):
         from django.http import FileResponse, JsonResponse
-        from .daily_backtest import run_range_report
+        from .daily_backtest import run_range_report, run_range_index_report
         start = request.GET.get("start")
         end = request.GET.get("end")
+        index_name = request.GET.get("index", "").upper()
         if not start or not end:
             return Response({"error": "start and end query params (YYYY-MM-DD) are required"}, status=400)
+        if index_name and index_name not in ("NIFTY", "BANKNIFTY"):
+            return Response({"error": "index must be NIFTY or BANKNIFTY"}, status=400)
         try:
-            path = run_range_report(start, end)
+            path = run_range_index_report(index_name, start, end) if index_name else run_range_report(start, end)
         except ValueError as e:
             return Response({"error": str(e)}, status=400)
         if not path or not os.path.exists(path):
-            return JsonResponse({"error": f"No resolved stock trades between {start} and {end}."}, status=404)
+            label = f"{index_name} positional" if index_name else "stock"
+            return JsonResponse({"error": f"No resolved {label} trades between {start} and {end}."}, status=404)
         filename = os.path.basename(path)
         return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
 

@@ -460,6 +460,60 @@ def run_range_report(start_str, end_str):
     return _run_and_rename(write_pdf_report, trades, metrics, f"signal_pnl_stock_{start_str}_to_{end_str}.pdf")
 
 
+def run_range_index_report(index_name, start_str, end_str):
+    """
+    Sep 8 2026: the NIFTY/BANKNIFTY counterpart to run_range_report()
+    above -- same gap (a JSON preview existed, a downloadable PDF
+    didn't), same fix. run_range_backtest() already computes a JSON
+    preview for index positional trades in this exact date range (see
+    its NIFTY/BANKNIFTY loop above, including the margin-based
+    use_real_committed=False sizing already reasoned through there);
+    this reuses that identical generate_positional_trades() /
+    _filter_trades_by_range() / compute_capital_base() call shape,
+    then runs the result through the SAME compute_metrics()/
+    write_pdf_report() pipeline the stock range report already uses --
+    identical PDF sections (Strategy Scorecard, R-Multiple, Long vs
+    Short, etc.), just fed index positional trades instead of stock
+    signal trades.
+
+    index_name must be 'NIFTY' or 'BANKNIFTY' -- validated by the
+    caller (the API view), same contract this file uses elsewhere.
+    Raises ValueError for a bad date string. Returns None if there are
+    zero resolved index positional trades inside the requested range
+    -- genuinely common, since real flips are rare by design (this
+    project's own first real week: 1 NIFTY trade, 0 BANKNIFTY) --
+    caller should turn that into a 404, not a 500 or a fabricated
+    empty PDF.
+    """
+    try:
+        start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(end_str, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        raise ValueError("start/end must be YYYY-MM-DD")
+
+    from .backtest_index_positional import generate_positional_trades, DEFAULT_MARGIN_PER_LOT
+    from .backtest_signal_pnl import compute_capital_base, compute_metrics, write_pdf_report
+
+    all_trades, _ = generate_positional_trades(index_name)
+    trades = _filter_trades_by_range(all_trades, start_date, end_date)
+    if not trades:
+        return None
+
+    capital_base = compute_capital_base(
+        trades,
+        capital_per_trade=DEFAULT_MARGIN_PER_LOT.get(index_name, 200000),
+        use_real_committed=False,  # Aug 30 2026 reasoning, unchanged: margin-based futures, not premium-buying
+    )
+    metrics = compute_metrics(trades, capital_base)
+    if not metrics:
+        return None
+
+    return _run_and_rename(
+        write_pdf_report, trades, metrics,
+        f"signal_pnl_{index_name.lower()}_{start_str}_to_{end_str}.pdf",
+    )
+
+
 def run_daily_backtest_cycle_async(trigger="manual", backfill_days=7):
     """Fire-and-forget wrapper for the API-triggered 'Run Now' button --
     the full cycle can take a while (real Fyers history calls per
