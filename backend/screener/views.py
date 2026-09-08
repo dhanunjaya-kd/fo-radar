@@ -3116,6 +3116,7 @@ class CandleChartView(APIView):
             return Response({"error": f"History fetch failed: {e}"}, status=502)
 
         if not resp or resp.get("s") != "ok" or not resp.get("candles"):
+            print(f"[CandleChart] {fyers_symbol} history not ok, raw Fyers response: {resp}")
             return Response({
                 "error": "No real historical data available for this symbol right now.",
                 "symbol": sym,
