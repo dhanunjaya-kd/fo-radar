@@ -3147,13 +3147,30 @@ class CandleChartView(APIView):
 
         RANGE_DAYS = {"3M": 90, "6M": 182, "12M": 365}
         visible_days = RANGE_DAYS.get(range_param, 182)
-        lookback_days = visible_days + (365 * 4 if interval == "W" else 400)
 
-        range_to = datetime.now().date()
-        range_from = range_to - timedelta(days=lookback_days)
+        # Sep 8 2026: real bug, confirmed live against Fyers -- a single
+        # history request spanning more than 366 days for D/W/M
+        # resolutions is REJECTED outright ("code": -50, "Date range
+        # cannot exceed 366 days..."). The old single-call lookback
+        # (visible_days + up to 4 years of buffer) blew past that on
+        # every range, which is why every symbol/interval/range
+        # combination was 503ing, not just one. Fixed by splitting into
+        # TWO independent calls, each safely under 366 days on its own:
+        # the visible window itself (<=365 days by construction), plus
+        # one additional buffer call ending the day before it starts,
+        # for EMA200 warmup. The buffer call is best-effort -- if IT
+        # fails, the chart still renders off the visible-range call
+        # alone (less/no EMA200 warmup at the left edge), it doesn't
+        # fail the whole request over a nice-to-have.
+        visible_end_date = datetime.now().date()
+        visible_start_date = visible_end_date - timedelta(days=visible_days)
+        BUFFER_DAYS = 350  # comfortably under 366 on its own, for either D or W
+        buffer_end_date = visible_start_date - timedelta(days=1)
+        buffer_start_date = buffer_end_date - timedelta(days=BUFFER_DAYS)
+
         try:
             resp = get_history(fyers_symbol, resolution="D",
-                                range_from=str(range_from), range_to=str(range_to))
+                                range_from=str(visible_start_date), range_to=str(visible_end_date))
         except Exception as e:
             print(f"[CandleChart] {fyers_symbol} fetch failed: {e}")
             return Response({"error": f"History fetch failed: {e}"}, status=502)
@@ -3165,7 +3182,19 @@ class CandleChartView(APIView):
                 "symbol": sym,
             }, status=503)
 
-        raw = sorted(resp.get("candles", []), key=lambda c: c[0])
+        all_candles = list(resp.get("candles", []))
+
+        try:
+            buffer_resp = get_history(fyers_symbol, resolution="D",
+                                       range_from=str(buffer_start_date), range_to=str(buffer_end_date))
+            if buffer_resp and buffer_resp.get("s") == "ok" and buffer_resp.get("candles"):
+                all_candles.extend(buffer_resp["candles"])
+            else:
+                print(f"[CandleChart] {fyers_symbol} buffer history not ok (chart still renders, just less EMA200 warmup): {buffer_resp}")
+        except Exception as e:
+            print(f"[CandleChart] {fyers_symbol} buffer fetch failed (chart still renders): {e}")
+
+        raw = sorted(all_candles, key=lambda c: c[0])
         df = pd.DataFrame(
             [c[:6] for c in raw if len(c) >= 6],
             columns=["time", "open", "high", "low", "close", "volume"],
