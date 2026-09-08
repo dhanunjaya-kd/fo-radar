@@ -347,3 +347,116 @@ def get_today_shadow_signals(limit=200):
     except Exception as e:
         print(f"[ShadowLog] Failed to read today's log: {e}")
         return []
+
+
+def get_all_shadow_signals():
+    """
+    Reads EVERY day's shadow log found under LOG_DIR (each in its own
+    YYYY-MM-DD subfolder, same day-folder convention _today_path()
+    already uses), combined into one list -- for performance analysis
+    across accumulated history, not just today. Returns [] (never
+    raises) if nothing's been logged yet, or the directory doesn't
+    exist -- same "empty is not an error" convention as
+    get_today_shadow_signals().
+    """
+    if not OPENPYXL_AVAILABLE or not os.path.isdir(LOG_DIR):
+        return []
+    all_rows = []
+    for entry in sorted(os.listdir(LOG_DIR)):
+        day_dir = os.path.join(LOG_DIR, entry)
+        if not os.path.isdir(day_dir):
+            continue
+        path = os.path.join(day_dir, f"shadow_signals_{entry}.xlsx")
+        if not os.path.exists(path):
+            continue
+        try:
+            wb = load_workbook(path, read_only=True, data_only=True)
+            ws = wb["Shadow"]
+            headers = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
+            for raw in ws.iter_rows(min_row=2, values_only=True):
+                row = dict(zip(headers, raw))
+                ts = row.get("Timestamp")
+                row["Timestamp"] = str(ts) if ts is not None else None
+                all_rows.append(row)
+        except Exception as e:
+            print(f"[ShadowLog] Failed to read {path}: {e}")
+            continue
+    return all_rows
+
+
+def _eod_return_pct(row):
+    """
+    Real, direction-adjusted % move from Reference Price to Price EOD
+    (positive always means the candidate's own thesis -- BUY or SELL
+    -- was right by end of day, regardless of which side it was on).
+    None if EOD hasn't resolved yet for this row -- never estimated
+    from an earlier horizon as a stand-in.
+    """
+    ref = row.get("Reference Price")
+    eod = row.get("Price EOD")
+    action = row.get("Action")
+    if ref is None or eod is None or not action or ref == 0:
+        return None
+    direction = 1 if action == "BUY" else -1
+    return round((eod - ref) / ref * 100 * direction, 2)
+
+
+def compute_shadow_performance(rows, min_sample=20):
+    """
+    Spec sections 20/21, "Real Outcome Learning" / "Future Performance
+    Analysis" -- the actual question this whole shadow-mode project
+    exists to answer: does Agreement (AGREE/V3_ONLY/QUALITY_ONLY)
+    correlate with better REAL outcomes? Uses EOD-resolved,
+    direction-adjusted return (see _eod_return_pct()) as the outcome
+    metric -- the single cleanest "did this call work out today"
+    number, matching how a real trader reads a daily call.
+
+    Same sample-size-floor discipline as this project's own existing
+    backtest engine (backtest_signal_pnl.py's 20-trade floor) --
+    NEVER a hit-rate/return percentage below min_sample, always an
+    honest "Insufficient data (N=X)" label instead. This is a NEW,
+    purpose-built function rather than importing backtest_signal_pnl.py
+    directly -- that file's metrics expect real Rupee entry/SL/exit
+    trades, a genuinely different shape from a horizon-tracked %-move
+    shadow candidate; reusing this project's SAME discipline (sample
+    floor, honest labeling, direction-adjusted returns) was the right
+    reuse here, not its literal functions built for a different data shape.
+
+    Returns {'by_agreement', 'by_quality_grade', 'overall',
+    'total_resolved', 'total_logged'}.
+    """
+    resolved = []
+    for r in rows:
+        ret = _eod_return_pct(r)
+        if ret is not None:
+            resolved.append({**r, "_eod_return_pct": ret})
+
+    def _bucket_stats(bucket_rows):
+        n = len(bucket_rows)
+        if n < min_sample:
+            return {"sample_size": n, "label": f"Insufficient data (N={n})",
+                    "hit_rate": None, "avg_return_pct": None, "median_return_pct": None}
+        returns = sorted(r["_eod_return_pct"] for r in bucket_rows)
+        hits = sum(1 for r in returns if r > 0)
+        return {
+            "sample_size": n, "label": None,
+            "hit_rate": round(hits / n * 100, 1),
+            "avg_return_pct": round(sum(returns) / n, 2),
+            "median_return_pct": returns[n // 2],
+        }
+
+    by_agreement = {k: _bucket_stats([r for r in resolved if r.get("Agreement") == k])
+                     for k in ("AGREE", "V3_ONLY", "QUALITY_ONLY")}
+
+    grades_present = sorted({r.get("Quality Grade") for r in resolved}, key=lambda g: (g is None, g))
+    by_quality_grade = {(g or "No Grade (Ignore)"): _bucket_stats([r for r in resolved if r.get("Quality Grade") == g])
+                         for g in grades_present}
+
+    return {
+        "by_agreement": by_agreement,
+        "by_quality_grade": by_quality_grade,
+        "overall": _bucket_stats(resolved),
+        "total_resolved": len(resolved),
+        "total_logged": len(rows),
+    }
+

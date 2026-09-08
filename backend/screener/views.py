@@ -2842,6 +2842,30 @@ class ShadowSignalsView(APIView):
         })
 
 
+class ShadowPerformanceView(APIView):
+    """
+    Sep 8 2026: spec sections 20/21, "Real Outcome Learning" / "Future
+    Performance Analysis" -- THE actual question shadow mode exists to
+    answer: does Agreement (AGREE/V3_ONLY/QUALITY_ONLY) correlate with
+    better REAL outcomes? Reads across EVERY day's accumulated shadow
+    log (get_all_shadow_signals(), not just today), and runs
+    compute_shadow_performance() -- sample-size-gated (min 20 EOD-
+    resolved candidates per bucket, matching this project's own
+    established backtest-floor discipline), never a hit-rate/return
+    percentage shown below that floor.
+
+    On a fresh install with little/no accumulated history, every
+    bucket will honestly read "Insufficient data (N=X)" -- that's
+    correct, not a bug; the whole design intent of shadow mode is that
+    this view becomes meaningful only once real data has accumulated.
+    """
+    def get(self, request):
+        from .shadow_logger import get_all_shadow_signals, compute_shadow_performance
+        rows = get_all_shadow_signals()
+        performance = compute_shadow_performance(rows)
+        return Response(performance)
+
+
 class DataHealthView(APIView):
     """
     Aug 31 2026: Section 18 from the UI Corrections checklist -- Data
