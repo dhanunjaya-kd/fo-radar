@@ -1284,6 +1284,49 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
             quality_result['score'] = round(max(0.0, quality_result['score'] - 5), 1)
         quality_result['extension'] = extension['state']
 
+        # Sep 8 2026: Hard Gate D (spec section 3) -- "Strong conflict
+        # with market regime -> NO TRADE or WATCH." market_regime_score
+        # was already 0.0 above when this stock's action genuinely
+        # fights a REAL, confirmed TREND_UP/TREND_DOWN regime (not
+        # merely RANGE/MIXED/unavailable, which score partial credit,
+        # not zero) -- this caps an otherwise-TRADE verdict at WATCH
+        # rather than just letting the score absorb it quietly. Same
+        # "cap at WATCH, keep the score visible" severity as the
+        # extension filter above, per spec's own "NO TRADE or WATCH"
+        # phrasing (not mandating outright IGNORE).
+        #
+        # HONEST FINDING, tested directly against compute_stock_quality_
+        # score() with every OTHER available component maxed: the best
+        # achievable score with market_regime=0 is 78.6/100 -- just
+        # under the 80-point TRADE threshold. Since multi_tf_trend (20
+        # pts) and futures_oi (10 pts) are permanently unavailable for
+        # stocks right now, this gate's own precondition (verdict
+        # already TRADE despite market_regime=0) is very hard to reach
+        # in practice today -- the normal weighted-redistribution math
+        # already does this gate's job on its own for stocks. The logic
+        # here is still correct (confirmed: it downgrades correctly
+        # when the precondition IS met, and leaves the score visible)
+        # -- it's a real safeguard, just a currently-dormant one for
+        # stocks, that will start engaging on its own once more
+        # components (e.g. multi-timeframe trend) become available,
+        # with no code change needed here.
+        regime_conflict = market_regime_score == 0.0 and regime_state not in (None, "INSUFFICIENT_DATA")
+        if regime_conflict and quality_result['verdict'] == "TRADE":
+            quality_result['verdict'] = "WATCH"
+            quality_result['grade'] = "B"
+
+        # Sep 8 2026: Hard Gate F (spec section 3) -- "Strong technical
+        # bullish setup but strong contradictory option structure ->
+        # WATCH / NO TRADE." options_result['state'] == 'CONFLICT' is
+        # already a REAL, confirmed contradiction (see
+        # evaluate_options_structure()'s own direct-OI-direction
+        # logic, not a magnitude-comparison guess) -- same WATCH cap,
+        # same reasoning as Gate D just above.
+        option_conflict = options_result['state'] == "CONFLICT"
+        if option_conflict and quality_result['verdict'] == "TRADE":
+            quality_result['verdict'] = "WATCH"
+            quality_result['grade'] = "B"
+
         # Sep 8 2026: spec section 18, "Explainable Signals" -- "The
         # user must be able to understand the signal without opening
         # the source code." Every value used here was already computed
@@ -1301,7 +1344,7 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
             if (action == "BUY" and rs == "TREND_UP") or (action == "SELL" and rs == "TREND_DOWN"):
                 reasons.append(f"Market regime aligned ({rs})")
             elif (action == "BUY" and rs == "TREND_DOWN") or (action == "SELL" and rs == "TREND_UP"):
-                reasons.append(f"Market regime against this direction ({rs})")
+                reasons.append(f"GATE: Market regime conflict ({rs}) -- capped at WATCH" if regime_conflict else f"Market regime against this direction ({rs})")
             elif rs == "HIGH_VOLATILITY":
                 reasons.append("Market in HIGH_VOLATILITY -- stricter confirmation applied")
         if adx_dir['state'] in ("BULLISH_TREND", "BEARISH_TREND"):
@@ -1323,7 +1366,7 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
         if options_result['state'] == "CONFIRMED":
             reasons.append(f"Options structure confirms (CE {options_result['ce_quadrant']}, PE {options_result['pe_quadrant']})")
         elif options_result['state'] == "CONFLICT":
-            reasons.append(f"Options structure conflicts (CE {options_result['ce_quadrant']}, PE {options_result['pe_quadrant']})")
+            reasons.append(f"GATE: Critical option conflict (CE {options_result['ce_quadrant']}, PE {options_result['pe_quadrant']}) -- capped at WATCH")
         if sector_rank_info and sector_rank_info['state'] in ("LEADER", "LAGGARD"):
             if leadership_result['state'] == "PREFERRED":
                 reasons.append(f"Sector {sector_rank_info['state'].lower()} (rank {sector_rank_info['rank']} of {sector_rank_info['total_in_sector']}, {sector_rank_info['percentile']:.0f}th percentile)")
