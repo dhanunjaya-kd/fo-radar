@@ -34,6 +34,7 @@ export default function ShadowSignals() {
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all'); // 'all' | 'disagree'
   const [expandedKey, setExpandedKey] = useState(null);
+  const [performance, setPerformance] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -46,6 +47,23 @@ export default function ShadowSignals() {
     };
     load();
     const interval = setInterval(load, 60000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    // Sep 8 2026: spec sections 20/21 -- real accumulated-outcome
+    // performance, across every day logged so far (not just today).
+    // Slower cadence than the candidates list -- this changes only as
+    // EOD prices resolve, not every scan cycle.
+    const loadPerformance = () => {
+      fetch(`${API_BASE}/api/shadow-performance/`)
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error('HTTP ' + res.status))))
+        .then((json) => { if (mounted) setPerformance(json); })
+        .catch(() => {});
+    };
+    loadPerformance();
+    const interval = setInterval(loadPerformance, 300000);
     return () => { mounted = false; clearInterval(interval); };
   }, []);
 
@@ -87,6 +105,32 @@ export default function ShadowSignals() {
           <span className="text-slate-200 font-semibold">Shadow Mode</span> — v3.0's real decision vs. the new Quality Engine's independent assessment, side by side, for every candidate evaluated today. Purely observational: nothing here has ever changed a live signal.
         </p>
       </div>
+
+      {performance && (
+        <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-3">
+          <p className="text-xs text-slate-200 font-semibold mb-2">
+            Real Outcome Performance <span className="text-slate-500 font-normal">— EOD-resolved, across every day logged ({performance.total_resolved} of {performance.total_logged} candidates resolved)</span>
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {['AGREE', 'V3_ONLY', 'QUALITY_ONLY'].map((k) => {
+              const b = performance.by_agreement?.[k];
+              if (!b) return null;
+              return (
+                <div key={k} className={`rounded-lg border p-2.5 ${AGREEMENT_STYLES[k]}`}>
+                  <p className="text-[11px] font-semibold mb-1">{AGREEMENT_LABELS[k]}</p>
+                  {b.label ? (
+                    <p className="text-xs text-slate-500">{b.label}</p>
+                  ) : (
+                    <p className="text-xs">
+                      Hit rate <span className="font-bold">{b.hit_rate}%</span> · Avg <span className="font-bold">{b.avg_return_pct >= 0 ? '+' : ''}{b.avg_return_pct}%</span> · N={b.sample_size}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex gap-1.5">
