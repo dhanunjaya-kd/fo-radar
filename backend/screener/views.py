@@ -1064,6 +1064,52 @@ def _update_market_regime_cache():
         _current_market_regime["state"] = None
 
 
+# Sep 8 2026: SHADOW MODE ONLY -- {sector_name: {symbol: {'state',
+# 'rank', 'total_in_sector', 'percentile'}}}, computed ONCE per cycle
+# by _update_sector_rankings_cache() below, read per-stock in
+# _evaluate_and_log_shadow(). Same module-level-cache pattern as
+# _current_market_regime above -- grouping and ranking all 208 stocks
+# by sector once per cycle is real work; redoing it per-stock inside
+# the main loop would be 208x more of the same computation for
+# nothing new.
+_sector_rankings_cache = {}
+
+
+def _update_sector_rankings_cache():
+    """
+    Sep 8 2026: SHADOW MODE ONLY -- groups this cycle's _stock_cache by
+    sector and calls quality_engine.rank_sector_peers() once per
+    sector (spec section 12: "rank stocks within strong sectors...
+    SECTOR LEADERS / NEUTRAL / LAGGARDS"). Zero new Fyers calls --
+    change_percent is already sitting in _stock_cache from this same
+    cycle's own quote fetch. Called once per _build_all() cycle,
+    alongside _update_market_regime_cache(), never inside the per-
+    stock loop. Own try/except -- a ranking failure degrades to an
+    empty cache (every stock's lookup below then correctly reads as
+    unavailable), never raises into the live scan loop.
+    """
+    global _sector_rankings_cache
+    try:
+        from . import quality_engine as qe
+        with _cache_lock:
+            stocks_snapshot = dict(_stock_cache)
+
+        by_sector = {}
+        for sym, s in stocks_snapshot.items():
+            sector = s.get("sector")
+            chg = s.get("change_percent")
+            if sector and chg is not None:
+                by_sector.setdefault(sector, {})[sym] = chg
+
+        new_cache = {}
+        for sector, changes in by_sector.items():
+            new_cache[sector] = qe.rank_sector_peers(changes)
+        _sector_rankings_cache = new_cache
+    except Exception as e:
+        print(f"[SectorRanking] update failed (shadow mode unaffected): {e}")
+        _sector_rankings_cache = {}
+
+
 def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
                               v3_decision, v3_score, v3_grade, v3_reason, oi=None, signal_extra=None):
     """
@@ -1096,6 +1142,25 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
     try:
         from . import quality_engine as qe
 
+        # Sep 8 2026: HARD GATE, evaluated BEFORE scoring -- spec
+        # section 3/4, stated as plainly as anything in the whole
+        # document: "A high score must NOT compensate for a critical
+        # failure." evaluate_liquidity_gate() existed and was tested
+        # in isolation since early this session but was never actually
+        # wired to affect a verdict anywhere -- a real, genuine gap,
+        # fixed here. Stock-side only for now (avg_volume/current_volume
+        # -- both confirmed real at EVERY call site of this function);
+        # option-side liquidity (OI/spread/bid-ask) isn't checked here
+        # because the specific option leg isn't resolved yet at the
+        # earlier rejection points (hysteresis-fail, OI-conflict) --
+        # v3.0's own live spread gate already covers that leg-specific
+        # check later in the flow for candidates that get that far.
+        liquidity_result = qe.evaluate_liquidity_gate(
+            avg_volume=tech.get('volume_avg'), current_volume=stock.get('volume'),
+            option_oi=None, option_volume=None, bid=None, ask=None, ltp=None,
+        )
+        hard_gate_failures = liquidity_result['reasons']
+
         adx_dir = qe.classify_adx_direction(tech.get('adx'), tech.get('plus_di'), tech.get('minus_di'))
         price_above_vwap = (price > tech['vwap']) if tech.get('vwap') is not None else None
         rvol_result = qe.classify_rvol(stock.get('volume'), tech.get('volume_avg'))
@@ -1117,6 +1182,37 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
 
         sector_change_pct = sector_change_map.get(stock.get("sector"))
         sector_result = qe.evaluate_sector_alignment(action, stock.get('change_percent'), sector_change_pct, nifty_change_pct)
+
+        # Sep 8 2026: spec section 12's actual ranking requirement --
+        # "for bullish trades prefer leaders, for bearish trades
+        # prefer laggards" -- reads this stock's REAL rank against
+        # every other stock in its own sector this cycle (computed
+        # once for the whole sector by _update_sector_rankings_cache(),
+        # not re-derived here).
+        sector_rank_info = (_sector_rankings_cache.get(stock.get("sector")) or {}).get(sym)
+        leadership_result = qe.evaluate_sector_leadership(action, sector_rank_info['state'] if sector_rank_info else None)
+
+        def _combined_sector_score(base_state, leadership_state):
+            """Leadership REFINES a real alignment read, never rescues
+            a genuine CONFLICT (market+sector both disagree) -- and
+            when base alignment itself is unavailable but leadership
+            IS real, scores off leadership alone rather than
+            discarding a real signal just because a different one was
+            missing."""
+            if base_state == "CONFLICT":
+                return 0.0
+            if base_state == "INSUFFICIENT_DATA":
+                if leadership_state == "INSUFFICIENT_DATA":
+                    return None
+                return {"PREFERRED": 5 * 0.7, "ACCEPTABLE": 5 * 0.4, "AVOID": 5 * 0.1}.get(leadership_state)
+            base = 5.0 if base_state == "ALIGNED" else 5 * 0.3  # NEUTRAL
+            if leadership_state == "PREFERRED":
+                return min(5.0, base + 5 * 0.4)
+            if leadership_state == "AVOID":
+                return max(0.0, base - 5 * 0.4)
+            return base
+
+        sector_score = _combined_sector_score(sector_result['state'], leadership_result['state'])
 
         options_result = {"state": "INSUFFICIENT_DATA"}
         if oi and signal_extra:
@@ -1171,9 +1267,9 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
             "momentum": _sub_score(rsi_regime['state'], 10, ("BULLISH_CONTINUATION", "BEARISH_CONTINUATION")),
             "futures_oi": None,  # stock-level futures OI not confirmed available -- honestly unavailable
             "options_confirmation": _sub_score(options_result['state'], 10, ("CONFIRMED",)),
-            "sector_alignment": _sub_score(sector_result['state'], 5, ("ALIGNED",)),
+            "sector_alignment": sector_score,
         }
-        quality_result = qe.compute_stock_quality_score(evidence)
+        quality_result = qe.compute_stock_quality_score(evidence, hard_gate_failures=hard_gate_failures)
 
         # Extension filter (spec section 16) -- a SEPARATE modifier, not
         # one of the 8 weighted components above. Spec: highly extended
@@ -1254,6 +1350,7 @@ def _build_all():
     # now that both _index_cache and _stock_cache are populated for
     # this cycle. See _update_market_regime_cache()'s own docstring.
     _update_market_regime_cache()
+    _update_sector_rankings_cache()
 
     # 3. PCR -- this used to be declines/advances among the scanned stock
     # universe (an advance-decline ratio, a completely different market

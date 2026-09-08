@@ -404,7 +404,7 @@ _BASE_WEIGHTS = {
 }
 
 
-def compute_stock_quality_score(evidence):
+def compute_stock_quality_score(evidence, hard_gate_failures=None):
     """
     Aggregates every component above into one transparent 0-100 score.
     `evidence` is a dict with keys matching _BASE_WEIGHTS; each value is
@@ -421,18 +421,34 @@ def compute_stock_quality_score(evidence):
     disclosed methodology choice, not a hidden one -- 'weights_used' in
     the return value shows exactly what was actually applied.
 
+    hard_gate_failures: Sep 8 2026 addition -- optional list of reason
+    strings from hard gates evaluated BEFORE scoring (typically
+    evaluate_liquidity_gate()'s own 'reasons' list). Spec section 3,
+    stated as plainly as anything in the whole document: "Hard gates
+    must be evaluated BEFORE the score. A high score must NOT
+    compensate for a critical failure." When non-empty, verdict is
+    FORCED to IGNORE regardless of the computed score -- the score
+    itself is still computed and returned (useful for comparison: "how
+    good would this have looked if liquidity weren't a problem"), but
+    it can never override a real gate failure. This was a real,
+    genuine gap until this change: evaluate_liquidity_gate() existed
+    and was tested in isolation but was never actually wired to affect
+    a verdict anywhere.
+
     Grade bands exactly as specified: A+ 90-100, A 80-89, B/WATCH 70-79,
     IGNORE <70.
 
     Returns {'score', 'grade', 'verdict', 'weights_used',
-    'components_scored', 'components_unavailable'}.
+    'components_scored', 'components_unavailable', 'hard_gate_failures'}.
     """
+    hard_gate_failures = hard_gate_failures or []
     available = {k: v for k, v in evidence.items() if v is not None and k in _BASE_WEIGHTS}
     missing = [k for k in _BASE_WEIGHTS if k not in available]
 
     if not available:
         return {"score": None, "grade": None, "verdict": "IGNORE",
-                "weights_used": {}, "components_scored": [], "components_unavailable": missing}
+                "weights_used": {}, "components_scored": [], "components_unavailable": missing,
+                "hard_gate_failures": hard_gate_failures}
 
     base_total_available = sum(_BASE_WEIGHTS[k] for k in available)
     full_total = sum(_BASE_WEIGHTS.values())
@@ -456,11 +472,19 @@ def compute_stock_quality_score(evidence):
     else:
         grade, verdict = None, "IGNORE"
 
+    if hard_gate_failures:
+        # The literal spec requirement -- score/grade are left visible
+        # above for comparison, but the verdict itself cannot be
+        # rescued by a good score once a real hard gate has failed.
+        verdict = "IGNORE"
+        grade = None
+
     return {
         "score": score, "grade": grade, "verdict": verdict,
         "weights_used": weights_used,
         "components_scored": list(available.keys()),
         "components_unavailable": missing,
+        "hard_gate_failures": hard_gate_failures,
     }
 
 
@@ -527,7 +551,7 @@ def evaluate_index_vix(index_direction, vix_change_pct):
     return {"state": "NEUTRAL"}
 
 
-def compute_index_quality_score(evidence):
+def compute_index_quality_score(evidence, hard_gate_failures=None):
     """
     Aggregates the 5 index evidence groups (spec section 13). Same
     disclosed-redistribution methodology as compute_stock_quality_score()
@@ -539,6 +563,14 @@ def compute_index_quality_score(evidence):
 
     `evidence` keys match _INDEX_WEIGHTS; each value is a sub-score in
     [0, that component's max weight], or None if unavailable.
+
+    hard_gate_failures: same mechanism as compute_stock_quality_score()
+    -- optional list of reason strings; when non-empty, forces verdict
+    to IGNORE regardless of score. No index-specific hard gate is
+    wired to this yet (nothing calls this with a real list currently),
+    added now for interface consistency with the stock engine so a
+    future index liquidity/data-quality gate has somewhere real to
+    plug into rather than needing this signature changed later.
 
     Output states per spec: BULLISH/BEARISH/MIXED/RANGE/HIGH_VOLATILITY
     determined by the caller from price_structure/regime context (this
@@ -554,12 +586,14 @@ def compute_index_quality_score(evidence):
     reach 4/5 by only being judged against the 3 it has).
 
     Returns {'score', 'grade', 'verdict', 'confirmations_count',
-    'weights_used', 'components_scored', 'components_unavailable'}.
-    Grade bands identical to the stock engine (A+ 90-100, A 80-89,
-    B/WATCH 70-79, IGNORE <70) -- verdict TRADE/WATCH/IGNORE, same as
-    the stock engine; the caller maps TRADE to BUY CE/BUY PE using the
-    direction it already knows (this function doesn't guess a side).
+    'weights_used', 'components_scored', 'components_unavailable',
+    'hard_gate_failures'}. Grade bands identical to the stock engine
+    (A+ 90-100, A 80-89, B/WATCH 70-79, IGNORE <70) -- verdict
+    TRADE/WATCH/IGNORE, same as the stock engine; the caller maps
+    TRADE to BUY CE/BUY PE using the direction it already knows (this
+    function doesn't guess a side).
     """
+    hard_gate_failures = hard_gate_failures or []
     available = {k: v for k, v in evidence.items() if v is not None and k in _INDEX_WEIGHTS}
     missing = [k for k in _INDEX_WEIGHTS if k not in available]
 
@@ -570,7 +604,8 @@ def compute_index_quality_score(evidence):
 
     if not available:
         return {"score": None, "grade": None, "verdict": "IGNORE", "confirmations_count": 0,
-                "weights_used": {}, "components_scored": [], "components_unavailable": missing}
+                "weights_used": {}, "components_scored": [], "components_unavailable": missing,
+                "hard_gate_failures": hard_gate_failures}
 
     base_total_available = sum(_INDEX_WEIGHTS[k] for k in available)
     full_total = sum(_INDEX_WEIGHTS.values())
@@ -599,12 +634,17 @@ def compute_index_quality_score(evidence):
     if verdict == "TRADE" and confirmations_count < 4:
         verdict = "WATCH"
 
+    if hard_gate_failures:
+        verdict = "IGNORE"
+        grade = None
+
     return {
         "score": score, "grade": grade, "verdict": verdict,
         "confirmations_count": confirmations_count,
         "weights_used": weights_used,
         "components_scored": list(available.keys()),
         "components_unavailable": missing,
+        "hard_gate_failures": hard_gate_failures,
     }
 
 
@@ -689,3 +729,90 @@ def classify_market_regime(adx_state, price_structure_state, price_above_vwap, p
 
     dominant, other = (bullish, bearish) if len(bullish) >= len(bearish) else (bearish, bullish)
     return {"state": "MIXED", "aligned_factors": dominant, "conflicting_factors": other}
+
+
+# =============================================================================
+# 12. SECTOR LEADER/LAGGARD RANKING  (spec section 12) -- "rank stocks
+#     within strong sectors... for bullish trades prefer leaders, for
+#     bearish trades prefer laggards"
+# =============================================================================
+
+def rank_sector_peers(sector_stocks_change_pcts, leader_pct=0.3, laggard_pct=0.3):
+    """
+    Ranks EVERY stock in one sector by today's change_percent,
+    independent of any specific trade's direction -- spec: "Rank
+    stocks within strong sectors... Identify: SECTOR LEADERS / SECTOR
+    NEUTRAL / SECTOR LAGGARDS." The direction-specific "prefer leaders
+    for bullish, laggards for bearish" judgment is applied separately
+    by evaluate_sector_leadership() below -- this function only
+    produces the objective, direction-agnostic ranking.
+
+    sector_stocks_change_pcts: {symbol: change_percent} for every
+    stock in ONE sector this cycle (the caller groups by sector; this
+    function doesn't know or care what the sector is called).
+
+    Requires >=3 stocks to produce a meaningful ranking -- a "top 30%"
+    of 2 stocks isn't real leadership, it's just "the one that's up
+    more." Fewer than that, every stock gets INSUFFICIENT_DATA rather
+    than a rank that would look precise but isn't meaningful.
+
+    leader_pct/laggard_pct=0.3 (top/bottom 30% by change_percent) are
+    configurable defaults, not claimed-optimal, same as every other
+    threshold in this file.
+
+    Returns {symbol: {'state', 'rank', 'total_in_sector', 'percentile'}}
+    for every symbol given. state in: LEADER, NEUTRAL, LAGGARD,
+    INSUFFICIENT_DATA. rank=1 means the single biggest gainer in the
+    sector today (highest change_percent), regardless of whether
+    that's ultimately useful for a BUY or a SELL -- direction is
+    applied downstream, not baked into the rank number itself.
+    """
+    total = len(sector_stocks_change_pcts)
+    if total < 3:
+        return {sym: {"state": "INSUFFICIENT_DATA", "rank": None, "total_in_sector": total, "percentile": None}
+                for sym in sector_stocks_change_pcts}
+
+    ranked = sorted(sector_stocks_change_pcts.items(), key=lambda kv: kv[1], reverse=True)
+    leader_cutoff = max(1, round(total * leader_pct))
+    laggard_cutoff = max(1, round(total * laggard_pct))
+
+    result = {}
+    for i, (sym, _chg) in enumerate(ranked):
+        rank = i + 1
+        percentile = round((total - rank) / (total - 1) * 100, 1) if total > 1 else 50.0
+        if rank <= leader_cutoff:
+            state = "LEADER"
+        elif rank > total - laggard_cutoff:
+            state = "LAGGARD"
+        else:
+            state = "NEUTRAL"
+        result[sym] = {"state": state, "rank": rank, "total_in_sector": total, "percentile": percentile}
+    return result
+
+
+def evaluate_sector_leadership(action, sector_rank_state):
+    """
+    Direction-aware read of ONE stock's already-computed sector rank
+    (from rank_sector_peers() above) -- spec's exact wording: "For
+    bullish trades prefer leaders. For bearish trades prefer
+    laggards." A LAGGARD is the strongest bearish candidate (already
+    showing the most relative weakness in its own sector today), same
+    logic mirrored for a LEADER on the bullish side.
+
+    Returns {'state'}. state in: PREFERRED, ACCEPTABLE, AVOID, INSUFFICIENT_DATA.
+    """
+    if sector_rank_state is None or sector_rank_state == "INSUFFICIENT_DATA":
+        return {"state": "INSUFFICIENT_DATA"}
+
+    if action == "BUY":
+        if sector_rank_state == "LEADER":
+            return {"state": "PREFERRED"}
+        if sector_rank_state == "LAGGARD":
+            return {"state": "AVOID"}
+        return {"state": "ACCEPTABLE"}
+    else:
+        if sector_rank_state == "LAGGARD":
+            return {"state": "PREFERRED"}
+        if sector_rank_state == "LEADER":
+            return {"state": "AVOID"}
+        return {"state": "ACCEPTABLE"}
