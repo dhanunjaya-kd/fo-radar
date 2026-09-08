@@ -19,6 +19,8 @@ import SettingsPanel from './components/SettingsPanel';
 import StrategyBacktest from './components/StrategyBacktest';
 import CASRadar from './components/CASRadar';
 
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
 const IconBell = ({ size = 16 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
 );
@@ -27,6 +29,9 @@ const IconBellOff = ({ size = 16 }) => (
 );
 const IconMaximize = ({ size = 17 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+);
+const IconLogOut = ({ size = 16 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
 );
 
 const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'crude', 'bullion', 'nextday', 'backtest', 'settings', 'strategy'];
@@ -66,6 +71,28 @@ function AppShell() {
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
+  };
+
+  // Sep 8 2026: real disconnect, not a UI-only toggle -- clears this
+  // app's own saved Fyers token via FyersDisconnectView, so every live
+  // feature honestly stops working right after. This can't flip Fyers'
+  // own dashboard to "Not Connected" (no such API is exposed) and
+  // there's no matching "connect" button anywhere in this app --
+  // reconnecting still means running get_fyers_token.py, same as today.
+  const [disconnecting, setDisconnecting] = useState(false);
+  const disconnectFyers = async () => {
+    if (!window.confirm('This disconnects Fyers and stops all live data across the app until you re-run get_fyers_token.py. Continue?')) return;
+    setDisconnecting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/fyers-disconnect/`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error || `HTTP ${res.status}`);
+      alert('Disconnected. Run get_fyers_token.py to reconnect.');
+    } catch (err) {
+      alert(`Disconnect failed: ${err.message}`);
+    } finally {
+      setDisconnecting(false);
+    }
   };
 
   useEffect(() => {
@@ -154,6 +181,15 @@ function AppShell() {
             {alertsEnabled ? <IconBell size={16} /> : <IconBellOff size={16} />}
           </button>
           <button onClick={toggleFullscreen} title="Toggle fullscreen" aria-label="Toggle fullscreen" className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-700/50 bg-slate-900/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"><IconMaximize size={16} /></button>
+          <button
+            onClick={disconnectFyers}
+            disabled={disconnecting}
+            title="Disconnect Fyers"
+            aria-label="Disconnect Fyers"
+            className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${disconnecting ? 'text-slate-500 bg-slate-800 border-slate-700 cursor-wait' : 'text-rose-400 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20'}`}
+          >
+            <IconLogOut size={16} />
+          </button>
         </div>
       </div>
 
