@@ -1825,7 +1825,7 @@ def _pos_neg_hex(value):
     return "#F3F4F6", "#374151"
 
 
-def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE, excluded_count=0, rule_resolved_metrics=None):
+def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE, excluded_count=0, rule_resolved_metrics=None, is_index=False, index_name=None):
     """
     Builds the full PDF report -- styled toward the TradeTron reference
     he shared: smooth gradient-filled equity curve, a red underwater/
@@ -1851,6 +1851,25 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
 
     Saved to signal_logs/backtest_reports/signal_pnl_backtest_<today>.pdf.
     Returns the path, or None if there's nothing to report yet.
+
+    Sep 8 2026: is_index/index_name -- this engine was already reused
+    for NIFTY/BANKNIFTY positional trades (see backtest_index_positional.py's
+    own docstring: trades are mapped into this exact same dict shape
+    specifically to reuse this "already thoroughly tested" pipeline).
+    That worked, but 3 sections (Score Bucket Calibration, Blended vs.
+    Rule-Resolved Only, Performance by Segment) are Grade/Sector/OI-
+    Confirmation/Confidence concepts an index positional trade doesn't
+    carry (see _build_trade() there: grade/sector/oi_confirmation are
+    always None) -- they rendered as permanent "N/A" or a single
+    meaningless 100%-of-total row, never anything else, for every index
+    report. is_index=True skips exactly those 3 sections (verified they
+    can NEVER show real content for index trades, not just "usually
+    empty") and swaps the title/header wording; everything else --
+    Equity Curve, Drawdown, R-Multiple, Long vs Short, Time-of-Day,
+    Exit Analysis, Streaks, Monte Carlo robustness, Worst Drawdowns,
+    Monthly/Daily P&L, Trade Log -- is equally real for both trade
+    types and stays identical either way. Default is_index=False is
+    byte-for-byte the same code path as before this change.
     """
     import tempfile
     from reportlab.lib.pagesizes import A4
@@ -1905,12 +1924,20 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         story = []
 
         # ---- Header banner ----
+        # Sep 8 2026: title and the "rules {STRATEGY_RULE_VERSION}" tag
+        # are conditional -- that version marker is explicitly about
+        # views.py's stock scoring engine (see STRATEGY_RULE_VERSION's
+        # own docstring), which an index positional report isn't
+        # governed by at all; showing it there would misleadingly imply
+        # a rule version that doesn't apply to this trade type.
+        report_title = f"F&O Sniper -- {index_name or 'Index'} Positional Backtest" if is_index else "F&O Sniper -- Signal P&L Backtest"
+        rule_tag = "" if is_index else f"  |  rules {STRATEGY_RULE_VERSION}"
         header_tbl = Table(
-            [[Paragraph(_esc("F&O Sniper -- Signal P&L Backtest"), h1)],
+            [[Paragraph(_esc(report_title), h1)],
              [Paragraph(_esc(f"Capital base Rs {metrics['capital_base']:,.0f}  |  {metrics['total_trades']} resolved trades "
                         f"({metrics['wins']}W / {metrics['losses']}L / {metrics['flats']} flat)  |  "
-                        f"{metrics['total_days_span']} day span  |  generated {today}  |  "
-                        f"rules {STRATEGY_RULE_VERSION}"), sub)]],
+                        f"{metrics['total_days_span']} day span  |  generated {today}"
+                        f"{rule_tag}"), sub)]],
             colWidths=[180 * mm],
         )
         header_tbl.setStyle(TableStyle([
@@ -2537,95 +2564,100 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
             story.append(ttt_table)
         story.append(Spacer(1, 5 * mm))
 
-        # Sep 2 2026: "until score buckets are calibrated against
-        # forward outcomes, the score is a ranking/qualification
-        # measure, not a probability" -- the central point of both V2
-        # review documents. Bucketed on REAL logged Confidence, no
-        # reconstruction.
-        story.append(Paragraph(_esc("Score Bucket Calibration"), h2))
-        story.append(Paragraph(_esc(
-            "Whether the score actually predicts outcomes, or just ranks candidates. Target-before-SL rate/R "
-            "figures use rule-resolved trades only within each bucket (an EOD mark isn't evidence the score "
-            "predicted anything). A monotonic climb from low buckets to high supports treating the score as "
-            "meaningful; a flat or inconsistent pattern means it currently doesn't, regardless of what any "
-            "single bucket's number looks like in isolation."), caption))
-        calib = metrics.get("score_bucket_calibration") or []
-        if not calib:
-            story.append(Paragraph(_esc("N/A -- no trade in this backtest has a real logged Confidence value to bucket by."), warn))
-        else:
-            calib_rows = [["Score Bucket", "Sample (rule-resolved)", "Target-before-SL Rate", "Avg R", "Median R"]]
-            any_small = False
-            for b in calib:
-                flag = " ⚠" if b["small_sample"] else ""
-                any_small = any_small or b["small_sample"]
-                calib_rows.append([
-                    b["bucket"], f"{b['rule_resolved_count']}{flag}",
-                    na(b["target_before_sl_rate_pct"], "%"), na(b["avg_r"]), na(b["median_r"]),
-                ])
-            calib_table = Table(calib_rows, colWidths=[28 * mm, 40 * mm, 40 * mm, 26 * mm, 26 * mm], repeatRows=1)
-            calib_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
-                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-                ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ]))
-            story.append(calib_table)
-            if any_small:
-                story.append(Spacer(1, 2 * mm))
-                story.append(Paragraph(_esc(
-                    "⚠ = below the 20-trade floor this project uses everywhere else -- treat that bucket's row as a first look, not a verified figure."), warn))
-        story.append(Spacer(1, 5 * mm))
-
-
-        # EOD/manual exits together with genuine SL/Target resolutions
-        # -- verified directly against compute_metrics(), which has no
-        # exit-category filter at all. This makes that blend explicit
-        # by showing the same metrics recomputed on ONLY the rule-
-        # resolved subset, same capital_base so Net P&L/Return% stay
-        # on the same real capital footprint -- the sample size is the
-        # only thing that differs between the two columns.
-        story.append(Paragraph(_esc("Blended vs. Rule-Resolved Only"), h2))
-        story.append(Paragraph(_esc(
-            "The Scorecard above includes every exit type, EOD/manual marks included. This isolates ONLY trades "
-            "that hit a real SL or Target, to show whether the entry/exit rules themselves have an edge, separate "
-            "from how many positions just ran out of trading day."), caption))
-
-        if rule_resolved_metrics is None:
+        # Sep 8 2026: skipped entirely for index positional reports --
+        # Grade/Sector/OI-Confirmation/Confidence/rule-vs-EOD framing are
+        # stock-signal concepts with no equivalent for a single-instrument
+        # futures positional trade (see write_pdf_report docstring, is_index).
+        if not is_index:
+            # Sep 2 2026: "until score buckets are calibrated against
+            # forward outcomes, the score is a ranking/qualification
+            # measure, not a probability" -- the central point of both V2
+            # review documents. Bucketed on REAL logged Confidence, no
+            # reconstruction.
+            story.append(Paragraph(_esc("Score Bucket Calibration"), h2))
             story.append(Paragraph(_esc(
-                "N/A -- no trades hit a real SL or Target in this period (every resolved trade was an EOD/manual mark)."), warn))
-        else:
-            rrm = rule_resolved_metrics
-            cmp_rows = [
-                ["", "All Trades (Blended)", "Rule-Resolved Only"],
-                ["Trades", str(metrics["total_trades"]), str(rrm["total_trades"])],
-                ["Win Rate", f"{metrics['win_rate_pct']}%", f"{rrm['win_rate_pct']}%"],
-                ["Profit Factor", na(metrics["profit_factor"]), na(rrm["profit_factor"])],
-                ["Expectancy/Trade (Rs)", rs(metrics["expectancy"]), rs(rrm["expectancy"])],
-                ["Net P&L (Rs)", rs(metrics["net_pnl"]), rs(rrm["net_pnl"])],
-            ]
-            cmp_table = Table(cmp_rows, colWidths=[50 * mm, 65 * mm, 65 * mm], repeatRows=1)
-            cmp_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
-                ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-                ("LEFTPADDING", (0, 0), (-1, -1), 8),
-            ]))
-            story.append(cmp_table)
-            story.append(Spacer(1, 3 * mm))
-            if rrm["total_trades"] < 20:
+                "Whether the score actually predicts outcomes, or just ranks candidates. Target-before-SL rate/R "
+                "figures use rule-resolved trades only within each bucket (an EOD mark isn't evidence the score "
+                "predicted anything). A monotonic climb from low buckets to high supports treating the score as "
+                "meaningful; a flat or inconsistent pattern means it currently doesn't, regardless of what any "
+                "single bucket's number looks like in isolation."), caption))
+            calib = metrics.get("score_bucket_calibration") or []
+            if not calib:
+                story.append(Paragraph(_esc("N/A -- no trade in this backtest has a real logged Confidence value to bucket by."), warn))
+            else:
+                calib_rows = [["Score Bucket", "Sample (rule-resolved)", "Target-before-SL Rate", "Avg R", "Median R"]]
+                any_small = False
+                for b in calib:
+                    flag = " ⚠" if b["small_sample"] else ""
+                    any_small = any_small or b["small_sample"]
+                    calib_rows.append([
+                        b["bucket"], f"{b['rule_resolved_count']}{flag}",
+                        na(b["target_before_sl_rate_pct"], "%"), na(b["avg_r"]), na(b["median_r"]),
+                    ])
+                calib_table = Table(calib_rows, colWidths=[28 * mm, 40 * mm, 40 * mm, 26 * mm, 26 * mm], repeatRows=1)
+                calib_table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ]))
+                story.append(calib_table)
+                if any_small:
+                    story.append(Spacer(1, 2 * mm))
+                    story.append(Paragraph(_esc(
+                        "⚠ = below the 20-trade floor this project uses everywhere else -- treat that bucket's row as a first look, not a verified figure."), warn))
+            story.append(Spacer(1, 5 * mm))
+
+
+            # EOD/manual exits together with genuine SL/Target resolutions
+            # -- verified directly against compute_metrics(), which has no
+            # exit-category filter at all. This makes that blend explicit
+            # by showing the same metrics recomputed on ONLY the rule-
+            # resolved subset, same capital_base so Net P&L/Return% stay
+            # on the same real capital footprint -- the sample size is the
+            # only thing that differs between the two columns.
+            story.append(Paragraph(_esc("Blended vs. Rule-Resolved Only"), h2))
+            story.append(Paragraph(_esc(
+                "The Scorecard above includes every exit type, EOD/manual marks included. This isolates ONLY trades "
+                "that hit a real SL or Target, to show whether the entry/exit rules themselves have an edge, separate "
+                "from how many positions just ran out of trading day."), caption))
+
+            if rule_resolved_metrics is None:
                 story.append(Paragraph(_esc(
-                    f"⚠ Only {rrm['total_trades']} rule-resolved trades -- below the 20-trade floor this project "
-                    f"uses everywhere else. Treat the Rule-Resolved column as a first look, not a verified edge."), warn))
-        story.append(Spacer(1, 5 * mm))
+                    "N/A -- no trades hit a real SL or Target in this period (every resolved trade was an EOD/manual mark)."), warn))
+            else:
+                rrm = rule_resolved_metrics
+                cmp_rows = [
+                    ["", "All Trades (Blended)", "Rule-Resolved Only"],
+                    ["Trades", str(metrics["total_trades"]), str(rrm["total_trades"])],
+                    ["Win Rate", f"{metrics['win_rate_pct']}%", f"{rrm['win_rate_pct']}%"],
+                    ["Profit Factor", na(metrics["profit_factor"]), na(rrm["profit_factor"])],
+                    ["Expectancy/Trade (Rs)", rs(metrics["expectancy"]), rs(rrm["expectancy"])],
+                    ["Net P&L (Rs)", rs(metrics["net_pnl"]), rs(rrm["net_pnl"])],
+                ]
+                cmp_table = Table(cmp_rows, colWidths=[50 * mm, 65 * mm, 65 * mm], repeatRows=1)
+                cmp_table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [rl_colors.white, rl_colors.HexColor("#F9FAFB")]),
+                    ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ]))
+                story.append(cmp_table)
+                story.append(Spacer(1, 3 * mm))
+                if rrm["total_trades"] < 20:
+                    story.append(Paragraph(_esc(
+                        f"⚠ Only {rrm['total_trades']} rule-resolved trades -- below the 20-trade floor this project "
+                        f"uses everywhere else. Treat the Rule-Resolved column as a first look, not a verified edge."), warn))
+            story.append(Spacer(1, 5 * mm))
 
         story.append(PageBreak())
 
@@ -2756,78 +2788,83 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
 
         story.append(PageBreak())
 
-        # ---- Performance by Segment -- the real answer to "why does
-        # the overall number look the way it does." Shows whether
-        # losses are concentrated in one Grade/Sector/OI-state/Pattern
-        # or genuinely spread evenly, using real data rather than a
-        # guess about what to fix. ----
-        story.append(Paragraph(_esc("Performance by Segment"), h2))
-        story.append(Paragraph(_esc(
-            "The same trades, split by Grade, Sector, OI Confirmation, and Pattern -- shows WHERE performance is "
-            "concentrated instead of one blended number. Sample column, fixed disclosed thresholds: under 10 "
-            "trades is Low (do not optimize on it), 10-29 is Preliminary, 30+ is More reliable -- still not proof. "
-            "Never treat a tiny 100% segment as stronger evidence than a large one just because the percentage "
-            "looks better."), caption))
+        # Sep 8 2026: skipped entirely for index positional reports --
+        # Grade/Sector/OI-Confirmation/Confidence/rule-vs-EOD framing are
+        # stock-signal concepts with no equivalent for a single-instrument
+        # futures positional trade (see write_pdf_report docstring, is_index).
+        if not is_index:
+            # ---- Performance by Segment -- the real answer to "why does
+            # the overall number look the way it does." Shows whether
+            # losses are concentrated in one Grade/Sector/OI-state/Pattern
+            # or genuinely spread evenly, using real data rather than a
+            # guess about what to fix. ----
+            story.append(Paragraph(_esc("Performance by Segment"), h2))
+            story.append(Paragraph(_esc(
+                "The same trades, split by Grade, Sector, OI Confirmation, and Pattern -- shows WHERE performance is "
+                "concentrated instead of one blended number. Sample column, fixed disclosed thresholds: under 10 "
+                "trades is Low (do not optimize on it), 10-29 is Preliminary, 30+ is More reliable -- still not proof. "
+                "Never treat a tiny 100% segment as stronger evidence than a large one just because the percentage "
+                "looks better."), caption))
 
-        key_findings = generate_key_findings(trades)
-        if key_findings:
-            findings_style = ParagraphStyle("finding", fontName="Helvetica", fontSize=9, textColor=rl_colors.HexColor("#1E3A8A"), leading=13, spaceAfter=4)
-            finding_rows = [[Paragraph(_esc(f"\u2022 {f}"), findings_style)] for f in key_findings]
-            findings_table = Table(finding_rows, colWidths=[180 * mm])
-            findings_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#EFF6FF")),
-                ("BOX", (0, 0), (-1, -1), 1, rl_colors.HexColor("#BFDBFE")),
-                ("LEFTPADDING", (0, 0), (-1, -1), 10), ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ]))
-            story.append(Spacer(1, 2 * mm))
-            story.append(findings_table)
-        story.append(Spacer(1, 4 * mm))
-
-        def _segment_table(title, rows, max_rows=None):
-            story.append(Paragraph(_esc(title), ParagraphStyle("seg_h3", fontName="Helvetica-Bold", fontSize=10, textColor=rl_colors.HexColor("#374151"), spaceBefore=8, spaceAfter=3)))
-            if not rows:
-                story.append(Paragraph(_esc("No data."), caption))
-                return
-            shown = rows[:max_rows] if max_rows else rows
-            table_rows = [["Segment", "Trades", "Sample", "Win Rate", "Net P&L (Rs)", "Profit Factor"]]
-            for r in shown:
-                table_rows.append([
-                    str(r["segment"]), str(r["count"]), sample_size_label(r["count"]), f"{r['win_rate_pct']}%",
-                    f"{r['net_pnl']:,.0f}", na(r["profit_factor"]),
-                ])
-            t = Table(table_rows, colWidths=[40*mm, 16*mm, 22*mm, 18*mm, 34*mm, 24*mm])
-            style_cmds = [
-                ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
-            ]
-            sample_colors = {"Low": "#DC2626", "Preliminary": "#D97706", "Reliable": "#16A34A"}
-            for i, r in enumerate(shown, start=1):
-                bg = "#DCFCE7" if r["net_pnl"] > 0 else ("#FEE2E2" if r["net_pnl"] < 0 else "#F3F4F6")
-                style_cmds.append(("BACKGROUND", (4, i), (4, i), rl_colors.HexColor(bg)))
-                label = sample_size_label(r["count"])
-                style_cmds.append(("TEXTCOLOR", (2, i), (2, i), rl_colors.HexColor(sample_colors[label])))
-                style_cmds.append(("FONTNAME", (2, i), (2, i), "Helvetica-Bold"))
-            t.setStyle(TableStyle(style_cmds))
-            story.append(t)
+            key_findings = generate_key_findings(trades)
+            if key_findings:
+                findings_style = ParagraphStyle("finding", fontName="Helvetica", fontSize=9, textColor=rl_colors.HexColor("#1E3A8A"), leading=13, spaceAfter=4)
+                finding_rows = [[Paragraph(_esc(f"\u2022 {f}"), findings_style)] for f in key_findings]
+                findings_table = Table(finding_rows, colWidths=[180 * mm])
+                findings_table.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (-1, -1), rl_colors.HexColor("#EFF6FF")),
+                    ("BOX", (0, 0), (-1, -1), 1, rl_colors.HexColor("#BFDBFE")),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10), ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ]))
+                story.append(Spacer(1, 2 * mm))
+                story.append(findings_table)
             story.append(Spacer(1, 4 * mm))
 
-        _segment_table("By Grade", compute_segment_breakdown(trades, "grade"))
-        _segment_table("By OI Confirmation", compute_segment_breakdown(trades, "oi_confirmation"))
-        _segment_table("By Pattern", compute_segment_breakdown(trades, "pattern"))
+            def _segment_table(title, rows, max_rows=None):
+                story.append(Paragraph(_esc(title), ParagraphStyle("seg_h3", fontName="Helvetica-Bold", fontSize=10, textColor=rl_colors.HexColor("#374151"), spaceBefore=8, spaceAfter=3)))
+                if not rows:
+                    story.append(Paragraph(_esc("No data."), caption))
+                    return
+                shown = rows[:max_rows] if max_rows else rows
+                table_rows = [["Segment", "Trades", "Sample", "Win Rate", "Net P&L (Rs)", "Profit Factor"]]
+                for r in shown:
+                    table_rows.append([
+                        str(r["segment"]), str(r["count"]), sample_size_label(r["count"]), f"{r['win_rate_pct']}%",
+                        f"{r['net_pnl']:,.0f}", na(r["profit_factor"]),
+                    ])
+                t = Table(table_rows, colWidths=[40*mm, 16*mm, 22*mm, 18*mm, 34*mm, 24*mm])
+                style_cmds = [
+                    ("BACKGROUND", (0, 0), (-1, 0), rl_colors.HexColor("#1F2937")),
+                    ("TEXTCOLOR", (0, 0), (-1, 0), rl_colors.white),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("GRID", (0, 0), (-1, -1), 0.5, rl_colors.HexColor("#E5E7EB")),
+                ]
+                sample_colors = {"Low": "#DC2626", "Preliminary": "#D97706", "Reliable": "#16A34A"}
+                for i, r in enumerate(shown, start=1):
+                    bg = "#DCFCE7" if r["net_pnl"] > 0 else ("#FEE2E2" if r["net_pnl"] < 0 else "#F3F4F6")
+                    style_cmds.append(("BACKGROUND", (4, i), (4, i), rl_colors.HexColor(bg)))
+                    label = sample_size_label(r["count"])
+                    style_cmds.append(("TEXTCOLOR", (2, i), (2, i), rl_colors.HexColor(sample_colors[label])))
+                    style_cmds.append(("FONTNAME", (2, i), (2, i), "Helvetica-Bold"))
+                t.setStyle(TableStyle(style_cmds))
+                story.append(t)
+                story.append(Spacer(1, 4 * mm))
 
-        sector_results = compute_segment_breakdown(trades, "sector")
-        if len(sector_results) > 20:
-            # Genuinely top 10 + bottom 10 by net P&L, not just the
-            # first 10 in sorted order -- the title says top/bottom,
-            # this makes that actually true rather than misleading.
-            sector_shown = sector_results[:10] + sector_results[-10:]
-            _segment_table(f"By Sector (top 10 and bottom 10 of {len(sector_results)} by net P&L)", sector_shown)
-        else:
-            _segment_table("By Sector", sector_results)
+            _segment_table("By Grade", compute_segment_breakdown(trades, "grade"))
+            _segment_table("By OI Confirmation", compute_segment_breakdown(trades, "oi_confirmation"))
+            _segment_table("By Pattern", compute_segment_breakdown(trades, "pattern"))
+
+            sector_results = compute_segment_breakdown(trades, "sector")
+            if len(sector_results) > 20:
+                # Genuinely top 10 + bottom 10 by net P&L, not just the
+                # first 10 in sorted order -- the title says top/bottom,
+                # this makes that actually true rather than misleading.
+                sector_shown = sector_results[:10] + sector_results[-10:]
+                _segment_table(f"By Sector (top 10 and bottom 10 of {len(sector_results)} by net P&L)", sector_shown)
+            else:
+                _segment_table("By Sector", sector_results)
 
         story.append(PageBreak())
 

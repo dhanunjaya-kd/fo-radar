@@ -31,6 +31,7 @@ in the already-tested engine itself needed to change.
 import os
 import shutil
 import threading
+import functools
 from datetime import datetime, timedelta
 
 from django.core.management import call_command
@@ -251,7 +252,16 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
                     recent_trades = _serialize_trades(trades)
                     pdf_path = None
                     try:
-                        pdf_path = _run_and_rename(write_pdf_report, trades, metrics, f"index_positional_{index_name}_{end_str}.pdf")
+                        # Sep 8 2026: is_index=True -- same real gap as the
+                        # range-report path (see run_range_index_report()
+                        # below): this scheduled/Telegram PDF was silently
+                        # using the stock-oriented template too, showing
+                        # permanent N/A Grade/Sector/OI/Confidence sections
+                        # for every NIFTY/BANKNIFTY cycle.
+                        pdf_path = _run_and_rename(
+                            functools.partial(write_pdf_report, is_index=True, index_name=index_name),
+                            trades, metrics, f"index_positional_{index_name}_{end_str}.pdf",
+                        )
                     except Exception as e:
                         print(f"[DailyBacktest] {index_name} PDF generation failed (summary still available): {e}")
                         errors.append(f"{index_name} PDF: {e}")
@@ -509,7 +519,8 @@ def run_range_index_report(index_name, start_str, end_str):
         return None
 
     return _run_and_rename(
-        write_pdf_report, trades, metrics,
+        functools.partial(write_pdf_report, is_index=True, index_name=index_name),
+        trades, metrics,
         f"signal_pnl_{index_name.lower()}_{start_str}_to_{end_str}.pdf",
     )
 

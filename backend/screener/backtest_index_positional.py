@@ -411,7 +411,12 @@ if __name__ == "__main__":
             print_summary(metrics, excluded)
             if metrics:
                 try:
-                    path = write_pdf_report(trades, metrics)
+                    # Sep 8 2026: is_index=True/index_name -- same fix as
+                    # the live app's two call sites (daily_backtest.py),
+                    # so a manual run of this script also skips the
+                    # Grade/Sector/OI/Confidence sections that can never
+                    # show real content for an index positional trade.
+                    path = write_pdf_report(trades, metrics, is_index=True, index_name=index_name)
                     print(f"\nFull PDF report written to: {path}")
                 except ImportError:
                     print("\nPDF generation needs matplotlib and reportlab -- pip install matplotlib reportlab")
