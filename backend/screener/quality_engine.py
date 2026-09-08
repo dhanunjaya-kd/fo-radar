@@ -462,3 +462,147 @@ def compute_stock_quality_score(evidence):
         "components_scored": list(available.keys()),
         "components_unavailable": missing,
     }
+
+
+# =============================================================================
+# 10. INDEX QUALITY ENGINE  (spec section 13) -- 5 evidence groups, 100 points
+# =============================================================================
+
+# Initial research weights, exactly as specified -- NOT claimed optimal.
+_INDEX_WEIGHTS = {
+    "price_structure": 25, "futures_oi": 20, "options_structure": 25,
+    "breadth": 15, "vix": 15,
+}
+
+
+def evaluate_index_breadth(index_direction, advances_pct, declines_pct):
+    """
+    Spec section 13, BREADTH: strong index move + weak breadth ->
+    downgrade; strong index move + strong breadth -> confirmation.
+    index_direction: 'UP' or 'DOWN' (the index's own move this cycle).
+
+    Returns {'state'}. state in: CONFIRMED, WEAK, NEUTRAL, INSUFFICIENT_DATA.
+    """
+    if index_direction not in ("UP", "DOWN") or advances_pct is None or declines_pct is None:
+        return {"state": "INSUFFICIENT_DATA"}
+
+    if index_direction == "UP":
+        if advances_pct >= 60:
+            return {"state": "CONFIRMED"}
+        if advances_pct <= 40:
+            return {"state": "WEAK"}
+    else:
+        if declines_pct >= 60:
+            return {"state": "CONFIRMED"}
+        if declines_pct <= 40:
+            return {"state": "WEAK"}
+    return {"state": "NEUTRAL"}
+
+
+def evaluate_index_vix(index_direction, vix_change_pct):
+    """
+    Spec section 13, VIX: context/risk modifier, never a standalone
+    direction signal -- this function only ever describes the
+    ENVIRONMENT (healthy vs cautionary), never BULLISH/BEARISH itself.
+
+    Returns {'state'}. state in: SUPPORTIVE, CAUTION, NEUTRAL, INSUFFICIENT_DATA.
+    SUPPORTIVE: VIX falling/stable while trending with the index's move
+    (spec's "bullish index + falling/stable VIX -> healthier environment",
+    and symmetrically for a bearish move with volatility expansion, which
+    the spec calls "stronger risk-off context" -- also treated as
+    supportive of THAT direction, not of trading in general).
+    CAUTION: VIX expanding sharply against a bullish move.
+    """
+    if index_direction not in ("UP", "DOWN") or vix_change_pct is None:
+        return {"state": "INSUFFICIENT_DATA"}
+
+    if index_direction == "UP":
+        if vix_change_pct <= 2.0:
+            return {"state": "SUPPORTIVE"}
+        if vix_change_pct >= 8.0:
+            return {"state": "CAUTION"}
+    else:
+        if vix_change_pct >= 5.0:
+            return {"state": "SUPPORTIVE"}  # spec: volatility expansion = stronger risk-off context
+    return {"state": "NEUTRAL"}
+
+
+def compute_index_quality_score(evidence):
+    """
+    Aggregates the 5 index evidence groups (spec section 13). Same
+    disclosed-redistribution methodology as compute_stock_quality_score()
+    above -- any component that's None (genuinely unavailable this
+    cycle, e.g. futures_oi before index_tracker.py's exact snapshot
+    field names are confirmed) has its weight redistributed
+    proportionally across the components that DO have a real value,
+    shown explicitly in 'weights_used'.
+
+    `evidence` keys match _INDEX_WEIGHTS; each value is a sub-score in
+    [0, that component's max weight], or None if unavailable.
+
+    Output states per spec: BULLISH/BEARISH/MIXED/RANGE/HIGH_VOLATILITY
+    determined by the caller from price_structure/regime context (this
+    function only produces the numeric verdict) -- 'direction' here is
+    passed through from the caller's own evidence, not re-derived.
+
+    Spec: "a directional BUY CE/PE should require strong multi-factor
+    confirmation, preferably at least 4 of 5 evidence groups aligned."
+    confirmations_count in the return value makes that checkable
+    directly -- counts components that scored >=70% of their own max
+    weight, out of the 5 groups (not just the ones with real data this
+    cycle, so a candidate with 2 missing groups can never silently
+    reach 4/5 by only being judged against the 3 it has).
+
+    Returns {'score', 'grade', 'verdict', 'confirmations_count',
+    'weights_used', 'components_scored', 'components_unavailable'}.
+    Grade bands identical to the stock engine (A+ 90-100, A 80-89,
+    B/WATCH 70-79, IGNORE <70) -- verdict TRADE/WATCH/IGNORE, same as
+    the stock engine; the caller maps TRADE to BUY CE/BUY PE using the
+    direction it already knows (this function doesn't guess a side).
+    """
+    available = {k: v for k, v in evidence.items() if v is not None and k in _INDEX_WEIGHTS}
+    missing = [k for k in _INDEX_WEIGHTS if k not in available]
+
+    confirmations_count = sum(
+        1 for k in _INDEX_WEIGHTS
+        if evidence.get(k) is not None and evidence[k] >= _INDEX_WEIGHTS[k] * 0.7
+    )
+
+    if not available:
+        return {"score": None, "grade": None, "verdict": "IGNORE", "confirmations_count": 0,
+                "weights_used": {}, "components_scored": [], "components_unavailable": missing}
+
+    base_total_available = sum(_INDEX_WEIGHTS[k] for k in available)
+    full_total = sum(_INDEX_WEIGHTS.values())
+    redistribution_factor = full_total / base_total_available if base_total_available else 0
+
+    weights_used = {k: round(_INDEX_WEIGHTS[k] * redistribution_factor, 2) for k in available}
+    score = 0.0
+    for k, sub_score in available.items():
+        fraction = max(0.0, min(1.0, sub_score / _INDEX_WEIGHTS[k])) if _INDEX_WEIGHTS[k] else 0.0
+        score += fraction * weights_used[k]
+    score = round(min(100.0, max(0.0, score)), 1)
+
+    if score >= 90:
+        grade, verdict = "A+", "TRADE"
+    elif score >= 80:
+        grade, verdict = "A", "TRADE"
+    elif score >= 70:
+        grade, verdict = "B", "WATCH"
+    else:
+        grade, verdict = None, "IGNORE"
+
+    # Spec's explicit "prefer >=4 of 5" requirement -- downgrade a
+    # would-be TRADE that hasn't actually cleared that bar, rather than
+    # letting a high score from few-but-strong components alone issue
+    # a directional call the spec says needs broader confirmation.
+    if verdict == "TRADE" and confirmations_count < 4:
+        verdict = "WATCH"
+
+    return {
+        "score": score, "grade": grade, "verdict": verdict,
+        "confirmations_count": confirmations_count,
+        "weights_used": weights_used,
+        "components_scored": list(available.keys()),
+        "components_unavailable": missing,
+    }

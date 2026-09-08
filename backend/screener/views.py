@@ -911,6 +911,38 @@ def _calc_index_atr(name, fyers_symbol):
         return None
 
 
+def _calc_index_indicators(name, fyers_symbol):
+    """
+    Sep 8 2026: full indicator set for an index (NIFTY/BANKNIFTY),
+    reusing the exact same _cached_index_history_df() + _compute_
+    indicators() pipeline _calc_index_atr() above already uses --
+    just exposing the FULL dict (RSI/VWAP/MACD/ATR/ADX/+DI/-DI/EMA20/
+    EMA50/etc.) instead of only 'atr'. Written as a SEPARATE function
+    rather than changing _calc_index_atr()'s return shape, same "don't
+    risk an already-working caller" principle this file already uses
+    elsewhere (see _cached_index_history_df()'s own docstring). Zero
+    new Fyers calls beyond what _calc_index_atr() already costs this
+    cycle -- same cached history, same cache key.
+
+    For the new Index Quality Engine's Price Structure component
+    (shadow mode only -- see quality_engine.py). This directly
+    contradicts my own earlier Phase 0 audit, which marked index-level
+    ADX/DI/EMA20/EMA50 as "NOT AVAILABLE" -- that was wrong; the
+    computation was already happening for ATR, just not exposed. Worth
+    recording plainly rather than quietly fixing without a note.
+    """
+    try:
+        if not is_authenticated():
+            return None
+        df = _cached_index_history_df(name, fyers_symbol, days=100)
+        if df is None or len(df) < 20:
+            return None
+        return _compute_indicators(df['Close'], df['High'], df['Low'], df['Volume'])
+    except Exception as e:
+        print(f"[IndexQuality] {name} indicator calc error: {e}")
+        return None
+
+
 def _calc_tech(symbol, live_quote=None):
     """
     Technical indicators for a stock, sourced from Fyers only. No Yahoo/
@@ -1365,6 +1397,19 @@ def _build_all():
                 # as the confirmed-live-chain requirement -- not just
                 # scored down, not shown as a trade recommendation at all.
                 no_trade_log.append({"symbol": sym, "reason": f"OI conflicts with {action} direction ({buildup or 'no clear buildup'})"})
+                # Sep 8 2026: SHADOW MODE ONLY -- oi is available here
+                # (unlike the hysteresis-fail hook above), so the richer
+                # options_confirmation evidence is too. signal_extra
+                # itself isn't built yet at this exact point in the v3.0
+                # flow, so ce_oi_chg/pe_oi_chg/pcr are read directly off
+                # oi (options_analytics.analyze_option_chain()'s own
+                # confirmed return keys) instead.
+                _evaluate_and_log_shadow(
+                    sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                    v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
+                    v3_reason=f"OI conflicts with {action} direction",
+                    oi=oi, signal_extra={"ce_oi_chg": oi.get("ce_oi_chg"), "pe_oi_chg": oi.get("pe_oi_chg"), "pcr": oi.get("pcr")},
+                )
                 continue
             else:
                 oi_confirmation, oi_adjustment = "NEUTRAL", 0
@@ -1586,6 +1631,12 @@ def _build_all():
                 # skip. Don't invent a premium, and don't recommend a trade
                 # we can't confirm is actually tradeable.
                 no_trade_log.append({"symbol": sym, "reason": f"No confirmed live option chain for {strike} strike"})
+                _evaluate_and_log_shadow(
+                    sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                    v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
+                    v3_reason="No confirmed live option chain for this strike",
+                    oi=oi, signal_extra=signal_extra,
+                )
                 continue
 
             # Aug 31 2026: Section 9 (Risk Engine) from the UI Corrections
@@ -1603,6 +1654,12 @@ def _build_all():
                 spread_pct = round((ask - bid) / premium_entry * 100, 1)
                 if spread_pct > 15:
                     no_trade_log.append({"symbol": sym, "reason": f"Spread too wide on {strike} {opt_side}: {spread_pct}% of premium (bid {bid}, ask {ask})"})
+                    _evaluate_and_log_shadow(
+                        sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                        v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
+                        v3_reason=f"Option spread too wide ({spread_pct}% of premium)",
+                        oi=oi, signal_extra=signal_extra,
+                    )
                     continue
 
             d = max(abs(delta_for_premium), 0.05)  # floor so deep OTM deltas don't zero out the math
@@ -1629,6 +1686,12 @@ def _build_all():
             raw_sl = premium_entry - d * abs(price - stock_sl) * 1.4
             if raw_sl <= 0.05:
                 no_trade_log.append({"symbol": sym, "reason": f"No sane SL for {strike} {opt_side}: premium Rs {premium_entry} too cheap for this delta/distance to translate into a real stop level"})
+                _evaluate_and_log_shadow(
+                    sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                    v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
+                    v3_reason="Premium too cheap for a sane SL at this delta/distance",
+                    oi=oi, signal_extra=signal_extra,
+                )
                 continue
             sl = round(raw_sl, 2)
             t1 = round(premium_entry + d * abs(stock_t1 - price), 2)
@@ -1649,10 +1712,22 @@ def _build_all():
             lot_size = get_lot_size(sym)
             if lot_size is None:
                 no_trade_log.append({"symbol": sym, "reason": "No confirmed live lot size"})
+                _evaluate_and_log_shadow(
+                    sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                    v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
+                    v3_reason="No confirmed live lot size",
+                    oi=oi, signal_extra=signal_extra,
+                )
                 continue
             qty, budget_skip_reason = compute_qty_with_risk_budget(lot_size, entry, sl, get_risk_budget_rupees())
             if qty is None:
                 no_trade_log.append({"symbol": sym, "reason": budget_skip_reason})
+                _evaluate_and_log_shadow(
+                    sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                    v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
+                    v3_reason=budget_skip_reason,
+                    oi=oi, signal_extra=signal_extra,
+                )
                 continue
             risk = abs(entry - sl)
             rr = round(abs(t1 - entry) / risk, 2) if risk else 1.5
@@ -1925,6 +2000,80 @@ _worker_thread = threading.Thread(target=_background_worker, daemon=True)
 _worker_thread.start()
 
 
+def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call):
+    """
+    Sep 8 2026: SHADOW MODE ONLY -- index counterpart to
+    _evaluate_and_log_shadow() above. Same non-negotiable: this NEVER
+    influences index_signal.generate_index_call()'s own real decision,
+    always called AFTER that decision is already final, purely an
+    observer, own try/except so a shadow-evaluation problem can never
+    affect the real index call loop.
+
+    HONEST, DISCLOSED GAP: futures_oi and options_structure are always
+    None here -- index_tracker.get_last_oi_snapshot()'s exact field
+    names for Futures OI change and CE/PE OI change totals weren't
+    confirmed against real index_tracker.py source this session (only
+    oi['rows']/oi['support']/oi['resistance'] are confirmed, from
+    index_signal.py's own docstring). Guessing a field name that might
+    silently return None -- or worse, silently read the WRONG field --
+    is worse than leaving it honestly unavailable. price_structure,
+    breadth, and vix ARE wired below with confirmed real data only.
+    """
+    try:
+        from . import quality_engine as qe
+
+        action = "BUY" if (bias or "").startswith("Bullish") else ("SELL" if (bias or "").startswith("Bearish") else None)
+        if action is None or spot is None:
+            return  # Neutral/unknown bias -- nothing directional to compare yet, same as generate_index_call()'s own gate
+
+        index_indicators = _calc_index_indicators(name, fyers_symbol)
+        price_structure = {"state": "INSUFFICIENT_DATA"}
+        if index_indicators:
+            hist_df = _cached_index_history_df(name, fyers_symbol, days=100)
+            if hist_df is not None and len(hist_df) >= 21:
+                price_structure = qe.detect_price_structure(
+                    list(hist_df['Close']) + [spot],
+                    list(hist_df['High']) + [spot],
+                    list(hist_df['Low']) + [spot],
+                )
+
+        with _cache_lock:
+            index_direction = "UP" if (_index_cache.get("nifty50" if name == "NIFTY" else "banknifty") or {}).get("change_percent", 0) >= 0 else "DOWN"
+            stocks_snapshot = list(_stock_cache.values())
+            vix_snapshot = _index_cache.get("india_vix") or {}
+        breadth_data = _compute_breadth(stocks_snapshot)
+        breadth_result = qe.evaluate_index_breadth(
+            index_direction, breadth_data.get("advances_pct"), breadth_data.get("declines_pct"),
+        )
+        vix_result = qe.evaluate_index_vix(index_direction, vix_snapshot.get("change_percent"))
+
+        def _sub_score(state, max_pts, good_states):
+            if state == "INSUFFICIENT_DATA":
+                return None
+            if state in good_states:
+                return max_pts
+            if state == "NEUTRAL":
+                return max_pts * 0.3
+            return 0.0
+
+        evidence = {
+            "price_structure": _sub_score(price_structure['state'], 25, ("BULLISH_STRUCTURE", "BEARISH_STRUCTURE")),
+            "futures_oi": None,  # honestly unavailable this pass -- see docstring
+            "options_structure": None,  # honestly unavailable this pass -- see docstring
+            "breadth": _sub_score(breadth_result['state'], 15, ("CONFIRMED",)),
+            "vix": _sub_score(vix_result['state'], 15, ("SUPPORTIVE",)),
+        }
+        quality_result = qe.compute_index_quality_score(evidence)
+
+        v3_decision = "SIGNAL" if call else "NO_TRADE"
+        v3_reason = None if call else "Bias neutral or no live premium/delta at the target wall strike"
+
+        from . import shadow_logger
+        shadow_logger.log_shadow_candidate(name, action, spot, v3_decision, None, None, v3_reason, quality_result)
+    except Exception as e:
+        print(f"[ShadowMode] {name} index evaluation failed (v3.0 unaffected): {e}")
+
+
 def _index_snapshot_worker():
     """
     Separate, faster loop just for NIFTY/BANKNIFTY snapshots -- was
@@ -1998,6 +2147,15 @@ def _index_snapshot_worker():
                     try:
                         atr = _calc_index_atr(name, fyers_symbol)
                         call = index_signal.generate_index_call(name, row.get("Bias"), oi, row.get("Spot"), atr)
+
+                        # Sep 8 2026: SHADOW MODE ONLY -- purely an
+                        # observer, called AFTER the real call above is
+                        # already decided; see
+                        # _evaluate_and_log_index_shadow()'s own
+                        # docstring for what's confirmed-available vs
+                        # honestly disclosed as unavailable this pass.
+                        _evaluate_and_log_index_shadow(name, fyers_symbol, row.get("Bias"), row.get("Spot"), atr, oi, call)
+
                         # Outcome check only when a call is actually locked
                         # and we have its exact option_symbol -- one small
                         # extra quote call per active index call, not per
@@ -2331,6 +2489,33 @@ class NoTradeLogView(APIView):
         with _cache_lock:
             rejected = list(_no_trade_cache)
         return Response({"rejected": rejected, "count": len(rejected)})
+
+
+class ShadowSignalsView(APIView):
+    """
+    Sep 8 2026: read-only view onto shadow_logger.py's SHADOW MODE log
+    -- v3.0's real decision vs quality_engine's independent assessment,
+    side by side, for every candidate _build_all() evaluated today
+    (see the _evaluate_and_log_shadow() call sites throughout the
+    signal-building loop). UNLIKE NoTradeLogView above, this genuinely
+    IS a persisted history across the whole day, not just this cycle --
+    reads straight from today's real xlsx (shadow_logger's own source
+    of truth), so it stays correct across a server restart too.
+
+    Purely observational: nothing this view exposes ever fed back into
+    v3.0's own signal selection, and calling this endpoint has no side
+    effects on the live scan.
+    """
+    def get(self, request):
+        from .shadow_logger import get_today_shadow_signals
+        rows = get_today_shadow_signals()
+        agree = sum(1 for r in rows if r.get("Agreement") == "AGREE")
+        v3_only = sum(1 for r in rows if r.get("Agreement") == "V3_ONLY")
+        quality_only = sum(1 for r in rows if r.get("Agreement") == "QUALITY_ONLY")
+        return Response({
+            "candidates": rows, "count": len(rows),
+            "agreement_summary": {"AGREE": agree, "V3_ONLY": v3_only, "QUALITY_ONLY": quality_only},
+        })
 
 
 class DataHealthView(APIView):

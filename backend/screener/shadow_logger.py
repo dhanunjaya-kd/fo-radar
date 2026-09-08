@@ -282,3 +282,37 @@ def get_shadow_log_path():
     nothing's been logged yet today."""
     path, _ = _today_path()
     return path if os.path.exists(path) else None
+
+
+def get_today_shadow_signals(limit=200):
+    """
+    JSON-safe list of today's shadow rows, newest first -- powers
+    ShadowSignalsView. Returns [] (never raises) if nothing's been
+    logged yet today or the file can't be read -- same "an empty
+    result is not an error" convention NoTradeLogView already uses.
+    Reads directly from the real xlsx (source of truth), not from
+    _shadow_row_index (in-memory, wiped on restart) -- so this stays
+    correct even right after a server restart mid-day.
+    """
+    if not OPENPYXL_AVAILABLE:
+        return []
+    path, _ = _today_path()
+    if not os.path.exists(path):
+        return []
+    try:
+        wb = load_workbook(path, read_only=True, data_only=True)
+        ws = wb["Shadow"]
+        headers = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
+        rows = []
+        for raw in ws.iter_rows(min_row=2, values_only=True):
+            row = dict(zip(headers, raw))
+            # openpyxl gives back real datetime objects for the
+            # Timestamp cell -- stringify for JSON, never guess a format.
+            ts = row.get("Timestamp")
+            row["Timestamp"] = str(ts) if ts is not None else None
+            rows.append(row)
+        rows.reverse()  # newest first, matching NoTradeLogView's own freshness-first convention
+        return rows[:limit]
+    except Exception as e:
+        print(f"[ShadowLog] Failed to read today's log: {e}")
+        return []
