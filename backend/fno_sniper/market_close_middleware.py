@@ -1,20 +1,8 @@
-"""Freeze live-market API responses after the 3:40 PM NSE close.
+"""Freeze NSE live-market API responses after the 3:40 PM NSE close.
 
-During the session, selected live endpoints execute normally and their last
-successful 200 response is kept both in memory and in a small local runtime
-snapshot. After the NSE derivatives close, those endpoints are short-circuited
-before the view runs and the last successful response is replayed.
-
-The important part is that the closing snapshot survives a Django restart.
-The previous implementation kept it only in process memory, so restarting the
-server after the close caused every endpoint to return ``market_closed_no_snapshot``
-even though the user had already collected valid closing values earlier that
-day. That is exactly the failure mode this middleware is intended to prevent.
-
-The snapshot is deliberately runtime state, not source-controlled trading
-history. It is replaced by the first successful live response of the next
-session. Browser polling after close therefore remains safe: it can replay the
-last known values but cannot trigger fresh Fyers calls.
+MCX commodities are deliberately exempt: their live session continues until
+11:30 PM, so Crude Oil, Gold and Silver endpoints must keep polling during the
+MCX session even after NSE has closed.
 """
 
 import base64
@@ -28,6 +16,7 @@ from pathlib import Path
 from django.http import HttpResponse, JsonResponse
 
 from screener.market_hours import is_market_hours
+from screener.index_tracker import is_mcx_hours
 
 
 # Only endpoints that represent live/current market state are frozen.
@@ -51,6 +40,18 @@ LIVE_API_PREFIXES = (
     "/api/broader-indices/",
     "/api/sector-stocks/",
     "/api/no-trade-log/",
+)
+
+# MCX contracts are allowed to remain live after the NSE 3:40 PM close.
+# Keep the names aligned with index_tracker.COMMODITY_BASES so the exemption
+# covers both standard and mini Crude/Gold/Silver modules.
+MCX_COMMODITY_NAMES = (
+    "CRUDEOIL",
+    "CRUDEOILM",
+    "GOLD",
+    "GOLDM",
+    "SILVER",
+    "SILVERM",
 )
 
 _snapshot_lock = threading.Lock()
@@ -121,13 +122,9 @@ def _persist_snapshots(snapshots):
             if os.path.exists(tmp_name):
                 os.unlink(tmp_name)
     except Exception as exc:
-        # Snapshot persistence is a safety layer. Never break a healthy live
-        # response merely because the local runtime file cannot be written.
         print(f"[MarketCloseFreeze] Could not persist snapshot: {exc}")
 
 
-# Load once at process startup. A server restart after close can now replay the
-# closing values captured by the previous process.
 _snapshots = _load_persisted_snapshots()
 
 
@@ -135,15 +132,26 @@ def _is_freezable_live_endpoint(path):
     return any(path.startswith(prefix) for prefix in LIVE_API_PREFIXES)
 
 
+def _is_mcx_endpoint(path):
+    """Return True only for routes carrying an MCX commodity instrument."""
+    if not (
+        path.startswith("/api/index-tracker/")
+        or path.startswith("/api/trend-momentum/")
+        or path.startswith("/api/commodity-symbol/")
+        or path.startswith("/api/option-analytics/")
+    ):
+        return False
+
+    normalized = path.upper()
+    return any(name in normalized for name in MCX_COMMODITY_NAMES)
+
+
 def _snapshot_key(request):
-    # Keep query parameters because some live endpoints use them to select
-    # an instrument/variant. Never share one instrument's response with
-    # another merely because both use the same endpoint prefix.
     return request.get_full_path()
 
 
 class MarketCloseFreezeMiddleware:
-    """Replay the last good live API response after the 3:40 PM close."""
+    """Freeze NSE live APIs after 3:40 PM, but never freeze MCX modules during MCX hours."""
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -151,6 +159,12 @@ class MarketCloseFreezeMiddleware:
     def __call__(self, request):
         path = request.path
         if request.method != "GET" or not _is_freezable_live_endpoint(path):
+            return self.get_response(request)
+
+        # MCX has its own 09:00-23:30 session. It must bypass the NSE close
+        # freezer completely while MCX is open. Outside MCX hours the normal
+        # response path is allowed; no NSE snapshot is substituted for MCX.
+        if _is_mcx_endpoint(path):
             return self.get_response(request)
 
         now = datetime.now()
@@ -170,10 +184,6 @@ class MarketCloseFreezeMiddleware:
                     response["X-Market-Data-Snapshot"] = snapshot["captured_at"]
                     return response
 
-            # No closing snapshot exists anywhere this server can access. Do
-            # not call the view because that could pull fresh Fyers data after
-            # close. Return an explicit unavailable response instead of
-            # fabricating zeros or stale values from an unrelated endpoint.
             response = JsonResponse(
                 {
                     "error": "market_closed_no_snapshot",
@@ -186,9 +196,6 @@ class MarketCloseFreezeMiddleware:
 
         response = self.get_response(request)
 
-        # Only cache successful, non-streaming responses. A transient 500,
-        # 503, or empty response must never replace a previously good
-        # closing snapshot.
         if response.status_code == 200 and not getattr(response, "streaming", False):
             try:
                 content = bytes(response.content)
@@ -206,8 +213,6 @@ class MarketCloseFreezeMiddleware:
                     _persist_snapshots(_snapshots)
                 response["X-Market-Data-Frozen"] = "0"
             except Exception:
-                # Snapshotting is a safety layer; never break a healthy live
-                # response merely because the local snapshot write failed.
                 pass
 
         return response
