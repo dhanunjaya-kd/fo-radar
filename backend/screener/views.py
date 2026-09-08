@@ -614,6 +614,28 @@ def _compute_indicators(close, high, low, volume):
     adx_val = dx.ewm(com=period - 1, adjust=False).mean().iloc[-1]
     adx = float(adx_val) if pd.notna(adx_val) else 0.0
 
+    # Sep 8 2026: +DI/-DI were already computed above (needed for ADX
+    # itself) but discarded before returning -- exposing them now for
+    # the new quality engine's ADX+direction classifier (spec: "ADX
+    # alone is not a bullish score, use ADX strength + DI+ > DI-").
+    # Same NaN-safety pattern already applied to adx itself just above
+    # (tr_smooth can be 0->NaN on a genuinely flat-range day) -- without
+    # this, a flat day would raise where adx's own fallback already
+    # protects it.
+    plus_di_val = plus_di.iloc[-1]
+    minus_di_val = minus_di.iloc[-1]
+    plus_di_final = float(plus_di_val) if pd.notna(plus_di_val) else 0.0
+    minus_di_final = float(minus_di_val) if pd.notna(minus_di_val) else 0.0
+
+    # EMA20/EMA50 -- new, for the quality engine's price-structure/
+    # extension checks. Same span-based EWM as MACD's ema12/ema26
+    # above -- EWM doesn't produce leading NaNs the way a
+    # rolling(window=X) average does, so this can't newly trigger the
+    # NaN guard below for a stock that already had enough history for
+    # RSI/MACD/ATR to compute cleanly.
+    ema20 = float(close.ewm(span=20, adjust=False).mean().iloc[-1])
+    ema50 = float(close.ewm(span=50, adjust=False).mean().iloc[-1])
+
     # Volume average (20)
     vol_avg = float(volume.rolling(window=20).mean().iloc[-1])
 
@@ -627,6 +649,8 @@ def _compute_indicators(close, high, low, volume):
 
     out = {
         'rsi': rsi, 'vwap': vwap, 'macd': macd, 'atr': atr, 'adx': adx,
+        'plus_di': plus_di_final, 'minus_di': minus_di_final,
+        'ema20': ema20, 'ema50': ema50,
         'volume_avg': vol_avg, 'resistance': resistance, 'support': support,
         'hist_vol': hist_vol,
     }
