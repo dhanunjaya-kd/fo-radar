@@ -1872,6 +1872,8 @@ def _index_snapshot_worker():
                 time.sleep(20)
         except Exception as e:
             print(f"[{datetime.now()}] Index snapshot worker error: {e}")
+            import traceback
+            traceback.print_exc()  # TEMPORARY -- Sep 8 2026 diagnostic, remove once is_mcx_hours() call-site mystery is solved
             time.sleep(60)
 
 _index_snapshot_thread = threading.Thread(target=_index_snapshot_worker, daemon=True)

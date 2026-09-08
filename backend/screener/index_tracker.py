@@ -1548,6 +1548,8 @@ def snapshot_all_commodities():
                 results[name] = fut.result()
             except Exception as e:
                 print(f"[IndexTracker] {name} snapshot thread failed: {e}")
+                import traceback
+                traceback.print_exc()  # TEMPORARY -- Sep 8 2026 diagnostic, remove once is_mcx_hours() call-site mystery is solved
                 results[name] = None
     return results
 
