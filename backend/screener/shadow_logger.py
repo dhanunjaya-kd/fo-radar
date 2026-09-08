@@ -64,6 +64,7 @@ COLUMNS = [
     "Price +5m", "Price +15m", "Price +30m", "Price +60m", "Price EOD",
     "MFE %", "MAE %",
     "Agreement",  # "AGREE" / "V3_ONLY" / "QUALITY_ONLY" / "DISAGREE" -- both said no-trade differently, etc.
+    "Reasons",  # Sep 8 2026: spec section 18, "Explainable Signals" -- semicolon-joined plain-English reasons/warnings
 ]
 
 _lock = threading.Lock()
@@ -81,8 +82,31 @@ def _today_path():
 
 
 def _get_workbook(path):
+    """
+    Sep 8 2026: added the same archive-and-restart schema-change
+    protection positional_logger.py already uses -- this file didn't
+    have it before, a real gap (a mid-day COLUMNS change, like adding
+    "Reasons" today, would otherwise silently misalign existing rows
+    under the wrong headers instead of failing loudly or migrating
+    cleanly).
+    """
     if os.path.exists(path):
-        return load_workbook(path)
+        wb = load_workbook(path)
+        ws = wb["Shadow"]
+        existing_header = [c.value for c in ws[1]]
+        if existing_header != COLUMNS:
+            archive_path = path.replace(".xlsx", "_pre-update.xlsx")
+            if not os.path.exists(archive_path):
+                wb.save(archive_path)
+                print(f"[ShadowLog] Column layout changed -- archived old data to {os.path.basename(archive_path)}, starting fresh")
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Shadow"
+            ws.append(COLUMNS)
+            for cell in ws[1]:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+        return wb
     os.makedirs(os.path.dirname(path), exist_ok=True)
     wb = Workbook()
     ws = wb.active
@@ -110,7 +134,7 @@ def _agreement_label(v3_decision, quality_verdict):
 
 
 def log_shadow_candidate(symbol, action, price, v3_decision, v3_score, v3_grade, v3_reason,
-                          quality_result):
+                          quality_result, reasons=None):
     """
     Logs one row for a genuinely new (symbol, action) today, or
     silently does nothing if already logged today (same symbol stays
@@ -122,6 +146,12 @@ def log_shadow_candidate(symbol, action, price, v3_decision, v3_score, v3_grade,
     None when it's a real signal.
     quality_result: the dict returned by
     quality_engine.compute_stock_quality_score().
+    reasons: Sep 8 2026 addition, spec section 18 "Explainable
+    Signals" -- optional list of plain-English strings (e.g. "RSI
+    bullish continuation", "Sector laggard -- avoid for a BUY")
+    explaining WHY, built by the caller from the same evidence it
+    already computed for scoring. Optional and defaults to None/empty
+    for backward compatibility with any caller not yet passing it.
 
     Returns True if a new row was written, False otherwise (already
     logged today, or openpyxl unavailable, or price is None).
@@ -154,6 +184,7 @@ def log_shadow_candidate(symbol, action, price, v3_decision, v3_score, v3_grade,
                 None, None, None, None, None,  # horizon prices, filled in later
                 0.0, 0.0,  # MFE/MAE start at 0 (no observation yet)
                 agreement,
+                "; ".join(reasons) if reasons else None,
             ]
             ws.append(row)
             row_num = ws.max_row

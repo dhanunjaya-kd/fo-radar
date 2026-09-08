@@ -1284,8 +1284,58 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
             quality_result['score'] = round(max(0.0, quality_result['score'] - 5), 1)
         quality_result['extension'] = extension['state']
 
+        # Sep 8 2026: spec section 18, "Explainable Signals" -- "The
+        # user must be able to understand the signal without opening
+        # the source code." Every value used here was already computed
+        # above for scoring; this only compiles it into plain English,
+        # no new evidence gathered. Hard gate failures lead (they're
+        # why nothing else here matters), then real ✓/✗ reads, then ⚠
+        # warnings -- never a line for a component that's genuinely
+        # INSUFFICIENT_DATA (silence there is more honest than a
+        # fabricated-sounding "neutral" line).
+        reasons = []
+        for r in liquidity_result['reasons']:
+            reasons.append(f"HARD GATE: {r}")
+        if _current_market_regime.get("state"):
+            rs = _current_market_regime["state"]
+            if (action == "BUY" and rs == "TREND_UP") or (action == "SELL" and rs == "TREND_DOWN"):
+                reasons.append(f"Market regime aligned ({rs})")
+            elif (action == "BUY" and rs == "TREND_DOWN") or (action == "SELL" and rs == "TREND_UP"):
+                reasons.append(f"Market regime against this direction ({rs})")
+            elif rs == "HIGH_VOLATILITY":
+                reasons.append("Market in HIGH_VOLATILITY -- stricter confirmation applied")
+        if adx_dir['state'] in ("BULLISH_TREND", "BEARISH_TREND"):
+            reasons.append(f"ADX confirms {adx_dir['state'].replace('_', ' ').lower()} (ADX {adx_dir['adx']:.0f})")
+        elif adx_dir['state'] == "RANGE":
+            reasons.append("Weak trend strength (RANGE) -- avoid momentum chase")
+        if rsi_regime['state'] in ("BULLISH_CONTINUATION", "BEARISH_CONTINUATION"):
+            reasons.append(f"RSI {rsi_regime['state'].replace('_', ' ').lower()} (RSI {rsi_regime['rsi']:.0f})")
+        elif rsi_regime['state'] == "EXTENDED":
+            reasons.append(f"RSI extended (RSI {rsi_regime['rsi']:.0f}) -- late entry risk")
+        if rvol_result['state'] in ("STRONG", "EXCEPTIONAL"):
+            reasons.append(f"RVOL {rvol_result['rvol']:.1f}x -- strong volume confirmation")
+        elif rvol_result['state'] == "WEAK":
+            reasons.append(f"RVOL {rvol_result['rvol']:.1f}x -- weak volume, move not confirmed")
+        if price_structure['state'] in ("BULLISH_STRUCTURE", "BEARISH_STRUCTURE"):
+            tag = "Bullish" if price_structure['state'] == "BULLISH_STRUCTURE" else "Bearish"
+            brk = f", {price_structure['breakout']} breakout" if price_structure.get('breakout') else ""
+            reasons.append(f"{tag} price structure{brk}")
+        if options_result['state'] == "CONFIRMED":
+            reasons.append(f"Options structure confirms (CE {options_result['ce_quadrant']}, PE {options_result['pe_quadrant']})")
+        elif options_result['state'] == "CONFLICT":
+            reasons.append(f"Options structure conflicts (CE {options_result['ce_quadrant']}, PE {options_result['pe_quadrant']})")
+        if sector_rank_info and sector_rank_info['state'] in ("LEADER", "LAGGARD"):
+            if leadership_result['state'] == "PREFERRED":
+                reasons.append(f"Sector {sector_rank_info['state'].lower()} (rank {sector_rank_info['rank']} of {sector_rank_info['total_in_sector']}, {sector_rank_info['percentile']:.0f}th percentile)")
+            elif leadership_result['state'] == "AVOID":
+                reasons.append(f"Sector {sector_rank_info['state'].lower()} but wrong side for a {action}")
+        if extension['state'] == "HIGHLY_EXTENDED":
+            reasons.append(f"Highly extended ({extension['distance_atr']:.1f} ATR from EMA20) -- no new entry")
+        elif extension['state'] == "MODERATELY_EXTENDED":
+            reasons.append(f"Moderately extended ({extension['distance_atr']:.1f} ATR from EMA20)")
+
         from . import shadow_logger
-        shadow_logger.log_shadow_candidate(sym, action, price, v3_decision, v3_score, v3_grade, v3_reason, quality_result)
+        shadow_logger.log_shadow_candidate(sym, action, price, v3_decision, v3_score, v3_grade, v3_reason, quality_result, reasons=reasons)
     except Exception as e:
         print(f"[ShadowMode] {sym} evaluation failed (v3.0 unaffected): {e}")
 
