@@ -13,7 +13,7 @@ from screener.views import (
     DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView,
     DailyBacktestRangeView, FiftyTwoWeekRangeView, BroaderIndicesView,
     StrategyBacktestRunView, StrategyBacktestStatusView,
-    DailyBacktestRangeReportView, SectorStocksView, NoTradeLogView, ShadowSignalsView,
+    DailyBacktestRangeReportView, SectorStocksView, NoTradeLogView, ShadowSignalsView, ShadowPerformanceView,
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
     EODScanTriggerView, OptionHistoryView, CandleChartView,
 )
@@ -66,6 +66,7 @@ urlpatterns = [
     path('api/sector-stocks/<str:sector>/', SectorStocksView.as_view(), name='sector_stocks'),
     path('api/no-trade-log/', NoTradeLogView.as_view(), name='no_trade_log'),
     path('api/shadow-signals/', ShadowSignalsView.as_view(), name='shadow_signals'),
+    path('api/shadow-performance/', ShadowPerformanceView.as_view(), name='shadow_performance'),
     path('api/data-health/', DataHealthView.as_view(), name='data_health'),
     path('api/strategy-backtest/run/', StrategyBacktestRunView.as_view(), name='strategy_backtest_run'),
     path('api/strategy-backtest/status/', StrategyBacktestStatusView.as_view(), name='strategy_backtest_status'),
