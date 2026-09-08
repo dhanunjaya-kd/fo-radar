@@ -377,8 +377,22 @@ export default function DailyBacktestTab() {
               downloadUrl={`${API_BASE}/api/daily-backtest/range/report/?start=${confirmedStart}&end=${confirmedEnd}`}
               equityCurve={displayStock.equity_curve}
             />
-            <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={null} equityCurve={displayNifty.equity_curve} />
-            <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={null} equityCurve={displayBanknifty.equity_curve} />
+            <SummaryCard
+              title="NIFTY Positional"
+              pdfKey="nifty"
+              summary={displayNifty.summary}
+              pdfPath={displayNifty.summary ? 'range-report' : null}
+              downloadUrl={`${API_BASE}/api/daily-backtest/range/report/?start=${confirmedStart}&end=${confirmedEnd}&index=NIFTY`}
+              equityCurve={displayNifty.equity_curve}
+            />
+            <SummaryCard
+              title="BANKNIFTY Positional"
+              pdfKey="banknifty"
+              summary={displayBanknifty.summary}
+              pdfPath={displayBanknifty.summary ? 'range-report' : null}
+              downloadUrl={`${API_BASE}/api/daily-backtest/range/report/?start=${confirmedStart}&end=${confirmedEnd}&index=BANKNIFTY`}
+              equityCurve={displayBanknifty.equity_curve}
+            />
           </div>
           <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} />
         </>
