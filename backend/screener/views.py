@@ -1074,6 +1074,14 @@ def _update_market_regime_cache():
 # nothing new.
 _sector_rankings_cache = {}
 
+# Sep 8 2026: SHADOW MODE ONLY -- {sector_name: {'state', 'rank',
+# 'total_sectors', 'percentile'}}, the SECTOR-vs-SECTOR ranking
+# (distinct from _sector_rankings_cache above, which ranks stocks
+# WITHIN one sector) -- computed alongside it in the same
+# _update_sector_rankings_cache() call, since it reuses the same
+# by_sector grouping.
+_sector_strength_cache = {}
+
 
 def _update_sector_rankings_cache():
     """
@@ -1105,9 +1113,26 @@ def _update_sector_rankings_cache():
         for sector, changes in by_sector.items():
             new_cache[sector] = qe.rank_sector_peers(changes)
         _sector_rankings_cache = new_cache
+
+        # Sep 8 2026: SHADOW MODE ONLY -- the missing middle layer of
+        # the spec's "Index -> Sector -> Stock Cascade" (its own worked
+        # example: "NIFTY BULLISH -> Sector ranking -> BANKING ->
+        # STRONG"). Reuses the SAME by_sector grouping just built above
+        # -- one real aggregate change_percent per sector (equal-weight
+        # average of that sector's own stocks this cycle, same
+        # methodology _compute_sector_performance() already uses and
+        # already discloses as not market-cap-weighted), ranked against
+        # every OTHER sector via quality_engine.rank_sectors().
+        sector_avg_changes = {
+            sector: sum(changes.values()) / len(changes)
+            for sector, changes in by_sector.items() if changes
+        }
+        global _sector_strength_cache
+        _sector_strength_cache = qe.rank_sectors(sector_avg_changes)
     except Exception as e:
         print(f"[SectorRanking] update failed (shadow mode unaffected): {e}")
         _sector_rankings_cache = {}
+        _sector_strength_cache = {}
 
 
 def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
@@ -1191,6 +1216,21 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
         # not re-derived here).
         sector_rank_info = (_sector_rankings_cache.get(stock.get("sector")) or {}).get(sym)
         leadership_result = qe.evaluate_sector_leadership(action, sector_rank_info['state'] if sector_rank_info else None)
+
+        # Sep 8 2026: SHADOW MODE ONLY -- "Index -> Sector -> Stock
+        # Cascade," the missing middle layer. This answers a genuinely
+        # DIFFERENT question from sector_result/leadership_result above
+        # ("does direction agree" / "is this stock a leader WITHIN its
+        # sector") -- is the sector ITSELF genuinely strong relative to
+        # every OTHER sector today (spec's exact example: "BANKING ->
+        # STRONG"). Kept as explainable context rather than folded into
+        # the already-small 5-point sector_alignment score -- per the
+        # spec's own "do not turn the scanner into an indicator
+        # monster" principle, a stock's own direction/leadership
+        # already captures most of what matters numerically; sector
+        # strength earns its place as a real, computed fact to SHOW,
+        # not a third layer competing for the same 5 points.
+        sector_strength_info = _sector_strength_cache.get(stock.get("sector"))
 
         def _combined_sector_score(base_state, leadership_state):
             """Leadership REFINES a real alignment read, never rescues
@@ -1283,6 +1323,7 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
         elif extension['state'] == "MODERATELY_EXTENDED" and quality_result['score'] is not None:
             quality_result['score'] = round(max(0.0, quality_result['score'] - 5), 1)
         quality_result['extension'] = extension['state']
+        quality_result['sector_strength'] = sector_strength_info['state'] if sector_strength_info else None
 
         # Sep 8 2026: Hard Gate D (spec section 3) -- "Strong conflict
         # with market regime -> NO TRADE or WATCH." market_regime_score
@@ -1372,6 +1413,9 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
                 reasons.append(f"Sector {sector_rank_info['state'].lower()} (rank {sector_rank_info['rank']} of {sector_rank_info['total_in_sector']}, {sector_rank_info['percentile']:.0f}th percentile)")
             elif leadership_result['state'] == "AVOID":
                 reasons.append(f"Sector {sector_rank_info['state'].lower()} but wrong side for a {action}")
+        if sector_strength_info and sector_strength_info['state'] in ("STRONG", "WEAK"):
+            sec_name = stock.get("sector")
+            reasons.append(f"Sector {sec_name} is {sector_strength_info['state']} (rank {sector_strength_info['rank']} of {sector_strength_info['total_sectors']} sectors)")
         if extension['state'] == "HIGHLY_EXTENDED":
             reasons.append(f"Highly extended ({extension['distance_atr']:.1f} ATR from EMA20) -- no new entry")
         elif extension['state'] == "MODERATELY_EXTENDED":

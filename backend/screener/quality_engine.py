@@ -816,3 +816,59 @@ def evaluate_sector_leadership(action, sector_rank_state):
         if sector_rank_state == "LEADER":
             return {"state": "AVOID"}
         return {"state": "ACCEPTABLE"}
+
+
+# =============================================================================
+# 13. SECTOR STRENGTH RANKING  (spec "Index -> Sector -> Stock Cascade")
+#     -- ranks SECTORS against each other, the missing middle layer
+#     between rank_sector_peers() (stocks within one sector) above and
+#     the stock-level evidence that already consumes sector context.
+# =============================================================================
+
+def rank_sectors(sector_change_pcts, strong_pct=0.3, weak_pct=0.3):
+    """
+    Ranks EVERY sector against every OTHER sector by today's own
+    aggregate change_percent -- spec's exact worked example: "NIFTY
+    BULLISH -> Sector ranking -> BANKING -> STRONG." Distinct from
+    evaluate_sector_alignment() above, which only asks "does this
+    sector's direction agree with the market's" -- a sector can agree
+    in DIRECTION while still being one of the weakest movers today;
+    this function answers the separate question the spec's cascade
+    actually asks first: which sectors are genuinely leading.
+
+    sector_change_pcts: {sector_name: aggregate_change_percent} -- the
+    same equal-weight sector averages _compute_sector_performance()
+    already computes (honestly disclosed elsewhere as equal-weight,
+    not market-cap-weighted -- that limitation is inherited here too,
+    not hidden).
+
+    Requires >=3 sectors for a meaningful ranking, same reasoning as
+    rank_sector_peers() -- a "top 30%" of 2 sectors isn't real
+    leadership. strong_pct/weak_pct=0.3 configurable, not claimed
+    optimal, same as every other threshold in this file.
+
+    Returns {sector_name: {'state', 'rank', 'total_sectors', 'percentile'}}.
+    state in: STRONG, NEUTRAL, WEAK, INSUFFICIENT_DATA. rank=1 means
+    the single best-performing sector today.
+    """
+    total = len(sector_change_pcts)
+    if total < 3:
+        return {s: {"state": "INSUFFICIENT_DATA", "rank": None, "total_sectors": total, "percentile": None}
+                for s in sector_change_pcts}
+
+    ranked = sorted(sector_change_pcts.items(), key=lambda kv: kv[1], reverse=True)
+    strong_cutoff = max(1, round(total * strong_pct))
+    weak_cutoff = max(1, round(total * weak_pct))
+
+    result = {}
+    for i, (sector, _chg) in enumerate(ranked):
+        rank = i + 1
+        percentile = round((total - rank) / (total - 1) * 100, 1) if total > 1 else 50.0
+        if rank <= strong_cutoff:
+            state = "STRONG"
+        elif rank > total - weak_cutoff:
+            state = "WEAK"
+        else:
+            state = "NEUTRAL"
+        result[sector] = {"state": state, "rank": rank, "total_sectors": total, "percentile": percentile}
+    return result
