@@ -438,12 +438,31 @@ def compute_stock_quality_score(evidence, hard_gate_failures=None):
     Grade bands exactly as specified: A+ 90-100, A 80-89, B/WATCH 70-79,
     IGNORE <70.
 
+    Sep 8 2026 addition -- Gate A (spec section 3A), "DATA QUALITY:
+    Missing critical data -> NO TRADE." Previously handled only
+    IMPLICITLY (a missing component just got redistributed around),
+    which achieves the same practical effect for 1-2 gaps but breaks
+    down when TOO FEW components have real data at all -- redistributing
+    100% of the weight onto 1-2 data points and calling the result a
+    calibrated score is itself a data-quality problem, not a fix for
+    one. min_components=3 (configurable) makes this an explicit, NAMED
+    gate rather than a silent side-effect of the redistribution math --
+    same hard_gate_failures mechanism as every other gate, verdict
+    forced to IGNORE, score still visible for comparison.
+
     Returns {'score', 'grade', 'verdict', 'weights_used',
     'components_scored', 'components_unavailable', 'hard_gate_failures'}.
     """
-    hard_gate_failures = hard_gate_failures or []
+    hard_gate_failures = list(hard_gate_failures or [])
     available = {k: v for k, v in evidence.items() if v is not None and k in _BASE_WEIGHTS}
     missing = [k for k in _BASE_WEIGHTS if k not in available]
+
+    min_components = 3
+    if len(available) < min_components:
+        hard_gate_failures.append(
+            f"DATA QUALITY: only {len(available)} component(s) have real data (need >= {min_components}) -- "
+            f"redistributing full weight onto this few data points would not be a reliable score"
+        )
 
     if not available:
         return {"score": None, "grade": None, "verdict": "IGNORE",
@@ -592,10 +611,22 @@ def compute_index_quality_score(evidence, hard_gate_failures=None):
     TRADE/WATCH/IGNORE, same as the stock engine; the caller maps
     TRADE to BUY CE/BUY PE using the direction it already knows (this
     function doesn't guess a side).
+
+    Sep 8 2026 addition -- same Gate A (spec section 3A) as
+    compute_stock_quality_score() above: too few real components (out
+    of 5 total here) makes the redistributed score itself unreliable,
+    not just thin -- forced to IGNORE, named and visible in
+    hard_gate_failures, score still shown for comparison.
     """
-    hard_gate_failures = hard_gate_failures or []
+    hard_gate_failures = list(hard_gate_failures or [])
     available = {k: v for k, v in evidence.items() if v is not None and k in _INDEX_WEIGHTS}
     missing = [k for k in _INDEX_WEIGHTS if k not in available]
+
+    min_components = 3
+    if len(available) < min_components:
+        hard_gate_failures.append(
+            f"DATA QUALITY: only {len(available)} of 5 evidence groups have real data (need >= {min_components})"
+        )
 
     confirmations_count = sum(
         1 for k in _INDEX_WEIGHTS
@@ -931,3 +962,61 @@ def evaluate_futures_oi_structure(action, price_change_pct, fut_oi_chg_pct):
             state = "NEUTRAL"
 
     return {"state": state, "quadrant": quadrant}
+
+
+# =============================================================================
+# 15. MULTI-TIMEFRAME TREND ALIGNMENT -- pure combiner only. Fetching
+#     and classifying each individual timeframe's trend from real
+#     completed candles is a SEPARATE, NOT-YET-BUILT concern -- this
+#     function only combines three ALREADY-CLASSIFIED per-timeframe
+#     trends into one alignment verdict. See this file's module
+#     docstring history: multi-timeframe was long marked structurally
+#     unavailable because no sub-daily candle data existed anywhere in
+#     this codebase. That fetching/caching layer still needs to be
+#     built against the project's real Fyers infrastructure -- not
+#     guessed here -- before this function has real inputs to combine.
+# =============================================================================
+
+def classify_mtf_alignment(trend_1h, trend_15m, trend_5m):
+    """
+    Combines three already-classified per-timeframe trends (each
+    'BULLISH' / 'BEARISH' / 'NEUTRAL' / None -- classification from
+    real COMPLETED candles is the caller's responsibility, this
+    function never sees a candle) into one alignment verdict.
+
+    1H is the higher-timeframe, primary trend; 15M is intermediate
+    confirmation; 5M is execution/momentum confirmation -- matching
+    the explicit hierarchy this was specified with. Deliberately a
+    confirmation/gating signal, not a large score contributor on its
+    own -- 1H disagreeing with 15M/5M is treated as MIXED, not simply
+    outvoted, since a higher timeframe reversing against a lower one
+    is exactly the case worth flagging rather than smoothing over.
+
+    Returns {'state', 'aligned_timeframes'}. state in:
+    ALIGNED_BULLISH, ALIGNED_BEARISH, MIXED, NEUTRAL, UNAVAILABLE.
+    UNAVAILABLE only when the anchor (1H) itself is missing -- a
+    missing 15M/5M with a real 1H is still informative (MIXED once
+    combined with the others; see the "insufficient sub-signals"
+    case below), not fully unavailable.
+    """
+    if trend_1h is None:
+        return {"state": "UNAVAILABLE", "aligned_timeframes": []}
+
+    trends = {"1h": trend_1h, "15m": trend_15m, "5m": trend_5m}
+    real_trends = {tf: t for tf, t in trends.items() if t is not None}
+
+    if len(real_trends) < 2:
+        # Only the 1H anchor is real -- not enough to call a genuine
+        # multi-timeframe alignment either way (that requires actual
+        # cross-timeframe agreement, not one data point standing in
+        # for three).
+        return {"state": "UNAVAILABLE", "aligned_timeframes": list(real_trends.keys())}
+
+    if all(t == "BULLISH" for t in real_trends.values()):
+        return {"state": "ALIGNED_BULLISH", "aligned_timeframes": list(real_trends.keys())}
+    if all(t == "BEARISH" for t in real_trends.values()):
+        return {"state": "ALIGNED_BEARISH", "aligned_timeframes": list(real_trends.keys())}
+    if all(t == "NEUTRAL" for t in real_trends.values()):
+        return {"state": "NEUTRAL", "aligned_timeframes": list(real_trends.keys())}
+
+    return {"state": "MIXED", "aligned_timeframes": [tf for tf, t in real_trends.items() if t == trend_1h]}

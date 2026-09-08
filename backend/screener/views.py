@@ -1136,7 +1136,7 @@ def _update_sector_rankings_cache():
 
 
 def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
-                              v3_decision, v3_score, v3_grade, v3_reason, oi=None, signal_extra=None):
+                              v3_decision, v3_score, v3_grade, v3_reason, oi=None, signal_extra=None, option_leg=None):
     """
     Sep 8 2026: SHADOW MODE glue -- converts this cycle's already-
     computed tech/oi/stock data into quality_engine's function
@@ -1152,6 +1152,16 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
     this exact symbol, this exact cycle -- calling it again here is a
     pure dict lookup); everything else is data _build_all() already
     fetched this cycle for its own use.
+
+    option_leg: Sep 8 2026 addition -- optional dict with 'oi',
+    'volume', 'bid', 'ask', 'ltp' for the SPECIFIC strike/side v3.0
+    resolved this cycle (options_analytics.py's own leg dict shape,
+    confirmed real fields). Only passed at the call sites where that
+    resolution has actually happened (spread-too-wide onward) -- the
+    earlier rejection points (hysteresis-fail, OI-conflict, no-
+    option-chain) genuinely don't have a resolved leg yet, so this
+    stays None there and the option-liquidity portion of the gate
+    below is correctly marked unavailable, not guessed.
 
     market_regime and futures_oi are deliberately always None here
     (honestly unavailable, not guessed) -- Market Regime engine and
@@ -1170,19 +1180,20 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
         # Sep 8 2026: HARD GATE, evaluated BEFORE scoring -- spec
         # section 3/4, stated as plainly as anything in the whole
         # document: "A high score must NOT compensate for a critical
-        # failure." evaluate_liquidity_gate() existed and was tested
-        # in isolation since early this session but was never actually
-        # wired to affect a verdict anywhere -- a real, genuine gap,
-        # fixed here. Stock-side only for now (avg_volume/current_volume
-        # -- both confirmed real at EVERY call site of this function);
-        # option-side liquidity (OI/spread/bid-ask) isn't checked here
-        # because the specific option leg isn't resolved yet at the
-        # earlier rejection points (hysteresis-fail, OI-conflict) --
-        # v3.0's own live spread gate already covers that leg-specific
-        # check later in the flow for candidates that get that far.
+        # failure." Now checks BOTH stock-side (always available) AND
+        # option-side liquidity (only when option_leg is provided --
+        # see the parameter docstring above for exactly which call
+        # sites that is). Previously option-side was never checked at
+        # all here; this was the second of the two genuine liquidity
+        # gaps disclosed at the end of last session.
+        leg_oi = option_leg.get('oi') if option_leg else None
+        leg_volume = option_leg.get('volume') if option_leg else None
+        leg_bid = option_leg.get('bid') if option_leg else None
+        leg_ask = option_leg.get('ask') if option_leg else None
+        leg_ltp = option_leg.get('ltp') if option_leg else None
         liquidity_result = qe.evaluate_liquidity_gate(
             avg_volume=tech.get('volume_avg'), current_volume=stock.get('volume'),
-            option_oi=None, option_volume=None, bid=None, ask=None, ltp=None,
+            option_oi=leg_oi, option_volume=leg_volume, bid=leg_bid, ask=leg_ask, ltp=leg_ltp,
         )
         hard_gate_failures = liquidity_result['reasons']
 
@@ -1896,6 +1907,18 @@ def _build_all():
         # way) -- used by both branches below.
         from .lot_size_resolver import get_lot_size
 
+        # Sep 8 2026: SHADOW MODE ONLY -- safe default BEFORE the
+        # locked/fresh branch below, same defensive pattern this file's
+        # own risk_amount/price_basis fix already uses a few lines down
+        # ("that one only exists inside the fresh-computation branch,
+        # not the locked-plan-reuse branch, so referencing it here
+        # would crash"). A REUSED locked plan doesn't re-fetch a fresh
+        # option-chain leg at all (that's the whole point of reusing
+        # frozen numbers), so it genuinely has no fresh leg liquidity
+        # data -- None here is honest, not a bug. Only the fresh-
+        # computation branch below overwrites this with a real dict.
+        shadow_option_leg = None
+
         if locked:
             entry, strike = locked['entry'], locked['strike'] or strike
             sl = locked['sl']
@@ -1974,6 +1997,16 @@ def _build_all():
             # tighten/loosen once you've watched how often it actually
             # fires against real contracts.
             bid, ask = leg.get('bid'), leg.get('ask')
+
+            # Sep 8 2026: SHADOW MODE ONLY -- real option-leg liquidity
+            # data for the hard gate, built once here and reused at
+            # every downstream _evaluate_and_log_shadow() call site
+            # below (this is the FIRST point in v3.0's own flow where
+            # leg/bid/ask are resolved -- see that function's own
+            # option_leg parameter docstring for why the earlier
+            # rejection points don't have this).
+            shadow_option_leg = {'oi': leg.get('oi'), 'volume': leg.get('volume'), 'bid': bid, 'ask': ask, 'ltp': premium_entry}
+
             if bid is not None and ask is not None and ask > 0:
                 spread_pct = round((ask - bid) / premium_entry * 100, 1)
                 if spread_pct > 15:
@@ -1982,7 +2015,7 @@ def _build_all():
                         sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
                         v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                         v3_reason=f"Option spread too wide ({spread_pct}% of premium)",
-                        oi=oi, signal_extra=signal_extra,
+                        oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
                     )
                     continue
 
@@ -2014,7 +2047,7 @@ def _build_all():
                     sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
                     v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                     v3_reason="Premium too cheap for a sane SL at this delta/distance",
-                    oi=oi, signal_extra=signal_extra,
+                    oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
                 )
                 continue
             sl = round(raw_sl, 2)
@@ -2040,7 +2073,7 @@ def _build_all():
                     sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
                     v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                     v3_reason="No confirmed live lot size",
-                    oi=oi, signal_extra=signal_extra,
+                    oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
                 )
                 continue
             qty, budget_skip_reason = compute_qty_with_risk_budget(lot_size, entry, sl, get_risk_budget_rupees())
@@ -2050,7 +2083,7 @@ def _build_all():
                     sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
                     v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                     v3_reason=budget_skip_reason,
-                    oi=oi, signal_extra=signal_extra,
+                    oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
                 )
                 continue
             risk = abs(entry - sl)
@@ -2207,7 +2240,7 @@ def _build_all():
         _evaluate_and_log_shadow(
             sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
             v3_decision="SIGNAL", v3_score=score, v3_grade=grade, v3_reason=None,
-            oi=oi, signal_extra=signal_extra,
+            oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
         )
     
     signals.sort(key=lambda x: int(x['confidence'].replace('%', '')), reverse=True)
@@ -2324,7 +2357,7 @@ _worker_thread = threading.Thread(target=_background_worker, daemon=True)
 _worker_thread.start()
 
 
-def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call, price_change_pct=None, fut_oi_chg_pct=None):
+def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call, price_change_pct=None, fut_oi_chg_pct=None, atm_strike=None):
     """
     Sep 8 2026: SHADOW MODE ONLY -- index counterpart to
     _evaluate_and_log_shadow() above. Same non-negotiable: this NEVER
@@ -2344,6 +2377,18 @@ def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call
     fyers_symbol, strikecount=10)), so it already carries the same
     ce_oi_chg/pe_oi_chg/pcr fields evaluate_options_structure() above
     was built for -- reused verbatim, not reimplemented.
+
+    atm_strike: Sep 8 2026 addition -- row["ATM Strike"], a confirmed
+    real field from index_tracker.py's own COLUMNS list. Used for a
+    genuine option-liquidity hard gate below. Deliberately does NOT
+    try to replicate generate_index_call()'s own exact strike
+    selection (support-vs-resistance wall logic) -- that source wasn't
+    available to confirm this session, and guessing which strike it
+    picked risks silently reading the WRONG leg's liquidity. Instead
+    uses the ATM strike with the same BUY->CE / SELL->PE convention
+    already used consistently everywhere else in this codebase (not a
+    guess specific to this function) -- a defensible, real liquidity
+    read near the money, not a replica of v3.0's internal choice.
     """
     try:
         from . import quality_engine as qe
@@ -2351,6 +2396,28 @@ def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call
         action = "BUY" if (bias or "").startswith("Bullish") else ("SELL" if (bias or "").startswith("Bearish") else None)
         if action is None or spot is None:
             return  # Neutral/unknown bias -- nothing directional to compare yet, same as generate_index_call()'s own gate
+
+        # Sep 8 2026: HARD GATE (spec section 3C, option liquidity) --
+        # same evaluate_liquidity_gate() already used for stocks, reused
+        # verbatim, not reimplemented. option_oi/volume/bid/ask/ltp come
+        # from the ATM strike's CE or PE leg in oi['rows'] (same row
+        # shape stocks use, per this function's own earlier-confirmed
+        # reuse of get_option_analytics()). Stock-side volume concepts
+        # don't apply to an index the same way, so avg_volume/
+        # current_volume are left None here -- correctly marked
+        # unavailable rather than a stock-shaped number forced onto an
+        # index.
+        atm_leg = None
+        if oi and atm_strike is not None:
+            atm_row = next((r for r in oi.get('rows', []) if r.get('strike') == atm_strike), None)
+            side_key = 'ce' if action == 'BUY' else 'pe'
+            atm_leg = (atm_row or {}).get(side_key)
+        liquidity_result = qe.evaluate_liquidity_gate(
+            avg_volume=None, current_volume=None,
+            option_oi=(atm_leg or {}).get('oi'), option_volume=(atm_leg or {}).get('volume'),
+            bid=(atm_leg or {}).get('bid'), ask=(atm_leg or {}).get('ask'), ltp=(atm_leg or {}).get('ltp'),
+        )
+        hard_gate_failures = liquidity_result['reasons']
 
         index_indicators = _calc_index_indicators(name, fyers_symbol)
         price_structure = {"state": "INSUFFICIENT_DATA"}
@@ -2397,7 +2464,7 @@ def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call
             "breadth": _sub_score(breadth_result['state'], 15, ("CONFIRMED",)),
             "vix": _sub_score(vix_result['state'], 15, ("SUPPORTIVE",)),
         }
-        quality_result = qe.compute_index_quality_score(evidence)
+        quality_result = qe.compute_index_quality_score(evidence, hard_gate_failures=hard_gate_failures)
         quality_result['futures_oi_quadrant'] = futures_oi_result.get('quadrant')
         quality_result['options_ce_quadrant'] = options_structure_result.get('ce_quadrant')
         quality_result['options_pe_quadrant'] = options_structure_result.get('pe_quadrant')
@@ -2406,6 +2473,8 @@ def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call
         # glue function -- compiled from state already computed above,
         # nothing new fetched.
         reasons = []
+        for r in liquidity_result['reasons']:
+            reasons.append(f"HARD GATE: {r}")
         if price_structure['state'] in ("BULLISH_STRUCTURE", "BEARISH_STRUCTURE"):
             tag = "Bullish" if price_structure['state'] == "BULLISH_STRUCTURE" else "Bearish"
             brk = f", {price_structure['breakout']} breakout" if price_structure.get('breakout') else ""
@@ -2521,6 +2590,7 @@ def _index_snapshot_worker():
                         _evaluate_and_log_index_shadow(
                             name, fyers_symbol, row.get("Bias"), row.get("Spot"), atr, oi, call,
                             price_change_pct=row.get("Change %"), fut_oi_chg_pct=row.get("Fut OI Chg %"),
+                            atm_strike=row.get("ATM Strike"),
                         )
 
                         # Outcome check only when a call is actually locked
