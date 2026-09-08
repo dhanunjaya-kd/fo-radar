@@ -280,7 +280,7 @@ def _front_month_bullion_symbol_with_options(base):
     return None
 
 
-def is_mcx_hours():
+def is_mcx_hours(now=None):
     """MCX commodities trade well past NSE's close -- roughly 9 AM to
     11:30 PM, vs NSE F&O's 9:15 AM-3:30 PM. Deliberately a separate,
     local check rather than modifying market_hours.py's is_market_hours()
@@ -288,8 +288,22 @@ def is_mcx_hours():
     NSE-only behavior, and this doesn't need to touch it. Same
     approximation spirit as is_market_hours() (doesn't know MCX-specific
     holidays, only weekends) -- good enough to avoid an out-of-hours
-    snapshot being logged as if real, not a full trading calendar."""
-    now = datetime.now()
+    snapshot being logged as if real, not a full trading calendar.
+
+    Sep 8 2026: real bug, confirmed via a live traceback -- this was the
+    one function in this module's "hours" family that didn't accept an
+    optional now= override the way market_hours.py's is_market_hours()
+    and is_cas_auction_window() both do. apps.py's ready() hook wraps
+    this function at startup (a deliberate global-close gate: MCX
+    commodities should ALSO freeze at NSE's 3:40 PM close, not run to
+    MCX's own 11:30 PM, for the scanner UI specifically) and assumed
+    the same now= convention every sibling function already follows --
+    a completely reasonable assumption that this one function alone
+    didn't satisfy. Fixed here at the root (matching the sibling
+    convention) rather than only in apps.py's call site, so the same
+    wrong assumption doesn't silently break again if anything else
+    ever calls this the same way."""
+    now = now or datetime.now()
     if now.weekday() >= 5:  # Saturday/Sunday
         return False
     start = now.replace(hour=9, minute=0, second=0, microsecond=0)
@@ -1548,8 +1562,6 @@ def snapshot_all_commodities():
                 results[name] = fut.result()
             except Exception as e:
                 print(f"[IndexTracker] {name} snapshot thread failed: {e}")
-                import traceback
-                traceback.print_exc()  # TEMPORARY -- Sep 8 2026 diagnostic, remove once is_mcx_hours() call-site mystery is solved
                 results[name] = None
     return results
 
