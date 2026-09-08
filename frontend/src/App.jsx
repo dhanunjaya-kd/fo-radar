@@ -14,6 +14,7 @@ import CrudeOilTracker from './components/CrudeOilTracker';
 import BullionTracker from './components/BullionTracker';
 import NextDayWatchlist from './components/NextDayWatchlist';
 import DailyBacktestTab from './components/DailyBacktestTab';
+import ShadowSignals from './components/ShadowSignals';
 import Dashboard from './components/Dashboard';
 import SettingsPanel from './components/SettingsPanel';
 import StrategyBacktest from './components/StrategyBacktest';
@@ -34,7 +35,7 @@ const IconLogOut = ({ size = 16 }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
 );
 
-const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'crude', 'bullion', 'nextday', 'backtest', 'settings', 'strategy'];
+const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'crude', 'bullion', 'nextday', 'backtest', 'shadow', 'settings', 'strategy'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -110,16 +111,17 @@ function AppShell() {
     { id: 'bullion', label: 'Gold & Silver', count: null },
     { id: 'nextday', label: 'Next Day', count: null },
     { id: 'backtest', label: 'Daily Backtest', count: null },
+    { id: 'shadow', label: 'Shadow Mode', count: null },
     { id: 'settings', label: 'Settings', count: null },
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
-  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'crude', 'bullion', 'nextday', 'backtest', 'settings'];
+  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'crude', 'bullion', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   const tabIcon = (id) => ({
     dashboard: '🏠', settings: '⚙️', signals: '⚡', oi: '📊', index: '📈', cas: '🏁',
-    market: '📋', crude: '🛢️', bullion: '🥇', nextday: '🔭', backtest: '🧮', strategy: '🧪',
+    market: '📋', crude: '🛢️', bullion: '🥇', nextday: '🔭', backtest: '🧮', shadow: '🔍', strategy: '🧪',
   }[id] || '');
 
   const TabButton = ({ tab }) => (
@@ -209,6 +211,7 @@ function AppShell() {
         {activeTab === 'bullion' && <BullionTracker />}
         {activeTab === 'nextday' && <NextDayWatchlist />}
         {activeTab === 'backtest' && <DailyBacktestTab />}
+        {activeTab === 'shadow' && <ShadowSignals />}
         {activeTab === 'strategy' && <StrategyBacktest />}
       </div>
     </div>
