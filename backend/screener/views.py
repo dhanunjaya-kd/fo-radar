@@ -1136,7 +1136,8 @@ def _update_sector_rankings_cache():
 
 
 def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
-                              v3_decision, v3_score, v3_grade, v3_reason, oi=None, signal_extra=None, option_leg=None):
+                              v3_decision, v3_score, v3_grade, v3_reason, oi=None, signal_extra=None, option_leg=None,
+                              mtf_data=None, futures_oi_data=None):
     """
     Sep 8 2026: SHADOW MODE glue -- converts this cycle's already-
     computed tech/oi/stock data into quality_engine's function
@@ -1163,12 +1164,16 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
     stays None there and the option-liquidity portion of the gate
     below is correctly marked unavailable, not guessed.
 
-    market_regime and futures_oi are deliberately always None here
-    (honestly unavailable, not guessed) -- Market Regime engine and
-    confirmed stock-level futures OI aren't built/available yet, per
-    the Phase 0 audit. multi_tf_trend is always None -- see
-    quality_engine.py's module docstring for why that's structural,
-    not an oversight.
+    mtf_data/futures_oi_data: Sep 9 2026 addition -- optional dicts
+    from the SAME candidate-based enrichment call in _build_all()
+    (mtf_trend.get_mtf_trend() / futures_oi.get_stock_futures_oi()),
+    gated at the exact same "candidate already cleared the technical
+    filter" boundary the OI fetch above it already uses -- not a
+    second shortlist decision. Only passed at call sites AFTER that
+    enrichment point (everything except hysteresis-fail, which is
+    textually earlier in _build_all() and genuinely has neither this
+    nor OI data yet). market_regime is populated from
+    _current_market_regime, computed once per cycle elsewhere.
 
     Wrapped in try/except by BOTH call sites in _build_all() as well as
     internally here -- shadow mode must never be able to break the live
@@ -1310,13 +1315,51 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
         else:  # RANGE or MIXED
             market_regime_score = 15 * 0.3
 
+        # Sep 9 2026: real MTF alignment -- classify_mtf_alignment()
+        # was already built earlier this session but had nothing real
+        # to combine; mtf_data now comes from the candidate-based
+        # enrichment call in _build_all() (see that call site's own
+        # comment for why it's gated the same way OI already is).
+        # UNAVAILABLE when mtf_data itself is None (enrichment wasn't
+        # authenticated/ran this cycle) -- never guessed.
+        mtf_result = qe.classify_mtf_alignment(
+            mtf_data.get('mtf_1h') if mtf_data else None,
+            mtf_data.get('mtf_15m') if mtf_data else None,
+            mtf_data.get('mtf_5m') if mtf_data else None,
+        )
+        mtf_favorable = "ALIGNED_BULLISH" if action == "BUY" else "ALIGNED_BEARISH"
+        mtf_unfavorable = "ALIGNED_BEARISH" if action == "BUY" else "ALIGNED_BULLISH"
+        if mtf_result['state'] == "UNAVAILABLE":
+            mtf_score = None
+        elif mtf_result['state'] == mtf_favorable:
+            mtf_score = 20.0
+        elif mtf_result['state'] == mtf_unfavorable:
+            mtf_score = 0.0
+        else:  # MIXED or NEUTRAL -- real cross-timeframe data, just not a clean alignment either way
+            mtf_score = 20 * 0.3
+
+        # Sep 9 2026: real stock Futures OI -- reuses
+        # evaluate_futures_oi_structure() built earlier for the index
+        # engine verbatim (it only needs price_change_pct + a signed
+        # OI-change value, which works identically for a stock's own
+        # futures contract). futures_oi_data comes from the same
+        # candidate-based enrichment call. AVAILABLE-but-still-
+        # INSUFFICIENT_DATA (status fetched ok but a field was
+        # missing) is handled the same honest way futures_oi.py
+        # itself already treats it -- never substituted with 0.
+        futures_oi_result = {"state": "INSUFFICIENT_DATA"}
+        if futures_oi_data and futures_oi_data.get("status") == "AVAILABLE":
+            futures_oi_result = qe.evaluate_futures_oi_structure(
+                action, stock.get('change_percent'), futures_oi_data.get('oi_chg_pct'),
+            )
+
         evidence = {
             "market_regime": market_regime_score,
-            "multi_tf_trend": None,  # structurally unavailable, see quality_engine.py module docstring
+            "multi_tf_trend": mtf_score,
             "price_structure": _sub_score(price_structure['state'], 15, ("BULLISH_STRUCTURE", "BEARISH_STRUCTURE")),
             "volume_rvol": _sub_score(rvol_result['state'], 15, ("STRONG", "EXCEPTIONAL")),
             "momentum": _sub_score(rsi_regime['state'], 10, ("BULLISH_CONTINUATION", "BEARISH_CONTINUATION")),
-            "futures_oi": None,  # stock-level futures OI not confirmed available -- honestly unavailable
+            "futures_oi": _sub_score(futures_oi_result['state'], 10, ("CONFIRMED",)),
             "options_confirmation": _sub_score(options_result['state'], 10, ("CONFIRMED",)),
             "sector_alignment": sector_score,
         }
@@ -1431,6 +1474,18 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
             reasons.append(f"Highly extended ({extension['distance_atr']:.1f} ATR from EMA20) -- no new entry")
         elif extension['state'] == "MODERATELY_EXTENDED":
             reasons.append(f"Moderately extended ({extension['distance_atr']:.1f} ATR from EMA20)")
+        if mtf_result['state'] == mtf_favorable:
+            reasons.append(f"MTF aligned ({', '.join(mtf_result['aligned_timeframes'])} all {('bullish' if action == 'BUY' else 'bearish')})")
+        elif mtf_result['state'] == mtf_unfavorable:
+            reasons.append("MTF aligned AGAINST this direction")
+        elif mtf_result['state'] == "MIXED":
+            reasons.append("MTF mixed -- timeframes disagree")
+        if futures_oi_result['state'] == "CONFIRMED":
+            reasons.append(f"Futures OI confirms ({futures_oi_result.get('quadrant')})")
+        elif futures_oi_result['state'] == "CONFLICT":
+            reasons.append(f"Futures OI conflicts ({futures_oi_result.get('quadrant')})")
+        elif futures_oi_data and futures_oi_data.get("status") == "UNAVAILABLE":
+            reasons.append(f"Futures OI unavailable ({futures_oi_data.get('reason', 'unknown')})")
 
         from . import shadow_logger
         shadow_logger.log_shadow_candidate(sym, action, price, v3_decision, v3_score, v3_grade, v3_reason, quality_result, reasons=reasons)
@@ -1684,6 +1739,40 @@ def _build_all():
                 print(f"[OI] {sym} fetch failed: {e}")
                 oi = None
 
+        # Sep 9 2026: SHADOW MODE ONLY -- MTF trend + stock Futures OI
+        # enrichment, at the EXACT SAME "candidate shortlist" boundary
+        # the OI fetch right above already establishes (this comment
+        # block's own words: "only for symbols that already cleared
+        # the technical filter, to keep API call volume sane"). Not a
+        # second, separate shortlist decision -- reuses this one.
+        #
+        # Market-hours safety: this code lives entirely inside
+        # _build_all(), which _background_worker() only ever calls
+        # from inside `if is_market_hours():` -- confirmed directly at
+        # that call site. No separate is_market_hours() check needed
+        # here; it's structurally impossible for this to fire outside
+        # NSE 09:00-15:40, inheriting the exact same freeze-at-close
+        # behavior every other part of this function already has.
+        # Strictly feeds evidence for _evaluate_and_log_shadow() below;
+        # never read by score/oi_confirmation/pattern or anything that
+        # reaches signals.append() or no_trade_log -- v3.0's own
+        # selection is completely untouched by these two calls. Own
+        # try/except each, same belt-and-braces convention as
+        # everything else shadow-mode in this file.
+        mtf_data = None
+        futures_oi_data = None
+        if is_authenticated():
+            try:
+                from .mtf_trend import get_mtf_trend
+                mtf_data = get_mtf_trend(f"NSE:{sym}-EQ")
+            except Exception as e:
+                print(f"[ShadowMode] {sym} MTF enrichment failed: {e}")
+            try:
+                from .futures_oi import get_stock_futures_oi
+                futures_oi_data = get_stock_futures_oi(sym)
+            except Exception as e:
+                print(f"[ShadowMode] {sym} futures OI enrichment failed: {e}")
+
         # --- OI-based quality scoring ---
         # This used to not exist: 'grade' came only from the 4 price/volume
         # checks above (max 70 points), so grades A (>=90) and B (>=80)
@@ -1744,6 +1833,7 @@ def _build_all():
                     v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                     v3_reason=f"OI conflicts with {action} direction",
                     oi=oi, signal_extra={"ce_oi_chg": oi.get("ce_oi_chg"), "pe_oi_chg": oi.get("pe_oi_chg"), "pcr": oi.get("pcr")},
+                    mtf_data=mtf_data, futures_oi_data=futures_oi_data,
                 )
                 continue
             else:
@@ -1983,6 +2073,7 @@ def _build_all():
                     v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                     v3_reason="No confirmed live option chain for this strike",
                     oi=oi, signal_extra=signal_extra,
+                    mtf_data=mtf_data, futures_oi_data=futures_oi_data,
                 )
                 continue
 
@@ -2016,6 +2107,7 @@ def _build_all():
                         v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                         v3_reason=f"Option spread too wide ({spread_pct}% of premium)",
                         oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
+                        mtf_data=mtf_data, futures_oi_data=futures_oi_data,
                     )
                     continue
 
@@ -2048,6 +2140,7 @@ def _build_all():
                     v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                     v3_reason="Premium too cheap for a sane SL at this delta/distance",
                     oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
+                    mtf_data=mtf_data, futures_oi_data=futures_oi_data,
                 )
                 continue
             sl = round(raw_sl, 2)
@@ -2074,6 +2167,7 @@ def _build_all():
                     v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                     v3_reason="No confirmed live lot size",
                     oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
+                    mtf_data=mtf_data, futures_oi_data=futures_oi_data,
                 )
                 continue
             qty, budget_skip_reason = compute_qty_with_risk_budget(lot_size, entry, sl, get_risk_budget_rupees())
@@ -2084,6 +2178,7 @@ def _build_all():
                     v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
                     v3_reason=budget_skip_reason,
                     oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
+                    mtf_data=mtf_data, futures_oi_data=futures_oi_data,
                 )
                 continue
             risk = abs(entry - sl)
@@ -2241,6 +2336,7 @@ def _build_all():
             sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
             v3_decision="SIGNAL", v3_score=score, v3_grade=grade, v3_reason=None,
             oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
+            mtf_data=mtf_data, futures_oi_data=futures_oi_data,
         )
     
     signals.sort(key=lambda x: int(x['confidence'].replace('%', '')), reverse=True)

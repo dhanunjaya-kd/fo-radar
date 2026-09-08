@@ -21,6 +21,19 @@ that turned out wrong when actually checked against the live file):
   [16] = option type -- "XX" means this row is a FUTURES contract,
          not an option strike
 
+Sep 9 2026: extended to also cache column [9] (the real futures
+ticker) alongside lot size -- same fetch, same cache, same "first row
+found per underlying is the near-month expiry" logic already
+established for lot size; get_futures_symbol() below is a second
+accessor into the SAME table, not a second fetch or a second contract
+resolver. Added for stock-level Futures OI confirmation, which needs
+the actual tradeable futures symbol to query market depth on
+(index_tracker.py's snapshot_index() already does the equivalent for
+NIFTY/BANKNIFTY via its own _front_month_futures_symbol() -- that one
+stays index-specific and untouched; this is the stock counterpart,
+reusing this file's existing infrastructure rather than duplicating
+that index-only function or inventing a third resolver).
+
 MATCHING METHOD -- exact equality on column [13] only, NOT substring
 matching: the diagnostic run against the real file caught a genuine
 bug from an earlier, looser version -- scanning free-text descriptions
@@ -52,19 +65,21 @@ _lot_size_cache = {"date": None, "table": {}}
 def _fetch_and_parse_lot_sizes():
     """
     Real network call -- fetches the live ~13MB symbol master and
-    builds {underlying_name: lot_size} from FUTURES rows only (column
-    [16] == 'XX', i.e. not a CE/PE option strike -- excludes the
-    thousands of option rows that would otherwise bury the ~200 useful
-    ones, same principle check_real_mcx_symbols.py already uses for
-    MCX). Keeps the FIRST futures row found per underlying (near-month
-    expiry, since the file appears date-ordered) -- lot size doesn't
-    vary by expiry month for a given underlying, so there's no need to
-    prefer a specific one.
+    builds {underlying_name: {"lot_size": int, "symbol": str}} from
+    FUTURES rows only (column [16] == 'XX', i.e. not a CE/PE option
+    strike -- excludes the thousands of option rows that would
+    otherwise bury the ~200 useful ones, same principle
+    check_real_mcx_symbols.py already uses for MCX). Keeps the FIRST
+    futures row found per underlying (near-month expiry, since the
+    file appears date-ordered) -- lot size doesn't vary by expiry
+    month for a given underlying, so there's no need to prefer a
+    specific one; the futures SYMBOL captured alongside it is
+    therefore also the near-month contract, which is exactly the
+    "nearest valid futures contract" a live OI read should use.
 
     Returns {} on any failure -- callers must treat an empty/missing
-    lookup as "lot size unknown for this symbol right now," never
-    guess a number or fall back to the old capital-based sizing
-    silently.
+    lookup as "unknown for this symbol right now," never guess a
+    number/symbol or fall back to old defaults silently.
     """
     table = {}
     try:
@@ -83,8 +98,9 @@ def _fetch_and_parse_lot_sizes():
                 continue  # a CE/PE option strike, not the futures row we want
             underlying = row[13].strip().upper()
             lot_size = int(row[3])
+            fut_symbol = row[9].strip()
             if underlying and lot_size > 0 and underlying not in table:
-                table[underlying] = lot_size
+                table[underlying] = {"lot_size": lot_size, "symbol": fut_symbol or None}
         except (ValueError, IndexError):
             continue  # a malformed row -- skip it rather than let a bad row crash the whole fetch
     return table
@@ -116,7 +132,32 @@ def get_lot_size(underlying_symbol):
         elif not _lot_size_cache["table"]:
             return None  # never had a successful fetch at all -- nothing to fall back to
 
-    return _lot_size_cache["table"].get(underlying_symbol.strip().upper())
+    entry = _lot_size_cache["table"].get(underlying_symbol.strip().upper())
+    return entry["lot_size"] if entry else None
+
+
+def get_futures_symbol(underlying_symbol):
+    """
+    Sep 9 2026: the real, live, near-month Fyers futures ticker for
+    `underlying_symbol` (e.g. "NSE:WIPRO26SEPFUT") -- second accessor
+    into the SAME daily-cached table get_lot_size() already
+    maintains, not a second fetch or a second contract resolver. Same
+    None-on-unknown contract as get_lot_size(): never guesses a
+    symbol, caller must treat None as "can't resolve a futures
+    contract for this underlying right now" and skip rather than
+    invent one.
+    """
+    global _lot_size_cache
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    if _lot_size_cache["date"] != today_str:
+        table = _fetch_and_parse_lot_sizes()
+        if table:
+            _lot_size_cache = {"date": today_str, "table": table}
+        elif not _lot_size_cache["table"]:
+            return None
+
+    entry = _lot_size_cache["table"].get(underlying_symbol.strip().upper())
+    return entry["symbol"] if entry else None
 
 
 def get_lot_size_table_age():
