@@ -2689,6 +2689,23 @@ def _index_snapshot_worker():
                             atm_strike=row.get("ATM Strike"),
                         )
 
+                        # Sep 9 2026: real Bias-vs-OI-Signal agreement
+                        # tracking -- built directly from a real
+                        # disagreement found live in the running app
+                        # (Bias Bullish while OI Signal read Short
+                        # Buildup across many consecutive snapshots).
+                        # Own separate log from shadow mode above --
+                        # this compares two already-computed INDEX
+                        # reads against each other, not v3.0 vs the
+                        # Quality Engine. Purely observational, same
+                        # as shadow mode: nothing here feeds back into
+                        # row/call/Bias itself.
+                        try:
+                            from .index_agreement_logger import log_agreement_state
+                            log_agreement_state(name, row.get("Bias"), row.get("Change %"), row.get("Fut OI Chg %"), row.get("Spot"))
+                        except Exception as e:
+                            print(f"[IndexAgreementLog] {name} logging failed: {e}")
+
                         # Outcome check only when a call is actually locked
                         # and we have its exact option_symbol -- one small
                         # extra quote call per active index call, not per
@@ -2705,6 +2722,17 @@ def _index_snapshot_worker():
                                             index_signal.check_call_outcome(name, ltp)
                     except Exception as e:
                         print(f"[IndexSignal] {name} call generation failed: {e}")
+
+                # Sep 9 2026: once per cycle, not once per index -- same
+                # cadence pattern shadow_logger.check_shadow_outcomes()
+                # already uses. Silently no-ops if nothing's open to
+                # check (no episode logged yet, or everything already
+                # resolved to EOD).
+                try:
+                    from .index_agreement_logger import check_agreement_outcomes
+                    check_agreement_outcomes(get_quotes)
+                except Exception as e:
+                    print(f"[IndexAgreementLog] Failed to check outcomes: {e}")
             snapshot_all_commodities()
             mcx_open = is_mcx_hours()
             if nse_open or mcx_open:
@@ -3073,6 +3101,28 @@ class ShadowPerformanceView(APIView):
         rows = get_all_shadow_signals()
         performance = compute_shadow_performance(rows)
         return Response(performance)
+
+
+class IndexAgreementLogView(APIView):
+    """
+    Sep 9 2026: read-only view onto index_agreement_logger.py's real
+    Bias-vs-OI-Signal episode log for NIFTY/BANKNIFTY -- built directly
+    from a real disagreement found live in the running app (Bias
+    Bullish while OI Signal read Short Buildup across many consecutive
+    snapshots, 09 Sep 2026). Purely observational, same as shadow mode:
+    nothing this view exposes ever fed back into Bias/OI Signal/the
+    index call itself.
+    """
+    def get(self, request):
+        from .index_agreement_logger import get_today_agreement_log
+        rows = get_today_agreement_log()
+        agree = sum(1 for r in rows if r.get("Agreement") == "AGREE")
+        disagree = sum(1 for r in rows if r.get("Agreement") == "DISAGREE")
+        neutral = sum(1 for r in rows if r.get("Agreement") == "NEUTRAL_BIAS")
+        return Response({
+            "episodes": rows, "count": len(rows),
+            "agreement_summary": {"AGREE": agree, "DISAGREE": disagree, "NEUTRAL_BIAS": neutral},
+        })
 
 
 class DataHealthView(APIView):
