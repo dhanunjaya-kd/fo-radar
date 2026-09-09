@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-09T17:19:11.563606",
-  "universe_scanned": 2676,
+  "generated_at": "2026-09-09T17:33:58.493188",
+  "universe_scanned": 2677,
   "stocks_with_enough_data": 2507,
   "excluded_low_price": 546,
-  "excluded_low_liquidity": 951,
+  "excluded_low_liquidity": 947,
   "excluded_unknown_sector": 2300,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
@@ -86,21 +86,21 @@
       "sector": "Fintech",
       "eod_price": 1751.5,
       "change_percent": 4.88,
-      "rsi": 60.8,
-      "sma_20": 1635.96,
-      "distance_from_sma_pct": 7.06,
+      "rsi": 67.0,
+      "sma_20": 1646.86,
+      "distance_from_sma_pct": 6.35,
       "today_volume": 8247684,
-      "avg_volume_20d": 4873502.0,
-      "volume_ratio": 1.69,
+      "avg_volume_20d": 3658167.0,
+      "volume_ratio": 2.25,
       "sector_relative_pct": 3.15,
       "sector_strength": "Leading",
       "trend_status": "Strong",
       "volume_status": "Accumulation",
-      "score": 80,
+      "score": 89,
       "score_breakdown": {
         "rsi": 20,
         "trend_distance": 25,
-        "volume": 10,
+        "volume": 19,
         "sector_strength": 25
       },
       "rank": 4
@@ -202,30 +202,6 @@
       "rank": 8
     },
     {
-      "symbol": "NSE:SBILIFE-EQ",
-      "sector": "Insurance",
-      "eod_price": 1684,
-      "change_percent": -0.74,
-      "rsi": 39.5,
-      "sma_20": 1771.97,
-      "distance_from_sma_pct": -4.96,
-      "today_volume": 1020022,
-      "avg_volume_20d": 900972.0,
-      "volume_ratio": 1.13,
-      "sector_relative_pct": 0.83,
-      "sector_strength": "Leading",
-      "trend_status": "Moderate",
-      "volume_status": "Normal",
-      "score": 72,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 2,
-        "sector_strength": 25
-      },
-      "rank": 9
-    },
-    {
       "symbol": "NSE:HINDPETRO-EQ",
       "sector": "Energy",
       "eod_price": 348.9,
@@ -245,6 +221,30 @@
         "rsi": 20,
         "trend_distance": 23,
         "volume": 3,
+        "sector_strength": 25
+      },
+      "rank": 9
+    },
+    {
+      "symbol": "NSE:ICICIGI-EQ",
+      "sector": "Insurance",
+      "eod_price": 1474,
+      "change_percent": -0.7,
+      "rsi": 19.5,
+      "sma_20": 1575.16,
+      "distance_from_sma_pct": -6.42,
+      "today_volume": 974836,
+      "avg_volume_20d": 892913.0,
+      "volume_ratio": 1.09,
+      "sector_relative_pct": 0.87,
+      "sector_strength": "Leading",
+      "trend_status": "Strong",
+      "volume_status": "Normal",
+      "score": 71,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 1,
         "sector_strength": 25
       },
       "rank": 10
