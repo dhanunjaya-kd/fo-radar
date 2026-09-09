@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-09T17:33:58.493188",
+  "generated_at": "2026-09-09T17:42:37.829474",
   "universe_scanned": 2677,
   "stocks_with_enough_data": 2507,
   "excluded_low_price": 546,
-  "excluded_low_liquidity": 947,
+  "excluded_low_liquidity": 949,
   "excluded_unknown_sector": 2300,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
@@ -130,52 +130,28 @@
       "rank": 5
     },
     {
-      "symbol": "NSE:VBL-EQ",
-      "sector": "Beverages",
-      "eod_price": 407,
-      "change_percent": 0.32,
-      "rsi": 35.2,
-      "sma_20": 424.42,
-      "distance_from_sma_pct": -4.1,
-      "today_volume": 11284331,
-      "avg_volume_20d": 6018416.0,
-      "volume_ratio": 1.87,
-      "sector_relative_pct": 1.37,
-      "sector_strength": "Leading",
-      "trend_status": "Moderate",
-      "volume_status": "Accumulation",
-      "score": 78,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 20,
-        "volume": 13,
-        "sector_strength": 25
-      },
-      "rank": 6
-    },
-    {
       "symbol": "NSE:WIPRO-EQ",
       "sector": "IT",
       "eod_price": 167,
       "change_percent": -2.62,
-      "rsi": 38.6,
-      "sma_20": 180.06,
-      "distance_from_sma_pct": -7.25,
+      "rsi": 30.7,
+      "sma_20": 178.56,
+      "distance_from_sma_pct": -6.47,
       "today_volume": 12001620,
-      "avg_volume_20d": 7943433.0,
-      "volume_ratio": 1.51,
+      "avg_volume_20d": 8100910.0,
+      "volume_ratio": 1.48,
       "sector_relative_pct": 0.28,
       "sector_strength": "Leading",
       "trend_status": "Strong",
-      "volume_status": "Accumulation",
-      "score": 78,
+      "volume_status": "Normal",
+      "score": 77,
       "score_breakdown": {
         "rsi": 20,
         "trend_distance": 25,
-        "volume": 8,
+        "volume": 7,
         "sector_strength": 25
       },
-      "rank": 7
+      "rank": 6
     },
     {
       "symbol": "NSE:HDFCLIFE-EQ",
@@ -198,6 +174,30 @@
         "trend_distance": 25,
         "volume": 30,
         "sector_strength": 0
+      },
+      "rank": 7
+    },
+    {
+      "symbol": "NSE:VBL-EQ",
+      "sector": "Beverages",
+      "eod_price": 407,
+      "change_percent": 0.32,
+      "rsi": 36.9,
+      "sma_20": 421.18,
+      "distance_from_sma_pct": -3.37,
+      "today_volume": 11284331,
+      "avg_volume_20d": 6042387.0,
+      "volume_ratio": 1.87,
+      "sector_relative_pct": 1.37,
+      "sector_strength": "Leading",
+      "trend_status": "Moderate",
+      "volume_status": "Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 17,
+        "volume": 13,
+        "sector_strength": 25
       },
       "rank": 8
     },
@@ -249,5 +249,10 @@
       },
       "rank": 10
     }
-  ]
+  ],
+  "backtest": {
+    "recorded": 10,
+    "resolved": 0,
+    "file": "C:\\Users\\FixAdmin\\Downloads\\fo-sniper-fullstack\\backend\\signal_logs\\next_day_watchlist_backtest.xlsx"
+  }
 }
