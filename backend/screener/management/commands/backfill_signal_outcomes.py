@@ -11,6 +11,12 @@ The consolidated workbook contains two sheets:
 
 An EOD price move is never converted into "Closed up/down" because that is
 not a genuine SL/Target outcome for a positional signal.
+
+Target progression is preserved. For example, if Target 1 is reached on one
+session and the original SL is reached later, the final Result is still
+"SL Hit", but Trade Progression records "Target 1 Hit -> SL Hit". This makes
+it possible to distinguish a trade that never reached a target from one that
+reached targets before subsequently reversing into its stop.
 """
 import os
 from datetime import datetime
@@ -70,9 +76,9 @@ def _fetch_candles(option_symbol, start_date, end_date):
 
 
 def _replay(candles, entry_dt, sl, t1, t2, t3):
-    """Replay SL/target crossings chronologically across all supplied days."""
+    """Replay positional SL/target crossings chronologically."""
     result = {"sl_hit_at": None, "targets_hit": {}, "ambiguous": []}
-    furthest = 0
+    targets = ((1, t1), (2, t2), (3, t3))
 
     for candle in sorted(candles, key=lambda c: c[0]):
         if len(candle) < 5:
@@ -82,30 +88,47 @@ def _replay(candles, entry_dt, sl, t1, t2, t3):
         if candle_dt < entry_dt:
             continue
 
-        # These are option-premium levels. Preserve the same convention as
-        # the live logger: SL is a lower premium and targets are higher.
         sl_touched = sl is not None and low <= sl
-        target_touched = None
-        for n, level in ((3, t3), (2, t2), (1, t1)):
-            if furthest >= n or level is None:
-                continue
-            if high >= level:
-                target_touched = n
-                break
+        newly_touched = [
+            (n, level)
+            for n, level in targets
+            if n not in result["targets_hit"] and level is not None and high >= level
+        ]
 
-        if sl_touched and target_touched:
+        if sl_touched and newly_touched:
             result["ambiguous"].append(candle_dt.strftime("%Y-%m-%d %H:%M:%S"))
             return result
+
         if sl_touched:
             result["sl_hit_at"] = candle_dt.strftime("%Y-%m-%d %H:%M:%S")
             return result
-        if target_touched:
-            furthest = target_touched
-            result["targets_hit"][target_touched] = candle_dt.strftime("%Y-%m-%d %H:%M:%S")
-            if target_touched == 3:
+
+        if newly_touched:
+            hit_at = candle_dt.strftime("%Y-%m-%d %H:%M:%S")
+            for n, _level in newly_touched:
+                result["targets_hit"][n] = hit_at
+            if 3 in result["targets_hit"]:
                 return result
 
     return result
+
+
+def _progression_from_hits(sl_hit_at, targets_hit):
+    """Return a chronological human-readable progression from verified hits."""
+    events = []
+    for n, hit_at in targets_hit.items():
+        if hit_at:
+            events.append((str(hit_at), f"Target {n} Hit"))
+    if sl_hit_at:
+        events.append((str(sl_hit_at), "SL Hit"))
+    events.sort(key=lambda item: item[0])
+    if not events:
+        return ""
+    return " -> ".join(label for _ts, label in events)
+
+
+def _max_target(targets_hit):
+    return max(targets_hit) if targets_hit else 0
 
 
 def _pnl_pct(outcome, entry, sl, t1, t2, t3):
@@ -127,7 +150,8 @@ def _report_headers(ws):
     headers = [
         "Date", "Symbol", "Action", "Grade", "Strike",
         "Entry (Premium)", "SL", "Target 1", "Target 2", "Target 3",
-        "Option Symbol", "Result", "Hit At", "P&L %", "Checked Through",
+        "Option Symbol", "Result", "Trade Progression", "Max Target Reached",
+        "Hit At", "P&L %", "Checked Through",
     ]
     ws.append(headers)
     for cell in ws[1]:
@@ -196,16 +220,15 @@ class Command(BaseCommand):
                 if not entry_dt:
                     continue
 
-                # Old versions of this command wrote EOD estimates such as
-                # "Closed down ...". Remove those synthetic outcomes so the
-                # same row can now be evaluated positionally. Never erase a
-                # genuine SL/Target hit already recorded by the live logger.
-                genuine_hit = bool(
-                    ws.cell(row_num, col["SL Hit At"]).value
-                    or ws.cell(row_num, col["Target 1 Hit At"]).value
-                    or ws.cell(row_num, col["Target 2 Hit At"]).value
-                    or ws.cell(row_num, col["Target 3 Hit At"]).value
-                )
+                existing_sl_hit = ws.cell(row_num, col["SL Hit At"]).value
+                existing_targets = {
+                    n: ws.cell(row_num, col[f"Target {n} Hit At"]).value
+                    for n in (1, 2, 3)
+                }
+                genuine_hit = bool(existing_sl_hit or any(existing_targets.values()))
+
+                # Remove only old synthetic EOD outcomes. Never erase a genuine
+                # SL/Target hit recorded by the live logger.
                 if outcome and not genuine_hit and (
                     str(outcome).startswith("Closed ")
                     or str(outcome).startswith("No trade data")
@@ -217,16 +240,14 @@ class Command(BaseCommand):
                     changed += 1
 
                 if genuine_hit:
-                    hit_at = (
-                        ws.cell(row_num, col["SL Hit At"]).value
-                        or ws.cell(row_num, col["Target 3 Hit At"]).value
-                        or ws.cell(row_num, col["Target 2 Hit At"]).value
-                        or ws.cell(row_num, col["Target 1 Hit At"]).value
-                    )
+                    progression = _progression_from_hits(existing_sl_hit, existing_targets)
+                    max_target = _max_target({n: v for n, v in existing_targets.items() if v})
+                    hit_at = existing_sl_hit or existing_targets.get(3) or existing_targets.get(2) or existing_targets.get(1)
                     results.append({
                         "date": date_str, "symbol": symbol, "action": action, "grade": grade,
                         "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
                         "option_symbol": opt_symbol, "result": outcome or "Resolved",
+                        "progression": progression, "max_target": max_target,
                         "hit_at": hit_at, "pnl_pct": _pnl_pct(outcome, entry, sl, t1, t2, t3),
                         "checked_through": date_str,
                     })
@@ -272,33 +293,40 @@ class Command(BaseCommand):
                     })
                     continue
 
-                furthest = max(replay["targets_hit"]) if replay["targets_hit"] else 0
+                targets_hit = replay["targets_hit"]
+                max_target = _max_target(targets_hit)
+                progression = _progression_from_hits(replay["sl_hit_at"], targets_hit)
+
                 if replay["sl_hit_at"]:
                     new_outcome = "SL Hit"
                     hit_at = replay["sl_hit_at"]
                     if not dry_run:
+                        for n, hit in targets_hit.items():
+                            ws.cell(row_num, col[f"Target {n} Hit At"]).value = hit
                         ws.cell(row_num, col["SL Hit At"]).value = hit_at
                         ws.cell(row_num, col["Outcome"]).value = new_outcome
                     changed += 1
                     results.append({
                         "date": date_str, "symbol": symbol, "action": action, "grade": grade,
                         "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
-                        "option_symbol": opt_symbol, "result": new_outcome, "hit_at": hit_at,
+                        "option_symbol": opt_symbol, "result": new_outcome, "progression": progression,
+                        "max_target": max_target, "hit_at": hit_at,
                         "pnl_pct": _pnl_pct(new_outcome, entry, sl, t1, t2, t3),
                         "checked_through": str(terminal_date),
                     })
-                elif furthest:
-                    new_outcome = f"Target {furthest} Hit"
-                    hit_at = replay["targets_hit"][furthest]
+                elif max_target:
+                    new_outcome = f"Target {max_target} Hit"
+                    hit_at = targets_hit[max_target]
                     if not dry_run:
-                        for n, hit in replay["targets_hit"].items():
+                        for n, hit in targets_hit.items():
                             ws.cell(row_num, col[f"Target {n} Hit At"]).value = hit
                         ws.cell(row_num, col["Outcome"]).value = new_outcome
                     changed += 1
                     results.append({
                         "date": date_str, "symbol": symbol, "action": action, "grade": grade,
                         "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
-                        "option_symbol": opt_symbol, "result": new_outcome, "hit_at": hit_at,
+                        "option_symbol": opt_symbol, "result": new_outcome, "progression": progression,
+                        "max_target": max_target, "hit_at": hit_at,
                         "pnl_pct": _pnl_pct(new_outcome, entry, sl, t1, t2, t3),
                         "checked_through": str(terminal_date),
                     })
@@ -328,7 +356,8 @@ class Command(BaseCommand):
             ws_results.append([
                 r["date"], r["symbol"], r["action"], r["grade"], r["strike"],
                 r["entry"], r["sl"], r["t1"], r["t2"], r["t3"], r["option_symbol"],
-                r["result"], r["hit_at"], r["pnl_pct"], r["checked_through"],
+                r["result"], r["progression"], r["max_target"], r["hit_at"],
+                r["pnl_pct"], r["checked_through"],
             ])
 
         ws_pending = wb.create_sheet("No Result")
@@ -337,7 +366,7 @@ class Command(BaseCommand):
             ws_pending.append([
                 r["date"], r["symbol"], r["action"], r["grade"], r["strike"],
                 r["entry"], r["sl"], r["t1"], r["t2"], r["t3"], r["option_symbol"],
-                r["status"], "", "", r["checked_through"],
+                r["status"], "", "", "", "", r["checked_through"],
             ])
 
         for sheet in (ws_results, ws_pending):
