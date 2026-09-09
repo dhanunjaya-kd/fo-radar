@@ -11,30 +11,49 @@ import os
 import time
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from threading import Event
 
 CALL_TIMEOUT_SECONDS = 30
 OUTPUT_FILE = os.path.join(os.path.dirname(__file__), "next_day_watchlist_raw.json")
 _scan_progress = {"scanned": 0, "total": 0, "current_symbol": None}
+_scan_cancel_requested = Event()
+
 
 def get_scan_progress():
-    return dict(_scan_progress)
+    progress = dict(_scan_progress)
+    progress["cancel_requested"] = _scan_cancel_requested.is_set()
+    return progress
+
+
+def request_scan_cancel():
+    """Ask the active scan to stop at the next safe checkpoint."""
+    if _scan_progress.get("total", 0) <= 0:
+        return False
+    _scan_cancel_requested.set()
+    return True
+
 
 def _reset_scan_progress(total):
+    _scan_cancel_requested.clear()
     _scan_progress["scanned"] = 0
     _scan_progress["total"] = total
     _scan_progress["current_symbol"] = None
 
+
 def _advance_scan_progress(symbol):
     _scan_progress["scanned"] += 1
     _scan_progress["current_symbol"] = symbol
+
 
 HISTORY_CALLS_PER_MINUTE = 90
 PAUSE_BETWEEN_HISTORY_CALLS = 60.0 / HISTORY_CALLS_PER_MINUTE
 QUOTE_BATCH_SIZE = 50
 SAVE_PROGRESS_EVERY = 50
 
+
 class CallTimedOut(Exception):
     pass
+
 
 def _call_with_timeout(fn, *args, **kwargs):
     executor = ThreadPoolExecutor(max_workers=1)
@@ -47,8 +66,14 @@ def _call_with_timeout(fn, *args, **kwargs):
         executor.shutdown(wait=False)
         raise CallTimedOut(f"{getattr(fn, '__name__', fn)} did not return within {CALL_TIMEOUT_SECONDS}s")
 
+
 class RateLimitStop(Exception):
     pass
+
+
+class ScanCancelled(Exception):
+    pass
+
 
 def _is_rate_limit_response(resp):
     if not resp:
@@ -58,15 +83,18 @@ def _is_rate_limit_response(resp):
     message = str(resp.get("message", "")).lower()
     return code == 429 or "throttled" in error_key or "quota_exceeded" in error_key or "limit" in message
 
+
 def load_existing():
     if os.path.exists(OUTPUT_FILE):
         with open(OUTPUT_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
+
 def save_progress(data):
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, default=str)
+
 
 def is_stale(entry, max_age_hours=20):
     fetched_at = entry.get("fetched_at")
@@ -78,9 +106,12 @@ def is_stale(entry, max_age_hours=20):
         return True
     return (datetime.now() - fetched_dt) > timedelta(hours=max_age_hours)
 
+
 def fetch_quotes_batched(symbols, get_quotes_fn):
     result = {}
     for i in range(0, len(symbols), QUOTE_BATCH_SIZE):
+        if _scan_cancel_requested.is_set():
+            raise ScanCancelled()
         batch = symbols[i:i + QUOTE_BATCH_SIZE]
         try:
             resp = _call_with_timeout(get_quotes_fn, batch)
@@ -99,11 +130,14 @@ def fetch_quotes_batched(symbols, get_quotes_fn):
         time.sleep(PAUSE_BETWEEN_HISTORY_CALLS)
     return result
 
+
 def fetch_daily_history_paced(symbols, get_history_fn, days_back=30):
     result = {}
     range_to = datetime.now().strftime("%Y-%m-%d")
     range_from = (datetime.now() - timedelta(days=days_back * 2)).strftime("%Y-%m-%d")
     for symbol in symbols:
+        if _scan_cancel_requested.is_set():
+            raise ScanCancelled()
         try:
             resp = _call_with_timeout(get_history_fn, symbol, resolution="1D", range_from=range_from, range_to=range_to)
         except Exception as e:
@@ -123,6 +157,7 @@ def fetch_daily_history_paced(symbols, get_history_fn, days_back=30):
         time.sleep(PAUSE_BETWEEN_HISTORY_CALLS)
     return result
 
+
 def _publish_partial_ranking(raw_data):
     """Publish genuine partial results without writing the Excel ledger."""
     try:
@@ -132,6 +167,7 @@ def _publish_partial_ranking(raw_data):
         print(f"[EODScanner] Partial ranking published: {len(ranked)} picks from {universe} scanned / {with_data} eligible.")
     except Exception as e:
         print(f"[EODScanner] Partial ranking publish skipped: {e}")
+
 
 def run(get_quotes_fn, get_history_fn, symbols=None, limit=None):
     if symbols is None:
@@ -155,10 +191,6 @@ def run(get_quotes_fn, get_history_fn, symbols=None, limit=None):
     try:
         print(f"[EODScanner] Fetching quotes for {len(to_scan)} symbols (batched, {QUOTE_BATCH_SIZE}/call)...")
         quotes = fetch_quotes_batched(to_scan, get_quotes_fn)
-        # Publish as soon as the fresh quote phase completes. Existing daily
-        # candles are still genuine historical data, while price/volume/change
-        # are already fresh for this scan. History refresh then progressively
-        # replaces the old candles and republishes the ranking below.
         fresh_quote_count = 0
         for symbol, quote in quotes.items():
             if symbol in existing:
@@ -171,6 +203,8 @@ def run(get_quotes_fn, get_history_fn, symbols=None, limit=None):
         print(f"[EODScanner] Got quotes for {len(quotes)}/{len(to_scan)}. Fetching daily history (paced, ~{HISTORY_CALLS_PER_MINUTE}/min, ~{len(to_scan) / HISTORY_CALLS_PER_MINUTE:.0f} min estimated)...")
 
         for idx, symbol in enumerate(to_scan):
+            if _scan_cancel_requested.is_set():
+                raise ScanCancelled()
             batch_result = fetch_daily_history_paced([symbol], get_history_fn)
             if symbol in batch_result:
                 existing[symbol] = {"quote": quotes.get(symbol), "daily_candles": batch_result[symbol], "fetched_at": datetime.now().isoformat()}
@@ -179,6 +213,9 @@ def run(get_quotes_fn, get_history_fn, symbols=None, limit=None):
                 save_progress(existing)
                 _publish_partial_ranking(existing)
                 print(f"[EODScanner]   -- progress saved ({idx + 1}/{len(to_scan)})")
+    except ScanCancelled:
+        stopped_early = True
+        print(f"[EODScanner] Scan cancellation requested -- stopping after the current safe checkpoint ({_scan_progress['scanned']}/{_scan_progress['total']}).")
     except RateLimitStop as e:
         print(f"\n{'=' * 70}\n[EODScanner] STOPPING -- real rate limit hit: {e}\n{'=' * 70}")
         stopped_early = True
@@ -187,6 +224,7 @@ def run(get_quotes_fn, get_history_fn, symbols=None, limit=None):
     _publish_partial_ranking(existing)
     print(f"[EODScanner] Done this pass. {len(existing)} total symbols now in {OUTPUT_FILE}.")
     return existing, stopped_early
+
 
 if __name__ == "__main__":
     import sys

@@ -62,6 +62,7 @@ export default function NextDayWatchlist() {
   const [error, setError] = useState(null);
   const [scanStatus, setScanStatus] = useState(null);
   const [triggering, setTriggering] = useState(false);
+  const [canceling, setCanceling] = useState(false);
   const [triggerMessage, setTriggerMessage] = useState(null);
   const scanInProgressRef = useRef(false);
 
@@ -108,6 +109,22 @@ export default function NextDayWatchlist() {
     }
   };
 
+  const endScan = async () => {
+    if (!scanInProgressRef.current || canceling) return;
+    setCanceling(true);
+    setTriggerMessage(null);
+    try {
+      const d = await fetchJsonWithTimeout(`${API_BASE}/api/next-day-watchlist/scan/cancel/`, { method: 'POST' });
+      setTriggerMessage(d.reason || 'End Scan requested.');
+      await loadScanStatus();
+      await loadWatchlist();
+    } catch (e) {
+      setTriggerMessage(`Couldn't end scan: ${e.name === 'AbortError' ? 'backend did not respond within 8 seconds' : e.message}`);
+    } finally {
+      setCanceling(false);
+    }
+  };
+
   useEffect(() => {
     // Never block the entire tab on the first API request. The page,
     // Run Scan button, progress area and polling remain usable immediately.
@@ -131,6 +148,7 @@ export default function NextDayWatchlist() {
   const watchlist = data?.watchlist || [];
   const actionableCount = watchlist.filter(s => s.score >= 70).length;
   const heavyAccumulationCount = watchlist.filter(s => s.volume_status === 'Heavy Accumulation').length;
+  const scanRunning = !!scanStatus?.scan_in_progress;
 
   return (
     <div className="space-y-4">
@@ -147,7 +165,7 @@ export default function NextDayWatchlist() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs text-slate-300">
-              {scanStatus?.scan_in_progress
+              {scanRunning
                 ? (scanStatus.progress?.total > 0
                     ? `🔄 Scanning: ${scanStatus.progress.scanned} / ${scanStatus.progress.total} (${scanStatus.progress.current_symbol?.replace('NSE:', '').replace('-EQ', '') || '…'})`
                     : '🔄 Scan starting — fetching the full symbol list...')
@@ -158,15 +176,27 @@ export default function NextDayWatchlist() {
             {triggerMessage && <p className="text-[11px] text-slate-500 mt-1">{triggerMessage}</p>}
             {error && <p className="text-[11px] text-amber-400 mt-1">{error}</p>}
           </div>
-          <button
-            onClick={runScanNow}
-            disabled={triggering || scanStatus?.scan_in_progress}
-            className="text-xs font-medium px-3 py-2 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/25 hover:bg-purple-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
-          >
-            {scanStatus?.scan_in_progress ? 'Running...' : '🔭 Run Scan Now'}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={runScanNow}
+              disabled={triggering || scanRunning}
+              className="text-xs font-medium px-3 py-2 rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/25 hover:bg-purple-500/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {scanRunning ? 'Running...' : '🔭 Run Scan Now'}
+            </button>
+            {scanRunning && (
+              <button
+                onClick={endScan}
+                disabled={canceling}
+                className="text-xs font-semibold px-3 py-2 rounded-lg bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition-colors disabled:opacity-50 disabled:cursor-wait whitespace-nowrap"
+                title="Stop the active scan at the next safe checkpoint"
+              >
+                {canceling ? 'Ending...' : '⏹ End Scan'}
+              </button>
+            )}
+          </div>
         </div>
-        {scanStatus?.scan_in_progress && scanStatus.progress?.total > 0 && (
+        {scanRunning && scanStatus.progress?.total > 0 && (
           <div className="mt-2.5 h-1.5 rounded-full bg-slate-800 overflow-hidden">
             <div className="h-full bg-purple-500 transition-all duration-500" style={{ width: `${Math.min(100, (scanStatus.progress.scanned / scanStatus.progress.total) * 100)}%` }} />
           </div>
@@ -203,7 +233,7 @@ export default function NextDayWatchlist() {
 
       {watchlist.length === 0 ? (
         <div className="py-10 text-center text-slate-500 text-sm max-w-md mx-auto">
-          {scanStatus?.scan_in_progress
+          {scanRunning
             ? 'Scan is running — genuine stocks will appear here as ranking checkpoints are published.'
             : (data?.error || 'No scan run yet. Tap "Run Scan Now" above to generate tomorrow\'s watchlist.')}
         </div>
