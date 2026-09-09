@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-09T17:16:00.159436",
+  "generated_at": "2026-09-09T17:19:11.563606",
   "universe_scanned": 2676,
   "stocks_with_enough_data": 2507,
   "excluded_low_price": 546,
-  "excluded_low_liquidity": 953,
+  "excluded_low_liquidity": 951,
   "excluded_unknown_sector": 2300,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
@@ -82,54 +82,6 @@
       "rank": 3
     },
     {
-      "symbol": "NSE:MARUTI-EQ",
-      "sector": "Auto",
-      "eod_price": 12618,
-      "change_percent": -0.18,
-      "rsi": 28.7,
-      "sma_20": 13470.5,
-      "distance_from_sma_pct": -6.33,
-      "today_volume": 534832,
-      "avg_volume_20d": 321656.0,
-      "volume_ratio": 1.66,
-      "sector_relative_pct": 0.69,
-      "sector_strength": "Leading",
-      "trend_status": "Strong",
-      "volume_status": "Accumulation",
-      "score": 80,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 10,
-        "sector_strength": 25
-      },
-      "rank": 4
-    },
-    {
-      "symbol": "NSE:MAXHEALTH-EQ",
-      "sector": "Healthcare",
-      "eod_price": 1037.5,
-      "change_percent": 4.48,
-      "rsi": 39.4,
-      "sma_20": 1006.39,
-      "distance_from_sma_pct": 3.09,
-      "today_volume": 4591285,
-      "avg_volume_20d": 1977496.0,
-      "volume_ratio": 2.32,
-      "sector_relative_pct": 2.24,
-      "sector_strength": "Leading",
-      "trend_status": "Moderate",
-      "volume_status": "Accumulation",
-      "score": 80,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 15,
-        "volume": 20,
-        "sector_strength": 25
-      },
-      "rank": 5
-    },
-    {
       "symbol": "NSE:PAYTM-EQ",
       "sector": "Fintech",
       "eod_price": 1751.5,
@@ -151,7 +103,31 @@
         "volume": 10,
         "sector_strength": 25
       },
-      "rank": 6
+      "rank": 4
+    },
+    {
+      "symbol": "NSE:MARUTI-EQ",
+      "sector": "Auto",
+      "eod_price": 12618,
+      "change_percent": -0.18,
+      "rsi": 26.7,
+      "sma_20": 13340.2,
+      "distance_from_sma_pct": -5.41,
+      "today_volume": 534832,
+      "avg_volume_20d": 328470.0,
+      "volume_ratio": 1.63,
+      "sector_relative_pct": 0.69,
+      "sector_strength": "Leading",
+      "trend_status": "Strong",
+      "volume_status": "Accumulation",
+      "score": 79,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 9,
+        "sector_strength": 25
+      },
+      "rank": 5
     },
     {
       "symbol": "NSE:VBL-EQ",
@@ -175,7 +151,7 @@
         "volume": 13,
         "sector_strength": 25
       },
-      "rank": 7
+      "rank": 6
     },
     {
       "symbol": "NSE:WIPRO-EQ",
@@ -199,7 +175,7 @@
         "volume": 8,
         "sector_strength": 25
       },
-      "rank": 8
+      "rank": 7
     },
     {
       "symbol": "NSE:HDFCLIFE-EQ",
@@ -223,7 +199,7 @@
         "volume": 30,
         "sector_strength": 0
       },
-      "rank": 9
+      "rank": 8
     },
     {
       "symbol": "NSE:SBILIFE-EQ",
@@ -245,6 +221,30 @@
         "rsi": 20,
         "trend_distance": 25,
         "volume": 2,
+        "sector_strength": 25
+      },
+      "rank": 9
+    },
+    {
+      "symbol": "NSE:HINDPETRO-EQ",
+      "sector": "Energy",
+      "eod_price": 348.9,
+      "change_percent": 0.55,
+      "rsi": 31.0,
+      "sma_20": 365.52,
+      "distance_from_sma_pct": -4.55,
+      "today_volume": 5785349,
+      "avg_volume_20d": 4825874.0,
+      "volume_ratio": 1.2,
+      "sector_relative_pct": 0.56,
+      "sector_strength": "Leading",
+      "trend_status": "Moderate",
+      "volume_status": "Normal",
+      "score": 71,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 23,
+        "volume": 3,
         "sector_strength": 25
       },
       "rank": 10
