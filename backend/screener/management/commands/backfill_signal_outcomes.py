@@ -190,7 +190,7 @@ class Command(BaseCommand):
         end = datetime.strptime(options["end"], "%Y-%m-%d").date()
         dry_run = options["dry_run"]
 
-        report_rows = []  # collected across every day for the final consolidated report
+        report_rows = []
 
         d = start
         while d <= end:
@@ -221,6 +221,7 @@ class Command(BaseCommand):
                 outcome = ws.cell(row=row_num, column=col["Outcome"]).value
                 opt_symbol = ws.cell(row=row_num, column=col["Option Symbol"]).value
                 entry = ws.cell(row=row_num, column=col["Entry (Premium)"]).value
+                strike = ws.cell(row=row_num, column=col["Strike"]).value
                 sl = ws.cell(row=row_num, column=col["SL"]).value
                 t1 = ws.cell(row=row_num, column=col["Target 1"]).value
                 t2 = ws.cell(row=row_num, column=col["Target 2"]).value
@@ -243,15 +244,8 @@ class Command(BaseCommand):
                         checked += 1
                         candles, err = _fetch_candles(opt_symbol, date_str)
                         if candles is None:
-                            # Real fetch failure -- expired/invalid symbol, bad request, etc.
-                            # Genuinely nothing to backfill from; left blank as before.
                             self.stdout.write(f"  row {row_num} ({opt_symbol}): fetch failed ({err or 'no response'}) -- likely expired/invalid, skipped")
                         elif not candles:
-                            # Fyers responded fine but with zero candles -- the contract had
-                            # no trades after entry (e.g. entered on a burst of volume that
-                            # never repeated that day). There's no OHLC to estimate a close
-                            # from, so this can't get a real EOD-estimate price -- but it
-                            # shouldn't sit silently blank forever either.
                             note = "No trade data after entry (0 candles) -- likely zero volume, unresolved"
                             self.stdout.write(f"  row {row_num} ({opt_symbol}): {note}")
                             if not dry_run:
@@ -268,7 +262,6 @@ class Command(BaseCommand):
                                     ws.cell(row=row_num, column=col["Outcome"]).value = note
                                 changed += 1
                                 outcome = note
-
                             else:
                                 furthest_hit = max(result["targets_hit"]) if result["targets_hit"] else 0
                                 if result["sl_hit_at"] and not result["targets_hit"]:
@@ -288,9 +281,6 @@ class Command(BaseCommand):
                                     changed += 1
                                     outcome = f"Target {furthest_hit} Hit"
                                 else:
-                                    # No crossing at all -- estimate the EOD close instead
-                                    # of leaving this ambiguously blank, now that the day
-                                    # is fully closed.
                                     exited_dt = None
                                     if exited_raw:
                                         try:
@@ -312,8 +302,18 @@ class Command(BaseCommand):
                                         self.stdout.write(f"  row {row_num} ({opt_symbol}): no crossing and no closing price available -- left blank")
 
                 report_rows.append({
-                    "date": date_str, "symbol": symbol, "action": action, "grade": grade,
-                    "entry": entry, "outcome": outcome,
+                    "date": date_str,
+                    "symbol": symbol,
+                    "action": action,
+                    "grade": grade,
+                    "strike": strike,
+                    "entry": entry,
+                    "sl": sl,
+                    "t1": t1,
+                    "t2": t2,
+                    "t3": t3,
+                    "option_symbol": opt_symbol,
+                    "outcome": outcome,
                     "pnl_pct": _pnl_pct_from_outcome(outcome, entry, sl, t1, t2, t3),
                 })
 
@@ -332,7 +332,11 @@ class Command(BaseCommand):
         wb = Workbook()
         ws = wb.active
         ws.title = "Complete Report"
-        headers = ["Date", "Symbol", "Action", "Grade", "Entry (Premium)", "Outcome", "P&L %"]
+        headers = [
+            "Date", "Symbol", "Action", "Grade", "Strike",
+            "Entry (Premium)", "SL", "Target 1", "Target 2", "Target 3",
+            "Option Symbol", "Outcome", "P&L %"
+        ]
         ws.append(headers)
         for cell in ws[1]:
             cell.font = Font(bold=True, color="FFFFFF")
@@ -341,7 +345,11 @@ class Command(BaseCommand):
         resolved, unresolved = 0, 0
         pnl_values = []
         for r in report_rows:
-            ws.append([r["date"], r["symbol"], r["action"], r["grade"], r["entry"], r["outcome"] or "Unresolved (no data)", r["pnl_pct"]])
+            ws.append([
+                r["date"], r["symbol"], r["action"], r["grade"], r["strike"],
+                r["entry"], r["sl"], r["t1"], r["t2"], r["t3"],
+                r["option_symbol"], r["outcome"] or "Unresolved (no data)", r["pnl_pct"]
+            ])
             if r["outcome"]:
                 resolved += 1
             else:
