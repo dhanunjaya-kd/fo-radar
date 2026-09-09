@@ -52,6 +52,48 @@ function Arrow({ value }) {
   return <span className="text-slate-500 ml-0.5">→</span>;
 }
 
+// Sep 9 2026: real four-quadrant futures OI read (price direction x OI
+// direction), same real logic already computed server-side --
+// screener/options_analytics.py's classify_side_buildup(), reused by
+// quality_engine.py's evaluate_futures_oi_structure(). Reproduced here
+// rather than fetched, since it's a pure function of two fields this
+// row already carries (Change %, Fut OI Chg %) -- not worth a new
+// backend field/endpoint for one badge. Same tie-break as the Python
+// version: price_change_pct >= 0 groups with the "up" family.
+const OI_QUADRANT_STYLE = {
+  'Long Buildup': 'text-emerald-400 bg-emerald-500/15',
+  'Short Covering': 'text-teal-400 bg-teal-500/10',
+  'Short Buildup': 'text-rose-400 bg-rose-500/15',
+  'Long Unwinding': 'text-amber-400 bg-amber-500/10',
+};
+const OI_QUADRANT_DESC = {
+  'Long Buildup': 'Fresh bullish positions',
+  'Short Covering': 'Bears exiting, bullish',
+  'Short Buildup': 'Fresh bearish positions',
+  'Long Unwinding': 'Bulls exiting, bearish',
+};
+
+function classifyOiQuadrant(priceChangePct, oiChgPct) {
+  if (priceChangePct == null || oiChgPct == null) return null;
+  if (priceChangePct >= 0 && oiChgPct > 0) return 'Long Buildup';
+  if (priceChangePct >= 0 && oiChgPct <= 0) return 'Short Covering';
+  if (priceChangePct < 0 && oiChgPct > 0) return 'Short Buildup';
+  return 'Long Unwinding';
+}
+
+function OiQuadrantBadge({ priceChangePct, oiChgPct }) {
+  const label = classifyOiQuadrant(priceChangePct, oiChgPct);
+  if (!label) return <span className="text-slate-600">—</span>;
+  return (
+    <span
+      title={OI_QUADRANT_DESC[label]}
+      className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${OI_QUADRANT_STYLE[label]}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 // Aug 21 2026: he explicitly wants this tab at the reference tool's own
 // ~30-min cadence, not the full ~60s logging density -- Index Tracker
 // already covers full density; this is deliberately the sparser view.
@@ -104,7 +146,7 @@ const CSV_HEADERS = [
   'Time', 'Spot', 'Fut', 'PCR', 'ATM',
   'Highest Put OI (strike,L)', 'Highest Call OI (strike,L)',
   'ATM Put OI', 'ATM Call OI', 'IV', 'IV %ile', 'VIX', 'Max Pain',
-  'Fut OI Chg', 'Bias',
+  'Fut OI Chg', 'OI Signal', 'Bias',
 ];
 
 function toCsvCell(value) {
@@ -129,6 +171,7 @@ function rowToCsvValues(r) {
     fmt(r.VIX, 1),
     fmt(r['Max Pain'], 0),
     r['Fut OI Chg %'] != null ? `${r['Fut OI Chg %'].toFixed(1)}%` : '',
+    classifyOiQuadrant(r['Change %'], r['Fut OI Chg %']) || '',
     r.Bias || '',
   ];
 }
@@ -169,6 +212,7 @@ function MarketViewTable({ rows }) {
             <th className="text-right px-2.5 py-2 font-medium">VIX</th>
             <th className="text-right px-2.5 py-2 font-medium">Max Pain</th>
             <th className="text-right px-2.5 py-2 font-medium">Fut OI Chg</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="Price direction x OI direction, this snapshot">OI Signal</th>
             <th className="text-center px-2.5 py-2 font-medium">Bias</th>
           </tr>
         </thead>
@@ -192,6 +236,9 @@ function MarketViewTable({ rows }) {
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r.VIX, 1)}<Arrow value={delta('VIX')} /></td>
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{fmt(r['Max Pain'], 0)}<Arrow value={delta('Max Pain')} /></td>
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap">{r['Fut OI Chg %'] != null ? `${r['Fut OI Chg %'].toFixed(1)}%` : '—'}<Arrow value={delta('Fut OI Chg %')} /></td>
+                <td className="px-2.5 py-2 text-center">
+                  <OiQuadrantBadge priceChangePct={r['Change %']} oiChgPct={r['Fut OI Chg %']} />
+                </td>
                 <td className="px-2.5 py-2 text-center whitespace-nowrap">
                   <span className="inline-flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${BIAS_DOT[r.Bias] || 'bg-slate-500'}`} />

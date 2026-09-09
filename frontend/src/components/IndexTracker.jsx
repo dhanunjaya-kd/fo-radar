@@ -68,6 +68,47 @@ function Arrow({ value }) {
   return <span className="text-slate-500 ml-0.5">→</span>;
 }
 
+// Sep 9 2026: same real four-quadrant futures OI read as MarketView.jsx
+// -- see that file's own comment for the full reasoning (mirrors
+// screener/options_analytics.py's classify_side_buildup(), reused by
+// quality_engine.py's evaluate_futures_oi_structure(), off the same two
+// fields this row already carries). Duplicated here rather than shared
+// via an import, same convention this file already follows for Arrow
+// above -- both files keep their own small pure helpers independently.
+const OI_QUADRANT_STYLE = {
+  'Long Buildup': 'text-emerald-400 bg-emerald-500/15',
+  'Short Covering': 'text-teal-400 bg-teal-500/10',
+  'Short Buildup': 'text-rose-400 bg-rose-500/15',
+  'Long Unwinding': 'text-amber-400 bg-amber-500/10',
+};
+const OI_QUADRANT_DESC = {
+  'Long Buildup': 'Fresh bullish positions',
+  'Short Covering': 'Bears exiting, bullish',
+  'Short Buildup': 'Fresh bearish positions',
+  'Long Unwinding': 'Bulls exiting, bearish',
+};
+
+function classifyOiQuadrant(priceChangePct, oiChgPct) {
+  if (priceChangePct == null || oiChgPct == null) return null;
+  if (priceChangePct >= 0 && oiChgPct > 0) return 'Long Buildup';
+  if (priceChangePct >= 0 && oiChgPct <= 0) return 'Short Covering';
+  if (priceChangePct < 0 && oiChgPct > 0) return 'Short Buildup';
+  return 'Long Unwinding';
+}
+
+function OiQuadrantBadge({ priceChangePct, oiChgPct }) {
+  const label = classifyOiQuadrant(priceChangePct, oiChgPct);
+  if (!label) return <span className="text-slate-600">—</span>;
+  return (
+    <span
+      title={OI_QUADRANT_DESC[label]}
+      className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${OI_QUADRANT_STYLE[label]}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 // One dense table instead of 3 separate cards plus a differently-
 // formatted history table below them -- easier to scan across a row
 // than to jump between visually separated boxes to piece together the
@@ -88,6 +129,7 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
             <th className="text-right px-2.5 py-2 font-medium">Futures</th>
             <th className="text-right px-2.5 py-2 font-medium">Fut OI</th>
             <th className="text-right px-2.5 py-2 font-medium">Fut OI Chg%</th>
+            <th className="text-center px-2.5 py-2 font-medium" title="Price direction x OI direction, this snapshot">OI Signal</th>
             <th className="text-right px-2.5 py-2 font-medium">VIX</th>
             <th className="text-right px-2.5 py-2 font-medium">IV%</th>
             <th className="text-right px-2.5 py-2 font-medium" title="Where today's IV ranks against recent history">IV %ile</th>
@@ -128,6 +170,9 @@ function SnapshotTable({ rows, showAll, onToggleShowAll }) {
                 <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap"><span className="tier-secondary">{fmt(r.Fut)}</span><Arrow value={delta('Fut')} /></td>
                 <td className="px-2.5 py-2 text-right text-indigo-300 whitespace-nowrap"><span className="tier-secondary">{fmtOi(r['Fut OI'])}</span><Arrow value={delta('Fut OI')} /></td>
                 <td className={`px-2.5 py-2 text-right whitespace-nowrap ${(r['Fut OI Chg %'] || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtPct(r['Fut OI Chg %'])}</td>
+                <td className="px-2.5 py-2 text-center">
+                  <OiQuadrantBadge priceChangePct={r['Change %']} oiChgPct={r['Fut OI Chg %']} />
+                </td>
                 <td className="px-2.5 py-2 text-right text-orange-400 whitespace-nowrap"><span className="tier-important">{r.VIX != null ? r.VIX.toFixed(2) : '—'}</span><Arrow value={delta('VIX')} /></td>
                 <td className="px-2.5 py-2 text-right text-amber-400 whitespace-nowrap"><span className="tier-important">{r['IV %'] != null ? `${r['IV %'].toFixed(1)}%` : '—'}</span><Arrow value={delta('IV %')} /></td>
                 <td className="px-2.5 py-2 text-right text-slate-300 whitespace-nowrap"><span className="tier-secondary">{r['IV %ile'] != null ? `${r['IV %ile']}` : '—'}</span><Arrow value={delta('IV %ile')} /></td>
