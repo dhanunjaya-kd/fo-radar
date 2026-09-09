@@ -302,10 +302,46 @@ def _write_new_row(ws, signal):
         signal.get("stock_vs_index_pct"), signal.get("expiry_date"),
         "", "",  # MFE/MAE Premium -- blank until the position closes
     ]
+
+    key = (signal.get("symbol"), signal.get("action"))
+
+    # Sep 9 2026: REAL BUG FOUND -- traced directly from a live report
+    # showing two genuinely different rows (different Hit At timestamps,
+    # different Trade Progression) for the SAME symbol+action+locked-
+    # plan (LAURUSLABS, BHEL in a real 2026-09-02..09 run). Root cause:
+    # when a signal exits the active list and reappears PAST
+    # COOLDOWN_MINUTES, it's correctly treated as a fresh setup below --
+    # but _open_positions[key] was being unconditionally overwritten,
+    # silently dropping whatever was tracked under the OLD row without
+    # ever recording a real conclusion for it. That old row's Outcome
+    # cell just stopped being touched -- not "Expired", not resolved,
+    # just abandoned. This is the exact "silently lose an open position"
+    # failure this project has been careful to avoid everywhere else
+    # (same principle as mark_exited()'s own "genuinely nothing
+    # resolved, not a fabricated status" rule right below).
+    #
+    # Fix: before handing the key to the new row, explicitly finalize
+    # whatever was there. If it never resolved, it gets the same
+    # "Expired (no SL/Target hit)" mark_exited() already uses for that
+    # exact situation -- write once, never silently overwritten -- and
+    # its real MFE/MAE snapshot up to this point, so no P&L data is
+    # lost, just correctly closed out instead of orphaned.
+    stale = _open_positions.get(key)
+    if stale is not None and not stale.get("sl_hit") and stale.get("furthest_target", 0) < 3:
+        try:
+            stale_outcome_col = COLUMNS.index("Outcome") + 1
+            if not ws.cell(row=stale["row"], column=stale_outcome_col).value:
+                ws.cell(row=stale["row"], column=stale_outcome_col).value = "Expired (no SL/Target hit)"
+            mfe_col = COLUMNS.index("MFE Premium") + 1
+            mae_col = COLUMNS.index("MAE Premium") + 1
+            ws.cell(row=stale["row"], column=mfe_col).value = stale.get("max_premium_seen")
+            ws.cell(row=stale["row"], column=mae_col).value = stale.get("min_premium_seen")
+        except Exception as e:
+            print(f"[ExcelLog] Failed to finalize stale position for {key} before re-logging: {e}")
+
     ws.append(row)
     row_num = ws.max_row
 
-    key = (signal.get("symbol"), signal.get("action"))
     opt_sym = signal.get("option_symbol")
     if opt_sym and all(signal.get(f) is not None for f in ("sl", "target1", "target2", "target3")):
         _open_positions[key] = {
