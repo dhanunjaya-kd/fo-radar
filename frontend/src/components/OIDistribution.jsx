@@ -7,7 +7,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 // max, no overlapping strike groups, and Max Pain correctly snaps to
 // the nearest real strike rather than erroring when it falls between
 // listed strikes.
-function computeOIDistributionLayout(rows, maxPain, width, height) {
+function computeOIDistributionLayout(rows, maxPain, atmStrike, width, height) {
   if (rows.length === 0) return null;
   const maxOi = Math.max(...rows.flatMap(r => [r.ce_oi || 0, r.pe_oi || 0]), 1);
   const barGroupWidth = width / rows.length;
@@ -25,14 +25,14 @@ function computeOIDistributionLayout(rows, maxPain, width, height) {
     };
   });
 
-  let maxPainX = null;
-  if (maxPain != null) {
+  const strikeToX = (target) => {
+    if (target == null) return null;
     const closestIdx = rows.reduce((closestI, r, i) =>
-      Math.abs(r.strike - maxPain) < Math.abs(rows[closestI].strike - maxPain) ? i : closestI, 0);
-    maxPainX = closestIdx * barGroupWidth + barGroupWidth / 2;
-  }
+      Math.abs(r.strike - target) < Math.abs(rows[closestI].strike - target) ? i : closestI, 0);
+    return closestIdx * barGroupWidth + barGroupWidth / 2;
+  };
 
-  return { bars, maxPainX, maxOi };
+  return { bars, maxPainX: strikeToX(maxPain), atmX: strikeToX(atmStrike), maxOi };
 }
 
 function fmtOi(n) {
@@ -154,7 +154,15 @@ export default function OIDistribution() {
     totalCeOi = merged.totalCeOi;
     totalPeOi = merged.totalPeOi;
   }
-  const layout = rows.length > 0 ? computeOIDistributionLayout(rows, data?.maxPain, WIDTH, HEIGHT) : null;
+  // Sep 9 2026: checks a few plausible field names since
+  // /api/option-analytics/<symbol>/'s exact response shape for ATM
+  // strike isn't confirmed in this session (unlike maxPain, which was
+  // already being read successfully above) -- resolves to whichever
+  // one is actually present, or null (marker just doesn't render,
+  // same "never guess, mark unavailable" as everywhere else) if none
+  // of them are.
+  const atmStrike = data?.atmStrike ?? data?.atm_strike ?? data?.atm ?? null;
+  const layout = rows.length > 0 ? computeOIDistributionLayout(rows, data?.maxPain, atmStrike, WIDTH, HEIGHT) : null;
   const totalOi = totalCeOi + totalPeOi;
 
   return (
@@ -219,6 +227,14 @@ export default function OIDistribution() {
                   <line x1={layout.maxPainX} y1="0" x2={layout.maxPainX} y2={HEIGHT} stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="4,3" />
                   <text x={layout.maxPainX} y={HEIGHT + 14} textAnchor="middle" fill="#fbbf24" fontSize="10">
                     Max Pain {data.maxPain?.toLocaleString('en-IN')}
+                  </text>
+                </>
+              )}
+              {layout.atmX != null && (
+                <>
+                  <line x1={layout.atmX} y1="0" x2={layout.atmX} y2={HEIGHT} stroke="#818cf8" strokeWidth="1.5" strokeDasharray="4,3" />
+                  <text x={layout.atmX} y="10" textAnchor="middle" fill="#818cf8" fontSize="10">
+                    ATM {atmStrike?.toLocaleString('en-IN')}
                   </text>
                 </>
               )}
