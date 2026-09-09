@@ -1,25 +1,29 @@
 """
-screener/management/commands/backfill_signal_outcomes.py
+Backfill signal outcomes from real Fyers 1-minute candles.
 
-Retroactively fills in SL/Target outcome columns for unresolved signal rows using real Fyers 1-minute historical candles, and builds one consolidated workbook for the requested date range.
+Signal outcomes are positional, not forced to EOD. A signal remains eligible
+for SL/Target resolution on later trading days until the requested end date
+or the option contract expiry, whichever comes first.
 
-The consolidated report includes the original trade levels (Strike, Entry, SL, Targets and Option Symbol) so the outcome can be audited against the exact trade setup.
+The consolidated workbook contains two sheets:
+  Results  - genuine SL/Target hits only.
+  No Result - no verified SL/Target hit found by the last date checked.
 
-HONEST LIMITATIONS:
-- 1-minute OHLC is not tick data. If SL and a target both fall inside the same candle's range, their order cannot be known safely.
-- Fyers History API availability for expired option contracts may be limited.
-- EOD closing values are explicitly labelled as estimates when they are not live-confirmed exits.
-- This backfill checks the entry trading day for same-day/MIS-style signals.
+An EOD price move is never converted into "Closed up/down" because that is
+not a genuine SL/Target outcome for a positional signal.
 """
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from django.core.management.base import BaseCommand
-from openpyxl import load_workbook, Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 
 from screener.excel_logger import COLUMNS, LOG_DIR
 from screener.fyers_client import get_history
+
+
+_HISTORY_CACHE = {}
 
 
 def _find_log_path(date_str):
@@ -32,107 +36,129 @@ def _find_log_path(date_str):
     return None
 
 
-def _fetch_candles(option_symbol, date_str):
-    """1-min candles for one option symbol, that trading day only."""
-    resp = get_history(option_symbol, resolution="1", range_from=date_str, range_to=date_str)
+def _parse_datetime(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(str(value), fmt)
+        except Exception:
+            pass
+    return None
+
+
+def _fetch_candles(option_symbol, start_date, end_date):
+    """Fetch one multi-day positional range; cache identical requests."""
+    key = (option_symbol, str(start_date), str(end_date))
+    if key in _HISTORY_CACHE:
+        return _HISTORY_CACHE[key]
+
+    resp = get_history(
+        option_symbol,
+        resolution="1",
+        range_from=str(start_date),
+        range_to=str(end_date),
+    )
     if not resp or resp.get("s") != "ok":
-        return None, (resp.get("message") if resp else "no response")
-    return resp.get("candles", []), None
+        value = (None, resp.get("message") if resp else "no response")
+    else:
+        value = (resp.get("candles", []), None)
+    _HISTORY_CACHE[key] = value
+    return value
 
 
 def _replay(candles, entry_dt, sl, t1, t2, t3):
-    """Replay the same SL/target crossing logic used by the live logger."""
+    """Replay SL/target crossings chronologically across all supplied days."""
     result = {"sl_hit_at": None, "targets_hit": {}, "ambiguous": []}
     furthest = 0
-    for c in candles:
-        ts, o, h, l, close, vol = c
+
+    for candle in sorted(candles, key=lambda c: c[0]):
+        if len(candle) < 5:
+            continue
+        ts, _open, high, low, _close = candle[:5]
         candle_dt = datetime.fromtimestamp(ts)
         if candle_dt < entry_dt:
             continue
 
-        sl_touched = l <= sl
+        # These are option-premium levels. Preserve the same convention as
+        # the live logger: SL is a lower premium and targets are higher.
+        sl_touched = sl is not None and low <= sl
         target_touched = None
         for n, level in ((3, t3), (2, t2), (1, t1)):
-            if furthest >= n:
+            if furthest >= n or level is None:
                 continue
-            if h >= level:
+            if high >= level:
                 target_touched = n
                 break
 
         if sl_touched and target_touched:
             result["ambiguous"].append(candle_dt.strftime("%Y-%m-%d %H:%M:%S"))
-            continue
-
+            return result
         if sl_touched:
             result["sl_hit_at"] = candle_dt.strftime("%Y-%m-%d %H:%M:%S")
-            break
-
+            return result
         if target_touched:
             furthest = target_touched
             result["targets_hit"][target_touched] = candle_dt.strftime("%Y-%m-%d %H:%M:%S")
             if target_touched == 3:
-                break
+                return result
 
     return result
 
 
-def _closing_estimate(candles, entry_dt, entry_price, exited_dt=None):
-    usable = [c for c in candles if datetime.fromtimestamp(c[0]) >= entry_dt]
-    if not usable or not entry_price:
-        return None, None, None
-    if exited_dt is not None:
-        before = [c for c in usable if datetime.fromtimestamp(c[0]) <= exited_dt]
-        chosen = before[-1] if before else usable[-1]
-        is_estimate = not bool(before)
-    else:
-        chosen = usable[-1]
-        is_estimate = True
-    close_price = chosen[4]
-    pct = round((close_price - entry_price) / entry_price * 100, 2)
-    return close_price, pct, is_estimate
-
-
-def _pnl_pct_from_outcome(outcome, entry, sl, t1, t2, t3):
-    if not outcome or not entry:
+def _pnl_pct(outcome, entry, sl, t1, t2, t3):
+    if not outcome or entry in (None, 0):
         return None
-    if outcome == "SL Hit":
-        return round((sl - entry) / entry * 100, 2) if sl else None
+    if outcome == "SL Hit" and sl is not None:
+        return round((sl - entry) / entry * 100, 2)
     if outcome.startswith("Target"):
         try:
             n = int(outcome.split()[1])
         except Exception:
             return None
         level = {1: t1, 2: t2, 3: t3}.get(n)
-        return round((level - entry) / entry * 100, 2) if level else None
-    if "% from entry" in outcome:
-        try:
-            frag = outcome.split("(")[1].split("%")[0].replace("+", "")
-            return round(float(frag), 2)
-        except Exception:
-            return None
+        return round((level - entry) / entry * 100, 2) if level is not None else None
     return None
 
 
+def _report_headers(ws):
+    headers = [
+        "Date", "Symbol", "Action", "Grade", "Strike",
+        "Entry (Premium)", "SL", "Target 1", "Target 2", "Target 3",
+        "Option Symbol", "Result", "Hit At", "P&L %", "Checked Through",
+    ]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+
+
 class Command(BaseCommand):
-    help = "Backfill unresolved signal outcomes from real Fyers historical candles and build a detailed consolidated Excel report."
+    help = "Resolve positional SL/Target outcomes through later sessions/expiry and build a two-sheet report."
 
     def add_arguments(self, parser):
         parser.add_argument("--start", required=True, help="YYYY-MM-DD")
         parser.add_argument("--end", required=True, help="YYYY-MM-DD")
-        parser.add_argument("--dry-run", action="store_true", help="Preview changes without writing signal logs.")
+        parser.add_argument("--dry-run", action="store_true", help="Preview without writing signal logs/report.")
 
     def handle(self, *args, **options):
+        global _HISTORY_CACHE
+        _HISTORY_CACHE = {}
+
         start = datetime.strptime(options["start"], "%Y-%m-%d").date()
-        end = datetime.strptime(options["end"], "%Y-%m-%d").date()
+        requested_end = datetime.strptime(options["end"], "%Y-%m-%d").date()
         dry_run = options["dry_run"]
-        report_rows = []
+        results = []
+        pending = []
 
         d = start
-        while d <= end:
+        while d <= requested_end:
             date_str = d.strftime("%Y-%m-%d")
             path = _find_log_path(date_str)
             if not path:
-                d += timedelta(days=1)
+                d = d.fromordinal(d.toordinal() + 1)
                 continue
 
             self.stdout.write(f"\n--- {date_str} ({os.path.basename(path)}) ---")
@@ -140,188 +166,209 @@ class Command(BaseCommand):
             ws = wb["Signals"]
             headers = [c.value for c in ws[1]]
             if headers != COLUMNS:
-                self.stdout.write(self.style.WARNING("  Column layout doesn't match current schema -- skipping this file."))
-                d += timedelta(days=1)
+                self.stdout.write(self.style.WARNING("  Column layout doesn't match current schema -- skipping."))
+                d = d.fromordinal(d.toordinal() + 1)
                 continue
 
             col = {name: i + 1 for i, name in enumerate(COLUMNS)}
             changed = 0
             checked = 0
-            closed_flat = 0
 
             for row_num in range(2, ws.max_row + 1):
-                symbol = ws.cell(row=row_num, column=col["Symbol"]).value
-                action = ws.cell(row=row_num, column=col["Action"]).value
-                grade = ws.cell(row=row_num, column=col["Grade"]).value
-                outcome = ws.cell(row=row_num, column=col["Outcome"]).value
-                opt_symbol = ws.cell(row=row_num, column=col["Option Symbol"]).value
-                entry = ws.cell(row=row_num, column=col["Entry (Premium)"]).value
-                strike = ws.cell(row=row_num, column=col["Strike"]).value
-                sl = ws.cell(row=row_num, column=col["SL"]).value
-                t1 = ws.cell(row=row_num, column=col["Target 1"]).value
-                t2 = ws.cell(row=row_num, column=col["Target 2"]).value
-                t3 = ws.cell(row=row_num, column=col["Target 3"]).value
-                ts_raw = ws.cell(row=row_num, column=col["Timestamp"]).value
-                exited_raw = ws.cell(row=row_num, column=col["Exited At"]).value
+                symbol = ws.cell(row_num, col["Symbol"]).value
+                action = ws.cell(row_num, col["Action"]).value
+                grade = ws.cell(row_num, col["Grade"]).value
+                outcome = ws.cell(row_num, col["Outcome"]).value
+                opt_symbol = ws.cell(row_num, col["Option Symbol"]).value
+                entry = ws.cell(row_num, col["Entry (Premium)"]).value
+                strike = ws.cell(row_num, col["Strike"]).value
+                sl = ws.cell(row_num, col["SL"]).value
+                t1 = ws.cell(row_num, col["Target 1"]).value
+                t2 = ws.cell(row_num, col["Target 2"]).value
+                t3 = ws.cell(row_num, col["Target 3"]).value
+                ts_raw = ws.cell(row_num, col["Timestamp"]).value
+                expiry_raw = ws.cell(row_num, col["Expiry Date"]).value
 
-                if not symbol:
+                if not symbol or not opt_symbol or entry in (None, 0) or None in (sl, t1, t2, t3) or not ts_raw:
                     continue
 
-                needs_backfill = not outcome and opt_symbol and None not in (sl, t1, t2, t3, entry) and ts_raw
-                if needs_backfill:
-                    entry_dt = None
-                    try:
-                        entry_dt = datetime.strptime(str(ts_raw), "%Y-%m-%d %H:%M:%S")
-                    except Exception:
-                        pass
+                entry_dt = _parse_datetime(ts_raw)
+                if not entry_dt:
+                    continue
 
-                    if entry_dt:
-                        checked += 1
-                        candles, err = _fetch_candles(opt_symbol, date_str)
-                        if candles is None:
-                            self.stdout.write(f"  row {row_num} ({opt_symbol}): fetch failed ({err or 'no response'}) -- skipped")
-                        elif not candles:
-                            note = "No trade data after entry (0 candles) -- likely zero volume, unresolved"
-                            self.stdout.write(f"  row {row_num} ({opt_symbol}): {note}")
-                            if not dry_run:
-                                ws.cell(row=row_num, column=col["Outcome"]).value = note
-                            changed += 1
-                            outcome = note
-                        else:
-                            result = _replay(candles, entry_dt, sl, t1, t2, t3)
-                            if result["ambiguous"]:
-                                note = f"AMBIGUOUS: SL and target both touched in same 1-min candle at {result['ambiguous'][0]}"
-                                self.stdout.write(f"  row {row_num} ({opt_symbol}): {note}")
-                                if not dry_run:
-                                    ws.cell(row=row_num, column=col["Outcome"]).value = note
-                                changed += 1
-                                outcome = note
-                            else:
-                                furthest_hit = max(result["targets_hit"]) if result["targets_hit"] else 0
-                                if result["sl_hit_at"] and not result["targets_hit"]:
-                                    self.stdout.write(f"  row {row_num} ({opt_symbol}): SL Hit at {result['sl_hit_at']}")
-                                    if not dry_run:
-                                        ws.cell(row=row_num, column=col["SL Hit At"]).value = result["sl_hit_at"]
-                                        ws.cell(row=row_num, column=col["Outcome"]).value = "SL Hit"
-                                    changed += 1
-                                    outcome = "SL Hit"
-                                elif furthest_hit:
-                                    hit_time = result["targets_hit"][furthest_hit]
-                                    self.stdout.write(f"  row {row_num} ({opt_symbol}): Target {furthest_hit} Hit at {hit_time}")
-                                    if not dry_run:
-                                        for n, t in result["targets_hit"].items():
-                                            ws.cell(row=row_num, column=col[f"Target {n} Hit At"]).value = t
-                                        ws.cell(row=row_num, column=col["Outcome"]).value = f"Target {furthest_hit} Hit"
-                                    changed += 1
-                                    outcome = f"Target {furthest_hit} Hit"
-                                else:
-                                    exited_dt = None
-                                    if exited_raw:
-                                        try:
-                                            exited_dt = datetime.strptime(str(exited_raw), "%Y-%m-%d %H:%M:%S")
-                                        except Exception:
-                                            pass
-                                    close_price, pct, is_estimate = _closing_estimate(candles, entry_dt, entry, exited_dt)
-                                    if close_price is not None:
-                                        label = "Closed flat" if abs(pct) < 0.5 else ("Closed up" if pct > 0 else "Closed down")
-                                        suffix = ", EOD estimate" if is_estimate else ""
-                                        note = f"{label} ~{close_price} ({pct:+.1f}% from entry{suffix})"
-                                        self.stdout.write(f"  row {row_num} ({opt_symbol}): {note}")
-                                        if not dry_run:
-                                            ws.cell(row=row_num, column=col["Outcome"]).value = note
-                                        changed += 1
-                                        closed_flat += 1
-                                        outcome = note
-                                    else:
-                                        self.stdout.write(f"  row {row_num} ({opt_symbol}): no crossing and no closing price available -- left blank")
+                # Old versions of this command wrote EOD estimates such as
+                # "Closed down ...". Remove those synthetic outcomes so the
+                # same row can now be evaluated positionally. Never erase a
+                # genuine SL/Target hit already recorded by the live logger.
+                genuine_hit = bool(
+                    ws.cell(row_num, col["SL Hit At"]).value
+                    or ws.cell(row_num, col["Target 1 Hit At"]).value
+                    or ws.cell(row_num, col["Target 2 Hit At"]).value
+                    or ws.cell(row_num, col["Target 3 Hit At"]).value
+                )
+                if outcome and not genuine_hit and (
+                    str(outcome).startswith("Closed ")
+                    or str(outcome).startswith("No trade data")
+                    or str(outcome).startswith("Unresolved")
+                ):
+                    if not dry_run:
+                        ws.cell(row_num, col["Outcome"]).value = ""
+                    outcome = ""
+                    changed += 1
 
-                report_rows.append({
-                    "date": date_str,
-                    "symbol": symbol,
-                    "action": action,
-                    "grade": grade,
-                    "strike": strike,
-                    "entry": entry,
-                    "sl": sl,
-                    "t1": t1,
-                    "t2": t2,
-                    "t3": t3,
-                    "option_symbol": opt_symbol,
-                    "outcome": outcome,
-                    "pnl_pct": _pnl_pct_from_outcome(outcome, entry, sl, t1, t2, t3),
-                })
+                if genuine_hit:
+                    hit_at = (
+                        ws.cell(row_num, col["SL Hit At"]).value
+                        or ws.cell(row_num, col["Target 3 Hit At"]).value
+                        or ws.cell(row_num, col["Target 2 Hit At"]).value
+                        or ws.cell(row_num, col["Target 1 Hit At"]).value
+                    )
+                    results.append({
+                        "date": date_str, "symbol": symbol, "action": action, "grade": grade,
+                        "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
+                        "option_symbol": opt_symbol, "result": outcome or "Resolved",
+                        "hit_at": hit_at, "pnl_pct": _pnl_pct(outcome, entry, sl, t1, t2, t3),
+                        "checked_through": date_str,
+                    })
+                    continue
+
+                expiry_date = _parse_datetime(expiry_raw)
+                terminal_date = requested_end
+                if expiry_date and expiry_date.date() < terminal_date:
+                    terminal_date = expiry_date.date()
+                if terminal_date < entry_dt.date():
+                    terminal_date = entry_dt.date()
+
+                checked += 1
+                candles, err = _fetch_candles(opt_symbol, entry_dt.date(), terminal_date)
+                if candles is None:
+                    pending.append({
+                        "date": date_str, "symbol": symbol, "action": action, "grade": grade,
+                        "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
+                        "option_symbol": opt_symbol,
+                        "status": f"No verified result — historical data unavailable ({err or 'unknown'})",
+                        "checked_through": str(terminal_date),
+                    })
+                    continue
+
+                if not candles:
+                    pending.append({
+                        "date": date_str, "symbol": symbol, "action": action, "grade": grade,
+                        "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
+                        "option_symbol": opt_symbol,
+                        "status": "No verified SL/Target result — no historical candles returned",
+                        "checked_through": str(terminal_date),
+                    })
+                    continue
+
+                replay = _replay(candles, entry_dt, sl, t1, t2, t3)
+                if replay["ambiguous"]:
+                    pending.append({
+                        "date": date_str, "symbol": symbol, "action": action, "grade": grade,
+                        "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
+                        "option_symbol": opt_symbol,
+                        "status": f"AMBIGUOUS — SL and target touched in same 1-min candle at {replay['ambiguous'][0]}",
+                        "checked_through": str(terminal_date),
+                    })
+                    continue
+
+                furthest = max(replay["targets_hit"]) if replay["targets_hit"] else 0
+                if replay["sl_hit_at"]:
+                    new_outcome = "SL Hit"
+                    hit_at = replay["sl_hit_at"]
+                    if not dry_run:
+                        ws.cell(row_num, col["SL Hit At"]).value = hit_at
+                        ws.cell(row_num, col["Outcome"]).value = new_outcome
+                    changed += 1
+                    results.append({
+                        "date": date_str, "symbol": symbol, "action": action, "grade": grade,
+                        "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
+                        "option_symbol": opt_symbol, "result": new_outcome, "hit_at": hit_at,
+                        "pnl_pct": _pnl_pct(new_outcome, entry, sl, t1, t2, t3),
+                        "checked_through": str(terminal_date),
+                    })
+                elif furthest:
+                    new_outcome = f"Target {furthest} Hit"
+                    hit_at = replay["targets_hit"][furthest]
+                    if not dry_run:
+                        for n, hit in replay["targets_hit"].items():
+                            ws.cell(row_num, col[f"Target {n} Hit At"]).value = hit
+                        ws.cell(row_num, col["Outcome"]).value = new_outcome
+                    changed += 1
+                    results.append({
+                        "date": date_str, "symbol": symbol, "action": action, "grade": grade,
+                        "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
+                        "option_symbol": opt_symbol, "result": new_outcome, "hit_at": hit_at,
+                        "pnl_pct": _pnl_pct(new_outcome, entry, sl, t1, t2, t3),
+                        "checked_through": str(terminal_date),
+                    })
+                else:
+                    expiry_note = " — contract expiry reached" if expiry_date and terminal_date == expiry_date.date() else ""
+                    pending.append({
+                        "date": date_str, "symbol": symbol, "action": action, "grade": grade,
+                        "strike": strike, "entry": entry, "sl": sl, "t1": t1, "t2": t2, "t3": t3,
+                        "option_symbol": opt_symbol,
+                        "status": f"No SL/Target hit through {terminal_date}{expiry_note}",
+                        "checked_through": str(terminal_date),
+                    })
 
             if changed and not dry_run:
                 wb.save(path)
-            self.stdout.write(self.style.SUCCESS(
-                f"  {changed}/{checked} rows {'would change' if dry_run else 'updated'} "
-                f"({closed_flat} of those newly closed-flat via EOD estimate)."
-            ))
-            d += timedelta(days=1)
+            self.stdout.write(self.style.SUCCESS(f"  {changed} row(s) updated; {checked} positional rows checked."))
+            d = d.fromordinal(d.toordinal() + 1)
 
-        self._write_complete_report(report_rows, options["start"], options["end"], dry_run)
+        self._write_report(results, pending, options["start"], options["end"], dry_run)
 
-    def _write_complete_report(self, report_rows, start_str, end_str, dry_run):
+    def _write_report(self, results, pending, start_str, end_str, dry_run):
         wb = Workbook()
-        ws = wb.active
-        ws.title = "Complete Report"
-
-        # IMPORTANT: these are copied from the original signal row so the report
-        # shows the exact trade setup alongside the outcome. Nothing is recomputed.
-        headers = [
-            "Date", "Symbol", "Action", "Grade", "Strike",
-            "Entry (Premium)", "SL", "Target 1", "Target 2", "Target 3",
-            "Option Symbol", "Outcome", "P&L %"
-        ]
-        ws.append(headers)
-        for cell in ws[1]:
-            cell.font = Font(bold=True, color="FFFFFF")
-            cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
-
-        resolved, unresolved = 0, 0
-        pnl_values = []
-        for r in report_rows:
-            ws.append([
+        ws_results = wb.active
+        ws_results.title = "Results"
+        _report_headers(ws_results)
+        for r in results:
+            ws_results.append([
                 r["date"], r["symbol"], r["action"], r["grade"], r["strike"],
-                r["entry"], r["sl"], r["t1"], r["t2"], r["t3"],
-                r["option_symbol"], r["outcome"] or "Unresolved (no data)", r["pnl_pct"]
+                r["entry"], r["sl"], r["t1"], r["t2"], r["t3"], r["option_symbol"],
+                r["result"], r["hit_at"], r["pnl_pct"], r["checked_through"],
             ])
-            if r["outcome"]:
-                resolved += 1
-            else:
-                unresolved += 1
-            if r["pnl_pct"] is not None:
-                pnl_values.append(r["pnl_pct"])
 
-        for col_cells in ws.columns:
-            max_len = max(len(str(c.value)) for c in col_cells)
-            ws.column_dimensions[col_cells[0].column_letter].width = max(max_len + 2, 10)
+        ws_pending = wb.create_sheet("No Result")
+        _report_headers(ws_pending)
+        for r in pending:
+            ws_pending.append([
+                r["date"], r["symbol"], r["action"], r["grade"], r["strike"],
+                r["entry"], r["sl"], r["t1"], r["t2"], r["t3"], r["option_symbol"],
+                r["status"], "", "", r["checked_through"],
+            ])
+
+        for sheet in (ws_results, ws_pending):
+            sheet.freeze_panes = "A2"
+            sheet.auto_filter.ref = sheet.dimensions
+            for cells in sheet.columns:
+                max_len = max(len(str(c.value or "")) for c in cells)
+                sheet.column_dimensions[cells[0].column_letter].width = min(max(max_len + 2, 10), 45)
 
         out_dir = os.path.join(LOG_DIR, "backfill_reports")
         os.makedirs(out_dir, exist_ok=True)
         path = os.path.join(out_dir, f"complete_report_{start_str}_to_{end_str}.xlsx")
-        wb.save(path)
+        if not dry_run:
+            wb.save(path)
 
         self.stdout.write(f"\n{'=' * 60}")
-        self.stdout.write(f"  Complete report: {len(report_rows)} signals, {resolved} resolved, {unresolved} still unresolved")
-        if pnl_values:
-            avg_pnl = round(sum(pnl_values) / len(pnl_values), 2)
-            wins = sum(1 for v in pnl_values if v > 0)
-            self.stdout.write(f"  Avg P&L% (of {len(pnl_values)} rows with a computable figure): {avg_pnl:+.2f}%, {wins}/{len(pnl_values)} positive")
+        self.stdout.write(f"  Results: {len(results)} genuine SL/Target outcomes")
+        self.stdout.write(f"  No Result: {len(pending)} positions with no verified SL/Target outcome")
         self.stdout.write(f"  Saved: {path}")
         self.stdout.write(f"{'=' * 60}")
 
         if dry_run:
-            self.stdout.write("  (dry run -- signal logs weren't actually updated)")
             return
 
         try:
             from trading.telegram_bot import TelegramBot
             bot = TelegramBot()
             caption = (
-                f"📊 <b>F&O Radar — Backfill Complete Report</b>\n"
+                f"📊 <b>F&O Radar — Positional Outcome Report</b>\n"
                 f"{os.path.basename(path)}\n"
-                f"{len(report_rows)} signals, {resolved} resolved, {unresolved} unresolved"
+                f"Results: {len(results)} | No Result: {len(pending)}"
             )
             result = bot.send_document(path, caption=caption)
             if result and result.get("ok"):
