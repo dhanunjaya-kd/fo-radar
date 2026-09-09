@@ -1,67 +1,15 @@
 """
 screener/management/commands/backfill_signal_outcomes.py
 
-Retroactively fills in SL Hit At / Target 1-3 Hit At / Outcome for signal
-rows that never got resolved live -- most commonly because the app
-restarted while the position was open (excel_logger.py's _open_positions
-is a pure in-memory cache that isn't rebuilt from disk on startup, so
-check_outcomes() silently stops watching anything open across a restart --
-see the separate restart-recovery fix for stopping this going forward).
+Retroactively fills in SL/Target outcome columns for unresolved signal rows using real Fyers 1-minute historical candles, and builds one consolidated workbook for the requested date range.
 
-METHOD: for every row with a blank Outcome and a real Option Symbol, pulls
-that contract's real 1-minute historical candles from its entry timestamp
-through end of that trading day via Fyers' History API, and replays them
-against the row's own LOCKED SL/Target 1/2/3 already stored on the row
-(nothing recomputed) -- same crossing rule check_outcomes() uses live:
-SL first (candle low <= sl), then furthest target first (candle high >=
-t3, then t2, then t1). Writes the result back into the SAME cells on the
-SAME row. Never creates a new row, never touches any other cell.
-
-Aug 14 2026 UPDATE -- two additions:
-
-1. EOD CLOSING ESTIMATE for rows where neither SL nor any Target was
-   crossed. A "no crossing" result used to just stay blank forever, which
-   is honest but incomplete once the trading day is actually over -- the
-   position DID end up somewhere, it just never hit either threshold.
-   Now, for any such row on a day that has fully closed, this looks up
-   the closing candle (at the row's own "Exited At" time if that's known,
-   otherwise the day's last available candle as an end-of-day estimate)
-   and writes a descriptive Outcome noting it's an estimate, e.g.
-   "Closed up ~28.4 (+6.2% from entry, EOD estimate)". Still never
-   touches SL Hit At / Target N Hit At -- neither was actually crossed,
-   so those columns correctly stay blank.
-
-2. COMPLETE REPORT: after processing the date range, builds ONE
-   consolidated workbook covering every signal in that range (not just
-   the ones that were blank) -- Date/Symbol/Action/Entry/Outcome/P&L%,
-   one row per signal -- saved to signal_logs/backfill_reports/. P&L% is
-   computed uniformly: from SL/Target's stored level vs Entry for rows
-   resolved that way (live or backfilled), from the EOD estimate above
-   for closed-flat rows, and left blank (labeled, not guessed) for
-   anything that still has no resolution at all (e.g. Fyers had no
-   candles for that symbol).
+The consolidated report includes the original trade levels (Strike, Entry, SL, Targets and Option Symbol) so the outcome can be audited against the exact trade setup.
 
 HONEST LIMITATIONS:
-- 1-minute OHLC, not tick data. If SL and a target both fall inside the
-  same candle's range, which came first genuinely can't be known from
-  OHLC alone -- the row is marked "AMBIGUOUS (see note)" rather than
-  guessing, with both candidate times recorded in a note column.
-- Fyers' History API only serves ACTIVE (non-expired) contracts. Once a
-  strike's expiry passes, this can no longer backfill it -- run this
-  before expiry, not after.
-- The EOD closing estimate is exactly that -- an ESTIMATE from the last
-  available candle (or the candle nearest a known exit time), not a
-  live-confirmed exit price. Every such row says "EOD estimate" in the
-  Outcome text so it's never confused with a real tracked exit.
-- This only checks the ENTRY day's candles (signals here are same-day/MIS
-  style, squared off by market close) -- a position genuinely held
-  overnight would need the script extended to pull more than one day.
-
-Usage:
-    cd backend
-    venv\\Scripts\\activate
-    python manage.py backfill_signal_outcomes --start 2026-08-10 --end 2026-08-14 --dry-run
-    python manage.py backfill_signal_outcomes --start 2026-08-10 --end 2026-08-14
+- 1-minute OHLC is not tick data. If SL and a target both fall inside the same candle's range, their order cannot be known safely.
+- Fyers History API availability for expired option contracts may be limited.
+- EOD closing values are explicitly labelled as estimates when they are not live-confirmed exits.
+- This backfill checks the entry trading day for same-day/MIS-style signals.
 """
 import os
 from datetime import datetime, timedelta
@@ -93,8 +41,7 @@ def _fetch_candles(option_symbol, date_str):
 
 
 def _replay(candles, entry_dt, sl, t1, t2, t3):
-    """Mirrors excel_logger.check_outcomes()'s live crossing rule, applied
-    to historical OHLC candles instead of a live LTP."""
+    """Replay the same SL/target crossing logic used by the live logger."""
     result = {"sl_hit_at": None, "targets_hit": {}, "ambiguous": []}
     furthest = 0
     for c in candles:
@@ -114,27 +61,22 @@ def _replay(candles, entry_dt, sl, t1, t2, t3):
 
         if sl_touched and target_touched:
             result["ambiguous"].append(candle_dt.strftime("%Y-%m-%d %H:%M:%S"))
-            continue  # can't safely resolve order within one candle
+            continue
 
         if sl_touched:
             result["sl_hit_at"] = candle_dt.strftime("%Y-%m-%d %H:%M:%S")
-            break  # trade's over
+            break
 
         if target_touched:
             furthest = target_touched
             result["targets_hit"][target_touched] = candle_dt.strftime("%Y-%m-%d %H:%M:%S")
             if target_touched == 3:
-                break  # furthest target reached, trade's done
+                break
 
     return result
 
 
 def _closing_estimate(candles, entry_dt, entry_price, exited_dt=None):
-    """When no SL/Target crossing was found: the closing candle at (or
-    just before) the row's own Exited At time if known, otherwise the
-    day's last available candle as an end-of-day estimate. Returns
-    (close_price, pct_from_entry, is_estimate) or (None, None, None) if
-    there's nothing usable to compute from."""
     usable = [c for c in candles if datetime.fromtimestamp(c[0]) >= entry_dt]
     if not usable or not entry_price:
         return None, None, None
@@ -151,12 +93,6 @@ def _closing_estimate(candles, entry_dt, entry_price, exited_dt=None):
 
 
 def _pnl_pct_from_outcome(outcome, entry, sl, t1, t2, t3):
-    """For the complete report: derive a numeric P&L% from whatever the
-    Outcome cell says, uniformly, whether it was resolved live, by an
-    earlier backfill run, or by this run's new EOD-estimate logic. Never
-    recomputes anything not already implied by stored, locked values --
-    just reads what "SL Hit" / "Target N Hit" / the EOD-estimate text
-    already commit to."""
     if not outcome or not entry:
         return None
     if outcome == "SL Hit":
@@ -174,22 +110,21 @@ def _pnl_pct_from_outcome(outcome, entry, sl, t1, t2, t3):
             return round(float(frag), 2)
         except Exception:
             return None
-    return None  # AMBIGUOUS, or anything else not confidently parseable
+    return None
 
 
 class Command(BaseCommand):
-    help = "Backfill blank SL/Target outcome columns using real Fyers historical candles, estimate EOD close for anything that never crossed either level, and build one consolidated report for the date range."
+    help = "Backfill unresolved signal outcomes from real Fyers historical candles and build a detailed consolidated Excel report."
 
     def add_arguments(self, parser):
         parser.add_argument("--start", required=True, help="YYYY-MM-DD")
         parser.add_argument("--end", required=True, help="YYYY-MM-DD")
-        parser.add_argument("--dry-run", action="store_true", help="Report what would change without writing anything to the signal logs (the complete report is still generated as a preview).")
+        parser.add_argument("--dry-run", action="store_true", help="Preview changes without writing signal logs.")
 
     def handle(self, *args, **options):
         start = datetime.strptime(options["start"], "%Y-%m-%d").date()
         end = datetime.strptime(options["end"], "%Y-%m-%d").date()
         dry_run = options["dry_run"]
-
         report_rows = []
 
         d = start
@@ -244,7 +179,7 @@ class Command(BaseCommand):
                         checked += 1
                         candles, err = _fetch_candles(opt_symbol, date_str)
                         if candles is None:
-                            self.stdout.write(f"  row {row_num} ({opt_symbol}): fetch failed ({err or 'no response'}) -- likely expired/invalid, skipped")
+                            self.stdout.write(f"  row {row_num} ({opt_symbol}): fetch failed ({err or 'no response'}) -- skipped")
                         elif not candles:
                             note = "No trade data after entry (0 candles) -- likely zero volume, unresolved"
                             self.stdout.write(f"  row {row_num} ({opt_symbol}): {note}")
@@ -254,7 +189,6 @@ class Command(BaseCommand):
                             outcome = note
                         else:
                             result = _replay(candles, entry_dt, sl, t1, t2, t3)
-
                             if result["ambiguous"]:
                                 note = f"AMBIGUOUS: SL and target both touched in same 1-min candle at {result['ambiguous'][0]}"
                                 self.stdout.write(f"  row {row_num} ({opt_symbol}): {note}")
@@ -323,7 +257,6 @@ class Command(BaseCommand):
                 f"  {changed}/{checked} rows {'would change' if dry_run else 'updated'} "
                 f"({closed_flat} of those newly closed-flat via EOD estimate)."
             ))
-
             d += timedelta(days=1)
 
         self._write_complete_report(report_rows, options["start"], options["end"], dry_run)
@@ -332,6 +265,9 @@ class Command(BaseCommand):
         wb = Workbook()
         ws = wb.active
         ws.title = "Complete Report"
+
+        # IMPORTANT: these are copied from the original signal row so the report
+        # shows the exact trade setup alongside the outcome. Nothing is recomputed.
         headers = [
             "Date", "Symbol", "Action", "Grade", "Strike",
             "Entry (Premium)", "SL", "Target 1", "Target 2", "Target 3",
@@ -376,7 +312,7 @@ class Command(BaseCommand):
         self.stdout.write(f"{'=' * 60}")
 
         if dry_run:
-            self.stdout.write("  (dry run -- not sending to Telegram; the signal logs weren't actually updated either)")
+            self.stdout.write("  (dry run -- signal logs weren't actually updated)")
             return
 
         try:
