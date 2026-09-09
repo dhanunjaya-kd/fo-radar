@@ -17,6 +17,9 @@ from screener.views import (
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
     EODScanTriggerView, OptionHistoryView, CandleChartView,
 )
+from screener.next_day_watchlist_history import (
+    NextDayWatchlistDatesView, NextDayWatchlistHistoryView, NextDayWatchlistExportView,
+)
 from screener.eod_scan_control import EODScanCancelView
 from screener.cas_radar import CASRadarView
 from screener.cas_research import CASResearchDatasetView
@@ -42,6 +45,9 @@ urlpatterns = [
     path('api/signals/watchlist-csv/', SignalWatchlistCsvView.as_view(), name='signals_watchlist_csv'),
     path('api/index-tracker/<str:index_name>/', IndexTrackerView.as_view(), name='index_tracker'),
     path('api/trend-momentum/<str:index_name>/', TrendMomentumView.as_view(), name='trend_momentum'),
+    path('api/next-day-watchlist/dates/', NextDayWatchlistDatesView.as_view(), name='next_day_watchlist_dates'),
+    path('api/next-day-watchlist/history/', NextDayWatchlistHistoryView.as_view(), name='next_day_watchlist_history'),
+    path('api/next-day-watchlist/export/', NextDayWatchlistExportView.as_view(), name='next_day_watchlist_export'),
     path('api/next-day-watchlist/', NextDayWatchlistView.as_view(), name='next_day_watchlist'),
     path('api/settings/risk-budget/', RiskBudgetSettingsView.as_view(), name='risk_budget_settings'),
     path('api/next-day-watchlist/scan/', EODScanTriggerView.as_view(), name='eod_scan_trigger'),
