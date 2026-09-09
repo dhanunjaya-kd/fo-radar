@@ -125,16 +125,18 @@ def compute_score(rsi, distance_from_sma_pct, volume_ratio, sector_relative_pct)
     return min(100, score), breakdown
 
 
-def build_watchlist(sectors_map=None, top_n=10, min_score=0, raw_data=None):
+def build_watchlist(sectors_map=None, top_n=10, min_score=0, raw_data=None, persist_backtest=True):
     """
     Reads eod_scanner.py's raw output (or accepts raw_data directly),
     computes real indicators per symbol, ranks best-first. sectors_map:
     {short_symbol: sector_name}. Stocks not in it show sector Unknown.
 
-    Also records the ranked picks into the persistent next-day research
-    workbook and resolves older picks using the next actual daily candle
-    already present in raw_data. This adds no Fyers polling and is kept
-    outside the scoring logic so ranking behaviour itself is unchanged.
+    When persist_backtest=True (the default), records the ranked picks
+    into the persistent next-day research workbook and resolves older
+    picks using the next actual daily candle already present in raw_data.
+    When False, only the ranked JSON is published -- this is used by the
+    live scan's partial-progress preview so Excel is written once at the
+    final completed ranking rather than once per progress checkpoint.
 
     Returns (watchlist, universe_scanned, stocks_with_enough_data).
     """
@@ -236,16 +238,14 @@ def build_watchlist(sectors_map=None, top_n=10, min_score=0, raw_data=None):
     with open(RANKED_OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, default=str)
 
-    # Persistent research/backtest ledger. If Excel itself is unavailable,
-    # the scanner result above remains valid; the helper logs and skips
-    # without affecting ranking.
-    record_status = record_and_resolve(raw_data, ranked, scan_date=datetime.now().date())
-    result["backtest"] = {
-        "recorded": record_status.get("recorded", 0),
-        "resolved": record_status.get("resolved", 0),
-        "file": record_status.get("file"),
-    }
-    with open(RANKED_OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(result, f, indent=2, default=str)
+    if persist_backtest:
+        record_status = record_and_resolve(raw_data, ranked, scan_date=datetime.now().date())
+        result["backtest"] = {
+            "recorded": record_status.get("recorded", 0),
+            "resolved": record_status.get("resolved", 0),
+            "file": record_status.get("file"),
+        }
+        with open(RANKED_OUTPUT_FILE, "w", encoding="utf-8") as f:
+            json.dump(result, f, indent=2, default=str)
 
     return ranked, len(raw_data), stocks_with_enough_data
