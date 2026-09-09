@@ -6,8 +6,8 @@ from screener.views import (
     MarketSummaryOldView, FoStockListOldView,
     FyersStatusView, OptionAnalyticsView, FyersBrowserTokenView, FyersDisconnectView,
     SignalExcelExportView, IndexTrackerView, IndexTrackerExportView,
-    SignalExportDatesView, SignalExcelExportByDateView,
-    IndexBacktestView, IndexBacktestExportView, WeeklyReportView,
+    SignalExportDatesView, SignalExcelExportByDateView, WeeklyReportView,
+    IndexBacktestView, IndexBacktestExportView,
     FundamentalsWatchlistView, CASAuctionMovesView, IndexTrackerAvailableDatesView,
     SignalWatchlistCsvView, IndexSignalView, CommodityCurrentSymbolView,
     DailyBacktestStatusView, DailyBacktestRunView, DailyBacktestReportDownloadView,
@@ -17,6 +17,7 @@ from screener.views import (
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
     EODScanTriggerView, OptionHistoryView, CandleChartView,
 )
+from screener.eod_scan_control import EODScanCancelView
 from screener.cas_radar import CASRadarView
 from screener.cas_research import CASResearchDatasetView
 from screener.cas_readiness import CASReadinessView
@@ -44,6 +45,7 @@ urlpatterns = [
     path('api/next-day-watchlist/', NextDayWatchlistView.as_view(), name='next_day_watchlist'),
     path('api/settings/risk-budget/', RiskBudgetSettingsView.as_view(), name='risk_budget_settings'),
     path('api/next-day-watchlist/scan/', EODScanTriggerView.as_view(), name='eod_scan_trigger'),
+    path('api/next-day-watchlist/scan/cancel/', EODScanCancelView.as_view(), name='eod_scan_cancel'),
     path('api/index-tracker/<str:index_name>/dates/', IndexTrackerAvailableDatesView.as_view(), name='index_tracker_dates'),
     path('api/index-tracker/<str:index_name>/export/', IndexTrackerExportView.as_view(), name='index_tracker_export'),
     path('api/index-backtest/<str:index_name>/', IndexBacktestView.as_view(), name='index_backtest'),
