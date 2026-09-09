@@ -230,7 +230,8 @@ export default function OIDistribution() {
               const sentiment = pcrSentimentLabel(pcr);
               return (
                 <div className="absolute top-1 left-1 bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-xs shadow-xl pointer-events-none min-w-[210px]">
-                  <p className="text-white font-bold mb-2">Strike ₹{r.strike.toLocaleString('en-IN')}</p>
+                  <p className="text-white font-bold mb-1">Strike ₹{r.strike.toLocaleString('en-IN')}</p>
+                  <p className="text-[9px] text-slate-500 mb-2">Bar height = OI below, not OI Chg %</p>
 
                   <p className="text-[9px] text-emerald-400 uppercase tracking-wide font-semibold mb-1">Call (CE)</p>
                   <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-2">
