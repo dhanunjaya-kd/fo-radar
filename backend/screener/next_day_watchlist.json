@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-09T17:10:21.093892",
+  "generated_at": "2026-09-09T17:16:00.159436",
   "universe_scanned": 2676,
   "stocks_with_enough_data": 2507,
   "excluded_low_price": 546,
-  "excluded_low_liquidity": 949,
+  "excluded_low_liquidity": 953,
   "excluded_unknown_sector": 2300,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
