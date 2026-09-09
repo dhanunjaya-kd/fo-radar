@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import TabInfoBanner from './TabInfoBanner';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+const REQUEST_TIMEOUT_MS = 8000;
 
 function fmt(n, digits = 2) {
   if (n == null || isNaN(n)) return '—';
@@ -40,9 +41,24 @@ function sectorTone(status) {
   return 'neutral';
 }
 
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    const text = await res.text();
+    let body = {};
+    try { body = text ? JSON.parse(text) : {}; } catch { body = { error: text || `HTTP ${res.status}` }; }
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export default function NextDayWatchlist() {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [scanStatus, setScanStatus] = useState(null);
   const [triggering, setTriggering] = useState(false);
@@ -51,9 +67,7 @@ export default function NextDayWatchlist() {
 
   const loadScanStatus = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/next-day-watchlist/scan/`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const status = await res.json();
+      const status = await fetchJsonWithTimeout(`${API_BASE}/api/next-day-watchlist/scan/`);
       scanInProgressRef.current = !!status.scan_in_progress;
       setScanStatus(status);
       return status;
@@ -64,14 +78,14 @@ export default function NextDayWatchlist() {
 
   const loadWatchlist = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/next-day-watchlist/`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json();
+      const d = await fetchJsonWithTimeout(`${API_BASE}/api/next-day-watchlist/`);
       setData(d);
       setError(null);
       return d;
     } catch (e) {
-      setError(e.message);
+      // Do not destroy a previously displayed list just because one poll
+      // timed out while the backend is scanning.
+      if (!data) setError(e.name === 'AbortError' ? 'Watchlist request timed out; scan may still be running.' : e.message);
       return null;
     } finally {
       setLoading(false);
@@ -81,29 +95,30 @@ export default function NextDayWatchlist() {
   const runScanNow = async () => {
     setTriggering(true);
     setTriggerMessage(null);
+    setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/next-day-watchlist/scan/`, { method: 'POST' });
-      const d = await res.json();
-      setTriggerMessage(d.reason);
+      const d = await fetchJsonWithTimeout(`${API_BASE}/api/next-day-watchlist/scan/`, { method: 'POST' });
+      setTriggerMessage(d.reason || 'Scan started.');
       await loadScanStatus();
       await loadWatchlist();
     } catch (e) {
-      setTriggerMessage(`Couldn't start scan: ${e.message}`);
+      setTriggerMessage(`Couldn't start scan: ${e.name === 'AbortError' ? 'backend did not respond within 8 seconds' : e.message}`);
     } finally {
       setTriggering(false);
     }
   };
 
   useEffect(() => {
-    let cancelled = false;
-    const poll = async () => {
+    // Never block the entire tab on the first API request. The page,
+    // Run Scan button, progress area and polling remain usable immediately.
+    loadScanStatus();
+    loadWatchlist();
+    const interval = setInterval(async () => {
       const status = await loadScanStatus();
-      if (cancelled) return;
       if (status?.scan_in_progress) await loadWatchlist();
-    };
-    poll();
-    const interval = setInterval(poll, 2000);
-    return () => { cancelled = true; clearInterval(interval); };
+      else if (!scanInProgressRef.current) await loadWatchlist();
+    }, 2000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -112,9 +127,6 @@ export default function NextDayWatchlist() {
     }, 300000);
     return () => clearInterval(interval);
   }, []);
-
-  if (loading) return <div className="p-10 text-center text-slate-500 text-sm">Loading Tomorrow's Picks...</div>;
-  if (error) return <div className="p-10 text-center text-slate-500 text-sm">Couldn't load watchlist: {error}</div>;
 
   const watchlist = data?.watchlist || [];
   const actionableCount = watchlist.filter(s => s.score >= 70).length;
@@ -144,6 +156,7 @@ export default function NextDayWatchlist() {
                   : 'No scan run yet this session.'}
             </p>
             {triggerMessage && <p className="text-[11px] text-slate-500 mt-1">{triggerMessage}</p>}
+            {error && <p className="text-[11px] text-amber-400 mt-1">{error}</p>}
           </div>
           <button
             onClick={runScanNow}
@@ -179,7 +192,7 @@ export default function NextDayWatchlist() {
         </div>
       )}
 
-      {data?.generated_at && <p className="text-[11px] text-slate-600 text-right">Scan completed: {new Date(data.generated_at).toLocaleString('en-IN')}</p>}
+      {data?.generated_at && <p className="text-[11px] text-slate-600 text-right">Latest ranking: {new Date(data.generated_at).toLocaleString('en-IN')}</p>}
 
       {watchlist.length > 0 && (
         <div className="flex items-center gap-2 pt-1">
@@ -190,7 +203,9 @@ export default function NextDayWatchlist() {
 
       {watchlist.length === 0 ? (
         <div className="py-10 text-center text-slate-500 text-sm max-w-md mx-auto">
-          {data?.error || 'No scan run yet. Tap "Run Scan Now" above to generate tomorrow\'s watchlist.'}
+          {scanStatus?.scan_in_progress
+            ? 'Scan is running — genuine stocks will appear here as ranking checkpoints are published.'
+            : (data?.error || 'No scan run yet. Tap "Run Scan Now" above to generate tomorrow\'s watchlist.')}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-800">
