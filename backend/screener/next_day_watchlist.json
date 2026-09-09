@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-09T17:42:37.829474",
+  "generated_at": "2026-09-09T17:45:39.992150",
   "universe_scanned": 2677,
   "stocks_with_enough_data": 2507,
   "excluded_low_price": 546,
@@ -251,7 +251,7 @@
     }
   ],
   "backtest": {
-    "recorded": 10,
+    "recorded": 0,
     "resolved": 0,
     "file": "C:\\Users\\FixAdmin\\Downloads\\fo-sniper-fullstack\\backend\\signal_logs\\next_day_watchlist_backtest.xlsx"
   }
