@@ -290323,27 +290323,11 @@
   },
   "NSE:GRANDOAK-EQ": {
     "quote": {
-      "price": 35.86,
-      "change_percent": 2.93,
-      "volume": 1194
+      "price": 36.26,
+      "change_percent": 4.92,
+      "volume": 6576
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 47.68,
-        "high": 47.68,
-        "low": 47.68,
-        "close": 47.68,
-        "volume": 6299
-      },
-      {
-        "date": "2026-07-10",
-        "open": 45.47,
-        "high": 46.46,
-        "low": 45.3,
-        "close": 45.3,
-        "volume": 12389
-      },
       {
         "date": "2026-07-13",
         "open": 43.19,
@@ -290671,33 +290655,33 @@
         "low": 35.0,
         "close": 35.86,
         "volume": 1194
+      },
+      {
+        "date": "2026-09-08",
+        "open": 36.25,
+        "high": 36.25,
+        "low": 34.36,
+        "close": 34.56,
+        "volume": 772
+      },
+      {
+        "date": "2026-09-09",
+        "open": 36.15,
+        "high": 36.28,
+        "low": 35.26,
+        "close": 36.26,
+        "volume": 6576
       }
     ],
-    "fetched_at": "2026-09-07T21:23:14.831684"
+    "fetched_at": "2026-09-09T16:06:48.327575"
   },
   "NSE:GRANULES-EQ": {
     "quote": {
-      "price": 867.3,
-      "change_percent": 2.24,
-      "volume": 1033026
+      "price": 884.8,
+      "change_percent": -1.18,
+      "volume": 1405967
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 859.55,
-        "high": 897.45,
-        "low": 857.55,
-        "close": 882.05,
-        "volume": 1603256
-      },
-      {
-        "date": "2026-07-10",
-        "open": 887.65,
-        "high": 901.8,
-        "low": 878.55,
-        "close": 889.85,
-        "volume": 1450104
-      },
       {
         "date": "2026-07-13",
         "open": 889.85,
@@ -291025,33 +291009,33 @@
         "low": 842.2,
         "close": 867.3,
         "volume": 1033026
+      },
+      {
+        "date": "2026-09-08",
+        "open": 869.0,
+        "high": 899.85,
+        "low": 865.0,
+        "close": 895.35,
+        "volume": 2111998
+      },
+      {
+        "date": "2026-09-09",
+        "open": 899.75,
+        "high": 901.8,
+        "low": 878.1,
+        "close": 884.8,
+        "volume": 1406377
       }
     ],
-    "fetched_at": "2026-09-07T21:23:15.703092"
+    "fetched_at": "2026-09-09T16:06:49.252705"
   },
   "NSE:GRAPHITE-EQ": {
     "quote": {
-      "price": 717.1,
-      "change_percent": -2.25,
-      "volume": 519646
+      "price": 844.65,
+      "change_percent": 15.04,
+      "volume": 36288867
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 576.7,
-        "high": 586.1,
-        "low": 570.0,
-        "close": 580.95,
-        "volume": 632727
-      },
-      {
-        "date": "2026-07-10",
-        "open": 586.3,
-        "high": 619.0,
-        "low": 582.1,
-        "close": 612.6,
-        "volume": 2496002
-      },
       {
         "date": "2026-07-13",
         "open": 609.1,
@@ -291379,33 +291363,33 @@
         "low": 714.05,
         "close": 717.1,
         "volume": 519646
+      },
+      {
+        "date": "2026-09-08",
+        "open": 718.0,
+        "high": 743.9,
+        "low": 713.0,
+        "close": 734.25,
+        "volume": 1208880
+      },
+      {
+        "date": "2026-09-09",
+        "open": 812.9,
+        "high": 874.35,
+        "low": 775.0,
+        "close": 844.65,
+        "volume": 36292952
       }
     ],
-    "fetched_at": "2026-09-07T21:23:16.586706"
+    "fetched_at": "2026-09-09T16:06:50.226532"
   },
   "NSE:GRASIM-EQ": {
     "quote": {
-      "price": 3302.4,
-      "change_percent": -0.59,
-      "volume": 1179298
+      "price": 3300,
+      "change_percent": -0.21,
+      "volume": 850759
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 3139.0,
-        "high": 3222.0,
-        "low": 3136.3,
-        "close": 3191.9,
-        "volume": 936756
-      },
-      {
-        "date": "2026-07-10",
-        "open": 3204.8,
-        "high": 3246.0,
-        "low": 3202.0,
-        "close": 3213.6,
-        "volume": 515666
-      },
       {
         "date": "2026-07-13",
         "open": 3202.4,
@@ -291733,33 +291717,33 @@
         "low": 3293.0,
         "close": 3302.4,
         "volume": 1179298
+      },
+      {
+        "date": "2026-09-08",
+        "open": 3302.4,
+        "high": 3318.2,
+        "low": 3277.0,
+        "close": 3306.8,
+        "volume": 875447
+      },
+      {
+        "date": "2026-09-09",
+        "open": 3305.0,
+        "high": 3320.0,
+        "low": 3279.0,
+        "close": 3300.0,
+        "volume": 850901
       }
     ],
-    "fetched_at": "2026-09-07T21:23:17.511254"
+    "fetched_at": "2026-09-09T16:06:52.204418"
   },
   "NSE:GRAUWEIL-EQ": {
     "quote": {
-      "price": 71.45,
-      "change_percent": 1.22,
-      "volume": 129623
+      "price": 72.67,
+      "change_percent": 0.92,
+      "volume": 305728
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 78.98,
-        "high": 81.0,
-        "low": 77.51,
-        "close": 80.15,
-        "volume": 313782
-      },
-      {
-        "date": "2026-07-10",
-        "open": 80.0,
-        "high": 83.9,
-        "low": 79.6,
-        "close": 81.07,
-        "volume": 659686
-      },
       {
         "date": "2026-07-13",
         "open": 81.9,
@@ -292087,33 +292071,33 @@
         "low": 70.75,
         "close": 71.45,
         "volume": 129623
+      },
+      {
+        "date": "2026-09-08",
+        "open": 71.88,
+        "high": 73.2,
+        "low": 70.53,
+        "close": 72.01,
+        "volume": 306863
+      },
+      {
+        "date": "2026-09-09",
+        "open": 72.09,
+        "high": 73.8,
+        "low": 71.04,
+        "close": 72.67,
+        "volume": 306598
       }
     ],
-    "fetched_at": "2026-09-07T21:23:18.402109"
+    "fetched_at": "2026-09-09T16:06:53.208517"
   },
   "NSE:GRAVISSHO-EQ": {
     "quote": {
-      "price": 28.66,
-      "change_percent": -2.52,
-      "volume": 436
+      "price": 29.66,
+      "change_percent": 3.45,
+      "volume": 471834
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 29.65,
-        "high": 30.98,
-        "low": 29.65,
-        "close": 29.97,
-        "volume": 633
-      },
-      {
-        "date": "2026-07-10",
-        "open": 31.29,
-        "high": 31.3,
-        "low": 30.03,
-        "close": 31.0,
-        "volume": 3317
-      },
       {
         "date": "2026-07-13",
         "open": 31.15,
@@ -292441,33 +292425,33 @@
         "low": 28.51,
         "close": 28.66,
         "volume": 436
+      },
+      {
+        "date": "2026-09-08",
+        "open": 28.67,
+        "high": 28.67,
+        "low": 28.67,
+        "close": 28.67,
+        "volume": 105
+      },
+      {
+        "date": "2026-09-09",
+        "open": 29.25,
+        "high": 34.4,
+        "low": 28.5,
+        "close": 29.66,
+        "volume": 472614
       }
     ],
-    "fetched_at": "2026-09-07T21:23:19.312791"
+    "fetched_at": "2026-09-09T16:06:55.319691"
   },
   "NSE:GRAVITA-EQ": {
     "quote": {
-      "price": 1676.9,
-      "change_percent": 0.92,
-      "volume": 120216
+      "price": 1696.4,
+      "change_percent": 0.84,
+      "volume": 146729
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1750.0,
-        "high": 1853.0,
-        "low": 1735.4,
-        "close": 1811.4,
-        "volume": 1466706
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1825.0,
-        "high": 1865.0,
-        "low": 1820.0,
-        "close": 1854.6,
-        "volume": 597522
-      },
       {
         "date": "2026-07-13",
         "open": 1860.2,
@@ -292795,33 +292779,33 @@
         "low": 1660.9,
         "close": 1676.9,
         "volume": 120216
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1665.0,
+        "high": 1690.0,
+        "low": 1665.0,
+        "close": 1682.3,
+        "volume": 218722
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1682.3,
+        "high": 1724.0,
+        "low": 1677.5,
+        "close": 1696.4,
+        "volume": 146729
       }
     ],
-    "fetched_at": "2026-09-07T21:23:20.183072"
+    "fetched_at": "2026-09-09T16:06:56.720748"
   },
   "NSE:GREAVESCOT-EQ": {
     "quote": {
-      "price": 194.45,
-      "change_percent": -0.57,
-      "volume": 725978
+      "price": 192.38,
+      "change_percent": -0.35,
+      "volume": 561496
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 225.69,
-        "high": 238.69,
-        "low": 224.98,
-        "close": 237.23,
-        "volume": 4112509
-      },
-      {
-        "date": "2026-07-10",
-        "open": 239.4,
-        "high": 267.0,
-        "low": 236.1,
-        "close": 263.6,
-        "volume": 20117335
-      },
       {
         "date": "2026-07-13",
         "open": 259.52,
@@ -293149,33 +293133,33 @@
         "low": 192.1,
         "close": 194.45,
         "volume": 725978
+      },
+      {
+        "date": "2026-09-08",
+        "open": 195.5,
+        "high": 195.8,
+        "low": 192.31,
+        "close": 193.06,
+        "volume": 467258
+      },
+      {
+        "date": "2026-09-09",
+        "open": 192.65,
+        "high": 194.7,
+        "low": 190.6,
+        "close": 192.38,
+        "volume": 561514
       }
     ],
-    "fetched_at": "2026-09-07T21:23:21.047946"
+    "fetched_at": "2026-09-09T16:06:57.660082"
   },
   "NSE:GREENLAM-EQ": {
     "quote": {
-      "price": 236.87,
-      "change_percent": -2.37,
-      "volume": 94051
+      "price": 236.25,
+      "change_percent": 0.31,
+      "volume": 19363
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 250.35,
-        "high": 256.4,
-        "low": 250.35,
-        "close": 255.4,
-        "volume": 22752
-      },
-      {
-        "date": "2026-07-10",
-        "open": 255.7,
-        "high": 259.0,
-        "low": 254.3,
-        "close": 257.85,
-        "volume": 24629
-      },
       {
         "date": "2026-07-13",
         "open": 256.9,
@@ -293503,33 +293487,33 @@
         "low": 235.7,
         "close": 236.87,
         "volume": 94051
+      },
+      {
+        "date": "2026-09-08",
+        "open": 235.8,
+        "high": 238.0,
+        "low": 234.74,
+        "close": 235.53,
+        "volume": 41593
+      },
+      {
+        "date": "2026-09-09",
+        "open": 235.3,
+        "high": 237.94,
+        "low": 234.7,
+        "close": 236.25,
+        "volume": 19363
       }
     ],
-    "fetched_at": "2026-09-07T21:23:21.931922"
+    "fetched_at": "2026-09-09T16:06:58.600041"
   },
   "NSE:GREENPANEL-EQ": {
     "quote": {
-      "price": 162.55,
-      "change_percent": 2.67,
-      "volume": 744111
+      "price": 160.67,
+      "change_percent": -0.63,
+      "volume": 180431
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 189.24,
-        "high": 196.0,
-        "low": 188.96,
-        "close": 190.43,
-        "volume": 84792
-      },
-      {
-        "date": "2026-07-10",
-        "open": 191.4,
-        "high": 196.74,
-        "low": 189.15,
-        "close": 190.63,
-        "volume": 313629
-      },
       {
         "date": "2026-07-13",
         "open": 191.5,
@@ -293857,33 +293841,33 @@
         "low": 156.01,
         "close": 162.55,
         "volume": 744111
+      },
+      {
+        "date": "2026-09-08",
+        "open": 162.6,
+        "high": 164.44,
+        "low": 160.5,
+        "close": 161.69,
+        "volume": 351454
+      },
+      {
+        "date": "2026-09-09",
+        "open": 161.0,
+        "high": 164.25,
+        "low": 158.01,
+        "close": 160.67,
+        "volume": 180431
       }
     ],
-    "fetched_at": "2026-09-07T21:23:22.826176"
+    "fetched_at": "2026-09-09T16:06:59.506237"
   },
   "NSE:GREENPLY-EQ": {
     "quote": {
-      "price": 302.2,
-      "change_percent": -0.82,
-      "volume": 389935
+      "price": 293.65,
+      "change_percent": -1.9,
+      "volume": 148974
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 313.0,
-        "high": 323.45,
-        "low": 309.4,
-        "close": 311.05,
-        "volume": 369696
-      },
-      {
-        "date": "2026-07-10",
-        "open": 313.65,
-        "high": 319.85,
-        "low": 313.6,
-        "close": 316.75,
-        "volume": 195629
-      },
       {
         "date": "2026-07-13",
         "open": 312.5,
@@ -294211,33 +294195,33 @@
         "low": 300.2,
         "close": 302.2,
         "volume": 389935
+      },
+      {
+        "date": "2026-09-08",
+        "open": 305.35,
+        "high": 305.35,
+        "low": 297.35,
+        "close": 299.35,
+        "volume": 104416
+      },
+      {
+        "date": "2026-09-09",
+        "open": 299.0,
+        "high": 299.85,
+        "low": 292.2,
+        "close": 293.65,
+        "volume": 148974
       }
     ],
-    "fetched_at": "2026-09-07T21:23:23.706322"
+    "fetched_at": "2026-09-09T16:07:00.445157"
   },
   "NSE:GREENPOWER-EQ": {
     "quote": {
-      "price": 9.23,
-      "change_percent": -0.54,
-      "volume": 1873150
+      "price": 9.54,
+      "change_percent": 4.38,
+      "volume": 46747752
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 10.08,
-        "high": 10.23,
-        "low": 10.08,
-        "close": 10.11,
-        "volume": 1379302
-      },
-      {
-        "date": "2026-07-10",
-        "open": 10.16,
-        "high": 10.36,
-        "low": 10.11,
-        "close": 10.16,
-        "volume": 1695987
-      },
       {
         "date": "2026-07-13",
         "open": 10.16,
@@ -294565,33 +294549,33 @@
         "low": 9.17,
         "close": 9.23,
         "volume": 1873150
+      },
+      {
+        "date": "2026-09-08",
+        "open": 9.19,
+        "high": 9.29,
+        "low": 9.1,
+        "close": 9.14,
+        "volume": 2268132
+      },
+      {
+        "date": "2026-09-09",
+        "open": 9.14,
+        "high": 10.49,
+        "low": 9.06,
+        "close": 9.54,
+        "volume": 46749101
       }
     ],
-    "fetched_at": "2026-09-07T21:23:24.585486"
+    "fetched_at": "2026-09-09T16:07:01.383114"
   },
   "NSE:GRINDWELL-EQ": {
     "quote": {
-      "price": 1932.9,
-      "change_percent": -1.51,
-      "volume": 23158
+      "price": 1893.1,
+      "change_percent": -1.54,
+      "volume": 18387
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 2020.0,
-        "high": 2052.2,
-        "low": 2002.3,
-        "close": 2020.7,
-        "volume": 56220
-      },
-      {
-        "date": "2026-07-10",
-        "open": 2020.0,
-        "high": 2083.9,
-        "low": 2019.9,
-        "close": 2058.6,
-        "volume": 33063
-      },
       {
         "date": "2026-07-13",
         "open": 2050.0,
@@ -294919,33 +294903,33 @@
         "low": 1925.1,
         "close": 1932.9,
         "volume": 23158
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1933.0,
+        "high": 1939.8,
+        "low": 1910.0,
+        "close": 1922.8,
+        "volume": 12837
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1922.8,
+        "high": 1923.9,
+        "low": 1881.0,
+        "close": 1893.1,
+        "volume": 18388
       }
     ],
-    "fetched_at": "2026-09-07T21:23:25.472840"
+    "fetched_at": "2026-09-09T16:07:02.307136"
   },
   "NSE:GRINFRA-EQ": {
     "quote": {
-      "price": 862.6,
-      "change_percent": -0.75,
-      "volume": 29533
+      "price": 858.5,
+      "change_percent": -0.09,
+      "volume": 9778
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 882.5,
-        "high": 898.6,
-        "low": 878.0,
-        "close": 891.45,
-        "volume": 15686
-      },
-      {
-        "date": "2026-07-10",
-        "open": 899.0,
-        "high": 918.45,
-        "low": 891.5,
-        "close": 909.1,
-        "volume": 11570
-      },
       {
         "date": "2026-07-13",
         "open": 909.1,
@@ -295273,33 +295257,33 @@
         "low": 852.85,
         "close": 862.6,
         "volume": 29533
+      },
+      {
+        "date": "2026-09-08",
+        "open": 860.0,
+        "high": 865.25,
+        "low": 853.4,
+        "close": 859.3,
+        "volume": 12337
+      },
+      {
+        "date": "2026-09-09",
+        "open": 853.65,
+        "high": 869.95,
+        "low": 852.3,
+        "close": 858.5,
+        "volume": 9779
       }
     ],
-    "fetched_at": "2026-09-07T21:23:26.350658"
+    "fetched_at": "2026-09-09T16:07:03.254077"
   },
   "NSE:GRMOVER-EQ": {
     "quote": {
-      "price": 85.8,
-      "change_percent": -1.98,
-      "volume": 1118026
+      "price": 88.14,
+      "change_percent": -0.03,
+      "volume": 1394008
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 96.0,
-        "high": 99.5,
-        "low": 95.59,
-        "close": 97.98,
-        "volume": 1733406
-      },
-      {
-        "date": "2026-07-10",
-        "open": 99.25,
-        "high": 99.78,
-        "low": 97.2,
-        "close": 97.58,
-        "volume": 394274
-      },
       {
         "date": "2026-07-13",
         "open": 96.0,
@@ -295627,33 +295611,33 @@
         "low": 85.0,
         "close": 85.8,
         "volume": 1118026
+      },
+      {
+        "date": "2026-09-08",
+        "open": 85.15,
+        "high": 88.91,
+        "low": 85.01,
+        "close": 88.17,
+        "volume": 1436766
+      },
+      {
+        "date": "2026-09-09",
+        "open": 88.99,
+        "high": 88.99,
+        "low": 85.46,
+        "close": 88.14,
+        "volume": 1430309
       }
     ],
-    "fetched_at": "2026-09-07T21:23:27.262555"
+    "fetched_at": "2026-09-09T16:07:04.191953"
   },
   "NSE:GROBTEA-EQ": {
     "quote": {
-      "price": 959.15,
-      "change_percent": -1.89,
-      "volume": 174
+      "price": 945.95,
+      "change_percent": -2.08,
+      "volume": 50
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 938.9,
-        "high": 940.1,
-        "low": 902.3,
-        "close": 902.3,
-        "volume": 80
-      },
-      {
-        "date": "2026-07-10",
-        "open": 914.8,
-        "high": 940.0,
-        "low": 903.35,
-        "close": 904.45,
-        "volume": 149
-      },
       {
         "date": "2026-07-13",
         "open": 901.3,
@@ -295981,33 +295965,33 @@
         "low": 949.9,
         "close": 959.15,
         "volume": 174
+      },
+      {
+        "date": "2026-09-08",
+        "open": 966.0,
+        "high": 966.0,
+        "low": 966.0,
+        "close": 966.0,
+        "volume": 2
+      },
+      {
+        "date": "2026-09-09",
+        "open": 967.0,
+        "high": 968.0,
+        "low": 940.1,
+        "close": 945.95,
+        "volume": 50
       }
     ],
-    "fetched_at": "2026-09-07T21:23:28.112511"
+    "fetched_at": "2026-09-09T16:07:05.102679"
   },
   "NSE:GROWW-EQ": {
     "quote": {
-      "price": 194.73,
-      "change_percent": 0.38,
-      "volume": 21419848
+      "price": 194.63,
+      "change_percent": -0.31,
+      "volume": 20798741
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 193.0,
-        "high": 198.9,
-        "low": 192.79,
-        "close": 198.44,
-        "volume": 22339788
-      },
-      {
-        "date": "2026-07-10",
-        "open": 199.0,
-        "high": 206.11,
-        "low": 197.11,
-        "close": 204.47,
-        "volume": 33279434
-      },
       {
         "date": "2026-07-13",
         "open": 202.19,
@@ -296335,33 +296319,33 @@
         "low": 191.01,
         "close": 194.73,
         "volume": 21419848
+      },
+      {
+        "date": "2026-09-08",
+        "open": 194.78,
+        "high": 195.58,
+        "low": 193.0,
+        "close": 195.24,
+        "volume": 18712196
+      },
+      {
+        "date": "2026-09-09",
+        "open": 195.0,
+        "high": 195.5,
+        "low": 192.18,
+        "close": 194.63,
+        "volume": 20798963
       }
     ],
-    "fetched_at": "2026-09-07T21:23:28.984355"
+    "fetched_at": "2026-09-09T16:07:06.049180"
   },
   "NSE:GROWWCAPM-EQ": {
     "quote": {
-      "price": 11.56,
-      "change_percent": 1.05,
-      "volume": 321273
+      "price": 11.35,
+      "change_percent": -0.7,
+      "volume": 563044
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 11.43,
-        "high": 11.6,
-        "low": 11.21,
-        "close": 11.53,
-        "volume": 997872
-      },
-      {
-        "date": "2026-07-10",
-        "open": 11.81,
-        "high": 11.81,
-        "low": 11.51,
-        "close": 11.66,
-        "volume": 375269
-      },
       {
         "date": "2026-07-13",
         "open": 11.7,
@@ -296689,33 +296673,33 @@
         "low": 11.48,
         "close": 11.56,
         "volume": 321273
+      },
+      {
+        "date": "2026-09-08",
+        "open": 11.54,
+        "high": 11.59,
+        "low": 11.4,
+        "close": 11.43,
+        "volume": 463030
+      },
+      {
+        "date": "2026-09-09",
+        "open": 11.59,
+        "high": 11.59,
+        "low": 11.3,
+        "close": 11.35,
+        "volume": 563044
       }
     ],
-    "fetched_at": "2026-09-07T21:23:29.849930"
+    "fetched_at": "2026-09-09T16:07:08.105965"
   },
   "NSE:GROWWCHEM-EQ": {
     "quote": {
-      "price": 30.08,
-      "change_percent": -0.53,
-      "volume": 11679
+      "price": 30.1,
+      "change_percent": -0.36,
+      "volume": 52069
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 29.29,
-        "high": 29.5,
-        "low": 29.01,
-        "close": 29.21,
-        "volume": 32144
-      },
-      {
-        "date": "2026-07-10",
-        "open": 29.57,
-        "high": 29.85,
-        "low": 29.5,
-        "close": 29.67,
-        "volume": 66124
-      },
       {
         "date": "2026-07-13",
         "open": 29.7,
@@ -297043,33 +297027,33 @@
         "low": 30.0,
         "close": 30.08,
         "volume": 11679
+      },
+      {
+        "date": "2026-09-08",
+        "open": 29.93,
+        "high": 30.43,
+        "low": 29.9,
+        "close": 30.21,
+        "volume": 109416
+      },
+      {
+        "date": "2026-09-09",
+        "open": 29.9,
+        "high": 30.21,
+        "low": 29.9,
+        "close": 30.1,
+        "volume": 52069
       }
     ],
-    "fetched_at": "2026-09-07T21:23:30.729036"
+    "fetched_at": "2026-09-09T16:07:09.388611"
   },
   "NSE:GROWWDEFNC-EQ": {
     "quote": {
-      "price": 97.75,
-      "change_percent": 0.34,
-      "volume": 217691
+      "price": 99.25,
+      "change_percent": -0.72,
+      "volume": 271286
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 94.17,
-        "high": 94.17,
-        "low": 92.59,
-        "close": 93.33,
-        "volume": 286861
-      },
-      {
-        "date": "2026-07-10",
-        "open": 93.5,
-        "high": 95.2,
-        "low": 93.44,
-        "close": 95.11,
-        "volume": 263199
-      },
       {
         "date": "2026-07-13",
         "open": 95.65,
@@ -297397,33 +297381,33 @@
         "low": 96.86,
         "close": 97.75,
         "volume": 217691
+      },
+      {
+        "date": "2026-09-08",
+        "open": 98.0,
+        "high": 101.0,
+        "low": 97.75,
+        "close": 99.97,
+        "volume": 484787
+      },
+      {
+        "date": "2026-09-09",
+        "open": 100.01,
+        "high": 100.73,
+        "low": 98.14,
+        "close": 99.25,
+        "volume": 271306
       }
     ],
-    "fetched_at": "2026-09-07T21:23:31.599992"
+    "fetched_at": "2026-09-09T16:07:10.345533"
   },
   "NSE:GROWWEV-EQ": {
     "quote": {
-      "price": 32.37,
-      "change_percent": 0,
-      "volume": 772261
+      "price": 32.21,
+      "change_percent": -0.06,
+      "volume": 260637
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 31.0,
-        "high": 31.19,
-        "low": 30.84,
-        "close": 30.92,
-        "volume": 151653
-      },
-      {
-        "date": "2026-07-10",
-        "open": 30.3,
-        "high": 31.46,
-        "low": 30.3,
-        "close": 31.4,
-        "volume": 276019
-      },
       {
         "date": "2026-07-13",
         "open": 31.39,
@@ -297751,33 +297735,33 @@
         "low": 31.56,
         "close": 32.37,
         "volume": 772261
+      },
+      {
+        "date": "2026-09-08",
+        "open": 32.76,
+        "high": 32.76,
+        "low": 32.0,
+        "close": 32.23,
+        "volume": 312881
+      },
+      {
+        "date": "2026-09-09",
+        "open": 31.89,
+        "high": 32.34,
+        "low": 31.89,
+        "close": 32.21,
+        "volume": 260637
       }
     ],
-    "fetched_at": "2026-09-07T21:23:32.478170"
+    "fetched_at": "2026-09-09T16:07:11.283754"
   },
   "NSE:GROWWGOLD-EQ": {
     "quote": {
-      "price": 14.81,
-      "change_percent": -1.46,
-      "volume": 2789656
+      "price": 14.87,
+      "change_percent": 0.13,
+      "volume": 3485550
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 13.87,
-        "high": 14.03,
-        "low": 13.81,
-        "close": 13.99,
-        "volume": 2885019
-      },
-      {
-        "date": "2026-07-10",
-        "open": 14.06,
-        "high": 14.08,
-        "low": 13.93,
-        "close": 13.96,
-        "volume": 1271669
-      },
       {
         "date": "2026-07-13",
         "open": 13.89,
@@ -298105,33 +298089,33 @@
         "low": 14.72,
         "close": 14.81,
         "volume": 2789656
+      },
+      {
+        "date": "2026-09-08",
+        "open": 14.86,
+        "high": 14.97,
+        "low": 14.8,
+        "close": 14.85,
+        "volume": 1485087
+      },
+      {
+        "date": "2026-09-09",
+        "open": 14.84,
+        "high": 14.94,
+        "low": 14.77,
+        "close": 14.87,
+        "volume": 3485550
       }
     ],
-    "fetched_at": "2026-09-07T21:23:33.377546"
+    "fetched_at": "2026-09-09T16:07:12.214411"
   },
   "NSE:GROWWHOSPI-EQ": {
     "quote": {
-      "price": 52.1,
-      "change_percent": 0.52,
-      "volume": 132678
+      "price": 52.6,
+      "change_percent": 1.37,
+      "volume": 633992
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 53.32,
-        "high": 54.69,
-        "low": 52.8,
-        "close": 54.06,
-        "volume": 1216057
-      },
-      {
-        "date": "2026-07-10",
-        "open": 54.64,
-        "high": 54.64,
-        "low": 53.78,
-        "close": 54.3,
-        "volume": 1138331
-      },
       {
         "date": "2026-07-13",
         "open": 55.7,
@@ -298459,33 +298443,33 @@
         "low": 51.7,
         "close": 52.1,
         "volume": 132678
+      },
+      {
+        "date": "2026-09-08",
+        "open": 52.0,
+        "high": 52.24,
+        "low": 51.76,
+        "close": 51.89,
+        "volume": 210204
+      },
+      {
+        "date": "2026-09-09",
+        "open": 52.93,
+        "high": 52.93,
+        "low": 51.81,
+        "close": 52.6,
+        "volume": 633992
       }
     ],
-    "fetched_at": "2026-09-07T21:23:34.233756"
+    "fetched_at": "2026-09-09T16:07:13.183435"
   },
   "NSE:GROWWLIQID-EQ": {
     "quote": {
-      "price": 110.65,
+      "price": 110.67,
       "change_percent": 0.01,
-      "volume": 165247
+      "volume": 289704
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 109.82,
-        "high": 109.83,
-        "low": 109.82,
-        "close": 109.82,
-        "volume": 142562
-      },
-      {
-        "date": "2026-07-10",
-        "open": 109.83,
-        "high": 109.88,
-        "low": 109.83,
-        "close": 109.87,
-        "volume": 119286
-      },
       {
         "date": "2026-07-13",
         "open": 109.89,
@@ -298813,33 +298797,33 @@
         "low": 110.64,
         "close": 110.65,
         "volume": 165247
+      },
+      {
+        "date": "2026-09-08",
+        "open": 110.67,
+        "high": 110.67,
+        "low": 110.66,
+        "close": 110.66,
+        "volume": 218348
+      },
+      {
+        "date": "2026-09-09",
+        "open": 110.66,
+        "high": 110.68,
+        "low": 110.54,
+        "close": 110.67,
+        "volume": 289704
       }
     ],
-    "fetched_at": "2026-09-07T21:23:35.104215"
+    "fetched_at": "2026-09-09T16:07:14.135261"
   },
   "NSE:GROWWLOVOL-EQ": {
     "quote": {
-      "price": 10.28,
-      "change_percent": -0.19,
-      "volume": 18110
+      "price": 10.18,
+      "change_percent": -0.2,
+      "volume": 7351
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 10.24,
-        "high": 10.39,
-        "low": 10.02,
-        "close": 10.25,
-        "volume": 27577
-      },
-      {
-        "date": "2026-07-10",
-        "open": 10.25,
-        "high": 10.45,
-        "low": 10.25,
-        "close": 10.28,
-        "volume": 22174
-      },
       {
         "date": "2026-07-13",
         "open": 10.3,
@@ -299167,33 +299151,33 @@
         "low": 10.04,
         "close": 10.28,
         "volume": 18110
+      },
+      {
+        "date": "2026-09-08",
+        "open": 10.28,
+        "high": 10.42,
+        "low": 10.17,
+        "close": 10.2,
+        "volume": 7226
+      },
+      {
+        "date": "2026-09-09",
+        "open": 10.4,
+        "high": 10.4,
+        "low": 10.14,
+        "close": 10.18,
+        "volume": 7351
       }
     ],
-    "fetched_at": "2026-09-07T21:23:36.010878"
+    "fetched_at": "2026-09-09T16:07:15.418569"
   },
   "NSE:GROWWMC150-EQ": {
     "quote": {
-      "price": 230.1,
-      "change_percent": -1.46,
-      "volume": 2164
+      "price": 230.9,
+      "change_percent": 0.28,
+      "volume": 587
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 226.63,
-        "high": 229.66,
-        "low": 226.63,
-        "close": 228.53,
-        "volume": 378
-      },
-      {
-        "date": "2026-07-10",
-        "open": 228.53,
-        "high": 233.0,
-        "low": 228.53,
-        "close": 231.52,
-        "volume": 2446
-      },
       {
         "date": "2026-07-13",
         "open": 231.5,
@@ -299521,33 +299505,33 @@
         "low": 230.09,
         "close": 230.1,
         "volume": 2164
+      },
+      {
+        "date": "2026-09-08",
+        "open": 231.0,
+        "high": 232.5,
+        "low": 229.19,
+        "close": 230.25,
+        "volume": 932
+      },
+      {
+        "date": "2026-09-09",
+        "open": 232.35,
+        "high": 232.41,
+        "low": 229.62,
+        "close": 230.9,
+        "volume": 587
       }
     ],
-    "fetched_at": "2026-09-07T21:23:36.881208"
+    "fetched_at": "2026-09-09T16:07:16.364182"
   },
   "NSE:GROWWMETAL-EQ": {
     "quote": {
-      "price": 12.52,
-      "change_percent": -1.57,
-      "volume": 497131
+      "price": 12.7,
+      "change_percent": 1.76,
+      "volume": 534513
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 11.87,
-        "high": 12.1,
-        "low": 11.7,
-        "close": 11.93,
-        "volume": 246866
-      },
-      {
-        "date": "2026-07-10",
-        "open": 11.98,
-        "high": 12.21,
-        "low": 11.93,
-        "close": 12.08,
-        "volume": 574131
-      },
       {
         "date": "2026-07-13",
         "open": 12.08,
@@ -299875,33 +299859,33 @@
         "low": 12.5,
         "close": 12.52,
         "volume": 497131
+      },
+      {
+        "date": "2026-09-08",
+        "open": 12.4,
+        "high": 12.68,
+        "low": 12.4,
+        "close": 12.48,
+        "volume": 669401
+      },
+      {
+        "date": "2026-09-09",
+        "open": 12.79,
+        "high": 12.8,
+        "low": 12.4,
+        "close": 12.7,
+        "volume": 534513
       }
     ],
-    "fetched_at": "2026-09-07T21:23:37.755831"
+    "fetched_at": "2026-09-09T16:07:17.313041"
   },
   "NSE:GROWWMOM50-EQ": {
     "quote": {
-      "price": 11,
-      "change_percent": 0.09,
-      "volume": 194295
+      "price": 11.12,
+      "change_percent": 0.63,
+      "volume": 237006
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 10.48,
-        "high": 10.63,
-        "low": 10.31,
-        "close": 10.58,
-        "volume": 80861
-      },
-      {
-        "date": "2026-07-10",
-        "open": 10.7,
-        "high": 10.76,
-        "low": 10.66,
-        "close": 10.75,
-        "volume": 315838
-      },
       {
         "date": "2026-07-13",
         "open": 10.85,
@@ -300229,33 +300213,33 @@
         "low": 10.91,
         "close": 11.0,
         "volume": 194295
+      },
+      {
+        "date": "2026-09-08",
+        "open": 11.2,
+        "high": 11.2,
+        "low": 10.96,
+        "close": 11.05,
+        "volume": 94566
+      },
+      {
+        "date": "2026-09-09",
+        "open": 11.18,
+        "high": 11.18,
+        "low": 11.01,
+        "close": 11.12,
+        "volume": 237006
       }
     ],
-    "fetched_at": "2026-09-07T21:23:38.644327"
+    "fetched_at": "2026-09-09T16:07:18.209756"
   },
   "NSE:GROWWN200-EQ": {
     "quote": {
-      "price": 11.27,
-      "change_percent": -0.62,
-      "volume": 66361
+      "price": 11.17,
+      "change_percent": 0,
+      "volume": 29037
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 11.1,
-        "high": 11.29,
-        "low": 11.1,
-        "close": 11.25,
-        "volume": 45088
-      },
-      {
-        "date": "2026-07-10",
-        "open": 11.36,
-        "high": 11.4,
-        "low": 11.26,
-        "close": 11.36,
-        "volume": 31686
-      },
       {
         "date": "2026-07-13",
         "open": 11.39,
@@ -300583,33 +300567,33 @@
         "low": 11.22,
         "close": 11.27,
         "volume": 66361
+      },
+      {
+        "date": "2026-09-08",
+        "open": 11.55,
+        "high": 11.55,
+        "low": 11.16,
+        "close": 11.17,
+        "volume": 82183
+      },
+      {
+        "date": "2026-09-09",
+        "open": 11.17,
+        "high": 11.32,
+        "low": 11.1,
+        "close": 11.17,
+        "volume": 29037
       }
     ],
-    "fetched_at": "2026-09-07T21:23:39.506639"
+    "fetched_at": "2026-09-09T16:07:19.158314"
   },
   "NSE:GROWWNET-EQ": {
     "quote": {
-      "price": 10.79,
-      "change_percent": -0.64,
-      "volume": 469311
+      "price": 10.77,
+      "change_percent": -0.83,
+      "volume": 393998
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 9.89,
-        "high": 10.02,
-        "low": 9.55,
-        "close": 9.97,
-        "volume": 863675
-      },
-      {
-        "date": "2026-07-10",
-        "open": 10.21,
-        "high": 10.21,
-        "low": 9.95,
-        "close": 10.02,
-        "volume": 509271
-      },
       {
         "date": "2026-07-13",
         "open": 10.02,
@@ -300937,33 +300921,33 @@
         "low": 10.73,
         "close": 10.79,
         "volume": 469311
+      },
+      {
+        "date": "2026-09-08",
+        "open": 10.7,
+        "high": 11.06,
+        "low": 10.09,
+        "close": 10.86,
+        "volume": 657563
+      },
+      {
+        "date": "2026-09-09",
+        "open": 10.99,
+        "high": 11.2,
+        "low": 10.66,
+        "close": 10.77,
+        "volume": 399148
       }
     ],
-    "fetched_at": "2026-09-07T21:23:40.348119"
+    "fetched_at": "2026-09-09T16:07:20.147908"
   },
   "NSE:GROWWNIFTY-EQ": {
     "quote": {
-      "price": 9.6,
-      "change_percent": -0.83,
-      "volume": 824351
+      "price": 9.51,
+      "change_percent": -0.73,
+      "volume": 1082032
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 9.9,
-        "high": 9.94,
-        "low": 9.62,
-        "close": 9.66,
-        "volume": 589976
-      },
-      {
-        "date": "2026-07-10",
-        "open": 9.57,
-        "high": 9.9,
-        "low": 9.57,
-        "close": 9.74,
-        "volume": 573509
-      },
       {
         "date": "2026-07-13",
         "open": 9.98,
@@ -301291,33 +301275,33 @@
         "low": 9.43,
         "close": 9.6,
         "volume": 824351
+      },
+      {
+        "date": "2026-09-08",
+        "open": 9.36,
+        "high": 9.66,
+        "low": 9.36,
+        "close": 9.58,
+        "volume": 1090198
+      },
+      {
+        "date": "2026-09-09",
+        "open": 9.81,
+        "high": 9.81,
+        "low": 9.35,
+        "close": 9.51,
+        "volume": 1082032
       }
     ],
-    "fetched_at": "2026-09-07T21:23:41.217325"
+    "fetched_at": "2026-09-09T16:07:21.094105"
   },
   "NSE:GROWWNXT50-EQ": {
     "quote": {
-      "price": 72.79,
-      "change_percent": -0.9,
-      "volume": 21112
+      "price": 73.82,
+      "change_percent": -1.05,
+      "volume": 6879
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 71.2,
-        "high": 71.93,
-        "low": 71.2,
-        "close": 71.7,
-        "volume": 5796
-      },
-      {
-        "date": "2026-07-10",
-        "open": 71.7,
-        "high": 72.88,
-        "low": 71.68,
-        "close": 72.46,
-        "volume": 1325
-      },
       {
         "date": "2026-07-13",
         "open": 72.41,
@@ -301645,33 +301629,33 @@
         "low": 72.41,
         "close": 72.79,
         "volume": 21112
+      },
+      {
+        "date": "2026-09-08",
+        "open": 73.15,
+        "high": 74.85,
+        "low": 72.11,
+        "close": 74.6,
+        "volume": 4677
+      },
+      {
+        "date": "2026-09-09",
+        "open": 74.47,
+        "high": 75.1,
+        "low": 73.11,
+        "close": 73.82,
+        "volume": 6879
       }
     ],
-    "fetched_at": "2026-09-07T21:23:42.056606"
+    "fetched_at": "2026-09-09T16:07:21.981104"
   },
   "NSE:GROWWPOWER-EQ": {
     "quote": {
-      "price": 11.2,
-      "change_percent": -1.15,
-      "volume": 1531393
+      "price": 11.43,
+      "change_percent": 0.79,
+      "volume": 13766421
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 11.73,
-        "high": 11.77,
-        "low": 11.6,
-        "close": 11.63,
-        "volume": 1976851
-      },
-      {
-        "date": "2026-07-10",
-        "open": 11.69,
-        "high": 11.84,
-        "low": 11.68,
-        "close": 11.83,
-        "volume": 1901331
-      },
       {
         "date": "2026-07-13",
         "open": 12.12,
@@ -301999,33 +301983,33 @@
         "low": 11.19,
         "close": 11.2,
         "volume": 1531393
+      },
+      {
+        "date": "2026-09-08",
+        "open": 11.23,
+        "high": 11.38,
+        "low": 11.21,
+        "close": 11.34,
+        "volume": 1997010
+      },
+      {
+        "date": "2026-09-09",
+        "open": 11.59,
+        "high": 11.59,
+        "low": 11.31,
+        "close": 11.43,
+        "volume": 13766421
       }
     ],
-    "fetched_at": "2026-09-07T21:23:42.939394"
+    "fetched_at": "2026-09-09T16:07:22.932641"
   },
   "NSE:GROWWPSE-EQ": {
     "quote": {
-      "price": 97.95,
-      "change_percent": -0.36,
-      "volume": 6647
+      "price": 98.5,
+      "change_percent": 0.35,
+      "volume": 2210
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 97.5,
-        "high": 99.14,
-        "low": 96.08,
-        "close": 98.61,
-        "volume": 2556
-      },
-      {
-        "date": "2026-07-10",
-        "open": 98.7,
-        "high": 99.67,
-        "low": 98.7,
-        "close": 99.6,
-        "volume": 1474
-      },
       {
         "date": "2026-07-13",
         "open": 100.48,
@@ -302353,33 +302337,33 @@
         "low": 95.5,
         "close": 97.95,
         "volume": 6647
+      },
+      {
+        "date": "2026-09-08",
+        "open": 96.0,
+        "high": 99.6,
+        "low": 96.0,
+        "close": 98.16,
+        "volume": 1672
+      },
+      {
+        "date": "2026-09-09",
+        "open": 99.48,
+        "high": 99.48,
+        "low": 96.2,
+        "close": 98.5,
+        "volume": 2210
       }
     ],
-    "fetched_at": "2026-09-07T21:23:43.781292"
+    "fetched_at": "2026-09-09T16:07:23.880930"
   },
   "NSE:GROWWPSUBK-EQ": {
     "quote": {
-      "price": 84.67,
-      "change_percent": -1.41,
-      "volume": 7308
+      "price": 84.06,
+      "change_percent": -0.51,
+      "volume": 4654
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 77.57,
-        "high": 82.68,
-        "low": 77.57,
-        "close": 82.18,
-        "volume": 13268
-      },
-      {
-        "date": "2026-07-10",
-        "open": 82.2,
-        "high": 86.0,
-        "low": 82.2,
-        "close": 84.52,
-        "volume": 34357
-      },
       {
         "date": "2026-07-13",
         "open": 84.5,
@@ -302707,33 +302691,33 @@
         "low": 84.21,
         "close": 84.67,
         "volume": 7308
+      },
+      {
+        "date": "2026-09-08",
+        "open": 84.67,
+        "high": 85.48,
+        "low": 83.51,
+        "close": 84.49,
+        "volume": 4854
+      },
+      {
+        "date": "2026-09-09",
+        "open": 83.71,
+        "high": 84.7,
+        "low": 83.57,
+        "close": 84.06,
+        "volume": 4654
       }
     ],
-    "fetched_at": "2026-09-07T21:23:44.651892"
+    "fetched_at": "2026-09-09T16:07:24.781070"
   },
   "NSE:GROWWRAIL-EQ": {
     "quote": {
-      "price": 28,
-      "change_percent": -0.28,
-      "volume": 356895
+      "price": 27.78,
+      "change_percent": -0.04,
+      "volume": 442862
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 28.54,
-        "high": 28.63,
-        "low": 28.31,
-        "close": 28.51,
-        "volume": 459374
-      },
-      {
-        "date": "2026-07-10",
-        "open": 28.8,
-        "high": 29.06,
-        "low": 28.52,
-        "close": 28.85,
-        "volume": 772755
-      },
       {
         "date": "2026-07-13",
         "open": 29.08,
@@ -303061,33 +303045,33 @@
         "low": 27.9,
         "close": 28.0,
         "volume": 356895
+      },
+      {
+        "date": "2026-09-08",
+        "open": 28.22,
+        "high": 28.22,
+        "low": 27.7,
+        "close": 27.79,
+        "volume": 468337
+      },
+      {
+        "date": "2026-09-09",
+        "open": 28.0,
+        "high": 28.0,
+        "low": 27.69,
+        "close": 27.78,
+        "volume": 442887
       }
     ],
-    "fetched_at": "2026-09-07T21:23:45.532505"
+    "fetched_at": "2026-09-09T16:07:25.696240"
   },
   "NSE:GROWWRLTY-EQ": {
     "quote": {
-      "price": 10.05,
-      "change_percent": -1.57,
-      "volume": 578932
+      "price": 9.84,
+      "change_percent": -1.89,
+      "volume": 540756
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 9.81,
-        "high": 10.19,
-        "low": 9.81,
-        "close": 10.13,
-        "volume": 629629
-      },
-      {
-        "date": "2026-07-10",
-        "open": 10.19,
-        "high": 10.49,
-        "low": 10.04,
-        "close": 10.45,
-        "volume": 720255
-      },
       {
         "date": "2026-07-13",
         "open": 10.45,
@@ -303415,33 +303399,33 @@
         "low": 10.02,
         "close": 10.05,
         "volume": 578932
+      },
+      {
+        "date": "2026-09-08",
+        "open": 10.07,
+        "high": 10.35,
+        "low": 9.91,
+        "close": 10.03,
+        "volume": 177073
+      },
+      {
+        "date": "2026-09-09",
+        "open": 10.0,
+        "high": 10.35,
+        "low": 9.8,
+        "close": 9.84,
+        "volume": 540756
       }
     ],
-    "fetched_at": "2026-09-07T21:23:46.387890"
+    "fetched_at": "2026-09-09T16:07:27.613544"
   },
   "NSE:GROWWSC250-EQ": {
     "quote": {
-      "price": 10.67,
-      "change_percent": -0.19,
-      "volume": 117852
+      "price": 10.65,
+      "change_percent": 0.09,
+      "volume": 157749
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 10.64,
-        "high": 10.64,
-        "low": 10.15,
-        "close": 10.3,
-        "volume": 84708
-      },
-      {
-        "date": "2026-07-10",
-        "open": 10.3,
-        "high": 10.5,
-        "low": 10.3,
-        "close": 10.43,
-        "volume": 168332
-      },
       {
         "date": "2026-07-13",
         "open": 10.55,
@@ -303769,33 +303753,33 @@
         "low": 10.55,
         "close": 10.67,
         "volume": 117852
+      },
+      {
+        "date": "2026-09-08",
+        "open": 10.8,
+        "high": 10.8,
+        "low": 10.58,
+        "close": 10.64,
+        "volume": 115196
+      },
+      {
+        "date": "2026-09-09",
+        "open": 10.64,
+        "high": 10.72,
+        "low": 10.62,
+        "close": 10.65,
+        "volume": 157749
       }
     ],
-    "fetched_at": "2026-09-07T21:23:47.264765"
+    "fetched_at": "2026-09-09T16:07:28.597587"
   },
   "NSE:GROWWSLVR-EQ": {
     "quote": {
-      "price": 22.53,
-      "change_percent": -1.31,
-      "volume": 960509
+      "price": 22.77,
+      "change_percent": 0.53,
+      "volume": 1478790
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 21.43,
-        "high": 21.9,
-        "low": 21.32,
-        "close": 21.82,
-        "volume": 2920754
-      },
-      {
-        "date": "2026-07-10",
-        "open": 21.82,
-        "high": 21.85,
-        "low": 21.32,
-        "close": 21.39,
-        "volume": 2674066
-      },
       {
         "date": "2026-07-13",
         "open": 21.04,
@@ -304123,33 +304107,33 @@
         "low": 22.42,
         "close": 22.53,
         "volume": 960509
+      },
+      {
+        "date": "2026-09-08",
+        "open": 22.9,
+        "high": 22.94,
+        "low": 22.55,
+        "close": 22.65,
+        "volume": 1107262
+      },
+      {
+        "date": "2026-09-09",
+        "open": 22.86,
+        "high": 22.94,
+        "low": 22.7,
+        "close": 22.77,
+        "volume": 1478790
       }
     ],
-    "fetched_at": "2026-09-07T21:23:48.156091"
+    "fetched_at": "2026-09-09T16:07:30.082163"
   },
   "NSE:GRPLTD-EQ": {
     "quote": {
-      "price": 2004.1,
-      "change_percent": -0.44,
-      "volume": 1104
+      "price": 2026.9,
+      "change_percent": 1.27,
+      "volume": 1215
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1910.5,
-        "high": 1959.0,
-        "low": 1900.0,
-        "close": 1941.9,
-        "volume": 2832
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1936.5,
-        "high": 1968.0,
-        "low": 1905.0,
-        "close": 1922.0,
-        "volume": 2350
-      },
       {
         "date": "2026-07-13",
         "open": 1901.5,
@@ -304477,33 +304461,33 @@
         "low": 1975.6,
         "close": 2004.1,
         "volume": 1104
+      },
+      {
+        "date": "2026-09-08",
+        "open": 2042.0,
+        "high": 2042.0,
+        "low": 1962.0,
+        "close": 2001.4,
+        "volume": 981
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1980.0,
+        "high": 2040.0,
+        "low": 1980.0,
+        "close": 2026.9,
+        "volume": 1215
       }
     ],
-    "fetched_at": "2026-09-07T21:23:49.013332"
+    "fetched_at": "2026-09-09T16:07:31.530715"
   },
   "NSE:GRSE-EQ": {
     "quote": {
-      "price": 2506.6,
-      "change_percent": -1.05,
-      "volume": 215499
+      "price": 2493.9,
+      "change_percent": -1.26,
+      "volume": 236940
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 2619.9,
-        "high": 2657.7,
-        "low": 2607.3,
-        "close": 2627.3,
-        "volume": 315209
-      },
-      {
-        "date": "2026-07-10",
-        "open": 2641.6,
-        "high": 2675.0,
-        "low": 2625.0,
-        "close": 2662.0,
-        "volume": 314601
-      },
       {
         "date": "2026-07-13",
         "open": 2631.0,
@@ -304831,33 +304815,33 @@
         "low": 2502.0,
         "close": 2506.6,
         "volume": 215499
+      },
+      {
+        "date": "2026-09-08",
+        "open": 2518.0,
+        "high": 2568.9,
+        "low": 2512.0,
+        "close": 2525.7,
+        "volume": 348575
+      },
+      {
+        "date": "2026-09-09",
+        "open": 2525.7,
+        "high": 2553.3,
+        "low": 2488.1,
+        "close": 2493.9,
+        "volume": 237008
       }
     ],
-    "fetched_at": "2026-09-07T21:23:49.869160"
+    "fetched_at": "2026-09-09T16:07:32.572822"
   },
   "NSE:GRWRHITECH-EQ": {
     "quote": {
-      "price": 6951.5,
-      "change_percent": -1.91,
-      "volume": 248502
+      "price": 6752.5,
+      "change_percent": -3.2,
+      "volume": 36927
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 6826.0,
-        "high": 7060.0,
-        "low": 6826.0,
-        "close": 6922.0,
-        "volume": 47051
-      },
-      {
-        "date": "2026-07-10",
-        "open": 6923.0,
-        "high": 7185.0,
-        "low": 6869.5,
-        "close": 6968.0,
-        "volume": 66242
-      },
       {
         "date": "2026-07-13",
         "open": 6949.5,
@@ -305185,33 +305169,33 @@
         "low": 6560.5,
         "close": 6951.5,
         "volume": 248502
+      },
+      {
+        "date": "2026-09-08",
+        "open": 7006.0,
+        "high": 7049.0,
+        "low": 6900.5,
+        "close": 6975.5,
+        "volume": 21656
+      },
+      {
+        "date": "2026-09-09",
+        "open": 6920.0,
+        "high": 6966.0,
+        "low": 6735.5,
+        "close": 6752.5,
+        "volume": 36942
       }
     ],
-    "fetched_at": "2026-09-07T21:23:50.757912"
+    "fetched_at": "2026-09-09T16:07:33.523404"
   },
   "NSE:GSEC10ABSL-EQ": {
     "quote": {
-      "price": 111.61,
-      "change_percent": 0,
-      "volume": 0
+      "price": 113.27,
+      "change_percent": 0.3,
+      "volume": 34
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 114.72,
-        "high": 114.72,
-        "low": 114.28,
-        "close": 114.28,
-        "volume": 93
-      },
-      {
-        "date": "2026-07-10",
-        "open": 112.01,
-        "high": 114.0,
-        "low": 112.01,
-        "close": 113.5,
-        "volume": 104
-      },
       {
         "date": "2026-07-14",
         "open": 112.9,
@@ -305365,21 +305349,29 @@
         "volume": 3
       },
       {
-        "date": "2026-09-07",
-        "open": 111.61,
-        "high": 111.61,
-        "low": 111.61,
-        "close": 111.61,
-        "volume": 0
+        "date": "2026-09-08",
+        "open": 112.93,
+        "high": 112.93,
+        "low": 111.72,
+        "close": 112.93,
+        "volume": 10
+      },
+      {
+        "date": "2026-09-09",
+        "open": 112.93,
+        "high": 113.27,
+        "low": 111.82,
+        "close": 113.27,
+        "volume": 34
       }
     ],
-    "fetched_at": "2026-09-07T21:23:51.603059"
+    "fetched_at": "2026-09-09T16:07:34.414389"
   },
   "NSE:GSEC10ADD-EQ": {
     "quote": {
-      "price": 26.81,
-      "change_percent": 0.07,
-      "volume": 11
+      "price": 26.8,
+      "change_percent": -0.11,
+      "volume": 6
     },
     "daily_candles": [
       {
@@ -305469,33 +305461,33 @@
         "low": 26.75,
         "close": 26.81,
         "volume": 11
+      },
+      {
+        "date": "2026-09-08",
+        "open": 26.81,
+        "high": 26.83,
+        "low": 26.47,
+        "close": 26.83,
+        "volume": 520
+      },
+      {
+        "date": "2026-09-09",
+        "open": 26.8,
+        "high": 26.8,
+        "low": 26.8,
+        "close": 26.8,
+        "volume": 6
       }
     ],
-    "fetched_at": "2026-09-07T21:23:52.529664"
+    "fetched_at": "2026-09-09T16:07:35.372376"
   },
   "NSE:GSEC10IETF-EQ": {
     "quote": {
-      "price": 261.92,
-      "change_percent": -0.22,
-      "volume": 183
+      "price": 262.81,
+      "change_percent": 0.24,
+      "volume": 130
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 265.46,
-        "high": 265.46,
-        "low": 263.1,
-        "close": 265.45,
-        "volume": 818
-      },
-      {
-        "date": "2026-07-10",
-        "open": 265.77,
-        "high": 265.77,
-        "low": 263.92,
-        "close": 264.86,
-        "volume": 5432
-      },
       {
         "date": "2026-07-13",
         "open": 265.99,
@@ -305799,33 +305791,33 @@
         "low": 261.92,
         "close": 261.92,
         "volume": 183
+      },
+      {
+        "date": "2026-09-08",
+        "open": 262.18,
+        "high": 262.18,
+        "low": 262.18,
+        "close": 262.18,
+        "volume": 100
+      },
+      {
+        "date": "2026-09-09",
+        "open": 262.43,
+        "high": 265.05,
+        "low": 262.43,
+        "close": 262.81,
+        "volume": 130
       }
     ],
-    "fetched_at": "2026-09-07T21:23:53.392521"
+    "fetched_at": "2026-09-09T16:07:40.413226"
   },
   "NSE:GSEC10YEAR-EQ": {
     "quote": {
-      "price": 30.35,
-      "change_percent": -0.07,
-      "volume": 15279
+      "price": 30.44,
+      "change_percent": 0.46,
+      "volume": 68
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 30.52,
-        "high": 30.52,
-        "low": 30.39,
-        "close": 30.43,
-        "volume": 1186
-      },
-      {
-        "date": "2026-07-10",
-        "open": 30.45,
-        "high": 30.56,
-        "low": 30.4,
-        "close": 30.4,
-        "volume": 2528
-      },
       {
         "date": "2026-07-13",
         "open": 29.96,
@@ -306153,33 +306145,33 @@
         "low": 30.31,
         "close": 30.35,
         "volume": 15279
+      },
+      {
+        "date": "2026-09-08",
+        "open": 30.49,
+        "high": 30.51,
+        "low": 30.29,
+        "close": 30.3,
+        "volume": 3501
+      },
+      {
+        "date": "2026-09-09",
+        "open": 30.45,
+        "high": 30.45,
+        "low": 30.3,
+        "close": 30.44,
+        "volume": 68
       }
     ],
-    "fetched_at": "2026-09-07T21:23:54.285872"
+    "fetched_at": "2026-09-09T16:07:57.137516"
   },
   "NSE:GSEC5IETF-EQ": {
     "quote": {
-      "price": 66.5,
-      "change_percent": -0.02,
-      "volume": 57232
+      "price": 66.24,
+      "change_percent": 0,
+      "volume": 3785
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 66.26,
-        "high": 66.42,
-        "low": 65.83,
-        "close": 65.91,
-        "volume": 6683
-      },
-      {
-        "date": "2026-07-10",
-        "open": 66.23,
-        "high": 66.61,
-        "low": 65.91,
-        "close": 66.14,
-        "volume": 7067
-      },
       {
         "date": "2026-07-13",
         "open": 65.28,
@@ -306507,33 +306499,33 @@
         "low": 66.08,
         "close": 66.5,
         "volume": 57232
+      },
+      {
+        "date": "2026-09-08",
+        "open": 66.72,
+        "high": 67.11,
+        "low": 66.2,
+        "close": 66.24,
+        "volume": 8567
+      },
+      {
+        "date": "2026-09-09",
+        "open": 66.25,
+        "high": 66.8,
+        "low": 66.24,
+        "close": 66.24,
+        "volume": 3785
       }
     ],
-    "fetched_at": "2026-09-07T21:23:55.136791"
+    "fetched_at": "2026-09-09T16:07:58.898749"
   },
   "NSE:GSFC-EQ": {
     "quote": {
-      "price": 162.02,
-      "change_percent": -0.53,
-      "volume": 947889
+      "price": 160.03,
+      "change_percent": -0.49,
+      "volume": 1930795
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 159.35,
-        "high": 162.59,
-        "low": 159.1,
-        "close": 161.64,
-        "volume": 489859
-      },
-      {
-        "date": "2026-07-10",
-        "open": 162.5,
-        "high": 163.65,
-        "low": 160.4,
-        "close": 160.9,
-        "volume": 794628
-      },
       {
         "date": "2026-07-13",
         "open": 160.15,
@@ -306861,33 +306853,33 @@
         "low": 161.53,
         "close": 162.02,
         "volume": 947889
+      },
+      {
+        "date": "2026-09-08",
+        "open": 162.2,
+        "high": 162.33,
+        "low": 160.42,
+        "close": 160.81,
+        "volume": 877506
+      },
+      {
+        "date": "2026-09-09",
+        "open": 160.9,
+        "high": 161.75,
+        "low": 159.47,
+        "close": 160.03,
+        "volume": 1931299
       }
     ],
-    "fetched_at": "2026-09-07T21:23:57.761706"
+    "fetched_at": "2026-09-09T16:08:00.557278"
   },
   "NSE:GSLSU-EQ": {
     "quote": {
-      "price": 29.45,
-      "change_percent": 3.81,
-      "volume": 164591
+      "price": 27.84,
+      "change_percent": -4.98,
+      "volume": 51751
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 38.85,
-        "high": 40.59,
-        "low": 38.0,
-        "close": 38.53,
-        "volume": 24971
-      },
-      {
-        "date": "2026-07-10",
-        "open": 37.63,
-        "high": 40.49,
-        "low": 36.75,
-        "close": 38.99,
-        "volume": 541938
-      },
       {
         "date": "2026-07-13",
         "open": 39.8,
@@ -307215,33 +307207,33 @@
         "low": 28.4,
         "close": 29.45,
         "volume": 164591
+      },
+      {
+        "date": "2026-09-08",
+        "open": 30.5,
+        "high": 30.5,
+        "low": 28.24,
+        "close": 29.3,
+        "volume": 71165
+      },
+      {
+        "date": "2026-09-09",
+        "open": 29.77,
+        "high": 29.9,
+        "low": 27.84,
+        "close": 27.84,
+        "volume": 51751
       }
     ],
-    "fetched_at": "2026-09-07T21:23:58.649719"
+    "fetched_at": "2026-09-09T16:08:01.782469"
   },
   "NSE:GSPCROP-EQ": {
     "quote": {
-      "price": 600.95,
-      "change_percent": -2.96,
-      "volume": 203559
+      "price": 491.35,
+      "change_percent": -7.47,
+      "volume": 1797741
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 388.0,
-        "high": 401.35,
-        "low": 385.6,
-        "close": 394.7,
-        "volume": 401612
-      },
-      {
-        "date": "2026-07-10",
-        "open": 399.75,
-        "high": 420.0,
-        "low": 393.2,
-        "close": 410.75,
-        "volume": 420707
-      },
       {
         "date": "2026-07-13",
         "open": 413.4,
@@ -307569,33 +307561,33 @@
         "low": 594.25,
         "close": 600.95,
         "volume": 203559
+      },
+      {
+        "date": "2026-09-08",
+        "open": 600.0,
+        "high": 606.7,
+        "low": 480.8,
+        "close": 531.0,
+        "volume": 2530958
+      },
+      {
+        "date": "2026-09-09",
+        "open": 524.85,
+        "high": 531.4,
+        "low": 479.95,
+        "close": 491.35,
+        "volume": 1797785
       }
     ],
-    "fetched_at": "2026-09-07T21:23:59.543966"
+    "fetched_at": "2026-09-09T16:08:03.131066"
   },
   "NSE:GSS-EQ": {
     "quote": {
-      "price": 11.02,
-      "change_percent": -0.09,
-      "volume": 52386
+      "price": 10.88,
+      "change_percent": -0.73,
+      "volume": 27584
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 12.88,
-        "high": 12.88,
-        "low": 12.35,
-        "close": 12.44,
-        "volume": 6034
-      },
-      {
-        "date": "2026-07-10",
-        "open": 12.5,
-        "high": 12.94,
-        "low": 12.44,
-        "close": 12.5,
-        "volume": 9465
-      },
       {
         "date": "2026-07-13",
         "open": 12.75,
@@ -307923,33 +307915,33 @@
         "low": 10.83,
         "close": 11.02,
         "volume": 52386
+      },
+      {
+        "date": "2026-09-08",
+        "open": 11.34,
+        "high": 11.34,
+        "low": 10.83,
+        "close": 10.96,
+        "volume": 29086
+      },
+      {
+        "date": "2026-09-09",
+        "open": 11.0,
+        "high": 11.15,
+        "low": 10.71,
+        "close": 10.88,
+        "volume": 32036
       }
     ],
-    "fetched_at": "2026-09-07T21:24:00.434913"
+    "fetched_at": "2026-09-09T16:08:09.291063"
   },
   "NSE:GTL-EQ": {
     "quote": {
-      "price": 7.25,
-      "change_percent": 1.97,
-      "volume": 256404
+      "price": 7.16,
+      "change_percent": 1.99,
+      "volume": 254178
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 7.33,
-        "high": 7.5,
-        "low": 7.23,
-        "close": 7.31,
-        "volume": 183922
-      },
-      {
-        "date": "2026-07-10",
-        "open": 7.34,
-        "high": 7.69,
-        "low": 7.33,
-        "close": 7.36,
-        "volume": 355987
-      },
       {
         "date": "2026-07-13",
         "open": 7.45,
@@ -308277,33 +308269,33 @@
         "low": 7.07,
         "close": 7.25,
         "volume": 256404
+      },
+      {
+        "date": "2026-09-08",
+        "open": 7.3,
+        "high": 7.3,
+        "low": 6.71,
+        "close": 7.02,
+        "volume": 459766
+      },
+      {
+        "date": "2026-09-09",
+        "open": 7.25,
+        "high": 7.32,
+        "low": 7.04,
+        "close": 7.16,
+        "volume": 254178
       }
     ],
-    "fetched_at": "2026-09-07T21:24:01.308194"
+    "fetched_at": "2026-09-09T16:08:10.198140"
   },
   "NSE:GTLINFRA-EQ": {
     "quote": {
-      "price": 1.2,
-      "change_percent": 3.45,
-      "volume": 69809746
+      "price": 1.16,
+      "change_percent": -1.69,
+      "volume": 33190106
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1.31,
-        "high": 1.35,
-        "low": 1.31,
-        "close": 1.32,
-        "volume": 28667090
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1.33,
-        "high": 1.36,
-        "low": 1.33,
-        "close": 1.33,
-        "volume": 26050441
-      },
       {
         "date": "2026-07-13",
         "open": 1.33,
@@ -308631,33 +308623,33 @@
         "low": 1.16,
         "close": 1.2,
         "volume": 69809746
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1.21,
+        "high": 1.22,
+        "low": 1.17,
+        "close": 1.18,
+        "volume": 35870401
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1.18,
+        "high": 1.18,
+        "low": 1.16,
+        "close": 1.16,
+        "volume": 33191149
       }
     ],
-    "fetched_at": "2026-09-07T21:24:02.210354"
+    "fetched_at": "2026-09-09T16:08:11.078501"
   },
   "NSE:GTPL-EQ": {
     "quote": {
-      "price": 58.91,
-      "change_percent": 0.41,
-      "volume": 76926
+      "price": 58.29,
+      "change_percent": 0.36,
+      "volume": 35618
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 61.1,
-        "high": 61.49,
-        "low": 58.4,
-        "close": 59.23,
-        "volume": 37214
-      },
-      {
-        "date": "2026-07-10",
-        "open": 60.0,
-        "high": 61.55,
-        "low": 59.74,
-        "close": 61.31,
-        "volume": 38118
-      },
       {
         "date": "2026-07-13",
         "open": 61.6,
@@ -308985,33 +308977,33 @@
         "low": 57.52,
         "close": 58.91,
         "volume": 76926
+      },
+      {
+        "date": "2026-09-08",
+        "open": 59.0,
+        "high": 59.13,
+        "low": 57.67,
+        "close": 58.08,
+        "volume": 26510
+      },
+      {
+        "date": "2026-09-09",
+        "open": 58.08,
+        "high": 58.89,
+        "low": 57.52,
+        "close": 58.29,
+        "volume": 35618
       }
     ],
-    "fetched_at": "2026-09-07T21:24:03.046728"
+    "fetched_at": "2026-09-09T16:08:12.026234"
   },
   "NSE:GUFICBIO-EQ": {
     "quote": {
-      "price": 448,
-      "change_percent": 0.7,
-      "volume": 382048
+      "price": 428.85,
+      "change_percent": -2.6,
+      "volume": 79526
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 377.2,
-        "high": 391.35,
-        "low": 377.2,
-        "close": 386.95,
-        "volume": 132008
-      },
-      {
-        "date": "2026-07-10",
-        "open": 389.0,
-        "high": 398.25,
-        "low": 382.0,
-        "close": 392.4,
-        "volume": 132576
-      },
       {
         "date": "2026-07-13",
         "open": 394.5,
@@ -309339,33 +309331,33 @@
         "low": 438.85,
         "close": 448.0,
         "volume": 382048
+      },
+      {
+        "date": "2026-09-08",
+        "open": 448.0,
+        "high": 451.0,
+        "low": 436.8,
+        "close": 440.3,
+        "volume": 66969
+      },
+      {
+        "date": "2026-09-09",
+        "open": 439.45,
+        "high": 445.0,
+        "low": 425.8,
+        "close": 428.85,
+        "volume": 79726
       }
     ],
-    "fetched_at": "2026-09-07T21:24:03.972221"
+    "fetched_at": "2026-09-09T16:08:12.978491"
   },
   "NSE:GUJALKALI-EQ": {
     "quote": {
-      "price": 707.85,
-      "change_percent": -1.91,
-      "volume": 86704
+      "price": 712.55,
+      "change_percent": -0.86,
+      "volume": 63316
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 582.2,
-        "high": 593.0,
-        "low": 582.2,
-        "close": 590.85,
-        "volume": 16025
-      },
-      {
-        "date": "2026-07-10",
-        "open": 592.8,
-        "high": 597.5,
-        "low": 585.0,
-        "close": 588.5,
-        "volume": 17423
-      },
       {
         "date": "2026-07-13",
         "open": 599.95,
@@ -309693,33 +309685,33 @@
         "low": 701.85,
         "close": 707.85,
         "volume": 86704
+      },
+      {
+        "date": "2026-09-08",
+        "open": 709.0,
+        "high": 730.0,
+        "low": 707.85,
+        "close": 718.75,
+        "volume": 57495
+      },
+      {
+        "date": "2026-09-09",
+        "open": 718.75,
+        "high": 721.75,
+        "low": 706.05,
+        "close": 712.55,
+        "volume": 63316
       }
     ],
-    "fetched_at": "2026-09-07T21:24:04.819225"
+    "fetched_at": "2026-09-09T16:08:14.398599"
   },
   "NSE:GUJAPOLLO-EQ": {
     "quote": {
-      "price": 345.2,
-      "change_percent": -3.02,
-      "volume": 16534
+      "price": 345,
+      "change_percent": 0.82,
+      "volume": 5966
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 353.95,
-        "high": 369.9,
-        "low": 345.05,
-        "close": 348.65,
-        "volume": 41583
-      },
-      {
-        "date": "2026-07-10",
-        "open": 345.2,
-        "high": 373.9,
-        "low": 345.2,
-        "close": 368.6,
-        "volume": 55287
-      },
       {
         "date": "2026-07-13",
         "open": 371.9,
@@ -310047,33 +310039,33 @@
         "low": 338.75,
         "close": 345.2,
         "volume": 16534
+      },
+      {
+        "date": "2026-09-08",
+        "open": 348.05,
+        "high": 348.6,
+        "low": 341.5,
+        "close": 342.2,
+        "volume": 4003
+      },
+      {
+        "date": "2026-09-09",
+        "open": 342.6,
+        "high": 348.4,
+        "low": 340.05,
+        "close": 345.0,
+        "volume": 5966
       }
     ],
-    "fetched_at": "2026-09-07T21:24:05.690327"
+    "fetched_at": "2026-09-09T16:08:16.352398"
   },
   "NSE:GUJENERGY-EQ": {
     "quote": {
-      "price": 261.93,
-      "change_percent": -0.63,
-      "volume": 1483233
+      "price": 258.97,
+      "change_percent": -0.47,
+      "volume": 1098959
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 290.4,
-        "high": 290.4,
-        "low": 285.0,
-        "close": 286.45,
-        "volume": 731679
-      },
-      {
-        "date": "2026-07-10",
-        "open": 288.5,
-        "high": 290.7,
-        "low": 273.0,
-        "close": 289.7,
-        "volume": 1042048
-      },
       {
         "date": "2026-07-13",
         "open": 287.7,
@@ -310401,33 +310393,33 @@
         "low": 261.5,
         "close": 261.93,
         "volume": 1483233
+      },
+      {
+        "date": "2026-09-08",
+        "open": 261.93,
+        "high": 262.9,
+        "low": 258.91,
+        "close": 260.18,
+        "volume": 1104625
+      },
+      {
+        "date": "2026-09-09",
+        "open": 258.59,
+        "high": 262.18,
+        "low": 258.18,
+        "close": 258.97,
+        "volume": 1102322
       }
     ],
-    "fetched_at": "2026-09-07T21:24:06.576093"
+    "fetched_at": "2026-09-09T16:08:17.242653"
   },
   "NSE:GUJRAFFIA-EQ": {
     "quote": {
       "price": 40.9,
-      "change_percent": -0.24,
-      "volume": 1621
+      "change_percent": -2.5,
+      "volume": 1281
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 41.46,
-        "high": 41.46,
-        "low": 39.84,
-        "close": 40.67,
-        "volume": 7739
-      },
-      {
-        "date": "2026-07-10",
-        "open": 40.5,
-        "high": 40.66,
-        "low": 38.67,
-        "close": 38.97,
-        "volume": 5962
-      },
       {
         "date": "2026-07-13",
         "open": 40.8,
@@ -310755,33 +310747,33 @@
         "low": 40.01,
         "close": 40.9,
         "volume": 1621
+      },
+      {
+        "date": "2026-09-08",
+        "open": 40.0,
+        "high": 42.0,
+        "low": 40.0,
+        "close": 41.95,
+        "volume": 2702
+      },
+      {
+        "date": "2026-09-09",
+        "open": 41.95,
+        "high": 41.95,
+        "low": 40.13,
+        "close": 40.9,
+        "volume": 1281
       }
     ],
-    "fetched_at": "2026-09-07T21:24:07.478719"
+    "fetched_at": "2026-09-09T16:08:18.167564"
   },
   "NSE:GUJTHEM-EQ": {
     "quote": {
-      "price": 429.3,
-      "change_percent": 4.36,
-      "volume": 1088263
+      "price": 430.75,
+      "change_percent": -4.96,
+      "volume": 618429
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 369.65,
-        "high": 379.35,
-        "low": 369.05,
-        "close": 374.55,
-        "volume": 38626
-      },
-      {
-        "date": "2026-07-10",
-        "open": 377.2,
-        "high": 383.95,
-        "low": 370.3,
-        "close": 378.95,
-        "volume": 178110
-      },
       {
         "date": "2026-07-13",
         "open": 376.95,
@@ -311109,33 +311101,33 @@
         "low": 409.1,
         "close": 429.3,
         "volume": 1088263
+      },
+      {
+        "date": "2026-09-08",
+        "open": 432.75,
+        "high": 470.05,
+        "low": 431.85,
+        "close": 453.25,
+        "volume": 1824251
+      },
+      {
+        "date": "2026-09-09",
+        "open": 455.95,
+        "high": 459.35,
+        "low": 427.0,
+        "close": 430.75,
+        "volume": 618616
       }
     ],
-    "fetched_at": "2026-09-07T21:24:08.378027"
+    "fetched_at": "2026-09-09T16:08:19.237234"
   },
   "NSE:GULFOILLUB-EQ": {
     "quote": {
-      "price": 1052.8,
-      "change_percent": -1.4,
-      "volume": 53249
+      "price": 1081.1,
+      "change_percent": 2.22,
+      "volume": 87683
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1036.8,
-        "high": 1051.0,
-        "low": 1030.8,
-        "close": 1044.3,
-        "volume": 45109
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1049.8,
-        "high": 1054.8,
-        "low": 1044.1,
-        "close": 1046.8,
-        "volume": 71941
-      },
       {
         "date": "2026-07-13",
         "open": 1044.6,
@@ -311463,33 +311455,33 @@
         "low": 1048.0,
         "close": 1052.8,
         "volume": 53249
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1059.6,
+        "high": 1061.0,
+        "low": 1047.0,
+        "close": 1057.6,
+        "volume": 37689
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1057.6,
+        "high": 1090.1,
+        "low": 1049.6,
+        "close": 1081.1,
+        "volume": 87698
       }
     ],
-    "fetched_at": "2026-09-07T21:24:09.233851"
+    "fetched_at": "2026-09-09T16:08:20.178720"
   },
   "NSE:GULPOLY-EQ": {
     "quote": {
-      "price": 183.04,
-      "change_percent": -1.6,
-      "volume": 121930
+      "price": 179.86,
+      "change_percent": -1.15,
+      "volume": 155791
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 184.8,
-        "high": 187.0,
-        "low": 183.0,
-        "close": 184.02,
-        "volume": 126412
-      },
-      {
-        "date": "2026-07-10",
-        "open": 188.0,
-        "high": 191.0,
-        "low": 184.81,
-        "close": 190.06,
-        "volume": 121426
-      },
       {
         "date": "2026-07-13",
         "open": 190.99,
@@ -311817,33 +311809,33 @@
         "low": 182.35,
         "close": 183.04,
         "volume": 121930
+      },
+      {
+        "date": "2026-09-08",
+        "open": 183.04,
+        "high": 184.2,
+        "low": 180.0,
+        "close": 181.96,
+        "volume": 195570
+      },
+      {
+        "date": "2026-09-09",
+        "open": 181.99,
+        "high": 183.1,
+        "low": 179.2,
+        "close": 179.86,
+        "volume": 155791
       }
     ],
-    "fetched_at": "2026-09-07T21:24:10.115917"
+    "fetched_at": "2026-09-09T16:08:21.224294"
   },
   "NSE:GVPIL-EQ": {
     "quote": {
-      "price": 655.15,
-      "change_percent": 0.85,
-      "volume": 230305
+      "price": 659.25,
+      "change_percent": 0.46,
+      "volume": 237727
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 850.0,
-        "high": 885.0,
-        "low": 850.0,
-        "close": 860.7,
-        "volume": 183931
-      },
-      {
-        "date": "2026-07-10",
-        "open": 865.0,
-        "high": 882.0,
-        "low": 817.7,
-        "close": 820.35,
-        "volume": 319487
-      },
       {
         "date": "2026-07-13",
         "open": 800.0,
@@ -312171,9 +312163,25 @@
         "low": 641.0,
         "close": 655.15,
         "volume": 230305
+      },
+      {
+        "date": "2026-09-08",
+        "open": 662.45,
+        "high": 673.8,
+        "low": 651.35,
+        "close": 656.2,
+        "volume": 214560
+      },
+      {
+        "date": "2026-09-09",
+        "open": 656.2,
+        "high": 672.7,
+        "low": 647.0,
+        "close": 659.25,
+        "volume": 237847
       }
     ],
-    "fetched_at": "2026-09-07T21:24:10.997050"
+    "fetched_at": "2026-09-09T16:08:22.163186"
   },
   "NSE:GVPTECH-EQ": {
     "quote": {
@@ -312531,27 +312539,11 @@
   },
   "NSE:GVT&D-EQ": {
     "quote": {
-      "price": 4367.2,
-      "change_percent": 1.41,
-      "volume": 295967
+      "price": 4673,
+      "change_percent": -1.62,
+      "volume": 1094463
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 4475.0,
-        "high": 4677.3,
-        "low": 4475.0,
-        "close": 4643.4,
-        "volume": 537743
-      },
-      {
-        "date": "2026-07-10",
-        "open": 4695.0,
-        "high": 4738.8,
-        "low": 4601.3,
-        "close": 4677.1,
-        "volume": 474798
-      },
       {
         "date": "2026-07-13",
         "open": 4644.5,
@@ -312879,25 +312871,33 @@
         "low": 4321.1,
         "close": 4367.2,
         "volume": 295967
+      },
+      {
+        "date": "2026-09-08",
+        "open": 4636.1,
+        "high": 4793.0,
+        "low": 4610.0,
+        "close": 4750.0,
+        "volume": 4274212
+      },
+      {
+        "date": "2026-09-09",
+        "open": 4774.0,
+        "high": 4825.0,
+        "low": 4638.8,
+        "close": 4673.0,
+        "volume": 1094528
       }
     ],
-    "fetched_at": "2026-09-07T21:24:11.872144"
+    "fetched_at": "2026-09-09T16:08:23.093889"
   },
   "NSE:GYFTR-EQ": {
     "quote": {
-      "price": 186.34,
-      "change_percent": 2.08,
-      "volume": 23288
+      "price": 181.7,
+      "change_percent": -2.32,
+      "volume": 47501
     },
     "daily_candles": [
-      {
-        "date": "2026-07-10",
-        "open": 171.01,
-        "high": 174.9,
-        "low": 166.01,
-        "close": 169.21,
-        "volume": 29705
-      },
       {
         "date": "2026-07-13",
         "open": 173.7,
@@ -313225,33 +313225,33 @@
         "low": 182.52,
         "close": 186.34,
         "volume": 23288
+      },
+      {
+        "date": "2026-09-08",
+        "open": 189.65,
+        "high": 190.0,
+        "low": 186.0,
+        "close": 186.02,
+        "volume": 16980
+      },
+      {
+        "date": "2026-09-09",
+        "open": 186.9,
+        "high": 187.77,
+        "low": 180.11,
+        "close": 181.7,
+        "volume": 47501
       }
     ],
-    "fetched_at": "2026-09-07T21:24:12.733191"
+    "fetched_at": "2026-09-09T16:08:24.074162"
   },
   "NSE:HAL-EQ": {
     "quote": {
-      "price": 4855.2,
-      "change_percent": -0.02,
-      "volume": 602641
+      "price": 5000.5,
+      "change_percent": -0.61,
+      "volume": 1669534
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 4350.0,
-        "high": 4397.5,
-        "low": 4331.0,
-        "close": 4378.9,
-        "volume": 584196
-      },
-      {
-        "date": "2026-07-10",
-        "open": 4396.0,
-        "high": 4524.9,
-        "low": 4396.0,
-        "close": 4506.8,
-        "volume": 1078390
-      },
       {
         "date": "2026-07-13",
         "open": 4498.7,
@@ -313579,33 +313579,33 @@
         "low": 4835.4,
         "close": 4855.2,
         "volume": 602641
+      },
+      {
+        "date": "2026-09-08",
+        "open": 4904.1,
+        "high": 5072.0,
+        "low": 4903.7,
+        "close": 5031.1,
+        "volume": 2553021
+      },
+      {
+        "date": "2026-09-09",
+        "open": 5031.1,
+        "high": 5097.4,
+        "low": 5000.5,
+        "close": 5000.5,
+        "volume": 1669937
       }
     ],
-    "fetched_at": "2026-09-07T21:24:13.621660"
+    "fetched_at": "2026-09-09T16:08:25.055005"
   },
   "NSE:HALDER-EQ": {
     "quote": {
-      "price": 286.6,
-      "change_percent": -2.35,
-      "volume": 23488
+      "price": 282.45,
+      "change_percent": -3.78,
+      "volume": 20732
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 219.34,
-        "high": 239.9,
-        "low": 219.34,
-        "close": 238.41,
-        "volume": 581
-      },
-      {
-        "date": "2026-07-10",
-        "open": 236.99,
-        "high": 237.98,
-        "low": 230.46,
-        "close": 233.55,
-        "volume": 1038
-      },
       {
         "date": "2026-07-13",
         "open": 230.08,
@@ -313933,33 +313933,33 @@
         "low": 270.25,
         "close": 286.6,
         "volume": 23488
+      },
+      {
+        "date": "2026-09-08",
+        "open": 281.6,
+        "high": 297.0,
+        "low": 281.6,
+        "close": 293.55,
+        "volume": 27910
+      },
+      {
+        "date": "2026-09-09",
+        "open": 293.85,
+        "high": 294.0,
+        "low": 276.05,
+        "close": 282.45,
+        "volume": 20732
       }
     ],
-    "fetched_at": "2026-09-07T21:24:14.505228"
+    "fetched_at": "2026-09-09T16:08:25.952511"
   },
   "NSE:HALEOSLABS-EQ": {
     "quote": {
-      "price": 1462,
-      "change_percent": 0.74,
-      "volume": 545
+      "price": 1470.9,
+      "change_percent": 1.57,
+      "volume": 733
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1538.9,
-        "high": 1585.9,
-        "low": 1536.4,
-        "close": 1546.8,
-        "volume": 292
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1546.0,
-        "high": 1644.0,
-        "low": 1540.0,
-        "close": 1596.6,
-        "volume": 2403
-      },
       {
         "date": "2026-07-13",
         "open": 1640.0,
@@ -314279,15 +314279,31 @@
         "low": 1450.0,
         "close": 1462.0,
         "volume": 545
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1497.4,
+        "high": 1497.4,
+        "low": 1445.5,
+        "close": 1448.1,
+        "volume": 465
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1454.0,
+        "high": 1497.3,
+        "low": 1450.0,
+        "close": 1470.9,
+        "volume": 733
       }
     ],
-    "fetched_at": "2026-09-07T21:24:15.351890"
+    "fetched_at": "2026-09-09T16:08:26.860005"
   },
   "NSE:HAMPTON-EQ": {
     "quote": {
-      "price": 8.11,
-      "change_percent": 3.18,
-      "volume": 368622
+      "price": 8.49,
+      "change_percent": -1.16,
+      "volume": 390289
     },
     "daily_candles": [
       {
@@ -314417,33 +314433,33 @@
         "low": 7.61,
         "close": 8.11,
         "volume": 368622
+      },
+      {
+        "date": "2026-09-08",
+        "open": 8.19,
+        "high": 9.65,
+        "low": 7.71,
+        "close": 8.59,
+        "volume": 371915
+      },
+      {
+        "date": "2026-09-09",
+        "open": 8.59,
+        "high": 8.85,
+        "low": 8.06,
+        "close": 8.49,
+        "volume": 390289
       }
     ],
-    "fetched_at": "2026-09-07T21:24:16.230599"
+    "fetched_at": "2026-09-09T16:08:27.804252"
   },
   "NSE:HAPPSTMNDS-EQ": {
     "quote": {
-      "price": 343.5,
-      "change_percent": -2.97,
-      "volume": 1292099
+      "price": 339.5,
+      "change_percent": -1.78,
+      "volume": 788975
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 345.15,
-        "high": 373.8,
-        "low": 344.85,
-        "close": 365.6,
-        "volume": 3673850
-      },
-      {
-        "date": "2026-07-10",
-        "open": 372.5,
-        "high": 394.0,
-        "low": 370.05,
-        "close": 386.3,
-        "volume": 4373075
-      },
       {
         "date": "2026-07-13",
         "open": 384.0,
@@ -314771,33 +314787,33 @@
         "low": 343.05,
         "close": 343.5,
         "volume": 1292099
+      },
+      {
+        "date": "2026-09-08",
+        "open": 341.25,
+        "high": 349.35,
+        "low": 338.1,
+        "close": 345.65,
+        "volume": 1486882
+      },
+      {
+        "date": "2026-09-09",
+        "open": 343.1,
+        "high": 343.1,
+        "low": 337.1,
+        "close": 339.5,
+        "volume": 789142
       }
     ],
-    "fetched_at": "2026-09-07T21:24:17.109046"
+    "fetched_at": "2026-09-09T16:08:28.695076"
   },
   "NSE:HAPPYFORGE-EQ": {
     "quote": {
-      "price": 2231.4,
-      "change_percent": -0.32,
-      "volume": 45858
+      "price": 2256.7,
+      "change_percent": 1.18,
+      "volume": 53190
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1510.0,
-        "high": 1585.0,
-        "low": 1510.0,
-        "close": 1564.1,
-        "volume": 94692
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1564.1,
-        "high": 1598.3,
-        "low": 1554.8,
-        "close": 1582.3,
-        "volume": 65522
-      },
       {
         "date": "2026-07-13",
         "open": 1582.3,
@@ -315125,33 +315141,33 @@
         "low": 2203.5,
         "close": 2231.4,
         "volume": 45858
+      },
+      {
+        "date": "2026-09-08",
+        "open": 2259.9,
+        "high": 2260.0,
+        "low": 2171.5,
+        "close": 2230.3,
+        "volume": 46944
+      },
+      {
+        "date": "2026-09-09",
+        "open": 2230.3,
+        "high": 2341.8,
+        "low": 2230.3,
+        "close": 2256.7,
+        "volume": 53191
       }
     ],
-    "fetched_at": "2026-09-07T21:24:17.999176"
+    "fetched_at": "2026-09-09T16:08:29.639642"
   },
   "NSE:HARDWYN-EQ": {
     "quote": {
-      "price": 9.17,
-      "change_percent": 0.44,
-      "volume": 311011
+      "price": 8.93,
+      "change_percent": -2.3,
+      "volume": 1115576
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 17.97,
-        "high": 17.99,
-        "low": 17.36,
-        "close": 17.46,
-        "volume": 4001309
-      },
-      {
-        "date": "2026-07-10",
-        "open": 17.56,
-        "high": 18.36,
-        "low": 17.46,
-        "close": 17.66,
-        "volume": 4604685
-      },
       {
         "date": "2026-07-13",
         "open": 17.57,
@@ -315479,33 +315495,33 @@
         "low": 9.14,
         "close": 9.17,
         "volume": 311011
+      },
+      {
+        "date": "2026-09-08",
+        "open": 9.25,
+        "high": 9.25,
+        "low": 9.01,
+        "close": 9.14,
+        "volume": 1019996
+      },
+      {
+        "date": "2026-09-09",
+        "open": 9.15,
+        "high": 9.2,
+        "low": 7.61,
+        "close": 8.93,
+        "volume": 1117076
       }
     ],
-    "fetched_at": "2026-09-07T21:24:18.867614"
+    "fetched_at": "2026-09-09T16:08:30.591983"
   },
   "NSE:HARIOMPIPE-EQ": {
     "quote": {
-      "price": 365.2,
-      "change_percent": 1.67,
-      "volume": 183197
+      "price": 366.15,
+      "change_percent": -1.49,
+      "volume": 89526
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 383.9,
-        "high": 391.8,
-        "low": 381.0,
-        "close": 382.85,
-        "volume": 129675
-      },
-      {
-        "date": "2026-07-10",
-        "open": 385.95,
-        "high": 386.5,
-        "low": 382.05,
-        "close": 383.55,
-        "volume": 77888
-      },
       {
         "date": "2026-07-13",
         "open": 376.3,
@@ -315833,33 +315849,33 @@
         "low": 357.4,
         "close": 365.2,
         "volume": 183197
+      },
+      {
+        "date": "2026-09-08",
+        "open": 367.4,
+        "high": 377.0,
+        "low": 358.0,
+        "close": 371.7,
+        "volume": 141126
+      },
+      {
+        "date": "2026-09-09",
+        "open": 370.0,
+        "high": 372.0,
+        "low": 365.0,
+        "close": 366.15,
+        "volume": 89526
       }
     ],
-    "fetched_at": "2026-09-07T21:24:19.775155"
+    "fetched_at": "2026-09-09T16:08:31.456702"
   },
   "NSE:HARRMALAYA-EQ": {
     "quote": {
-      "price": 189.85,
-      "change_percent": -1.49,
-      "volume": 9922
+      "price": 187.72,
+      "change_percent": -1.16,
+      "volume": 6632
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 204.0,
-        "high": 204.0,
-        "low": 200.0,
-        "close": 201.15,
-        "volume": 5034
-      },
-      {
-        "date": "2026-07-10",
-        "open": 202.87,
-        "high": 205.98,
-        "low": 201.55,
-        "close": 203.12,
-        "volume": 6549
-      },
       {
         "date": "2026-07-13",
         "open": 203.0,
@@ -316187,33 +316203,33 @@
         "low": 188.0,
         "close": 189.85,
         "volume": 9922
+      },
+      {
+        "date": "2026-09-08",
+        "open": 193.0,
+        "high": 193.0,
+        "low": 189.0,
+        "close": 189.92,
+        "volume": 9200
+      },
+      {
+        "date": "2026-09-09",
+        "open": 190.59,
+        "high": 190.59,
+        "low": 186.7,
+        "close": 187.72,
+        "volume": 6634
       }
     ],
-    "fetched_at": "2026-09-07T21:24:20.628075"
+    "fetched_at": "2026-09-09T16:08:32.391704"
   },
   "NSE:HARSHA-EQ": {
     "quote": {
-      "price": 455.45,
-      "change_percent": 0.24,
-      "volume": 135432
+      "price": 453.4,
+      "change_percent": -2.87,
+      "volume": 175392
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 420.0,
-        "high": 426.35,
-        "low": 417.0,
-        "close": 420.7,
-        "volume": 105217
-      },
-      {
-        "date": "2026-07-10",
-        "open": 422.45,
-        "high": 430.8,
-        "low": 419.15,
-        "close": 427.7,
-        "volume": 111808
-      },
       {
         "date": "2026-07-13",
         "open": 427.7,
@@ -316541,33 +316557,33 @@
         "low": 451.05,
         "close": 455.45,
         "volume": 135432
+      },
+      {
+        "date": "2026-09-08",
+        "open": 461.05,
+        "high": 468.9,
+        "low": 451.15,
+        "close": 466.8,
+        "volume": 211797
+      },
+      {
+        "date": "2026-09-09",
+        "open": 466.8,
+        "high": 470.95,
+        "low": 449.05,
+        "close": 453.4,
+        "volume": 175392
       }
     ],
-    "fetched_at": "2026-09-07T21:24:21.511066"
+    "fetched_at": "2026-09-09T16:08:33.756092"
   },
   "NSE:HATHWAY-EQ": {
     "quote": {
-      "price": 10.38,
-      "change_percent": -1.33,
-      "volume": 922339
+      "price": 10.22,
+      "change_percent": -0.68,
+      "volume": 847215
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 10.84,
-        "high": 11.02,
-        "low": 10.77,
-        "close": 10.89,
-        "volume": 1372992
-      },
-      {
-        "date": "2026-07-10",
-        "open": 11.0,
-        "high": 11.09,
-        "low": 10.94,
-        "close": 11.03,
-        "volume": 909074
-      },
       {
         "date": "2026-07-13",
         "open": 10.91,
@@ -316895,33 +316911,33 @@
         "low": 10.36,
         "close": 10.38,
         "volume": 922339
+      },
+      {
+        "date": "2026-09-08",
+        "open": 10.39,
+        "high": 10.39,
+        "low": 10.26,
+        "close": 10.29,
+        "volume": 1064614
+      },
+      {
+        "date": "2026-09-09",
+        "open": 10.28,
+        "high": 10.3,
+        "low": 10.21,
+        "close": 10.22,
+        "volume": 847215
       }
     ],
-    "fetched_at": "2026-09-07T21:24:22.413248"
+    "fetched_at": "2026-09-09T16:08:34.637869"
   },
   "NSE:HATSUN-EQ": {
     "quote": {
-      "price": 1132.8,
-      "change_percent": -3.08,
-      "volume": 66432
+      "price": 1199.1,
+      "change_percent": 0.09,
+      "volume": 122738
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 907.1,
-        "high": 908.95,
-        "low": 902.55,
-        "close": 904.6,
-        "volume": 14930
-      },
-      {
-        "date": "2026-07-10",
-        "open": 908.0,
-        "high": 908.0,
-        "low": 897.55,
-        "close": 903.2,
-        "volume": 19271
-      },
       {
         "date": "2026-07-13",
         "open": 903.25,
@@ -317249,33 +317265,33 @@
         "low": 1116.3,
         "close": 1132.8,
         "volume": 66432
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1132.8,
+        "high": 1218.2,
+        "low": 1132.8,
+        "close": 1198.0,
+        "volume": 180176
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1200.0,
+        "high": 1215.0,
+        "low": 1155.1,
+        "close": 1199.1,
+        "volume": 122744
       }
     ],
-    "fetched_at": "2026-09-07T21:24:23.291223"
+    "fetched_at": "2026-09-09T16:08:35.568862"
   },
   "NSE:HAVELLS-EQ": {
     "quote": {
-      "price": 1150,
-      "change_percent": -0.35,
-      "volume": 882205
+      "price": 1120.4,
+      "change_percent": -1.72,
+      "volume": 607797
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1212.0,
-        "high": 1223.0,
-        "low": 1182.6,
-        "close": 1190.8,
-        "volume": 2319664
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1205.7,
-        "high": 1211.7,
-        "low": 1176.4,
-        "close": 1188.4,
-        "volume": 2410663
-      },
       {
         "date": "2026-07-13",
         "open": 1180.9,
@@ -317603,33 +317619,33 @@
         "low": 1140.0,
         "close": 1150.0,
         "volume": 882205
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1147.0,
+        "high": 1147.6,
+        "low": 1135.4,
+        "close": 1140.0,
+        "volume": 1045920
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1136.0,
+        "high": 1143.5,
+        "low": 1118.9,
+        "close": 1120.4,
+        "volume": 608049
       }
     ],
-    "fetched_at": "2026-09-07T21:24:24.150471"
+    "fetched_at": "2026-09-09T16:08:36.498252"
   },
   "NSE:HAVISHA-EQ": {
     "quote": {
-      "price": 1.32,
-      "change_percent": -6.38,
-      "volume": 98394
+      "price": 1.35,
+      "change_percent": 1.5,
+      "volume": 18739
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1.3,
-        "high": 1.3,
-        "low": 1.15,
-        "close": 1.17,
-        "volume": 272470
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1.07,
-        "high": 1.17,
-        "low": 1.07,
-        "close": 1.12,
-        "volume": 227912
-      },
       {
         "date": "2026-07-13",
         "open": 1.16,
@@ -317957,33 +317973,33 @@
         "low": 1.31,
         "close": 1.32,
         "volume": 98394
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1.35,
+        "high": 1.35,
+        "low": 1.32,
+        "close": 1.33,
+        "volume": 20675
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1.35,
+        "high": 1.36,
+        "low": 1.3,
+        "close": 1.35,
+        "volume": 18739
       }
     ],
-    "fetched_at": "2026-09-07T21:24:25.052942"
+    "fetched_at": "2026-09-09T16:08:37.559919"
   },
   "NSE:HAWKINCOOK-EQ": {
     "quote": {
-      "price": 8254,
-      "change_percent": -1.81,
-      "volume": 1354
+      "price": 8504.5,
+      "change_percent": 3.56,
+      "volume": 5000
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 8820.0,
-        "high": 9048.0,
-        "low": 8795.0,
-        "close": 8964.0,
-        "volume": 3067
-      },
-      {
-        "date": "2026-07-10",
-        "open": 8949.5,
-        "high": 9000.0,
-        "low": 8850.0,
-        "close": 8878.5,
-        "volume": 711
-      },
       {
         "date": "2026-07-13",
         "open": 8858.0,
@@ -318311,15 +318327,31 @@
         "low": 8200.0,
         "close": 8254.0,
         "volume": 1354
+      },
+      {
+        "date": "2026-09-08",
+        "open": 8395.0,
+        "high": 8395.0,
+        "low": 8171.0,
+        "close": 8212.0,
+        "volume": 843
+      },
+      {
+        "date": "2026-09-09",
+        "open": 8340.0,
+        "high": 8640.0,
+        "low": 8337.0,
+        "close": 8504.5,
+        "volume": 5000
       }
     ],
-    "fetched_at": "2026-09-07T21:24:25.952789"
+    "fetched_at": "2026-09-09T16:08:38.786983"
   },
   "NSE:HAZOOR-EQ": {
     "quote": {
-      "price": 19.85,
-      "change_percent": 3.76,
-      "volume": 252002
+      "price": 19.88,
+      "change_percent": -0.45,
+      "volume": 641187
     },
     "daily_candles": [
       {
@@ -318449,33 +318481,33 @@
         "low": 19.33,
         "close": 19.85,
         "volume": 252002
+      },
+      {
+        "date": "2026-09-08",
+        "open": 20.0,
+        "high": 20.13,
+        "low": 19.66,
+        "close": 19.97,
+        "volume": 346036
+      },
+      {
+        "date": "2026-09-09",
+        "open": 20.37,
+        "high": 20.59,
+        "low": 19.67,
+        "close": 19.88,
+        "volume": 641192
       }
     ],
-    "fetched_at": "2026-09-07T21:24:26.835847"
+    "fetched_at": "2026-09-09T16:08:40.148907"
   },
   "NSE:HBESD-EQ": {
     "quote": {
-      "price": 74.1,
-      "change_percent": -1.33,
-      "volume": 780
+      "price": 72.81,
+      "change_percent": -5.02,
+      "volume": 253
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 72.96,
-        "high": 79.94,
-        "low": 71.25,
-        "close": 74.29,
-        "volume": 654
-      },
-      {
-        "date": "2026-07-10",
-        "open": 75.0,
-        "high": 77.24,
-        "low": 74.02,
-        "close": 75.12,
-        "volume": 5249
-      },
       {
         "date": "2026-07-13",
         "open": 73.62,
@@ -318803,33 +318835,33 @@
         "low": 74.0,
         "close": 74.1,
         "volume": 780
+      },
+      {
+        "date": "2026-09-08",
+        "open": 75.0,
+        "high": 76.66,
+        "low": 72.51,
+        "close": 76.66,
+        "volume": 618
+      },
+      {
+        "date": "2026-09-09",
+        "open": 74.25,
+        "high": 74.25,
+        "low": 72.09,
+        "close": 72.81,
+        "volume": 253
       }
     ],
-    "fetched_at": "2026-09-07T21:24:27.724200"
+    "fetched_at": "2026-09-09T16:08:41.082858"
   },
   "NSE:HBLENGINE-EQ": {
     "quote": {
-      "price": 703.9,
-      "change_percent": 1.17,
-      "volume": 961999
+      "price": 730.1,
+      "change_percent": -0.16,
+      "volume": 6704099
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 755.05,
-        "high": 777.85,
-        "low": 755.05,
-        "close": 760.15,
-        "volume": 825252
-      },
-      {
-        "date": "2026-07-10",
-        "open": 766.0,
-        "high": 777.0,
-        "low": 758.8,
-        "close": 765.85,
-        "volume": 867134
-      },
       {
         "date": "2026-07-13",
         "open": 760.0,
@@ -319157,15 +319189,31 @@
         "low": 690.15,
         "close": 703.9,
         "volume": 961999
+      },
+      {
+        "date": "2026-09-08",
+        "open": 704.9,
+        "high": 733.85,
+        "low": 698.1,
+        "close": 731.25,
+        "volume": 1986289
+      },
+      {
+        "date": "2026-09-09",
+        "open": 732.65,
+        "high": 772.8,
+        "low": 726.0,
+        "close": 730.1,
+        "volume": 6705010
       }
     ],
-    "fetched_at": "2026-09-07T21:24:28.588782"
+    "fetched_at": "2026-09-09T16:08:42.014754"
   },
   "NSE:HBPOR-EQ": {
     "quote": {
-      "price": 60.46,
-      "change_percent": 3.56,
-      "volume": 726
+      "price": 59.37,
+      "change_percent": -3.92,
+      "volume": 928
     },
     "daily_candles": [
       {
@@ -319295,33 +319343,33 @@
         "low": 58.5,
         "close": 60.46,
         "volume": 726
+      },
+      {
+        "date": "2026-09-08",
+        "open": 60.5,
+        "high": 62.0,
+        "low": 57.03,
+        "close": 61.79,
+        "volume": 232
+      },
+      {
+        "date": "2026-09-09",
+        "open": 58.56,
+        "high": 61.5,
+        "low": 58.56,
+        "close": 59.37,
+        "volume": 928
       }
     ],
-    "fetched_at": "2026-09-07T21:24:29.491640"
+    "fetched_at": "2026-09-09T16:08:42.965279"
   },
   "NSE:HBSL-EQ": {
     "quote": {
-      "price": 52.43,
-      "change_percent": -4.52,
-      "volume": 7993
+      "price": 52.86,
+      "change_percent": -2.13,
+      "volume": 2927
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 51.3,
-        "high": 51.95,
-        "low": 50.0,
-        "close": 51.9,
-        "volume": 1025
-      },
-      {
-        "date": "2026-07-10",
-        "open": 50.92,
-        "high": 51.9,
-        "low": 50.92,
-        "close": 51.49,
-        "volume": 1016
-      },
       {
         "date": "2026-07-13",
         "open": 51.49,
@@ -319649,33 +319697,33 @@
         "low": 52.0,
         "close": 52.43,
         "volume": 7993
+      },
+      {
+        "date": "2026-09-08",
+        "open": 53.5,
+        "high": 56.0,
+        "low": 53.26,
+        "close": 54.01,
+        "volume": 5599
+      },
+      {
+        "date": "2026-09-09",
+        "open": 54.4,
+        "high": 54.4,
+        "low": 52.1,
+        "close": 52.86,
+        "volume": 2927
       }
     ],
-    "fetched_at": "2026-09-07T21:24:30.334618"
+    "fetched_at": "2026-09-09T16:08:43.895760"
   },
   "NSE:HCC-EQ": {
     "quote": {
-      "price": 23.54,
-      "change_percent": 2.44,
-      "volume": 31279184
+      "price": 23.43,
+      "change_percent": -1.8,
+      "volume": 24988731
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 22.8,
-        "high": 23.85,
-        "low": 22.75,
-        "close": 23.42,
-        "volume": 39226487
-      },
-      {
-        "date": "2026-07-10",
-        "open": 23.55,
-        "high": 24.33,
-        "low": 23.51,
-        "close": 23.89,
-        "volume": 28766980
-      },
       {
         "date": "2026-07-13",
         "open": 23.59,
@@ -320003,33 +320051,33 @@
         "low": 22.75,
         "close": 23.54,
         "volume": 31279184
+      },
+      {
+        "date": "2026-09-08",
+        "open": 23.52,
+        "high": 24.1,
+        "low": 23.06,
+        "close": 23.86,
+        "volume": 35951505
+      },
+      {
+        "date": "2026-09-09",
+        "open": 23.66,
+        "high": 23.95,
+        "low": 23.22,
+        "close": 23.43,
+        "volume": 25015712
       }
     ],
-    "fetched_at": "2026-09-07T21:24:31.263871"
+    "fetched_at": "2026-09-09T16:08:44.832960"
   },
   "NSE:HCG-EQ": {
     "quote": {
-      "price": 687.9,
-      "change_percent": -1.76,
-      "volume": 165572
+      "price": 712.55,
+      "change_percent": 3.18,
+      "volume": 123628
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 634.5,
-        "high": 659.1,
-        "low": 634.45,
-        "close": 652.7,
-        "volume": 112108
-      },
-      {
-        "date": "2026-07-10",
-        "open": 656.0,
-        "high": 670.75,
-        "low": 646.7,
-        "close": 666.4,
-        "volume": 273486
-      },
       {
         "date": "2026-07-13",
         "open": 670.0,
@@ -320357,33 +320405,33 @@
         "low": 684.5,
         "close": 687.9,
         "volume": 165572
+      },
+      {
+        "date": "2026-09-08",
+        "open": 690.95,
+        "high": 697.6,
+        "low": 676.55,
+        "close": 690.6,
+        "volume": 145459
+      },
+      {
+        "date": "2026-09-09",
+        "open": 692.9,
+        "high": 715.65,
+        "low": 688.0,
+        "close": 712.55,
+        "volume": 123628
       }
     ],
-    "fetched_at": "2026-09-07T21:24:32.126829"
+    "fetched_at": "2026-09-09T16:08:45.780217"
   },
   "NSE:HCL-INSYS-EQ": {
     "quote": {
-      "price": 9.99,
-      "change_percent": -1.09,
-      "volume": 208739
+      "price": 10.09,
+      "change_percent": -0.3,
+      "volume": 166828
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 11.84,
-        "high": 12.14,
-        "low": 11.75,
-        "close": 11.9,
-        "volume": 186601
-      },
-      {
-        "date": "2026-07-10",
-        "open": 12.01,
-        "high": 12.15,
-        "low": 11.81,
-        "close": 11.89,
-        "volume": 200922
-      },
       {
         "date": "2026-07-13",
         "open": 11.9,
@@ -320711,33 +320759,33 @@
         "low": 9.95,
         "close": 9.99,
         "volume": 208739
+      },
+      {
+        "date": "2026-09-08",
+        "open": 10.1,
+        "high": 10.2,
+        "low": 10.01,
+        "close": 10.12,
+        "volume": 327856
+      },
+      {
+        "date": "2026-09-09",
+        "open": 10.02,
+        "high": 10.29,
+        "low": 10.02,
+        "close": 10.09,
+        "volume": 166878
       }
     ],
-    "fetched_at": "2026-09-07T21:24:32.987663"
+    "fetched_at": "2026-09-09T16:08:46.929839"
   },
   "NSE:HCLTECH-EQ": {
     "quote": {
-      "price": 1282.8,
-      "change_percent": -0.82,
-      "volume": 2008363
+      "price": 1229.8,
+      "change_percent": -3.7,
+      "volume": 2098285
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1144.1,
-        "high": 1161.9,
-        "low": 1121.0,
-        "close": 1150.4,
-        "volume": 2033525
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1173.0,
-        "high": 1191.5,
-        "low": 1153.5,
-        "close": 1164.1,
-        "volume": 3979475
-      },
       {
         "date": "2026-07-13",
         "open": 1162.0,
@@ -321065,33 +321113,33 @@
         "low": 1263.0,
         "close": 1282.8,
         "volume": 2008363
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1281.4,
+        "high": 1290.0,
+        "low": 1268.2,
+        "close": 1277.0,
+        "volume": 2241262
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1248.8,
+        "high": 1264.8,
+        "low": 1222.7,
+        "close": 1229.8,
+        "volume": 2099173
       }
     ],
-    "fetched_at": "2026-09-07T21:24:33.862956"
+    "fetched_at": "2026-09-09T16:08:47.881686"
   },
   "NSE:HDBFS-EQ": {
     "quote": {
-      "price": 685.05,
-      "change_percent": 0.34,
-      "volume": 1539050
+      "price": 675.05,
+      "change_percent": -1.18,
+      "volume": 424776
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 723.0,
-        "high": 737.9,
-        "low": 721.05,
-        "close": 734.9,
-        "volume": 413331
-      },
-      {
-        "date": "2026-07-10",
-        "open": 735.0,
-        "high": 757.95,
-        "low": 734.95,
-        "close": 755.45,
-        "volume": 801964
-      },
       {
         "date": "2026-07-13",
         "open": 749.0,
@@ -321419,33 +321467,33 @@
         "low": 675.4,
         "close": 685.05,
         "volume": 1539050
+      },
+      {
+        "date": "2026-09-08",
+        "open": 686.0,
+        "high": 689.95,
+        "low": 677.7,
+        "close": 683.1,
+        "volume": 489696
+      },
+      {
+        "date": "2026-09-09",
+        "open": 680.0,
+        "high": 684.8,
+        "low": 673.1,
+        "close": 675.05,
+        "volume": 424779
       }
     ],
-    "fetched_at": "2026-09-07T21:24:34.763710"
+    "fetched_at": "2026-09-09T16:08:48.818470"
   },
   "NSE:HDFCAMC-EQ": {
     "quote": {
-      "price": 2432,
-      "change_percent": -1.07,
-      "volume": 300166
+      "price": 2440,
+      "change_percent": -0.3,
+      "volume": 455088
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 2675.0,
-        "high": 2744.9,
-        "low": 2662.3,
-        "close": 2737.1,
-        "volume": 1437375
-      },
-      {
-        "date": "2026-07-10",
-        "open": 2755.0,
-        "high": 2789.8,
-        "low": 2748.0,
-        "close": 2761.2,
-        "volume": 846266
-      },
       {
         "date": "2026-07-13",
         "open": 2751.0,
@@ -321773,33 +321821,33 @@
         "low": 2432.0,
         "close": 2432.0,
         "volume": 300166
+      },
+      {
+        "date": "2026-09-08",
+        "open": 2443.5,
+        "high": 2454.0,
+        "low": 2433.0,
+        "close": 2447.3,
+        "volume": 550618
+      },
+      {
+        "date": "2026-09-09",
+        "open": 2444.0,
+        "high": 2446.4,
+        "low": 2410.9,
+        "close": 2440.0,
+        "volume": 455316
       }
     ],
-    "fetched_at": "2026-09-07T21:24:35.618175"
+    "fetched_at": "2026-09-09T16:08:49.716155"
   },
   "NSE:HDFCBANK-EQ": {
     "quote": {
-      "price": 710.5,
-      "change_percent": -0.22,
-      "volume": 12180390
+      "price": 687.1,
+      "change_percent": -2.26,
+      "volume": 39138036
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 813.0,
-        "high": 822.85,
-        "low": 812.3,
-        "close": 817.55,
-        "volume": 39891798
-      },
-      {
-        "date": "2026-07-10",
-        "open": 824.0,
-        "high": 827.7,
-        "low": 820.3,
-        "close": 824.95,
-        "volume": 23595785
-      },
       {
         "date": "2026-07-13",
         "open": 817.0,
@@ -322127,33 +322175,33 @@
         "low": 707.05,
         "close": 710.5,
         "volume": 12180390
+      },
+      {
+        "date": "2026-09-08",
+        "open": 707.1,
+        "high": 708.9,
+        "low": 703.0,
+        "close": 703.0,
+        "volume": 19883515
+      },
+      {
+        "date": "2026-09-09",
+        "open": 698.0,
+        "high": 700.0,
+        "low": 687.1,
+        "close": 687.1,
+        "volume": 39173990
       }
     ],
-    "fetched_at": "2026-09-07T21:24:36.479896"
+    "fetched_at": "2026-09-09T16:08:50.657761"
   },
   "NSE:HDFCBSE500-EQ": {
     "quote": {
-      "price": 37.19,
-      "change_percent": -0.99,
-      "volume": 1265857
+      "price": 37,
+      "change_percent": -0.94,
+      "volume": 2479438
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 37.05,
-        "high": 39.0,
-        "low": 36.93,
-        "close": 37.3,
-        "volume": 544094
-      },
-      {
-        "date": "2026-07-10",
-        "open": 37.67,
-        "high": 37.68,
-        "low": 37.3,
-        "close": 37.4,
-        "volume": 53138
-      },
       {
         "date": "2026-07-13",
         "open": 37.95,
@@ -322481,33 +322529,33 @@
         "low": 37.02,
         "close": 37.19,
         "volume": 1265857
+      },
+      {
+        "date": "2026-09-08",
+        "open": 37.37,
+        "high": 37.59,
+        "low": 37.11,
+        "close": 37.35,
+        "volume": 566492
+      },
+      {
+        "date": "2026-09-09",
+        "open": 37.36,
+        "high": 37.36,
+        "low": 36.8,
+        "close": 37.0,
+        "volume": 2479438
       }
     ],
-    "fetched_at": "2026-09-07T21:24:37.420651"
+    "fetched_at": "2026-09-09T16:08:51.598132"
   },
   "NSE:HDFCGOLD-EQ": {
     "quote": {
-      "price": 129.88,
-      "change_percent": -1.19,
-      "volume": 3238638
+      "price": 130.06,
+      "change_percent": -0.09,
+      "volume": 2291637
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 120.99,
-        "high": 122.49,
-        "low": 120.82,
-        "close": 122.26,
-        "volume": 2055024
-      },
-      {
-        "date": "2026-07-10",
-        "open": 122.23,
-        "high": 123.28,
-        "low": 121.77,
-        "close": 122.08,
-        "volume": 1563806
-      },
       {
         "date": "2026-07-13",
         "open": 121.0,
@@ -322835,33 +322883,33 @@
         "low": 128.96,
         "close": 129.88,
         "volume": 3238638
+      },
+      {
+        "date": "2026-09-08",
+        "open": 130.15,
+        "high": 130.9,
+        "low": 129.5,
+        "close": 130.18,
+        "volume": 2855085
+      },
+      {
+        "date": "2026-09-09",
+        "open": 129.99,
+        "high": 130.55,
+        "low": 129.35,
+        "close": 130.06,
+        "volume": 2291910
       }
     ],
-    "fetched_at": "2026-09-07T21:24:38.280049"
+    "fetched_at": "2026-09-09T16:08:52.516792"
   },
   "NSE:HDFCGROWTH-EQ": {
     "quote": {
-      "price": 117.39,
-      "change_percent": -0.76,
-      "volume": 21630
+      "price": 116.15,
+      "change_percent": -1.01,
+      "volume": 18270
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 113.44,
-        "high": 113.95,
-        "low": 113.0,
-        "close": 113.16,
-        "volume": 26803
-      },
-      {
-        "date": "2026-07-10",
-        "open": 114.61,
-        "high": 114.77,
-        "low": 114.03,
-        "close": 114.35,
-        "volume": 17600
-      },
       {
         "date": "2026-07-13",
         "open": 114.44,
@@ -323189,33 +323237,33 @@
         "low": 117.2,
         "close": 117.39,
         "volume": 21630
+      },
+      {
+        "date": "2026-09-08",
+        "open": 117.25,
+        "high": 118.09,
+        "low": 117.0,
+        "close": 117.33,
+        "volume": 28461
+      },
+      {
+        "date": "2026-09-09",
+        "open": 117.02,
+        "high": 117.02,
+        "low": 115.71,
+        "close": 116.15,
+        "volume": 18270
       }
     ],
-    "fetched_at": "2026-09-07T21:24:39.169345"
+    "fetched_at": "2026-09-09T16:08:53.497293"
   },
   "NSE:HDFCLIFE-EQ": {
     "quote": {
-      "price": 533.2,
-      "change_percent": -2.42,
-      "volume": 1190100
+      "price": 514,
+      "change_percent": -3.71,
+      "volume": 9022214
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 557.0,
-        "high": 560.75,
-        "low": 551.0,
-        "close": 551.85,
-        "volume": 8590339
-      },
-      {
-        "date": "2026-07-10",
-        "open": 555.0,
-        "high": 570.0,
-        "low": 554.0,
-        "close": 567.7,
-        "volume": 6139132
-      },
       {
         "date": "2026-07-13",
         "open": 563.0,
@@ -323543,33 +323591,33 @@
         "low": 533.2,
         "close": 533.2,
         "volume": 1190100
+      },
+      {
+        "date": "2026-09-08",
+        "open": 539.9,
+        "high": 547.8,
+        "low": 533.65,
+        "close": 533.8,
+        "volume": 3149035
+      },
+      {
+        "date": "2026-09-09",
+        "open": 533.7,
+        "high": 534.6,
+        "low": 508.95,
+        "close": 514.0,
+        "volume": 9024185
       }
     ],
-    "fetched_at": "2026-09-07T21:24:40.038145"
+    "fetched_at": "2026-09-09T16:08:54.420741"
   },
   "NSE:HDFCLIQUID-EQ": {
     "quote": {
-      "price": 1076.85,
+      "price": 1077.12,
       "change_percent": 0.01,
-      "volume": 28363
+      "volume": 21185
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1068.47,
-        "high": 1068.47,
-        "low": 1068.45,
-        "close": 1068.45,
-        "volume": 19839
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1068.91,
-        "high": 1068.91,
-        "low": 1068.89,
-        "close": 1068.9,
-        "volume": 18849
-      },
       {
         "date": "2026-07-13",
         "open": 1068.9,
@@ -323897,33 +323945,33 @@
         "low": 1076.85,
         "close": 1076.85,
         "volume": 28363
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1077.01,
+        "high": 1077.01,
+        "low": 1076.99,
+        "close": 1077.0,
+        "volume": 18237
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1077.13,
+        "high": 1077.13,
+        "low": 1077.11,
+        "close": 1077.12,
+        "volume": 21185
       }
     ],
-    "fetched_at": "2026-09-07T21:24:40.925758"
+    "fetched_at": "2026-09-09T16:08:55.345543"
   },
   "NSE:HDFCLOWVOL-EQ": {
     "quote": {
-      "price": 20.35,
-      "change_percent": -0.63,
-      "volume": 4814
+      "price": 20.1,
+      "change_percent": -0.94,
+      "volume": 4649
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 20.45,
-        "high": 20.55,
-        "low": 20.37,
-        "close": 20.48,
-        "volume": 4802
-      },
-      {
-        "date": "2026-07-10",
-        "open": 20.62,
-        "high": 20.67,
-        "low": 20.5,
-        "close": 20.54,
-        "volume": 49471
-      },
       {
         "date": "2026-07-13",
         "open": 20.52,
@@ -324251,33 +324299,33 @@
         "low": 20.34,
         "close": 20.35,
         "volume": 4814
+      },
+      {
+        "date": "2026-09-08",
+        "open": 20.27,
+        "high": 20.32,
+        "low": 20.25,
+        "close": 20.29,
+        "volume": 13711
+      },
+      {
+        "date": "2026-09-09",
+        "open": 20.79,
+        "high": 20.79,
+        "low": 20.0,
+        "close": 20.1,
+        "volume": 4649
       }
     ],
-    "fetched_at": "2026-09-07T21:24:43.305429"
+    "fetched_at": "2026-09-09T16:08:56.261366"
   },
   "NSE:HDFCMID150-EQ": {
     "quote": {
-      "price": 23.38,
+      "price": 23.3,
       "change_percent": -0.51,
-      "volume": 366427
+      "volume": 247192
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 22.87,
-        "high": 23.18,
-        "low": 22.87,
-        "close": 23.08,
-        "volume": 445452
-      },
-      {
-        "date": "2026-07-10",
-        "open": 23.2,
-        "high": 23.6,
-        "low": 23.2,
-        "close": 23.46,
-        "volume": 484754
-      },
       {
         "date": "2026-07-13",
         "open": 23.85,
@@ -324605,33 +324653,33 @@
         "low": 23.33,
         "close": 23.38,
         "volume": 366427
+      },
+      {
+        "date": "2026-09-08",
+        "open": 23.75,
+        "high": 23.75,
+        "low": 23.3,
+        "close": 23.42,
+        "volume": 171590
+      },
+      {
+        "date": "2026-09-09",
+        "open": 23.42,
+        "high": 23.42,
+        "low": 23.24,
+        "close": 23.3,
+        "volume": 247192
       }
     ],
-    "fetched_at": "2026-09-07T21:24:44.154839"
+    "fetched_at": "2026-09-09T16:08:58.207746"
   },
   "NSE:HDFCMOMENT-EQ": {
     "quote": {
-      "price": 31,
-      "change_percent": 0.03,
-      "volume": 126317
+      "price": 31.36,
+      "change_percent": 0.42,
+      "volume": 204344
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 30.61,
-        "high": 30.65,
-        "low": 30.41,
-        "close": 30.5,
-        "volume": 42315
-      },
-      {
-        "date": "2026-07-10",
-        "open": 30.55,
-        "high": 30.99,
-        "low": 30.55,
-        "close": 30.84,
-        "volume": 263519
-      },
       {
         "date": "2026-07-13",
         "open": 30.83,
@@ -324959,33 +325007,33 @@
         "low": 30.25,
         "close": 31.0,
         "volume": 126317
+      },
+      {
+        "date": "2026-09-08",
+        "open": 31.0,
+        "high": 31.3,
+        "low": 30.98,
+        "close": 31.23,
+        "volume": 162218
+      },
+      {
+        "date": "2026-09-09",
+        "open": 31.33,
+        "high": 31.56,
+        "low": 31.19,
+        "close": 31.36,
+        "volume": 204344
       }
     ],
-    "fetched_at": "2026-09-07T21:24:45.026774"
+    "fetched_at": "2026-09-09T16:08:59.112431"
   },
   "NSE:HDFCNEXT50-EQ": {
     "quote": {
-      "price": 74.38,
-      "change_percent": -0.49,
-      "volume": 132021
+      "price": 74.58,
+      "change_percent": 0.11,
+      "volume": 77234
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 72.57,
-        "high": 73.23,
-        "low": 72.48,
-        "close": 72.81,
-        "volume": 367551
-      },
-      {
-        "date": "2026-07-10",
-        "open": 73.36,
-        "high": 73.9,
-        "low": 73.28,
-        "close": 73.8,
-        "volume": 315086
-      },
       {
         "date": "2026-07-13",
         "open": 73.59,
@@ -325313,33 +325361,33 @@
         "low": 74.1,
         "close": 74.38,
         "volume": 132021
+      },
+      {
+        "date": "2026-09-08",
+        "open": 74.6,
+        "high": 74.78,
+        "low": 74.1,
+        "close": 74.5,
+        "volume": 139965
+      },
+      {
+        "date": "2026-09-09",
+        "open": 74.78,
+        "high": 75.0,
+        "low": 74.08,
+        "close": 74.58,
+        "volume": 77234
       }
     ],
-    "fetched_at": "2026-09-07T21:24:45.934400"
+    "fetched_at": "2026-09-09T16:09:03.428542"
   },
   "NSE:HDFCNIF100-EQ": {
     "quote": {
-      "price": 25.76,
-      "change_percent": -0.66,
-      "volume": 41544
+      "price": 25.55,
+      "change_percent": -0.62,
+      "volume": 16271
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 25.8,
-        "high": 25.98,
-        "low": 25.72,
-        "close": 25.85,
-        "volume": 19789
-      },
-      {
-        "date": "2026-07-10",
-        "open": 26.34,
-        "high": 26.34,
-        "low": 25.93,
-        "close": 26.08,
-        "volume": 461877
-      },
       {
         "date": "2026-07-13",
         "open": 26.08,
@@ -325667,33 +325715,33 @@
         "low": 25.71,
         "close": 25.76,
         "volume": 41544
+      },
+      {
+        "date": "2026-09-08",
+        "open": 26.31,
+        "high": 26.31,
+        "low": 25.62,
+        "close": 25.71,
+        "volume": 11976
+      },
+      {
+        "date": "2026-09-09",
+        "open": 25.71,
+        "high": 25.96,
+        "low": 25.53,
+        "close": 25.55,
+        "volume": 16271
       }
     ],
-    "fetched_at": "2026-09-07T21:24:46.791130"
+    "fetched_at": "2026-09-09T16:09:04.350974"
   },
   "NSE:HDFCNIFBAN-EQ": {
     "quote": {
-      "price": 58.84,
-      "change_percent": -0.64,
-      "volume": 237829
+      "price": 58.16,
+      "change_percent": -0.67,
+      "volume": 181659
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 58.57,
-        "high": 59.21,
-        "low": 58.57,
-        "close": 58.99,
-        "volume": 1797100
-      },
-      {
-        "date": "2026-07-10",
-        "open": 59.33,
-        "high": 59.9,
-        "low": 59.29,
-        "close": 59.66,
-        "volume": 126089
-      },
       {
         "date": "2026-07-13",
         "open": 59.04,
@@ -326021,33 +326069,33 @@
         "low": 58.7,
         "close": 58.84,
         "volume": 237829
+      },
+      {
+        "date": "2026-09-08",
+        "open": 58.84,
+        "high": 58.84,
+        "low": 58.42,
+        "close": 58.55,
+        "volume": 38001
+      },
+      {
+        "date": "2026-09-09",
+        "open": 58.4,
+        "high": 58.51,
+        "low": 58.0,
+        "close": 58.16,
+        "volume": 181659
       }
     ],
-    "fetched_at": "2026-09-07T21:24:47.675233"
+    "fetched_at": "2026-09-09T16:09:05.272902"
   },
   "NSE:HDFCNIFIT-EQ": {
     "quote": {
-      "price": 32.06,
-      "change_percent": -2.43,
-      "volume": 184453
+      "price": 30.9,
+      "change_percent": -3.44,
+      "volume": 354288
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 28.59,
-        "high": 29.5,
-        "low": 28.56,
-        "close": 29.24,
-        "volume": 161712
-      },
-      {
-        "date": "2026-07-10",
-        "open": 29.81,
-        "high": 30.31,
-        "low": 29.52,
-        "close": 29.87,
-        "volume": 210075
-      },
       {
         "date": "2026-07-13",
         "open": 29.87,
@@ -326375,33 +326423,33 @@
         "low": 31.94,
         "close": 32.06,
         "volume": 184453
+      },
+      {
+        "date": "2026-09-08",
+        "open": 32.75,
+        "high": 32.75,
+        "low": 31.8,
+        "close": 32.0,
+        "volume": 34099
+      },
+      {
+        "date": "2026-09-09",
+        "open": 31.77,
+        "high": 31.77,
+        "low": 30.81,
+        "close": 30.9,
+        "volume": 354288
       }
     ],
-    "fetched_at": "2026-09-07T21:24:48.551883"
+    "fetched_at": "2026-09-09T16:09:06.183383"
   },
   "NSE:HDFCNIFTY-EQ": {
     "quote": {
-      "price": 268.29,
+      "price": 265.24,
       "change_percent": -0.74,
-      "volume": 98890
+      "volume": 180394
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 262.27,
-        "high": 271.43,
-        "low": 262.27,
-        "close": 269.64,
-        "volume": 75491
-      },
-      {
-        "date": "2026-07-10",
-        "open": 271.49,
-        "high": 272.5,
-        "low": 271.48,
-        "close": 272.17,
-        "volume": 51126
-      },
       {
         "date": "2026-07-13",
         "open": 278.97,
@@ -326729,15 +326777,31 @@
         "low": 266.3,
         "close": 268.29,
         "volume": 98890
+      },
+      {
+        "date": "2026-09-08",
+        "open": 268.29,
+        "high": 273.0,
+        "low": 266.83,
+        "close": 267.23,
+        "volume": 528289
+      },
+      {
+        "date": "2026-09-09",
+        "open": 266.91,
+        "high": 266.91,
+        "low": 265.03,
+        "close": 265.24,
+        "volume": 180394
       }
     ],
-    "fetched_at": "2026-09-07T21:24:49.456437"
+    "fetched_at": "2026-09-09T16:09:07.142576"
   },
   "NSE:HDFCNIMEG-EQ": {
     "quote": {
-      "price": 131.56,
-      "change_percent": -1.5,
-      "volume": 30510
+      "price": 133.99,
+      "change_percent": 1.66,
+      "volume": 36595
     },
     "daily_candles": [
       {
@@ -326955,33 +327019,33 @@
         "low": 131.1,
         "close": 131.56,
         "volume": 30510
+      },
+      {
+        "date": "2026-09-08",
+        "open": 132.19,
+        "high": 132.71,
+        "low": 131.0,
+        "close": 131.8,
+        "volume": 2236
+      },
+      {
+        "date": "2026-09-09",
+        "open": 132.17,
+        "high": 134.27,
+        "low": 131.98,
+        "close": 133.99,
+        "volume": 36595
       }
     ],
-    "fetched_at": "2026-09-07T21:24:50.352141"
+    "fetched_at": "2026-09-09T16:09:08.085296"
   },
   "NSE:HDFCPSUBK-EQ": {
     "quote": {
-      "price": 85.07,
-      "change_percent": -1.27,
-      "volume": 20087
+      "price": 84.75,
+      "change_percent": 0.19,
+      "volume": 22385
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 81.87,
-        "high": 83.2,
-        "low": 81.87,
-        "close": 83.02,
-        "volume": 392271
-      },
-      {
-        "date": "2026-07-10",
-        "open": 83.62,
-        "high": 86.54,
-        "low": 83.4,
-        "close": 85.41,
-        "volume": 4186849
-      },
       {
         "date": "2026-07-13",
         "open": 86.66,
@@ -327309,33 +327373,33 @@
         "low": 85.0,
         "close": 85.07,
         "volume": 20087
+      },
+      {
+        "date": "2026-09-08",
+        "open": 84.9,
+        "high": 85.33,
+        "low": 84.41,
+        "close": 84.59,
+        "volume": 53433
+      },
+      {
+        "date": "2026-09-09",
+        "open": 84.46,
+        "high": 85.26,
+        "low": 84.26,
+        "close": 84.75,
+        "volume": 22385
       }
     ],
-    "fetched_at": "2026-09-07T21:24:51.210997"
+    "fetched_at": "2026-09-09T16:09:11.463712"
   },
   "NSE:HDFCPVTBAN-EQ": {
     "quote": {
-      "price": 28.25,
-      "change_percent": -0.49,
-      "volume": 395778
+      "price": 27.89,
+      "change_percent": -0.53,
+      "volume": 69478
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 28.29,
-        "high": 28.65,
-        "low": 28.17,
-        "close": 28.34,
-        "volume": 158270
-      },
-      {
-        "date": "2026-07-10",
-        "open": 28.46,
-        "high": 28.75,
-        "low": 28.38,
-        "close": 28.61,
-        "volume": 493449
-      },
       {
         "date": "2026-07-13",
         "open": 28.75,
@@ -327663,33 +327727,33 @@
         "low": 28.16,
         "close": 28.25,
         "volume": 395778
+      },
+      {
+        "date": "2026-09-08",
+        "open": 28.16,
+        "high": 28.25,
+        "low": 27.99,
+        "close": 28.04,
+        "volume": 154092
+      },
+      {
+        "date": "2026-09-09",
+        "open": 28.04,
+        "high": 28.04,
+        "low": 27.65,
+        "close": 27.89,
+        "volume": 69478
       }
     ],
-    "fetched_at": "2026-09-07T21:24:52.095626"
+    "fetched_at": "2026-09-09T16:09:15.165774"
   },
   "NSE:HDFCQUAL-EQ": {
     "quote": {
-      "price": 58.12,
-      "change_percent": -0.9,
-      "volume": 5358
+      "price": 57.72,
+      "change_percent": -0.91,
+      "volume": 5316
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 57.5,
-        "high": 57.5,
-        "low": 56.46,
-        "close": 56.53,
-        "volume": 25103
-      },
-      {
-        "date": "2026-07-10",
-        "open": 57.01,
-        "high": 57.18,
-        "low": 56.9,
-        "close": 57.08,
-        "volume": 21970
-      },
       {
         "date": "2026-07-13",
         "open": 57.08,
@@ -328017,33 +328081,33 @@
         "low": 58.0,
         "close": 58.12,
         "volume": 5358
+      },
+      {
+        "date": "2026-09-08",
+        "open": 58.17,
+        "high": 58.65,
+        "low": 58.06,
+        "close": 58.25,
+        "volume": 3179
+      },
+      {
+        "date": "2026-09-09",
+        "open": 57.96,
+        "high": 57.96,
+        "low": 57.63,
+        "close": 57.72,
+        "volume": 5316
       }
     ],
-    "fetched_at": "2026-09-07T21:24:53.002811"
+    "fetched_at": "2026-09-09T16:09:18.013121"
   },
   "NSE:HDFCSENSEX-EQ": {
     "quote": {
-      "price": 86.47,
-      "change_percent": -0.78,
-      "volume": 46781
+      "price": 85.46,
+      "change_percent": -0.62,
+      "volume": 131101
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 87.32,
-        "high": 87.6,
-        "low": 86.56,
-        "close": 87.04,
-        "volume": 28251
-      },
-      {
-        "date": "2026-07-10",
-        "open": 89.21,
-        "high": 89.21,
-        "low": 87.47,
-        "close": 87.71,
-        "volume": 40192
-      },
       {
         "date": "2026-07-13",
         "open": 86.82,
@@ -328371,33 +328435,33 @@
         "low": 78.44,
         "close": 86.47,
         "volume": 46781
+      },
+      {
+        "date": "2026-09-08",
+        "open": 86.69,
+        "high": 86.69,
+        "low": 85.98,
+        "close": 85.99,
+        "volume": 29581
+      },
+      {
+        "date": "2026-09-09",
+        "open": 88.13,
+        "high": 88.13,
+        "low": 85.01,
+        "close": 85.46,
+        "volume": 131101
       }
     ],
-    "fetched_at": "2026-09-07T21:24:53.862586"
+    "fetched_at": "2026-09-09T16:09:20.936930"
   },
   "NSE:HDFCSILVER-EQ": {
     "quote": {
-      "price": 219.9,
-      "change_percent": -1.26,
-      "volume": 2927057
+      "price": 222.54,
+      "change_percent": 0.56,
+      "volume": 1537585
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 208.89,
-        "high": 213.72,
-        "low": 207.87,
-        "close": 213.14,
-        "volume": 2762914
-      },
-      {
-        "date": "2026-07-10",
-        "open": 218.15,
-        "high": 218.15,
-        "low": 208.02,
-        "close": 208.96,
-        "volume": 4971201
-      },
       {
         "date": "2026-07-13",
         "open": 206.85,
@@ -328725,33 +328789,33 @@
         "low": 218.0,
         "close": 219.9,
         "volume": 2927057
+      },
+      {
+        "date": "2026-09-08",
+        "open": 223.38,
+        "high": 224.2,
+        "low": 220.01,
+        "close": 221.31,
+        "volume": 2108714
+      },
+      {
+        "date": "2026-09-09",
+        "open": 221.31,
+        "high": 223.65,
+        "low": 221.31,
+        "close": 222.54,
+        "volume": 1537585
       }
     ],
-    "fetched_at": "2026-09-07T21:24:55.034730"
+    "fetched_at": "2026-09-09T16:09:22.796347"
   },
   "NSE:HDFCSML250-EQ": {
     "quote": {
-      "price": 186.73,
-      "change_percent": 0.04,
-      "volume": 1018542
+      "price": 185.46,
+      "change_percent": -0.59,
+      "volume": 1166407
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 181.69,
-        "high": 181.69,
-        "low": 177.26,
-        "close": 180.15,
-        "volume": 1129664
-      },
-      {
-        "date": "2026-07-10",
-        "open": 180.67,
-        "high": 182.78,
-        "low": 180.0,
-        "close": 182.6,
-        "volume": 1435206
-      },
       {
         "date": "2026-07-13",
         "open": 183.5,
@@ -329079,33 +329143,33 @@
         "low": 185.83,
         "close": 186.73,
         "volume": 1018542
+      },
+      {
+        "date": "2026-09-08",
+        "open": 186.51,
+        "high": 187.2,
+        "low": 185.69,
+        "close": 186.57,
+        "volume": 830158
+      },
+      {
+        "date": "2026-09-09",
+        "open": 187.12,
+        "high": 187.12,
+        "low": 185.01,
+        "close": 185.46,
+        "volume": 1166407
       }
     ],
-    "fetched_at": "2026-09-07T21:24:55.896700"
+    "fetched_at": "2026-09-09T16:09:25.103435"
   },
   "NSE:HDFCVALUE-EQ": {
     "quote": {
-      "price": 124.54,
-      "change_percent": -1.06,
-      "volume": 8599
+      "price": 122.89,
+      "change_percent": -0.83,
+      "volume": 12597
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 125.9,
-        "high": 126.48,
-        "low": 125.79,
-        "close": 126.08,
-        "volume": 4118
-      },
-      {
-        "date": "2026-07-10",
-        "open": 126.08,
-        "high": 127.49,
-        "low": 126.08,
-        "close": 126.91,
-        "volume": 4390
-      },
       {
         "date": "2026-07-13",
         "open": 126.8,
@@ -329433,33 +329497,33 @@
         "low": 124.25,
         "close": 124.54,
         "volume": 8599
+      },
+      {
+        "date": "2026-09-08",
+        "open": 124.25,
+        "high": 126.33,
+        "low": 123.4,
+        "close": 123.92,
+        "volume": 12289
+      },
+      {
+        "date": "2026-09-09",
+        "open": 123.19,
+        "high": 128.0,
+        "low": 122.61,
+        "close": 122.89,
+        "volume": 12597
       }
     ],
-    "fetched_at": "2026-09-07T21:24:56.754072"
+    "fetched_at": "2026-09-09T16:09:27.190022"
   },
   "NSE:HEADSUP-EQ": {
     "quote": {
-      "price": 7.02,
-      "change_percent": -2.64,
-      "volume": 2844
+      "price": 6.94,
+      "change_percent": -1.42,
+      "volume": 23178
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 7.09,
-        "high": 7.09,
-        "low": 6.86,
-        "close": 6.93,
-        "volume": 67355
-      },
-      {
-        "date": "2026-07-10",
-        "open": 7.08,
-        "high": 7.08,
-        "low": 6.72,
-        "close": 6.87,
-        "volume": 7585
-      },
       {
         "date": "2026-07-13",
         "open": 6.87,
@@ -329787,33 +329851,33 @@
         "low": 6.66,
         "close": 7.02,
         "volume": 2844
+      },
+      {
+        "date": "2026-09-08",
+        "open": 7.0,
+        "high": 7.67,
+        "low": 6.75,
+        "close": 7.04,
+        "volume": 10080
+      },
+      {
+        "date": "2026-09-09",
+        "open": 7.25,
+        "high": 7.25,
+        "low": 6.6,
+        "close": 6.94,
+        "volume": 23178
       }
     ],
-    "fetched_at": "2026-09-07T21:24:57.639247"
+    "fetched_at": "2026-09-09T16:09:29.735693"
   },
   "NSE:HEALTHADD-EQ": {
     "quote": {
-      "price": 16.68,
-      "change_percent": 0.6,
-      "volume": 13107
+      "price": 16.75,
+      "change_percent": 0.48,
+      "volume": 15029
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 16.28,
-        "high": 16.62,
-        "low": 16.28,
-        "close": 16.43,
-        "volume": 49600
-      },
-      {
-        "date": "2026-07-10",
-        "open": 16.4,
-        "high": 16.54,
-        "low": 16.34,
-        "close": 16.47,
-        "volume": 55053
-      },
       {
         "date": "2026-07-13",
         "open": 16.42,
@@ -330141,33 +330205,33 @@
         "low": 16.56,
         "close": 16.68,
         "volume": 13107
+      },
+      {
+        "date": "2026-09-08",
+        "open": 16.74,
+        "high": 17.0,
+        "low": 16.63,
+        "close": 16.67,
+        "volume": 18688
+      },
+      {
+        "date": "2026-09-09",
+        "open": 16.81,
+        "high": 16.92,
+        "low": 16.71,
+        "close": 16.75,
+        "volume": 15029
       }
     ],
-    "fetched_at": "2026-09-07T21:24:58.542859"
+    "fetched_at": "2026-09-09T16:09:32.458249"
   },
   "NSE:HEALTHAXIS-EQ": {
     "quote": {
-      "price": 168.11,
-      "change_percent": 0.64,
-      "volume": 3053
+      "price": 168.88,
+      "change_percent": -0.25,
+      "volume": 1412
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 163.0,
-        "high": 167.53,
-        "low": 163.0,
-        "close": 166.64,
-        "volume": 12124
-      },
-      {
-        "date": "2026-07-10",
-        "open": 165.1,
-        "high": 166.55,
-        "low": 164.68,
-        "close": 165.89,
-        "volume": 5047
-      },
       {
         "date": "2026-07-13",
         "open": 165.89,
@@ -330495,33 +330559,33 @@
         "low": 166.7,
         "close": 168.11,
         "volume": 3053
+      },
+      {
+        "date": "2026-09-08",
+        "open": 168.0,
+        "high": 169.68,
+        "low": 168.0,
+        "close": 169.31,
+        "volume": 989
+      },
+      {
+        "date": "2026-09-09",
+        "open": 170.43,
+        "high": 170.9,
+        "low": 168.18,
+        "close": 168.88,
+        "volume": 1412
       }
     ],
-    "fetched_at": "2026-09-07T21:24:59.402379"
+    "fetched_at": "2026-09-09T16:09:34.556724"
   },
   "NSE:HEALTHCARE-EQ": {
     "quote": {
-      "price": 21.64,
-      "change_percent": 0.6,
-      "volume": 47020
+      "price": 21.79,
+      "change_percent": -0.14,
+      "volume": 64343
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 20.9,
-        "high": 21.31,
-        "low": 20.9,
-        "close": 21.13,
-        "volume": 57597
-      },
-      {
-        "date": "2026-07-10",
-        "open": 21.29,
-        "high": 21.29,
-        "low": 20.98,
-        "close": 21.17,
-        "volume": 35148
-      },
       {
         "date": "2026-07-13",
         "open": 21.23,
@@ -330849,33 +330913,33 @@
         "low": 21.49,
         "close": 21.64,
         "volume": 47020
+      },
+      {
+        "date": "2026-09-08",
+        "open": 21.67,
+        "high": 21.88,
+        "low": 21.62,
+        "close": 21.82,
+        "volume": 25981
+      },
+      {
+        "date": "2026-09-09",
+        "open": 21.82,
+        "high": 22.26,
+        "low": 21.73,
+        "close": 21.79,
+        "volume": 64343
       }
     ],
-    "fetched_at": "2026-09-07T21:25:00.264559"
+    "fetched_at": "2026-09-09T16:09:36.234237"
   },
   "NSE:HEALTHIETF-EQ": {
     "quote": {
-      "price": 169.45,
-      "change_percent": 0.47,
-      "volume": 59893
+      "price": 170.12,
+      "change_percent": -0.43,
+      "volume": 68931
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 166.77,
-        "high": 169.21,
-        "low": 165.55,
-        "close": 167.52,
-        "volume": 228105
-      },
-      {
-        "date": "2026-07-10",
-        "open": 167.52,
-        "high": 169.68,
-        "low": 166.26,
-        "close": 167.55,
-        "volume": 124767
-      },
       {
         "date": "2026-07-13",
         "open": 167.54,
@@ -331203,33 +331267,33 @@
         "low": 168.08,
         "close": 169.45,
         "volume": 59893
+      },
+      {
+        "date": "2026-09-08",
+        "open": 169.45,
+        "high": 171.3,
+        "low": 169.07,
+        "close": 170.85,
+        "volume": 50246
+      },
+      {
+        "date": "2026-09-09",
+        "open": 172.56,
+        "high": 172.56,
+        "low": 169.19,
+        "close": 170.12,
+        "volume": 68931
       }
     ],
-    "fetched_at": "2026-09-07T21:25:01.172389"
+    "fetched_at": "2026-09-09T16:09:37.676506"
   },
   "NSE:HEALTHX-EQ": {
     "quote": {
-      "price": 296.9,
-      "change_percent": -1.13,
-      "volume": 4706
+      "price": 299.5,
+      "change_percent": -1.02,
+      "volume": 4355
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 312.1,
-        "high": 338.5,
-        "low": 311.8,
-        "close": 329.65,
-        "volume": 39421
-      },
-      {
-        "date": "2026-07-10",
-        "open": 329.65,
-        "high": 339.9,
-        "low": 321.0,
-        "close": 323.3,
-        "volume": 11322
-      },
       {
         "date": "2026-07-13",
         "open": 322.1,
@@ -331557,33 +331621,33 @@
         "low": 294.3,
         "close": 296.9,
         "volume": 4706
+      },
+      {
+        "date": "2026-09-08",
+        "open": 301.35,
+        "high": 312.4,
+        "low": 300.0,
+        "close": 302.6,
+        "volume": 3540
+      },
+      {
+        "date": "2026-09-09",
+        "open": 302.85,
+        "high": 304.0,
+        "low": 297.0,
+        "close": 299.5,
+        "volume": 4355
       }
     ],
-    "fetched_at": "2026-09-07T21:25:02.050391"
+    "fetched_at": "2026-09-09T16:09:39.063028"
   },
   "NSE:HEALTHY-EQ": {
     "quote": {
-      "price": 17.03,
-      "change_percent": 1.13,
-      "volume": 327939
+      "price": 17.05,
+      "change_percent": -0.23,
+      "volume": 246034
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 16.4,
-        "high": 16.92,
-        "low": 16.25,
-        "close": 16.73,
-        "volume": 654368
-      },
-      {
-        "date": "2026-07-10",
-        "open": 16.93,
-        "high": 16.93,
-        "low": 16.56,
-        "close": 16.8,
-        "volume": 2444675
-      },
       {
         "date": "2026-07-13",
         "open": 17.22,
@@ -331911,33 +331975,33 @@
         "low": 16.79,
         "close": 17.03,
         "volume": 327939
+      },
+      {
+        "date": "2026-09-08",
+        "open": 17.45,
+        "high": 17.45,
+        "low": 16.93,
+        "close": 17.09,
+        "volume": 209540
+      },
+      {
+        "date": "2026-09-09",
+        "open": 17.17,
+        "high": 17.25,
+        "low": 16.95,
+        "close": 17.05,
+        "volume": 246034
       }
     ],
-    "fetched_at": "2026-09-07T21:25:02.959476"
+    "fetched_at": "2026-09-09T16:09:40.297280"
   },
   "NSE:HECPROJECT-EQ": {
     "quote": {
-      "price": 118.17,
-      "change_percent": 0.33,
-      "volume": 3073
+      "price": 122.14,
+      "change_percent": -0.68,
+      "volume": 6948
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 131.97,
-        "high": 137.93,
-        "low": 131.97,
-        "close": 134.94,
-        "volume": 18843
-      },
-      {
-        "date": "2026-07-10",
-        "open": 136.99,
-        "high": 136.99,
-        "low": 128.0,
-        "close": 129.37,
-        "volume": 19391
-      },
       {
         "date": "2026-07-13",
         "open": 129.45,
@@ -332265,9 +332329,25 @@
         "low": 117.95,
         "close": 118.17,
         "volume": 3073
+      },
+      {
+        "date": "2026-09-08",
+        "open": 120.48,
+        "high": 140.2,
+        "low": 118.02,
+        "close": 122.98,
+        "volume": 139918
+      },
+      {
+        "date": "2026-09-09",
+        "open": 126.4,
+        "high": 126.4,
+        "low": 122.05,
+        "close": 122.14,
+        "volume": 6948
       }
     ],
-    "fetched_at": "2026-09-07T21:25:03.832411"
+    "fetched_at": "2026-09-09T16:09:41.505263"
   },
   "NSE:HEG-EQ": {
     "quote": {
@@ -332625,27 +332705,11 @@
   },
   "NSE:HEIDELBERG-EQ": {
     "quote": {
-      "price": 160.56,
-      "change_percent": 0.24,
-      "volume": 428563
+      "price": 159.86,
+      "change_percent": 0.09,
+      "volume": 326630
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 159.02,
-        "high": 160.58,
-        "low": 156.51,
-        "close": 157.01,
-        "volume": 116680
-      },
-      {
-        "date": "2026-07-10",
-        "open": 157.26,
-        "high": 158.34,
-        "low": 156.41,
-        "close": 157.55,
-        "volume": 49351
-      },
       {
         "date": "2026-07-13",
         "open": 157.06,
@@ -332973,33 +333037,33 @@
         "low": 159.61,
         "close": 160.56,
         "volume": 428563
+      },
+      {
+        "date": "2026-09-08",
+        "open": 161.49,
+        "high": 161.49,
+        "low": 158.62,
+        "close": 159.72,
+        "volume": 341014
+      },
+      {
+        "date": "2026-09-09",
+        "open": 160.19,
+        "high": 160.5,
+        "low": 159.49,
+        "close": 159.86,
+        "volume": 326934
       }
     ],
-    "fetched_at": "2026-09-07T21:25:04.723708"
+    "fetched_at": "2026-09-09T16:09:42.401088"
   },
   "NSE:HEMIPROP-EQ": {
     "quote": {
-      "price": 125.08,
-      "change_percent": -1.16,
-      "volume": 204770
+      "price": 123.18,
+      "change_percent": -0.99,
+      "volume": 310498
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 135.95,
-        "high": 137.65,
-        "low": 135.95,
-        "close": 136.88,
-        "volume": 254272
-      },
-      {
-        "date": "2026-07-10",
-        "open": 137.25,
-        "high": 139.63,
-        "low": 137.25,
-        "close": 138.93,
-        "volume": 292321
-      },
       {
         "date": "2026-07-13",
         "open": 138.0,
@@ -333327,33 +333391,33 @@
         "low": 124.76,
         "close": 125.08,
         "volume": 204770
+      },
+      {
+        "date": "2026-09-08",
+        "open": 124.5,
+        "high": 125.44,
+        "low": 124.05,
+        "close": 124.41,
+        "volume": 227721
+      },
+      {
+        "date": "2026-09-09",
+        "open": 124.02,
+        "high": 125.4,
+        "low": 122.15,
+        "close": 123.18,
+        "volume": 310633
       }
     ],
-    "fetched_at": "2026-09-07T21:25:05.615074"
+    "fetched_at": "2026-09-09T16:09:43.378523"
   },
   "NSE:HERANBA-EQ": {
     "quote": {
-      "price": 169.62,
-      "change_percent": -2.42,
-      "volume": 45360
+      "price": 173.93,
+      "change_percent": 0.65,
+      "volume": 31376
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 179.2,
-        "high": 181.46,
-        "low": 177.35,
-        "close": 177.71,
-        "volume": 37440
-      },
-      {
-        "date": "2026-07-10",
-        "open": 178.6,
-        "high": 184.47,
-        "low": 177.89,
-        "close": 182.87,
-        "volume": 16724
-      },
       {
         "date": "2026-07-13",
         "open": 181.2,
@@ -333681,33 +333745,33 @@
         "low": 168.12,
         "close": 169.62,
         "volume": 45360
+      },
+      {
+        "date": "2026-09-08",
+        "open": 170.0,
+        "high": 175.99,
+        "low": 169.21,
+        "close": 172.8,
+        "volume": 32314
+      },
+      {
+        "date": "2026-09-09",
+        "open": 173.62,
+        "high": 174.97,
+        "low": 170.51,
+        "close": 173.93,
+        "volume": 31477
       }
     ],
-    "fetched_at": "2026-09-07T21:25:06.503478"
+    "fetched_at": "2026-09-09T16:09:44.306486"
   },
   "NSE:HERITGFOOD-EQ": {
     "quote": {
-      "price": 384.15,
-      "change_percent": 0.47,
-      "volume": 1306175
+      "price": 380.1,
+      "change_percent": -0.54,
+      "volume": 279635
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 325.1,
-        "high": 338.5,
-        "low": 325.1,
-        "close": 334.75,
-        "volume": 292103
-      },
-      {
-        "date": "2026-07-10",
-        "open": 335.0,
-        "high": 339.5,
-        "low": 334.75,
-        "close": 336.65,
-        "volume": 200704
-      },
       {
         "date": "2026-07-13",
         "open": 335.1,
@@ -334035,33 +334099,33 @@
         "low": 377.05,
         "close": 384.15,
         "volume": 1306175
+      },
+      {
+        "date": "2026-09-08",
+        "open": 385.0,
+        "high": 385.15,
+        "low": 376.5,
+        "close": 382.15,
+        "volume": 264313
+      },
+      {
+        "date": "2026-09-09",
+        "open": 382.1,
+        "high": 383.3,
+        "low": 377.0,
+        "close": 380.1,
+        "volume": 279635
       }
     ],
-    "fetched_at": "2026-09-07T21:25:07.365580"
+    "fetched_at": "2026-09-09T16:09:45.226933"
   },
   "NSE:HEROMOTOCO-EQ": {
     "quote": {
-      "price": 5270,
-      "change_percent": -0.57,
-      "volume": 354258
+      "price": 5218,
+      "change_percent": -2.17,
+      "volume": 531983
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 4880.0,
-        "high": 4915.0,
-        "low": 4828.0,
-        "close": 4898.5,
-        "volume": 534195
-      },
-      {
-        "date": "2026-07-10",
-        "open": 4923.4,
-        "high": 4968.0,
-        "low": 4888.1,
-        "close": 4949.1,
-        "volume": 686707
-      },
       {
         "date": "2026-07-13",
         "open": 4917.6,
@@ -334389,33 +334453,33 @@
         "low": 5270.0,
         "close": 5270.0,
         "volume": 354258
+      },
+      {
+        "date": "2026-09-08",
+        "open": 5305.0,
+        "high": 5339.5,
+        "low": 5285.0,
+        "close": 5333.5,
+        "volume": 393029
+      },
+      {
+        "date": "2026-09-09",
+        "open": 5266.5,
+        "high": 5297.0,
+        "low": 5205.5,
+        "close": 5218.0,
+        "volume": 532099
       }
     ],
-    "fetched_at": "2026-09-07T21:25:08.225824"
+    "fetched_at": "2026-09-09T16:09:46.131584"
   },
   "NSE:HESTERBIO-EQ": {
     "quote": {
-      "price": 2362.7,
-      "change_percent": -1.78,
-      "volume": 8149
+      "price": 2322.6,
+      "change_percent": 0.19,
+      "volume": 3779
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 2088.0,
-        "high": 2152.6,
-        "low": 2079.1,
-        "close": 2102.2,
-        "volume": 2790
-      },
-      {
-        "date": "2026-07-10",
-        "open": 2109.7,
-        "high": 2155.0,
-        "low": 2109.2,
-        "close": 2120.9,
-        "volume": 3515
-      },
       {
         "date": "2026-07-13",
         "open": 2110.0,
@@ -334743,33 +334807,33 @@
         "low": 2330.1,
         "close": 2362.7,
         "volume": 8149
+      },
+      {
+        "date": "2026-09-08",
+        "open": 2354.7,
+        "high": 2369.9,
+        "low": 2290.0,
+        "close": 2318.3,
+        "volume": 5572
+      },
+      {
+        "date": "2026-09-09",
+        "open": 2316.9,
+        "high": 2360.0,
+        "low": 2257.4,
+        "close": 2322.6,
+        "volume": 3779
       }
     ],
-    "fetched_at": "2026-09-07T21:25:09.133709"
+    "fetched_at": "2026-09-09T16:09:47.010063"
   },
   "NSE:HEXATRADEX-EQ": {
     "quote": {
-      "price": 158.58,
-      "change_percent": 0.59,
-      "volume": 337
+      "price": 156.24,
+      "change_percent": -0.7,
+      "volume": 10694
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 157.0,
-        "high": 160.0,
-        "low": 155.22,
-        "close": 158.01,
-        "volume": 4237
-      },
-      {
-        "date": "2026-07-10",
-        "open": 159.6,
-        "high": 162.99,
-        "low": 158.0,
-        "close": 158.22,
-        "volume": 1321
-      },
       {
         "date": "2026-07-13",
         "open": 159.7,
@@ -335097,33 +335161,33 @@
         "low": 157.0,
         "close": 158.58,
         "volume": 337
+      },
+      {
+        "date": "2026-09-08",
+        "open": 159.98,
+        "high": 165.9,
+        "low": 157.11,
+        "close": 157.34,
+        "volume": 1576
+      },
+      {
+        "date": "2026-09-09",
+        "open": 160.8,
+        "high": 160.8,
+        "low": 156.15,
+        "close": 156.24,
+        "volume": 10694
       }
     ],
-    "fetched_at": "2026-09-07T21:25:10.023929"
+    "fetched_at": "2026-09-09T16:09:47.948013"
   },
   "NSE:HEXT-EQ": {
     "quote": {
-      "price": 522.85,
-      "change_percent": -1.09,
-      "volume": 126595
+      "price": 509.9,
+      "change_percent": -1.72,
+      "volume": 138829
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 524.45,
-        "high": 544.0,
-        "low": 512.5,
-        "close": 539.25,
-        "volume": 761950
-      },
-      {
-        "date": "2026-07-10",
-        "open": 545.1,
-        "high": 562.45,
-        "low": 545.1,
-        "close": 550.25,
-        "volume": 1197266
-      },
       {
         "date": "2026-07-13",
         "open": 548.7,
@@ -335451,9 +335515,25 @@
         "low": 518.05,
         "close": 522.85,
         "volume": 126595
+      },
+      {
+        "date": "2026-09-08",
+        "open": 523.8,
+        "high": 524.45,
+        "low": 508.75,
+        "close": 518.85,
+        "volume": 253225
+      },
+      {
+        "date": "2026-09-09",
+        "open": 517.75,
+        "high": 518.45,
+        "low": 506.55,
+        "close": 509.9,
+        "volume": 138830
       }
     ],
-    "fetched_at": "2026-09-07T21:25:10.913439"
+    "fetched_at": "2026-09-09T16:09:49.869457"
   },
   "NSE:HFCL-EQ": {
     "quote": {
@@ -335811,27 +335891,11 @@
   },
   "NSE:HGINFRA-EQ": {
     "quote": {
-      "price": 488.7,
-      "change_percent": 1.39,
-      "volume": 48912
+      "price": 478.55,
+      "change_percent": -1.24,
+      "volume": 26815
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 548.4,
-        "high": 558.8,
-        "low": 548.0,
-        "close": 555.9,
-        "volume": 32641
-      },
-      {
-        "date": "2026-07-10",
-        "open": 558.1,
-        "high": 565.05,
-        "low": 558.0,
-        "close": 563.65,
-        "volume": 39054
-      },
       {
         "date": "2026-07-13",
         "open": 555.05,
@@ -336159,33 +336223,33 @@
         "low": 479.3,
         "close": 488.7,
         "volume": 48912
+      },
+      {
+        "date": "2026-09-08",
+        "open": 488.35,
+        "high": 488.35,
+        "low": 477.85,
+        "close": 484.55,
+        "volume": 39924
+      },
+      {
+        "date": "2026-09-09",
+        "open": 483.0,
+        "high": 483.15,
+        "low": 476.25,
+        "close": 478.55,
+        "volume": 26825
       }
     ],
-    "fetched_at": "2026-09-07T21:25:11.781269"
+    "fetched_at": "2026-09-09T16:09:50.794161"
   },
   "NSE:HGM-EQ": {
     "quote": {
-      "price": 50.81,
-      "change_percent": -3.46,
-      "volume": 3567
+      "price": 50.49,
+      "change_percent": 0.66,
+      "volume": 2341
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 50.0,
-        "high": 50.89,
-        "low": 49.34,
-        "close": 49.55,
-        "volume": 1686
-      },
-      {
-        "date": "2026-07-10",
-        "open": 50.0,
-        "high": 50.99,
-        "low": 49.6,
-        "close": 49.81,
-        "volume": 1219
-      },
       {
         "date": "2026-07-13",
         "open": 50.98,
@@ -336513,33 +336577,33 @@
         "low": 50.62,
         "close": 50.81,
         "volume": 3567
+      },
+      {
+        "date": "2026-09-08",
+        "open": 53.4,
+        "high": 53.4,
+        "low": 48.05,
+        "close": 50.16,
+        "volume": 4218
+      },
+      {
+        "date": "2026-09-09",
+        "open": 51.05,
+        "high": 51.35,
+        "low": 49.65,
+        "close": 50.49,
+        "volume": 2341
       }
     ],
-    "fetched_at": "2026-09-07T21:25:12.670206"
+    "fetched_at": "2026-09-09T16:09:51.727745"
   },
   "NSE:HGS-EQ": {
     "quote": {
-      "price": 395.55,
-      "change_percent": -0.93,
-      "volume": 6707
+      "price": 384.75,
+      "change_percent": -0.82,
+      "volume": 11158
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 403.0,
-        "high": 411.9,
-        "low": 403.0,
-        "close": 409.9,
-        "volume": 14516
-      },
-      {
-        "date": "2026-07-10",
-        "open": 410.5,
-        "high": 423.2,
-        "low": 410.5,
-        "close": 413.25,
-        "volume": 20596
-      },
       {
         "date": "2026-07-13",
         "open": 412.1,
@@ -336867,33 +336931,33 @@
         "low": 395.0,
         "close": 395.55,
         "volume": 6707
+      },
+      {
+        "date": "2026-09-08",
+        "open": 395.1,
+        "high": 398.4,
+        "low": 382.8,
+        "close": 387.95,
+        "volume": 23781
+      },
+      {
+        "date": "2026-09-09",
+        "open": 387.0,
+        "high": 393.9,
+        "low": 381.0,
+        "close": 384.75,
+        "volume": 11159
       }
     ],
-    "fetched_at": "2026-09-07T21:25:13.591772"
+    "fetched_at": "2026-09-09T16:09:52.656919"
   },
   "NSE:HIKAL-EQ": {
     "quote": {
-      "price": 243,
-      "change_percent": 9.31,
-      "volume": 31089358
+      "price": 240.69,
+      "change_percent": -2.16,
+      "volume": 1270796
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 228.0,
-        "high": 241.9,
-        "low": 228.0,
-        "close": 233.59,
-        "volume": 1713350
-      },
-      {
-        "date": "2026-07-10",
-        "open": 235.88,
-        "high": 247.5,
-        "low": 232.33,
-        "close": 244.75,
-        "volume": 1562899
-      },
       {
         "date": "2026-07-13",
         "open": 244.0,
@@ -337221,33 +337285,33 @@
         "low": 218.82,
         "close": 243.0,
         "volume": 31089358
+      },
+      {
+        "date": "2026-09-08",
+        "open": 246.2,
+        "high": 253.8,
+        "low": 238.19,
+        "close": 246.01,
+        "volume": 6560890
+      },
+      {
+        "date": "2026-09-09",
+        "open": 245.88,
+        "high": 245.9,
+        "low": 238.76,
+        "close": 240.69,
+        "volume": 1270796
       }
     ],
-    "fetched_at": "2026-09-07T21:25:14.449939"
+    "fetched_at": "2026-09-09T16:09:53.546537"
   },
   "NSE:HILINFRA-EQ": {
     "quote": {
-      "price": 43.72,
-      "change_percent": -1.64,
-      "volume": 69037
+      "price": 43.28,
+      "change_percent": -0.96,
+      "volume": 40711
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 46.0,
-        "high": 46.1,
-        "low": 45.01,
-        "close": 45.21,
-        "volume": 29478
-      },
-      {
-        "date": "2026-07-10",
-        "open": 45.21,
-        "high": 45.97,
-        "low": 45.08,
-        "close": 45.64,
-        "volume": 21654
-      },
       {
         "date": "2026-07-13",
         "open": 45.64,
@@ -337575,33 +337639,33 @@
         "low": 43.4,
         "close": 43.72,
         "volume": 69037
+      },
+      {
+        "date": "2026-09-08",
+        "open": 44.22,
+        "high": 44.22,
+        "low": 43.5,
+        "close": 43.7,
+        "volume": 30137
+      },
+      {
+        "date": "2026-09-09",
+        "open": 43.25,
+        "high": 43.79,
+        "low": 43.1,
+        "close": 43.28,
+        "volume": 40711
       }
     ],
-    "fetched_at": "2026-09-07T21:25:15.379931"
+    "fetched_at": "2026-09-09T16:09:54.563269"
   },
   "NSE:HILTON-EQ": {
     "quote": {
-      "price": 18.64,
-      "change_percent": 0.05,
-      "volume": 83413
+      "price": 18.44,
+      "change_percent": -1.13,
+      "volume": 52155
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 23.5,
-        "high": 23.75,
-        "low": 22.52,
-        "close": 23.03,
-        "volume": 73658
-      },
-      {
-        "date": "2026-07-10",
-        "open": 23.49,
-        "high": 23.49,
-        "low": 22.77,
-        "close": 23.22,
-        "volume": 32271
-      },
       {
         "date": "2026-07-13",
         "open": 23.45,
@@ -337929,33 +337993,33 @@
         "low": 18.6,
         "close": 18.64,
         "volume": 83413
+      },
+      {
+        "date": "2026-09-08",
+        "open": 18.66,
+        "high": 18.99,
+        "low": 18.5,
+        "close": 18.65,
+        "volume": 31756
+      },
+      {
+        "date": "2026-09-09",
+        "open": 18.97,
+        "high": 18.97,
+        "low": 18.34,
+        "close": 18.44,
+        "volume": 52156
       }
     ],
-    "fetched_at": "2026-09-07T21:25:16.267522"
+    "fetched_at": "2026-09-09T16:09:55.552038"
   },
   "NSE:HIMATSEIDE-EQ": {
     "quote": {
-      "price": 70.15,
-      "change_percent": -1.9,
-      "volume": 549464
+      "price": 69.44,
+      "change_percent": -0.03,
+      "volume": 175079
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 82.17,
-        "high": 87.11,
-        "low": 82.17,
-        "close": 85.39,
-        "volume": 897655
-      },
-      {
-        "date": "2026-07-10",
-        "open": 85.99,
-        "high": 87.8,
-        "low": 85.61,
-        "close": 86.67,
-        "volume": 467575
-      },
       {
         "date": "2026-07-13",
         "open": 85.8,
@@ -338283,15 +338347,31 @@
         "low": 69.82,
         "close": 70.15,
         "volume": 549464
+      },
+      {
+        "date": "2026-09-08",
+        "open": 70.15,
+        "high": 70.24,
+        "low": 68.8,
+        "close": 69.46,
+        "volume": 362515
+      },
+      {
+        "date": "2026-09-09",
+        "open": 69.89,
+        "high": 70.3,
+        "low": 69.24,
+        "close": 69.44,
+        "volume": 175080
       }
     ],
-    "fetched_at": "2026-09-07T21:25:17.196893"
+    "fetched_at": "2026-09-09T16:09:56.555189"
   },
   "NSE:HINDADH-EQ": {
     "quote": {
-      "price": 361.25,
-      "change_percent": -2.6,
-      "volume": 1441
+      "price": 367.2,
+      "change_percent": 0.96,
+      "volume": 1390
     },
     "daily_candles": [
       {
@@ -338421,33 +338501,33 @@
         "low": 353.05,
         "close": 361.25,
         "volume": 1441
+      },
+      {
+        "date": "2026-09-08",
+        "open": 357.75,
+        "high": 372.65,
+        "low": 357.75,
+        "close": 363.7,
+        "volume": 744
+      },
+      {
+        "date": "2026-09-09",
+        "open": 363.7,
+        "high": 374.45,
+        "low": 357.0,
+        "close": 367.2,
+        "volume": 1390
       }
     ],
-    "fetched_at": "2026-09-07T21:25:18.138004"
+    "fetched_at": "2026-09-09T16:09:57.567881"
   },
   "NSE:HINDALCO-EQ": {
     "quote": {
-      "price": 1006,
-      "change_percent": -0.49,
-      "volume": 1848438
+      "price": 1026.9,
+      "change_percent": 1.77,
+      "volume": 3255358
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 971.7,
-        "high": 973.95,
-        "low": 954.65,
-        "close": 963.45,
-        "volume": 6043658
-      },
-      {
-        "date": "2026-07-10",
-        "open": 976.0,
-        "high": 985.6,
-        "low": 964.7,
-        "close": 967.45,
-        "volume": 5859033
-      },
       {
         "date": "2026-07-13",
         "open": 963.1,
@@ -338775,15 +338855,31 @@
         "low": 999.8,
         "close": 1006.0,
         "volume": 1848438
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1014.0,
+        "high": 1024.7,
+        "low": 1007.5,
+        "close": 1009.0,
+        "volume": 3094146
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1013.9,
+        "high": 1032.4,
+        "low": 1010.7,
+        "close": 1026.9,
+        "volume": 3255790
       }
     ],
-    "fetched_at": "2026-09-07T21:25:19.011967"
+    "fetched_at": "2026-09-09T16:09:58.446773"
   },
   "NSE:HINDALUMI-EQ": {
     "quote": {
-      "price": 96.25,
-      "change_percent": -1.21,
-      "volume": 1737
+      "price": 97.38,
+      "change_percent": -0.53,
+      "volume": 531
     },
     "daily_candles": [
       {
@@ -338913,33 +339009,33 @@
         "low": 93.45,
         "close": 96.25,
         "volume": 1737
+      },
+      {
+        "date": "2026-09-08",
+        "open": 100.5,
+        "high": 100.5,
+        "low": 94.5,
+        "close": 97.9,
+        "volume": 4275
+      },
+      {
+        "date": "2026-09-09",
+        "open": 97.95,
+        "high": 97.95,
+        "low": 96.35,
+        "close": 97.38,
+        "volume": 531
       }
     ],
-    "fetched_at": "2026-09-07T21:25:19.908766"
+    "fetched_at": "2026-09-09T16:09:59.362546"
   },
   "NSE:HINDCOMPOS-EQ": {
     "quote": {
-      "price": 398.75,
-      "change_percent": 0.99,
-      "volume": 3471
+      "price": 387.05,
+      "change_percent": -2.1,
+      "volume": 4326
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 437.95,
-        "high": 444.9,
-        "low": 432.85,
-        "close": 439.75,
-        "volume": 5003
-      },
-      {
-        "date": "2026-07-10",
-        "open": 443.35,
-        "high": 443.35,
-        "low": 436.0,
-        "close": 437.9,
-        "volume": 4129
-      },
       {
         "date": "2026-07-13",
         "open": 436.0,
@@ -339267,33 +339363,33 @@
         "low": 385.2,
         "close": 398.75,
         "volume": 3471
+      },
+      {
+        "date": "2026-09-08",
+        "open": 398.5,
+        "high": 400.0,
+        "low": 382.75,
+        "close": 395.35,
+        "volume": 9174
+      },
+      {
+        "date": "2026-09-09",
+        "open": 395.35,
+        "high": 400.0,
+        "low": 380.2,
+        "close": 387.05,
+        "volume": 4341
       }
     ],
-    "fetched_at": "2026-09-07T21:25:20.771696"
+    "fetched_at": "2026-09-09T16:10:00.299153"
   },
   "NSE:HINDCON-EQ": {
     "quote": {
-      "price": 24.25,
-      "change_percent": 1.46,
-      "volume": 34266
+      "price": 23.71,
+      "change_percent": -2.79,
+      "volume": 28580
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 21.5,
-        "high": 22.5,
-        "low": 21.06,
-        "close": 21.48,
-        "volume": 8669
-      },
-      {
-        "date": "2026-07-10",
-        "open": 22.25,
-        "high": 22.25,
-        "low": 21.0,
-        "close": 21.13,
-        "volume": 6959
-      },
       {
         "date": "2026-07-13",
         "open": 22.0,
@@ -339621,33 +339717,33 @@
         "low": 23.37,
         "close": 24.25,
         "volume": 34266
+      },
+      {
+        "date": "2026-09-08",
+        "open": 24.83,
+        "high": 24.83,
+        "low": 24.25,
+        "close": 24.39,
+        "volume": 18698
+      },
+      {
+        "date": "2026-09-09",
+        "open": 24.74,
+        "high": 24.74,
+        "low": 23.65,
+        "close": 23.71,
+        "volume": 28580
       }
     ],
-    "fetched_at": "2026-09-07T21:25:21.656711"
+    "fetched_at": "2026-09-09T16:10:01.238276"
   },
   "NSE:HINDCOPPER-EQ": {
     "quote": {
-      "price": 509.1,
-      "change_percent": -2.41,
-      "volume": 5991278
+      "price": 532.3,
+      "change_percent": -0.1,
+      "volume": 15095942
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 487.5,
-        "high": 489.75,
-        "low": 483.4,
-        "close": 486.45,
-        "volume": 1571497
-      },
-      {
-        "date": "2026-07-10",
-        "open": 495.0,
-        "high": 511.8,
-        "low": 494.1,
-        "close": 498.65,
-        "volume": 6969021
-      },
       {
         "date": "2026-07-13",
         "open": 491.0,
@@ -339975,33 +340071,33 @@
         "low": 506.6,
         "close": 509.1,
         "volume": 5991278
+      },
+      {
+        "date": "2026-09-08",
+        "open": 520.0,
+        "high": 537.0,
+        "low": 520.0,
+        "close": 532.85,
+        "volume": 24876043
+      },
+      {
+        "date": "2026-09-09",
+        "open": 538.4,
+        "high": 545.0,
+        "low": 530.5,
+        "close": 532.3,
+        "volume": 15102525
       }
     ],
-    "fetched_at": "2026-09-07T21:25:22.570717"
+    "fetched_at": "2026-09-09T16:10:02.177083"
   },
   "NSE:HINDOILEXP-EQ": {
     "quote": {
-      "price": 188.85,
-      "change_percent": 2.08,
-      "volume": 2651804
+      "price": 195.83,
+      "change_percent": 1.12,
+      "volume": 3990748
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 158.14,
-        "high": 159.4,
-        "low": 153.1,
-        "close": 153.81,
-        "volume": 334994
-      },
-      {
-        "date": "2026-07-10",
-        "open": 153.95,
-        "high": 155.81,
-        "low": 152.39,
-        "close": 153.69,
-        "volume": 429100
-      },
       {
         "date": "2026-07-13",
         "open": 154.1,
@@ -340329,33 +340425,33 @@
         "low": 184.46,
         "close": 188.85,
         "volume": 2651804
+      },
+      {
+        "date": "2026-09-08",
+        "open": 188.48,
+        "high": 194.99,
+        "low": 187.01,
+        "close": 193.66,
+        "volume": 1852355
+      },
+      {
+        "date": "2026-09-09",
+        "open": 194.62,
+        "high": 201.44,
+        "low": 193.9,
+        "close": 195.83,
+        "volume": 3991694
       }
     ],
-    "fetched_at": "2026-09-07T21:25:23.444381"
+    "fetched_at": "2026-09-09T16:10:03.119632"
   },
   "NSE:HINDPETRO-EQ": {
     "quote": {
-      "price": 356.9,
-      "change_percent": 0.11,
-      "volume": 3859485
+      "price": 348.9,
+      "change_percent": 0.55,
+      "volume": 5785349
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 386.85,
-        "high": 394.0,
-        "low": 382.85,
-        "close": 392.1,
-        "volume": 4266757
-      },
-      {
-        "date": "2026-07-10",
-        "open": 395.1,
-        "high": 398.8,
-        "low": 394.4,
-        "close": 395.3,
-        "volume": 3011646
-      },
       {
         "date": "2026-07-13",
         "open": 388.25,
@@ -340683,33 +340779,33 @@
         "low": 349.55,
         "close": 356.9,
         "volume": 3859485
+      },
+      {
+        "date": "2026-09-08",
+        "open": 353.4,
+        "high": 355.95,
+        "low": 346.0,
+        "close": 347.0,
+        "volume": 3433819
+      },
+      {
+        "date": "2026-09-09",
+        "open": 345.55,
+        "high": 350.9,
+        "low": 343.55,
+        "close": 348.9,
+        "volume": 5786455
       }
     ],
-    "fetched_at": "2026-09-07T21:25:24.334362"
+    "fetched_at": "2026-09-09T16:10:04.044963"
   },
   "NSE:HINDUNILVR-EQ": {
     "quote": {
-      "price": 1960,
-      "change_percent": -0.68,
-      "volume": 713057
+      "price": 1945,
+      "change_percent": -1.77,
+      "volume": 1454524
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 2139.0,
-        "high": 2166.8,
-        "low": 2137.1,
-        "close": 2144.5,
-        "volume": 2201039
-      },
-      {
-        "date": "2026-07-10",
-        "open": 2151.5,
-        "high": 2178.0,
-        "low": 2145.0,
-        "close": 2150.6,
-        "volume": 1665179
-      },
       {
         "date": "2026-07-13",
         "open": 2143.0,
@@ -341037,33 +341133,33 @@
         "low": 1958.0,
         "close": 1960.0,
         "volume": 713057
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1967.0,
+        "high": 1990.8,
+        "low": 1956.7,
+        "close": 1980.0,
+        "volume": 1256067
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1973.0,
+        "high": 1979.6,
+        "low": 1936.0,
+        "close": 1945.0,
+        "volume": 1455307
       }
     ],
-    "fetched_at": "2026-09-07T21:25:25.215151"
+    "fetched_at": "2026-09-09T16:10:04.955364"
   },
   "NSE:HINDWAREAP-EQ": {
     "quote": {
-      "price": 182.54,
-      "change_percent": -0.04,
-      "volume": 74937
+      "price": 179.66,
+      "change_percent": -0.34,
+      "volume": 81549
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 238.55,
-        "high": 248.95,
-        "low": 238.5,
-        "close": 245.45,
-        "volume": 68811
-      },
-      {
-        "date": "2026-07-10",
-        "open": 246.7,
-        "high": 249.7,
-        "low": 246.4,
-        "close": 247.65,
-        "volume": 52325
-      },
       {
         "date": "2026-07-13",
         "open": 245.0,
@@ -341391,33 +341487,33 @@
         "low": 179.78,
         "close": 182.54,
         "volume": 74937
+      },
+      {
+        "date": "2026-09-08",
+        "open": 182.54,
+        "high": 182.54,
+        "low": 180.0,
+        "close": 180.28,
+        "volume": 45845
+      },
+      {
+        "date": "2026-09-09",
+        "open": 181.46,
+        "high": 183.9,
+        "low": 179.0,
+        "close": 179.66,
+        "volume": 81549
       }
     ],
-    "fetched_at": "2026-09-07T21:25:26.104666"
+    "fetched_at": "2026-09-09T16:10:05.878684"
   },
   "NSE:HINDZINC-EQ": {
     "quote": {
-      "price": 589.15,
-      "change_percent": -1.97,
-      "volume": 3801807
+      "price": 605.4,
+      "change_percent": 1.66,
+      "volume": 6310982
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 528.0,
-        "high": 531.45,
-        "low": 523.1,
-        "close": 528.5,
-        "volume": 2041649
-      },
-      {
-        "date": "2026-07-10",
-        "open": 536.0,
-        "high": 544.2,
-        "low": 535.15,
-        "close": 536.95,
-        "volume": 3938725
-      },
       {
         "date": "2026-07-13",
         "open": 527.95,
@@ -341745,33 +341841,33 @@
         "low": 587.5,
         "close": 589.15,
         "volume": 3801807
+      },
+      {
+        "date": "2026-09-08",
+        "open": 593.05,
+        "high": 606.7,
+        "low": 593.0,
+        "close": 595.5,
+        "volume": 6893194
+      },
+      {
+        "date": "2026-09-09",
+        "open": 595.0,
+        "high": 608.75,
+        "low": 593.1,
+        "close": 605.4,
+        "volume": 6313228
       }
     ],
-    "fetched_at": "2026-09-07T21:25:27.033769"
+    "fetched_at": "2026-09-09T16:10:06.809078"
   },
   "NSE:HIRECT-EQ": {
     "quote": {
-      "price": 1211.9,
-      "change_percent": -0.86,
-      "volume": 61020
+      "price": 1273.6,
+      "change_percent": -0.61,
+      "volume": 99765
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 1015.3,
-        "high": 1049.7,
-        "low": 1015.3,
-        "close": 1041.0,
-        "volume": 47931
-      },
-      {
-        "date": "2026-07-10",
-        "open": 1052.0,
-        "high": 1062.5,
-        "low": 1027.4,
-        "close": 1055.1,
-        "volume": 49199
-      },
       {
         "date": "2026-07-13",
         "open": 1044.6,
@@ -342099,33 +342195,33 @@
         "low": 1200.2,
         "close": 1211.9,
         "volume": 61020
+      },
+      {
+        "date": "2026-09-08",
+        "open": 1214.2,
+        "high": 1305.0,
+        "low": 1214.2,
+        "close": 1281.4,
+        "volume": 252304
+      },
+      {
+        "date": "2026-09-09",
+        "open": 1281.4,
+        "high": 1318.5,
+        "low": 1263.0,
+        "close": 1273.6,
+        "volume": 99771
       }
     ],
-    "fetched_at": "2026-09-07T21:25:29.429319"
+    "fetched_at": "2026-09-09T16:10:07.739128"
   },
   "NSE:HISARMETAL-EQ": {
     "quote": {
-      "price": 162.02,
-      "change_percent": -0.1,
-      "volume": 1223
+      "price": 153.91,
+      "change_percent": -3.96,
+      "volume": 2386
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 156.5,
-        "high": 156.5,
-        "low": 151.5,
-        "close": 153.27,
-        "volume": 367
-      },
-      {
-        "date": "2026-07-10",
-        "open": 156.0,
-        "high": 156.5,
-        "low": 151.55,
-        "close": 152.79,
-        "volume": 1816
-      },
       {
         "date": "2026-07-13",
         "open": 152.6,
@@ -342453,33 +342549,33 @@
         "low": 160.02,
         "close": 162.02,
         "volume": 1223
+      },
+      {
+        "date": "2026-09-08",
+        "open": 165.2,
+        "high": 165.26,
+        "low": 160.24,
+        "close": 160.26,
+        "volume": 2922
+      },
+      {
+        "date": "2026-09-09",
+        "open": 160.01,
+        "high": 160.01,
+        "low": 150.8,
+        "close": 153.91,
+        "volume": 2386
       }
     ],
-    "fetched_at": "2026-09-07T21:25:30.321223"
+    "fetched_at": "2026-09-09T16:10:08.675212"
   },
   "NSE:HITECH-EQ": {
     "quote": {
-      "price": 75.96,
-      "change_percent": 0.25,
-      "volume": 514424
+      "price": 76.79,
+      "change_percent": 1.84,
+      "volume": 1106118
     },
     "daily_candles": [
-      {
-        "date": "2026-07-09",
-        "open": 85.2,
-        "high": 86.18,
-        "low": 83.55,
-        "close": 84.33,
-        "volume": 1560780
-      },
-      {
-        "date": "2026-07-10",
-        "open": 85.25,
-        "high": 87.48,
-        "low": 85.0,
-        "close": 86.93,
-        "volume": 541069
-      },
       {
         "date": "2026-07-13",
         "open": 86.0,
@@ -342807,9 +342903,25 @@
         "low": 75.51,
         "close": 75.96,
         "volume": 514424
+      },
+      {
+        "date": "2026-09-08",
+        "open": 75.86,
+        "high": 75.9,
+        "low": 74.5,
+        "close": 75.4,
+        "volume": 377605
+      },
+      {
+        "date": "2026-09-09",
+        "open": 75.0,
+        "high": 77.14,
+        "low": 74.58,
+        "close": 76.79,
+        "volume": 1108418
       }
     ],
-    "fetched_at": "2026-09-07T21:25:31.206478"
+    "fetched_at": "2026-09-09T16:10:09.600599"
   },
   "NSE:HLEGLAS-EQ": {
     "quote": {
