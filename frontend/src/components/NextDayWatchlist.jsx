@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import TabInfoBanner from './TabInfoBanner';
 
-// Relative on purpose -- see the same note in SignalList.jsx / IndexTracker.jsx.
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
 function fmt(n, digits = 2) {
@@ -20,11 +19,7 @@ function StatusBadge({ value, tone }) {
     lagging: 'bg-rose-500/15 text-rose-400 border-rose-500/25',
     neutral: 'bg-slate-700/40 text-slate-400 border-slate-600/40',
   };
-  return (
-    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${tones[tone] || tones.neutral}`}>
-      {value}
-    </span>
-  );
+  return <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border whitespace-nowrap ${tones[tone] || tones.neutral}`}>{value}</span>;
 }
 
 function trendTone(status) {
@@ -49,18 +44,38 @@ export default function NextDayWatchlist() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // Sep 2 2026: manual "run it now" trigger -- automatic scheduling was
-  // scan only fires once a day and depends on the server being up when
-  // that window arrives; this lets a scan happen on demand instead.
-  const [scanStatus, setScanStatus] = useState(null); // {scan_in_progress, last_result}
+  const [scanStatus, setScanStatus] = useState(null);
   const [triggering, setTriggering] = useState(false);
   const [triggerMessage, setTriggerMessage] = useState(null);
+  const scanInProgressRef = useRef(false);
 
-  const loadScanStatus = () => {
-    fetch(`${API_BASE}/api/next-day-watchlist/scan/`)
-      .then(r => r.json())
-      .then(setScanStatus)
-      .catch(() => {});
+  const loadScanStatus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/next-day-watchlist/scan/`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const status = await res.json();
+      scanInProgressRef.current = !!status.scan_in_progress;
+      setScanStatus(status);
+      return status;
+    } catch {
+      return null;
+    }
+  };
+
+  const loadWatchlist = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/next-day-watchlist/`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      setData(d);
+      setError(null);
+      return d;
+    } catch (e) {
+      setError(e.message);
+      return null;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const runScanNow = async () => {
@@ -70,7 +85,8 @@ export default function NextDayWatchlist() {
       const res = await fetch(`${API_BASE}/api/next-day-watchlist/scan/`, { method: 'POST' });
       const d = await res.json();
       setTriggerMessage(d.reason);
-      loadScanStatus();
+      await loadScanStatus();
+      await loadWatchlist();
     } catch (e) {
       setTriggerMessage(`Couldn't start scan: ${e.message}`);
     } finally {
@@ -79,40 +95,26 @@ export default function NextDayWatchlist() {
   };
 
   useEffect(() => {
-    loadScanStatus();
-    // Poll status a bit faster while a scan might be running (this tab
-    // is exactly where someone watches it finish), separate from the
-    // main 5-min watchlist-data poll below.
-    const interval = setInterval(loadScanStatus, 20000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
-    const load = () => {
-      fetch(`${API_BASE}/api/next-day-watchlist/`)
-        .then(r => r.json())
-        .then(d => {
-          if (cancelled) return;
-          setData(d);
-          setError(d.error && d.watchlist?.length === 0 && d.universe_scanned === 0 ? null : null);
-        })
-        .catch(e => { if (!cancelled) setError(e.message); })
-        .finally(() => { if (!cancelled) setLoading(false); });
+    const poll = async () => {
+      const status = await loadScanStatus();
+      if (cancelled) return;
+      if (status?.scan_in_progress) await loadWatchlist();
     };
-    load();
-    // 5 min -- this only changes when a scan is manually run, no need
-    // scan), no need to poll faster.
-    const interval = setInterval(load, 300000);
+    poll();
+    const interval = setInterval(poll, 2000);
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  if (loading) {
-    return <div className="p-10 text-center text-slate-500 text-sm">Loading Next Day Watchlist...</div>;
-  }
-  if (error) {
-    return <div className="p-10 text-center text-slate-500 text-sm">Couldn't load watchlist: {error}</div>;
-  }
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!scanInProgressRef.current) loadWatchlist();
+    }, 300000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) return <div className="p-10 text-center text-slate-500 text-sm">Loading Tomorrow's Picks...</div>;
+  if (error) return <div className="p-10 text-center text-slate-500 text-sm">Couldn't load watchlist: {error}</div>;
 
   const watchlist = data?.watchlist || [];
   const actionableCount = watchlist.filter(s => s.score >= 70).length;
@@ -124,10 +126,9 @@ export default function NextDayWatchlist() {
         Full-NSE-universe scan, run manually via the button below -- 100% Fyers-sourced
         (no Screener.in, no third-party data). Trend Status, Volume Status, Sector Strength, and Score are real,
         computed indicators (RSI, distance from 20-day SMA, volume vs. its own 20-day average) combined with
-        transparent, documented weights -- not an opaque single number. Sector Strength only computes for stocks
-        with a known sector; the rest show Unknown honestly rather than a guess. Sep 3 2026: stocks under ₹50 or
-        averaging under 1L shares/day are excluded before ranking -- a thin, cheap stock can hit an extreme score
-        on noise alone; these floors are reasonable starting defaults, not backtested to a proven optimum.
+        transparent, documented weights. Stocks under ₹50 or averaging under 1L shares/day are excluded before ranking.
+        Every completed scan also records the Top 10 and later fills their actual next-trading-day performance
+        into the persistent Excel research ledger: next-day OHLC, close return, maximum intraday gain and drawdown.
       </TabInfoBanner>
 
       <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3">
@@ -152,16 +153,9 @@ export default function NextDayWatchlist() {
             {scanStatus?.scan_in_progress ? 'Running...' : '🔭 Run Scan Now'}
           </button>
         </div>
-        {/* Sep 3 2026: real progress bar -- was invisible before, only
-            ever printed to the terminal. scanned/total come straight
-            from eod_scanner.py's own live counter, updated after every
-            single symbol, not just every 50th one it saves to disk. */}
         {scanStatus?.scan_in_progress && scanStatus.progress?.total > 0 && (
           <div className="mt-2.5 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-            <div
-              className="h-full bg-purple-500 transition-all duration-500"
-              style={{ width: `${Math.min(100, (scanStatus.progress.scanned / scanStatus.progress.total) * 100)}%` }}
-            />
+            <div className="h-full bg-purple-500 transition-all duration-500" style={{ width: `${Math.min(100, (scanStatus.progress.scanned / scanStatus.progress.total) * 100)}%` }} />
           </div>
         )}
       </div>
@@ -185,22 +179,18 @@ export default function NextDayWatchlist() {
         </div>
       )}
 
-      {data?.generated_at && (
-        <p className="text-[11px] text-slate-600 text-right">
-          Scan completed: {new Date(data.generated_at).toLocaleString('en-IN')}
-        </p>
-      )}
+      {data?.generated_at && <p className="text-[11px] text-slate-600 text-right">Scan completed: {new Date(data.generated_at).toLocaleString('en-IN')}</p>}
 
       {watchlist.length > 0 && (
         <div className="flex items-center gap-2 pt-1">
           <div className="w-1 h-5 bg-purple-500 rounded-full" />
-          <h2 className="text-base font-semibold text-white">Next Day Watchlist (Top {watchlist.length} Setups)</h2>
+          <h2 className="text-base font-semibold text-white">Tomorrow's Top {watchlist.length} Setups</h2>
         </div>
       )}
 
       {watchlist.length === 0 ? (
         <div className="py-10 text-center text-slate-500 text-sm max-w-md mx-auto">
-          {data?.error || 'No scan run yet. Tap "Run Scan Now" above to generate today\'s watchlist.'}
+          {data?.error || 'No scan run yet. Tap "Run Scan Now" above to generate tomorrow\'s watchlist.'}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-slate-800">
@@ -222,29 +212,14 @@ export default function NextDayWatchlist() {
                 <tr key={s.symbol} className={`border-t border-slate-800/60 hover:bg-slate-900/40 transition-colors ${i === 0 ? 'bg-slate-900/30' : ''}`}>
                   <td className="px-3 py-2.5 text-slate-400">#{s.rank}</td>
                   <td className="px-3 py-2.5">
-                    {/* Sep 3 2026: click-to-chart. Different, much more
-                        reliable case than the option-contract TradingView
-                        attempt that failed earlier tonight -- this is a
-                        PLAIN NSE EQUITY symbol (e.g. NSE:MARUTI), which
-                        TradingView natively and directly supports, no
-                        expiry-date encoding or ticker-format guessing
-                        involved at all. Still hasn't been click-tested
-                        against the real site from here -- confirm it
-                        actually lands correctly the first time you use it. */}
-                    <button
-                      onClick={() => window.open(`https://www.tradingview.com/chart/?symbol=NSE:${s.symbol.replace('NSE:', '').replace('-EQ', '')}`, '_blank', 'noopener,noreferrer')}
-                      className="font-semibold text-sky-400 hover:text-sky-300 hover:underline whitespace-nowrap transition-colors"
-                      title={`Open ${s.symbol.replace('NSE:', '').replace('-EQ', '')} chart on TradingView`}
-                    >
+                    <button onClick={() => window.open(`https://www.tradingview.com/chart/?symbol=NSE:${s.symbol.replace('NSE:', '').replace('-EQ', '')}`, '_blank', 'noopener,noreferrer')} className="font-semibold text-sky-400 hover:text-sky-300 hover:underline whitespace-nowrap transition-colors" title={`Open ${s.symbol.replace('NSE:', '').replace('-EQ', '')} chart on TradingView`}>
                       {s.symbol.replace('NSE:', '').replace('-EQ', '')}
                     </button>
                   </td>
                   <td className="px-3 py-2.5 text-slate-400 whitespace-nowrap">{s.sector}</td>
                   <td className="px-3 py-2.5 text-right text-white whitespace-nowrap">₹{fmt(s.eod_price)}</td>
                   <td className="px-3 py-2.5 text-right">
-                    <span className={`font-bold tabular-nums ${s.score >= 70 ? 'text-emerald-400' : s.score >= 40 ? 'text-amber-400' : 'text-slate-500'}`}>
-                      {s.score}
-                    </span>
+                    <span className={`font-bold tabular-nums ${s.score >= 70 ? 'text-emerald-400' : s.score >= 40 ? 'text-amber-400' : 'text-slate-500'}`}>{s.score}</span>
                     <span className="text-slate-600">/100</span>
                   </td>
                   <td className="px-3 py-2.5"><StatusBadge value={s.trend_status} tone={trendTone(s.trend_status)} /></td>
