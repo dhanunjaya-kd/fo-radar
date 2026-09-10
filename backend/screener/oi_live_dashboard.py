@@ -5,9 +5,8 @@ index_tracker.snapshot_all(); this module makes no extra Fyers requests.
 
 The workbook is a live dashboard, deliberately modelled on the supplied
 NSE Option Chain Analyzer screenshot: a clearly labelled OI table followed by
-an Open Interest Upper Boundary / Lower Boundary panel.  The existing
-project's OI calculations are retained; this module changes presentation,
-not trading logic.
+an Open Interest Upper Boundary / Lower Boundary panel. The existing project's
+OI calculations are retained; this module changes presentation, not trading logic.
 """
 
 import os
@@ -33,8 +32,10 @@ _COL_LETTERS = [chr(ord("A") + i) for i in range(len(_LIVE_LOG_COLUMNS))]
 _PCR_COL_INDEX = _LIVE_LOG_COLUMNS.index("PCR")
 _BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
 
-_LIVE_VIEW_ROWS = 18
-_PANEL_START_ROW = 21
+# The panel now sits immediately below the last live row. It moves down by one
+# row for every new sample, so there are no artificial blank rows between samples
+# and the boundary panel.
+_FIRST_PANEL_ROW = 3
 
 _app = None
 _book = None
@@ -52,7 +53,6 @@ _HEADER_FILL = (242, 242, 242)
 _HEADER_FONT = (0, 0, 0)
 _LABEL_FILL = (226, 240, 217)
 _TITLE_FILL = (217, 234, 247)
-_BORDER = (180, 180, 180)
 
 
 def _to_k(value):
@@ -193,7 +193,7 @@ def _style_live_row(sheet, row_num, values, previous):
 
 
 def _prepare_sheet(book, index_name):
-    """Prepare a clean daily sheet and keep the reference dashboard layout."""
+    """Prepare a clean daily sheet and place the panel immediately after live rows."""
     today = datetime.now().strftime("%Y-%m-%d")
     exists = index_name in [s.name for s in book.sheets]
     reset = not exists
@@ -222,14 +222,7 @@ def _prepare_sheet(book, index_name):
     _sheet_day_seen[index_name] = today
     _prev_values.pop(index_name, None)
     _panel_ready.discard(index_name)
-    _panel_start_rows[index_name] = _PANEL_START_ROW
-
-    try:
-        sheet.range(f"A1:M{_PANEL_START_ROW + 7}").clear_formats()
-        sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
-        _style_header(sheet)
-    except Exception:
-        pass
+    _panel_start_rows[index_name] = _FIRST_PANEL_ROW
     return sheet
 
 
@@ -248,7 +241,7 @@ def _style_panel_labels(sheet, title, r1, r2, r3, r4, r5):
 
 
 def _write_boundary_panel(sheet, index_name, row):
-    """Update the bottom panel in-place at its current row."""
+    """Update the boundary panel in-place at its current dynamic row."""
     oi_snap = get_last_oi_snapshot(index_name) or {}
     rows = oi_snap.get("rows") or []
     calls, puts = compute_boundary_pairs(rows)
@@ -258,7 +251,7 @@ def _write_boundary_panel(sheet, index_name, row):
     put1 = puts[0] if puts else (None, None)
     put2 = puts[1] if len(puts) > 1 else (None, None)
 
-    title = _panel_start_rows.get(index_name, _PANEL_START_ROW)
+    title = _panel_start_rows.get(index_name, _FIRST_PANEL_ROW)
     r1, r2, r3, r4, r5 = title + 1, title + 2, title + 3, title + 4, title + 5
 
     if index_name not in _panel_ready:
@@ -327,17 +320,13 @@ def _write_boundary_panel(sheet, index_name, row):
 
 
 def _write_dashboard_row(sheet, index_name, values):
-    """Append every live sample to the next row; move the panel down with it."""
+    """Append one live sample immediately before the boundary panel."""
     current_rows = max(0, _next_row.get(index_name, 2) - 2)
 
     if current_rows == 0:
-        # First sample: panel is created later in the same write cycle.
         row_num = 2
     else:
-        # Insert exactly one row immediately above the current panel. Excel moves
-        # the existing panel down by one row, so every live sample gets its own
-        # permanent row without overwriting older samples.
-        panel_row = _panel_start_rows.get(index_name, _PANEL_START_ROW)
+        panel_row = _panel_start_rows.get(index_name, _FIRST_PANEL_ROW)
         try:
             sheet.range(f"{panel_row}:{panel_row}").api.EntireRow.Insert()
         except Exception as e:
@@ -354,7 +343,7 @@ def _write_dashboard_row(sheet, index_name, values):
 
 
 def write_live_dashboard(results):
-    """Append live OI data and keep the boundary panel below all live rows."""
+    """Append live OI data and keep the boundary panel directly below all live rows."""
     book = _get_dashboard_book()
     if book is None:
         return
@@ -375,8 +364,6 @@ def write_live_dashboard(results):
                 row.get("Highest Put OI Strike"), row.get("PCR"), row.get("Bias"),
             ]
 
-            # Create the panel on the first sample. Subsequent samples insert one
-            # row above it, moving the panel down while preserving all history.
             if index_name not in _panel_ready:
                 _write_boundary_panel(sheet, index_name, row)
             row_num = _write_dashboard_row(sheet, index_name, values)
