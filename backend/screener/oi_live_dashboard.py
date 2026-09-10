@@ -79,7 +79,7 @@ try:
 except ImportError:
     XLWINGS_AVAILABLE = False
 
-from .index_tracker import LOG_DIR
+from .index_tracker import LOG_DIR, get_last_oi_snapshot
 
 DASHBOARD_PATH = os.path.join(LOG_DIR, "oi_live_dashboard.xlsx")
 
@@ -104,6 +104,18 @@ _RED_FILL = (255, 199, 206)    # Excel's own standard "Bad" red
 _COL_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"]
 _PCR_COL_INDEX = _LIVE_LOG_COLUMNS.index("PCR")
 _BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
+
+# Fixed-cell boundary summary panel -- lives in columns O:Q, well clear
+# of the log table's A:M columns, so it's never at risk of the growing
+# log eventually reaching it. Overwritten every cycle, never appended.
+_BOUNDARY_PANEL_COL = "O"
+_BOUNDARY_ROWS = {
+    "call1": 2, "call2": 3, "put1": 4, "put2": 5,
+    "open_interest": 6, "pcr": 7, "call_exits": 8, "put_exits": 9,
+    "call_itm": 10, "put_itm": 11,
+}
+_AMBER_FILL = (255, 235, 156)  # Excel's standard "Neutral/Note" amber -- used for Yes flags worth a second look
+_prev_boundary_oi = {}  # {index_name: {'call': oi, 'put': oi}} -- drives the Exits guess (see compute_boundary_pairs docstring)
 
 
 def compute_itm_ratios(rows, spot, total_ce_oi, total_pe_oi):
@@ -130,6 +142,29 @@ def compute_itm_ratios(rows, spot, total_ce_oi, total_pe_oi):
     call_ratio = round(call_itm_oi / total_ce_oi, 3) if total_ce_oi else None
     put_ratio = round(put_itm_oi / total_pe_oi, 3) if total_pe_oi else None
     return call_ratio, put_ratio
+
+
+def compute_boundary_pairs(rows, top_n=2):
+    """Top-N call-OI strikes and top-N put-OI strikes, each as (strike,
+    oi) sorted highest-OI-first -- the reference tool's 'Strike Price
+    1/2' + 'OI (in K)' boundary panel. Pure function, no I/O.
+
+    Returns (call_pairs, put_pairs). Either list can be shorter than
+    top_n (never padded with fake entries) if `rows` doesn't have that
+    many strikes with real OI data."""
+    if not rows:
+        return [], []
+
+    def _pairs(side):
+        pairs = [
+            (r.get("strike"), (r.get(side, {}) or {}).get("oi"))
+            for r in rows
+            if r.get("strike") is not None and (r.get(side, {}) or {}).get("oi") is not None
+        ]
+        pairs.sort(key=lambda p: p[1], reverse=True)
+        return pairs[:top_n]
+
+    return _pairs("ce"), _pairs("pe")
 
 
 def _get_dashboard_book():
@@ -228,6 +263,87 @@ def _apply_row_colors(sheet, r, values, prev_values):
             print(f"[OILiveDashboard] Coloring {col}{r} skipped: {e}")
 
 
+def _write_boundary_panel_labels(sheet):
+    """Field labels for the O:Q boundary panel -- written once when the
+    sheet is (re)created, since these never change cycle to cycle."""
+    try:
+        labels = {
+            "call1": "Call boundary 1", "call2": "Call boundary 2",
+            "put1": "Put boundary 1", "put2": "Put boundary 2",
+            "open_interest": "Open Interest", "pcr": "PCR",
+            "call_exits": "Call Exits", "put_exits": "Put Exits",
+            "call_itm": "Call ITM", "put_itm": "Put ITM",
+        }
+        sheet.range(f"{_BOUNDARY_PANEL_COL}1").value = "OI boundary summary"
+        sheet.range(f"{_BOUNDARY_PANEL_COL}1").font.bold = True
+        for key, r in _BOUNDARY_ROWS.items():
+            sheet.range(f"{_BOUNDARY_PANEL_COL}{r}").value = labels[key]
+    except Exception as e:
+        print(f"[OILiveDashboard] Boundary panel labels skipped: {e}")
+
+
+def _write_boundary_panel(sheet, index_name, row):
+    """Overwrites the O:Q boundary summary in place -- current state
+    only, never logged/appended (that's what the A:M table is for).
+    Pulls per-strike rows via get_last_oi_snapshot() (already built
+    into index_tracker.py to avoid a second Fyers fetch), same 'rows'
+    snapshot_index() itself just used this cycle."""
+    try:
+        oi_snap = get_last_oi_snapshot(index_name)
+        rows_data = (oi_snap or {}).get("rows")
+        spot = row.get("Spot")
+        call_pairs, put_pairs = compute_boundary_pairs(rows_data)
+
+        def _write_pair(key, pair):
+            r = _BOUNDARY_ROWS[key]
+            strike, oi = (pair if pair else (None, None))
+            sheet.range(f"P{r}").value = strike
+            sheet.range(f"Q{r}").value = oi
+
+        _write_pair("call1", call_pairs[0] if len(call_pairs) > 0 else None)
+        _write_pair("call2", call_pairs[1] if len(call_pairs) > 1 else None)
+        _write_pair("put1", put_pairs[0] if len(put_pairs) > 0 else None)
+        _write_pair("put2", put_pairs[1] if len(put_pairs) > 1 else None)
+
+        bias = row.get("Bias") or ""
+        oi_cell = sheet.range(f"P{_BOUNDARY_ROWS['open_interest']}")
+        oi_cell.value = bias
+        oi_cell.color = _GREEN_FILL if "Bullish" in bias else (_RED_FILL if "Bearish" in bias else None)
+
+        pcr = row.get("PCR")
+        pcr_cell = sheet.range(f"P{_BOUNDARY_ROWS['pcr']}")
+        pcr_cell.value = pcr
+        if pcr is not None:
+            pcr_cell.color = _GREEN_FILL if pcr > 1.3 else (_RED_FILL if pcr < 0.7 else None)
+
+        # Exits: best-effort read, not a confirmed match to the
+        # reference tool -- "Yes" means the #1 boundary strike's OI
+        # dropped versus last cycle (writers unwinding there).
+        prev = _prev_boundary_oi.get(index_name, {})
+        call1_oi = call_pairs[0][1] if call_pairs else None
+        put1_oi = put_pairs[0][1] if put_pairs else None
+        call_exit = prev.get("call") is not None and call1_oi is not None and call1_oi < prev["call"]
+        put_exit = prev.get("put") is not None and put1_oi is not None and put1_oi < prev["put"]
+        for key, flag in (("call_exits", call_exit), ("put_exits", put_exit)):
+            cell = sheet.range(f"P{_BOUNDARY_ROWS[key]}")
+            cell.value = "Yes" if flag else "No"
+            cell.color = _AMBER_FILL if flag else None
+        _prev_boundary_oi[index_name] = {"call": call1_oi, "put": put1_oi}
+
+        # ITM: unambiguous -- is the #1 boundary strike itself ITM
+        # right now (call ITM when strike < spot, put ITM when strike > spot).
+        call1_strike = call_pairs[0][0] if call_pairs else None
+        put1_strike = put_pairs[0][0] if put_pairs else None
+        call_itm = spot is not None and call1_strike is not None and call1_strike < spot
+        put_itm = spot is not None and put1_strike is not None and put1_strike > spot
+        for key, flag in (("call_itm", call_itm), ("put_itm", put_itm)):
+            cell = sheet.range(f"P{_BOUNDARY_ROWS[key]}")
+            cell.value = "Yes" if flag else "No"
+            cell.color = _AMBER_FILL if flag else None
+    except Exception as e:
+        print(f"[OILiveDashboard] Boundary panel write skipped for {index_name}: {e}")
+
+
 def _get_or_create_sheet(book, index_name):
     """Returns a sheet whose header row is guaranteed to match
     _LIVE_LOG_COLUMNS exactly and whose data starts fresh for today.
@@ -280,9 +396,11 @@ def _get_or_create_sheet(book, index_name):
 
     sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
     _style_header(sheet)
+    _write_boundary_panel_labels(sheet)
     _next_row[index_name] = 2
     _sheet_day_seen[index_name] = today_str
     _prev_values.pop(index_name, None)
+    _prev_boundary_oi.pop(index_name, None)
     return sheet
 
 
@@ -320,6 +438,8 @@ def write_live_dashboard(results):
             _apply_row_colors(sheet, r, values, _prev_values.get(index_name))
             _prev_values[index_name] = values
             _next_row[index_name] = r + 1
+
+            _write_boundary_panel(sheet, index_name, row)
         except Exception as e:
             print(f"[OILiveDashboard] Failed writing {index_name} live row: {e}")
             # Deliberately continues to the other index rather than
