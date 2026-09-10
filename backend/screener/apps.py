@@ -10,3 +10,13 @@ class ScreenerConfig(AppConfig):
     """
 
     name = "screener"
+
+    def ready(self):
+        # Existing Excel workbooks can retain an old black header format even
+        # when the stored labels are correct. Reapply only the header styling;
+        # no market-data or OI calculation logic is changed.
+        try:
+            from .oi_dashboard_header_guard import install
+            install()
+        except Exception as exc:
+            print(f"[OILiveDashboard] Header guard unavailable: {exc}")
