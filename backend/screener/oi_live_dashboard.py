@@ -4,71 +4,61 @@ screener/oi_live_dashboard.py
 Adds two things on top of index_tracker.py's existing snapshot_index()/
 snapshot_all(), without changing how those already work:
 
-1. compute_itm_ratios() -- a metric index_tracker.py doesn't have yet:
-   what fraction of each side's chain-wide OI (oi.get('ce_oi')/oi.get('pe_oi'))
-   sits at strikes already in-the-money right now. Pure function, no I/O
-   -- tested standalone against synthetic rows before this file was
-   written (call ratio 0.135, put ratio 0.31 on a 5-strike synthetic
-   chain, edge cases -- missing spot, empty rows, zero total -- all
-   return None instead of a fake 0).
+1. compute_itm_ratios() -- what fraction of each side's chain-wide OI
+   sits at strikes already in-the-money right now. Pure function, no
+   I/O. REAL CAVEAT, not yet confirmed live: sums OI only across the
+   `rows` list get_option_analytics(..., strikecount=10) returns --
+   if oi['ce_oi']/oi['pe_oi'] are computed over a wider strike set,
+   this under-counts. Directionally should still be meaningful.
 
-   REAL CAVEAT, not yet confirmed live: this sums OI only across the
-   `rows` list get_option_analytics(..., strikecount=10) returns. If
-   that's a narrower strike window than whatever options_analytics.py
-   uses internally to compute oi['ce_oi']/oi['pe_oi'] (the chain-wide
-   totals "Total Call OI"/"Total Put OI" already log), the ratio will
-   under-count and read artificially low -- same "confirmed live, not
-   guessed" discipline the rest of this project holds itself to.
-   Directionally (rising/falling over the day) should still be
-   meaningful either way. Worth one check against options_analytics.py
-   (not available when this was written) before trusting the absolute
-   numbers.
+2. write_live_dashboard() -- pushes the same row dict snapshot_index()
+   already builds into a live-visible Excel window via xlwings.
+   Deliberately a SEPARATE workbook (signal_logs/oi_live_dashboard.xlsx),
+   never the file _today_path()/_atomic_save() manage -- xlwings (COM)
+   and openpyxl (file-level save) fighting over one file is a real
+   lock-collision risk given this project's Windows file-lock history.
 
-2. write_live_dashboard() -- pushes the SAME row dict snapshot_index()
-   already builds into a live-visible Excel window via xlwings, instead
-   of only appending to the openpyxl-managed daily log. Deliberately a
-   SEPARATE small workbook (signal_logs/oi_live_dashboard.xlsx), never
-   the same file _today_path()/_get_workbook()/_atomic_save() manage --
-   xlwings (COM, keeps Excel open) and openpyxl (file-level read-modify-
-   save-close) fighting over one file would be a real lock-collision
-   risk given this project's actual history with Windows file-lock
-   issues (see index_tracker.py's own _atomic_save()).
+   Sep 10 2026, several rounds of real fixes based on his actual
+   screenshots, in order:
+   - Switched from overwrite-in-place to an appended header+row log
+     (matches the reference tool's scrolling table).
+   - Delete+recreate instead of clear_contents() on reset -- clearing
+     values in place left old NUMBER FORMATTING behind (a stale Time
+     format silently turned a real Spot price into "01:12:00").
+   - Added up/down + threshold-based cell coloring, autofit, and "(K)"
+     scaling -- fixed real truncated headers and scientific-notation
+     OI numbers ("-1.4E+07") from his screenshots.
+   - RENAMED every top-table column to match the reference tool's own
+     labels exactly (Time/Value/Call Sum (in K)/Put Sum (in K)/
+     Difference (in K)/Call Boundary (in K)/Put Boundary (in K)/Call
+     ITM/Put ITM), and split the boundary panel into TWO SIDE-BY-SIDE
+     titled blocks ("Open Interest Upper Boundary" / "Open Interest
+     Lower Boundary") instead of one flat list -- direct structural
+     match to his reference screenshot, not just similarly-shaped.
+     Strike/PCR/Bias columns that don't appear in the reference tool's
+     top table are kept as trailing bonus columns rather than deleted
+     -- still fully available, just placed after the 9 matching ones.
 
-   Sep 10 2026: switched from a fixed Field/Value layout (overwritten
-   every cycle) to a header + APPENDED row per cycle -- same scrolling-
-   table shape as the reference NSE-Option-Chain-Analyzer screenshot
-   this whole feature was modeled on, so trend-by-eye (is the boundary
-   strike shifting, is OI Diff climbing) actually works, not just "what's
-   true right now." Row position is tracked in a Python-side dict
-   (_next_row) rather than re-derived from Excel's used-range each
-   cycle -- more reliable than xlwings' .end()/current_region, which
-   can behave unexpectedly around gaps or fresh sheets.
-
-   Grows across the day (~60s cadence -> a few hundred rows by close,
-   trivial for Excel), then gets cleared back to just the header on the
-   first write of a NEW calendar day -- the file persists across
-   restarts even though _next_row/_sheet_day_seen (in-memory) don't, so
-   this only actually fires once, right after each morning's fresh
-   startup. Same "no explicit day reset, relies on the daily restart"
-   convention as several of index_tracker.py's own caches.
+   REAL UNRESOLVED CAVEAT: "Call Boundary (in K)" / "Put Boundary (in
+   K)" in the reference tool's top table (values like 34.5-37.9) don't
+   match the magnitude of any OI-based number this project can compute
+   (raw boundary OI is in the hundreds of thousands). What's written
+   here under that exact column name is still Highest Call/Put OI
+   Value in K -- the LABEL now matches "ditto", the underlying NUMBER
+   may not, since the reference tool's real formula for this specific
+   column is still unconfirmed (no source access, screenshot-only).
 
    Fails soft everywhere: no Excel installed/open, sheet not reachable,
-   any write error -- logs once and returns, never raises. Must not be
-   able to take down the scan cycle that calls it.
+   any write error -- logs once and returns, never raises.
 
    Requires `pip install xlwings` (pulls in pywin32 automatically on
    Windows) -- not in requirements.txt yet.
 
-Wiring into index_tracker.py (3 small edits, see chat for exact
-before/after text):
-  1. COLUMNS: add "Call ITM Ratio", "Put ITM Ratio" after the existing
-     "Highest Call OI Strike"/"Highest Call OI Value" pair.
-  2. snapshot_index(): after highest_call_value is computed, call
-     compute_itm_ratios(rows, oi.get("spot"), oi.get("ce_oi"), oi.get("pe_oi"))
-     and add the two results to the `row` dict under the same two keys.
-  3. snapshot_all(): call write_live_dashboard(results) right before
-     `return results`, wrapped in try/except so a dashboard failure
-     never breaks the real return value the rest of the app depends on.
+Wiring into index_tracker.py (3 small edits, unchanged from before --
+see chat history for exact before/after text):
+  1. COLUMNS: add "Call ITM Ratio", "Put ITM Ratio".
+  2. snapshot_index(): call compute_itm_ratios(...) and add to `row`.
+  3. snapshot_all(): call write_live_dashboard(results) before return.
 """
 import os
 from datetime import datetime
@@ -83,13 +73,17 @@ from .index_tracker import LOG_DIR, get_last_oi_snapshot
 
 DASHBOARD_PATH = os.path.join(LOG_DIR, "oi_live_dashboard.xlsx")
 
-# Header row for the append-log layout -- one row per cycle underneath
-# this, same column order as the reference tool's scrolling table.
+# Header row for the append-log layout. First 9 columns are named and
+# ordered to match the reference tool's own top table EXACTLY (Time,
+# Value, Call Sum (in K), Put Sum (in K), Difference (in K), Call
+# Boundary (in K), Put Boundary (in K), Call ITM, Put ITM). The last 4
+# (strikes, PCR, Bias) don't appear in the reference tool's top table
+# at all -- kept as trailing bonus columns rather than deleted, since
+# they're real, tested, useful data.
 _LIVE_LOG_COLUMNS = [
-    "Time", "Spot", "Total Call OI (K)", "Total Put OI (K)", "OI Diff (K)",
-    "Call Boundary Strike", "Call Boundary OI (K)",
-    "Put Boundary Strike", "Put Boundary OI (K)",
-    "Call ITM Ratio", "Put ITM Ratio", "PCR", "Bias",
+    "Time", "Value", "Call Sum (in K)", "Put Sum (in K)", "Difference (in K)",
+    "Call Boundary (in K)", "Put Boundary (in K)", "Call ITM", "Put ITM",
+    "Call Boundary Strike", "Put Boundary Strike", "PCR", "Bias",
 ]
 
 _app = None   # cached xlwings App -- init once per process, never reopened every cycle
@@ -101,20 +95,20 @@ _prev_values = {}      # {index_name: [values from the last written row]} -- dri
 
 _GREEN_FILL = (198, 239, 206)  # Excel's own standard "Good" green
 _RED_FILL = (255, 199, 206)    # Excel's own standard "Bad" red
+_AMBER_FILL = (255, 235, 156)  # Excel's standard "Neutral/Note" amber -- used for Yes flags worth a second look
 _COL_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"]
 _PCR_COL_INDEX = _LIVE_LOG_COLUMNS.index("PCR")
 _BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
 
-# Fixed-cell boundary summary panel -- lives in columns O:Q, well clear
-# of the log table's A:M columns, so it's never at risk of the growing
-# log eventually reaching it. Overwritten every cycle, never appended.
-_BOUNDARY_PANEL_COL = "O"
-_BOUNDARY_ROWS = {
-    "call1": 2, "call2": 3, "put1": 4, "put2": 5,
-    "open_interest": 6, "pcr": 7, "call_exits": 8, "put_exits": 9,
-    "call_itm": 10, "put_itm": 11,
-}
-_AMBER_FILL = (255, 235, 156)  # Excel's standard "Neutral/Note" amber -- used for Yes flags worth a second look
+# Boundary summary panel -- TWO side-by-side titled blocks, matching
+# the reference tool's "Open Interest Upper Boundary" / "Open Interest
+# Lower Boundary" layout exactly, in columns O:P (upper/call) and R:S
+# (lower/put) -- both well clear of the log table's A:M columns and of
+# each other, so neither the growing log nor either block can collide.
+# Overwritten every cycle, never appended (current state only).
+_UPPER_LABEL_COL, _UPPER_VALUE_COL = "O", "P"
+_LOWER_LABEL_COL, _LOWER_VALUE_COL = "R", "S"
+_PANEL_ROWS = {"strike1": 2, "oi1": 3, "strike2": 4, "oi2": 5, "summary": 6, "exits": 7, "itm": 8}
 _prev_boundary_oi = {}  # {index_name: {'call': oi, 'put': oi}} -- drives the Exits guess (see compute_boundary_pairs docstring)
 
 
@@ -214,11 +208,11 @@ def _get_dashboard_book():
 
 
 def _style_header(sheet):
-    """Bold + light gray fill on the header row, then auto-size every
-    column to fit its header text -- run once per sheet (re)creation,
-    real bug found Sep 10: never doing this left every OI/ratio column
-    truncated (e.g. "Call Bounc") because Excel's default column width
-    is far narrower than these header labels."""
+    """Bold + light gray fill on the log header row, then auto-size
+    EVERY used column (log table AND both boundary blocks) to fit its
+    text. Must run AFTER both panels are written, or autofit misses
+    whatever wasn't on the sheet yet -- real bug hit Sep 10 when this
+    ran before the boundary panel existed, leaving it truncated."""
     try:
         header_range = sheet.range(f"A1:{_COL_LETTERS[-1]}1")
         header_range.font.bold = True
@@ -276,57 +270,66 @@ def _apply_row_colors(sheet, r, values, prev_values):
 
 
 def _write_boundary_panel_labels(sheet):
-    """Field labels for the O:Q boundary panel -- written once when the
-    sheet is (re)created, since these never change cycle to cycle."""
+    """Field labels for both boundary blocks -- written once when the
+    sheet is (re)created. Matches the reference tool's exact grouping:
+    Open Interest + Call Exits + Call ITM sit under the Upper/call
+    block; PCR + Put Exits + Put ITM sit under the Lower/put block."""
     try:
-        labels = {
-            "call1": "Call boundary 1", "call2": "Call boundary 2",
-            "put1": "Put boundary 1", "put2": "Put boundary 2",
-            "open_interest": "Open Interest", "pcr": "PCR",
-            "call_exits": "Call Exits", "put_exits": "Put Exits",
-            "call_itm": "Call ITM", "put_itm": "Put ITM",
+        sheet.range(f"{_UPPER_LABEL_COL}1").value = "Open Interest Upper Boundary"
+        sheet.range(f"{_LOWER_LABEL_COL}1").value = "Open Interest Lower Boundary"
+        sheet.range(f"{_UPPER_LABEL_COL}1:{_UPPER_VALUE_COL}1").font.bold = True
+        sheet.range(f"{_LOWER_LABEL_COL}1:{_LOWER_VALUE_COL}1").font.bold = True
+
+        upper_labels = {
+            "strike1": "Strike Price 1", "oi1": "OI (in K)",
+            "strike2": "Strike Price 2", "oi2": "OI (in K)",
+            "summary": "Open Interest", "exits": "Call Exits", "itm": "Call ITM",
         }
-        sheet.range(f"{_BOUNDARY_PANEL_COL}1").value = "OI boundary summary"
-        sheet.range(f"{_BOUNDARY_PANEL_COL}1").font.bold = True
-        sheet.range("P1").value = "Strike"
-        sheet.range("Q1").value = "OI (K)"
-        sheet.range("P1:Q1").font.bold = True
-        for key, r in _BOUNDARY_ROWS.items():
-            sheet.range(f"{_BOUNDARY_PANEL_COL}{r}").value = labels[key]
+        lower_labels = {
+            "strike1": "Strike Price 1", "oi1": "OI (in K)",
+            "strike2": "Strike Price 2", "oi2": "OI (in K)",
+            "summary": "PCR", "exits": "Put Exits", "itm": "Put ITM",
+        }
+        for key, r in _PANEL_ROWS.items():
+            sheet.range(f"{_UPPER_LABEL_COL}{r}").value = upper_labels[key]
+            sheet.range(f"{_LOWER_LABEL_COL}{r}").value = lower_labels[key]
     except Exception as e:
         print(f"[OILiveDashboard] Boundary panel labels skipped: {e}")
 
 
 def _write_boundary_panel(sheet, index_name, row):
-    """Overwrites the O:Q boundary summary in place -- current state
-    only, never logged/appended (that's what the A:M table is for).
-    Pulls per-strike rows via get_last_oi_snapshot() (already built
-    into index_tracker.py to avoid a second Fyers fetch), same 'rows'
+    """Overwrites both boundary blocks in place -- current state only,
+    never logged/appended (that's what the A:M table is for). Pulls
+    per-strike rows via get_last_oi_snapshot() (already built into
+    index_tracker.py to avoid a second Fyers fetch), the same `rows`
     snapshot_index() itself just used this cycle."""
     try:
         oi_snap = get_last_oi_snapshot(index_name)
         rows_data = (oi_snap or {}).get("rows")
         spot = row.get("Spot")
         call_pairs, put_pairs = compute_boundary_pairs(rows_data)
+        call1 = call_pairs[0] if len(call_pairs) > 0 else (None, None)
+        call2 = call_pairs[1] if len(call_pairs) > 1 else (None, None)
+        put1 = put_pairs[0] if len(put_pairs) > 0 else (None, None)
+        put2 = put_pairs[1] if len(put_pairs) > 1 else (None, None)
 
-        def _write_pair(key, pair):
-            r = _BOUNDARY_ROWS[key]
-            strike, oi = (pair if pair else (None, None))
-            sheet.range(f"P{r}").value = strike
-            sheet.range(f"Q{r}").value = _to_k(oi)  # display only -- Exits logic below still compares the real raw oi
-
-        _write_pair("call1", call_pairs[0] if len(call_pairs) > 0 else None)
-        _write_pair("call2", call_pairs[1] if len(call_pairs) > 1 else None)
-        _write_pair("put1", put_pairs[0] if len(put_pairs) > 0 else None)
-        _write_pair("put2", put_pairs[1] if len(put_pairs) > 1 else None)
+        r = _PANEL_ROWS
+        sheet.range(f"{_UPPER_VALUE_COL}{r['strike1']}").value = call1[0]
+        sheet.range(f"{_UPPER_VALUE_COL}{r['oi1']}").value = _to_k(call1[1])
+        sheet.range(f"{_UPPER_VALUE_COL}{r['strike2']}").value = call2[0]
+        sheet.range(f"{_UPPER_VALUE_COL}{r['oi2']}").value = _to_k(call2[1])
+        sheet.range(f"{_LOWER_VALUE_COL}{r['strike1']}").value = put1[0]
+        sheet.range(f"{_LOWER_VALUE_COL}{r['oi1']}").value = _to_k(put1[1])
+        sheet.range(f"{_LOWER_VALUE_COL}{r['strike2']}").value = put2[0]
+        sheet.range(f"{_LOWER_VALUE_COL}{r['oi2']}").value = _to_k(put2[1])
 
         bias = row.get("Bias") or ""
-        oi_cell = sheet.range(f"P{_BOUNDARY_ROWS['open_interest']}")
+        oi_cell = sheet.range(f"{_UPPER_VALUE_COL}{r['summary']}")
         oi_cell.value = bias
         oi_cell.color = _GREEN_FILL if "Bullish" in bias else (_RED_FILL if "Bearish" in bias else None)
 
         pcr = row.get("PCR")
-        pcr_cell = sheet.range(f"P{_BOUNDARY_ROWS['pcr']}")
+        pcr_cell = sheet.range(f"{_LOWER_VALUE_COL}{r['summary']}")
         pcr_cell.value = pcr
         if pcr is not None:
             pcr_cell.color = _GREEN_FILL if pcr > 1.3 else (_RED_FILL if pcr < 0.7 else None)
@@ -335,26 +338,27 @@ def _write_boundary_panel(sheet, index_name, row):
         # reference tool -- "Yes" means the #1 boundary strike's OI
         # dropped versus last cycle (writers unwinding there).
         prev = _prev_boundary_oi.get(index_name, {})
-        call1_oi = call_pairs[0][1] if call_pairs else None
-        put1_oi = put_pairs[0][1] if put_pairs else None
+        call1_oi, put1_oi = call1[1], put1[1]
         call_exit = prev.get("call") is not None and call1_oi is not None and call1_oi < prev["call"]
         put_exit = prev.get("put") is not None and put1_oi is not None and put1_oi < prev["put"]
-        for key, flag in (("call_exits", call_exit), ("put_exits", put_exit)):
-            cell = sheet.range(f"P{_BOUNDARY_ROWS[key]}")
-            cell.value = "Yes" if flag else "No"
-            cell.color = _AMBER_FILL if flag else None
+        call_exit_cell = sheet.range(f"{_UPPER_VALUE_COL}{r['exits']}")
+        call_exit_cell.value = "Yes" if call_exit else "No"
+        call_exit_cell.color = _AMBER_FILL if call_exit else None
+        put_exit_cell = sheet.range(f"{_LOWER_VALUE_COL}{r['exits']}")
+        put_exit_cell.value = "Yes" if put_exit else "No"
+        put_exit_cell.color = _AMBER_FILL if put_exit else None
         _prev_boundary_oi[index_name] = {"call": call1_oi, "put": put1_oi}
 
         # ITM: unambiguous -- is the #1 boundary strike itself ITM
         # right now (call ITM when strike < spot, put ITM when strike > spot).
-        call1_strike = call_pairs[0][0] if call_pairs else None
-        put1_strike = put_pairs[0][0] if put_pairs else None
-        call_itm = spot is not None and call1_strike is not None and call1_strike < spot
-        put_itm = spot is not None and put1_strike is not None and put1_strike > spot
-        for key, flag in (("call_itm", call_itm), ("put_itm", put_itm)):
-            cell = sheet.range(f"P{_BOUNDARY_ROWS[key]}")
-            cell.value = "Yes" if flag else "No"
-            cell.color = _AMBER_FILL if flag else None
+        call_itm = spot is not None and call1[0] is not None and call1[0] < spot
+        put_itm = spot is not None and put1[0] is not None and put1[0] > spot
+        call_itm_cell = sheet.range(f"{_UPPER_VALUE_COL}{r['itm']}")
+        call_itm_cell.value = "Yes" if call_itm else "No"
+        call_itm_cell.color = _AMBER_FILL if call_itm else None
+        put_itm_cell = sheet.range(f"{_LOWER_VALUE_COL}{r['itm']}")
+        put_itm_cell.value = "Yes" if put_itm else "No"
+        put_itm_cell.color = _AMBER_FILL if put_itm else None
     except Exception as e:
         print(f"[OILiveDashboard] Boundary panel write skipped for {index_name}: {e}")
 
@@ -363,23 +367,15 @@ def _get_or_create_sheet(book, index_name):
     """Returns a sheet whose header row is guaranteed to match
     _LIVE_LOG_COLUMNS exactly and whose data starts fresh for today.
 
-    Real bug found Sep 10 (live, in his actual workbook): the earlier
-    version's in-place clear_contents() removes cell VALUES but leaves
-    NUMBER FORMATTING behind. The old fixed-cell layout had written a
-    Time value into B2; clearing the value later didn't clear that
-    Time format, so the new code's raw Spot price landing in that same
-    cell displayed as a nonsense time ("01:12:00") instead of a price
-    -- and row 1 still read "Field"/"Value" because the header was
-    only ever written on a BRAND-NEW sheet, never re-checked against
-    an existing one.
-
-    Fix: never clear-in-place. If the sheet doesn't exist, or its row-1
-    header doesn't exactly match today's _LIVE_LOG_COLUMNS (catches
-    both a leftover old-schema sheet like this one, and a new
-    calendar day), DELETE the sheet and add a fresh one instead. A
-    freshly added sheet's cells start at Excel's true default format,
-    so this whole bug class can't recur regardless of what schema
-    lived there before.
+    Real bug found Sep 10 (live, in his actual workbook): an earlier
+    version's in-place clear_contents() removed cell VALUES but left
+    NUMBER FORMATTING behind -- a stale Time-formatted cell silently
+    turned a real Spot price into "01:12:00". Fix: never clear-in-
+    place. If the sheet doesn't exist, or its row-1 header doesn't
+    exactly match today's _LIVE_LOG_COLUMNS (catches both a leftover
+    old-schema sheet and a new calendar day), DELETE the sheet and add
+    a fresh one instead -- a freshly added sheet's cells start at
+    Excel's true default format, so this whole bug class can't recur.
     """
     today_str = datetime.now().strftime("%Y-%m-%d")
     existing = index_name in [s.name for s in book.sheets]
@@ -410,7 +406,7 @@ def _get_or_create_sheet(book, index_name):
         sheet.name = index_name
 
     sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
-    _write_boundary_panel_labels(sheet)  # must run BEFORE _style_header's autofit, so O:Q gets sized too
+    _write_boundary_panel_labels(sheet)  # must run BEFORE _style_header's autofit, so O:S gets sized too
     _style_header(sheet)
     _next_row[index_name] = 2
     _sheet_day_seen[index_name] = today_str
@@ -443,9 +439,9 @@ def write_live_dashboard(results):
             values = [
                 row.get("Time"), row.get("Spot"),
                 _to_k(total_call), _to_k(total_put), _to_k(oi_diff),
-                row.get("Highest Call OI Strike"), _to_k(row.get("Highest Call OI Value")),
-                row.get("Highest Put OI Strike"), _to_k(row.get("Highest Put OI Value")),
+                _to_k(row.get("Highest Call OI Value")), _to_k(row.get("Highest Put OI Value")),
                 row.get("Call ITM Ratio"), row.get("Put ITM Ratio"),
+                row.get("Highest Call OI Strike"), row.get("Highest Put OI Strike"),
                 row.get("PCR"), row.get("Bias"),
             ]
             r = _next_row.get(index_name, 2)
