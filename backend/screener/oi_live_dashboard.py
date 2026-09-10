@@ -44,6 +44,7 @@ _warned_once = False
 _next_row = {}
 _sheet_day_seen = {}
 _prev_values = {}
+_panel_ready = set()
 
 _GREEN_FILL = (198, 239, 206)
 _RED_FILL = (255, 199, 206)
@@ -221,9 +222,8 @@ def _prepare_sheet(book, index_name):
     _next_row[index_name] = 2
     _sheet_day_seen[index_name] = today
     _prev_values.pop(index_name, None)
+    _panel_ready.discard(index_name)
 
-    # Clear the reference viewport explicitly so no stale black/header formatting
-    # from an older workbook survives the schema/day reset.
     try:
         sheet.range(f"A1:M{_PANEL_START_ROW + 7}").clear_formats()
         sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
@@ -233,16 +233,22 @@ def _prepare_sheet(book, index_name):
     return sheet
 
 
-def _clear_panel_area(sheet):
-    try:
-        sheet.range(f"A{_PANEL_START_ROW}:I{_PANEL_START_ROW + 6}").clear_contents()
-        sheet.range(f"A{_PANEL_START_ROW}:I{_PANEL_START_ROW + 6}").clear_formats()
-    except Exception as e:
-        print(f"[OILiveDashboard] Panel cleanup skipped: {e}")
+def _style_panel_labels(sheet, title, r1, r2, r3, r4, r5):
+    for rr in (r1, r2, r3, r4, r5):
+        for addr in (f"A{rr}", f"C{rr}", f"F{rr}", f"H{rr}"):
+            sheet.range(addr).font.bold = True
+            _fill(sheet.range(addr), _LABEL_FILL)
+    for addr in (f"A{r3}", f"A{r4}", f"A{r5}", f"F{r3}", f"F{r4}", f"F{r5}"):
+        sheet.range(addr).font.bold = True
+        _fill(sheet.range(addr), _LABEL_FILL)
+    panel = sheet.range(f"A{title}:I{r5}")
+    panel.api.Borders.LineStyle = 1
+    panel.api.VerticalAlignment = -4108
+    panel.api.WrapText = True
 
 
 def _write_boundary_panel(sheet, index_name, row):
-    """Write the bottom panel in the same compact structure as the reference."""
+    """Update the bottom panel in-place; do not clear/re-merge it on every tick."""
     oi_snap = get_last_oi_snapshot(index_name) or {}
     rows = oi_snap.get("rows") or []
     calls, puts = compute_boundary_pairs(rows)
@@ -252,112 +258,86 @@ def _write_boundary_panel(sheet, index_name, row):
     put1 = puts[0] if puts else (None, None)
     put2 = puts[1] if len(puts) > 1 else (None, None)
 
-    _clear_panel_area(sheet)
-
     title = _PANEL_START_ROW
     r1, r2, r3, r4, r5 = title + 1, title + 2, title + 3, title + 4, title + 5
 
-    # Titles exactly describe what each side contains.
-    sheet.range(f"A{title}:D{title}").merge()
-    sheet.range(f"A{title}").value = "Open Interest Upper Boundary"
-    sheet.range(f"F{title}:I{title}").merge()
-    sheet.range(f"F{title}").value = "Open Interest Lower Boundary"
-    for addr in (f"A{title}", f"F{title}"):
-        sheet.range(addr).font.bold = True
-        sheet.range(addr).api.HorizontalAlignment = -4108
-        sheet.range(addr).api.VerticalAlignment = -4108
-        _fill(sheet.range(addr), _TITLE_FILL)
+    # Create the merged layout exactly once per sheet/day. Re-merging an already
+    # merged range was causing COM exceptions; the outer writer then stopped,
+    # making the lower panel appear to disappear intermittently.
+    if index_name not in _panel_ready:
+        try:
+            sheet.range(f"A{title}:D{title}").merge()
+            sheet.range(f"F{title}:I{title}").merge()
+            sheet.range(f"B{r3}:D{r3}").merge()
+            sheet.range(f"B{r4}:D{r4}").merge()
+            sheet.range(f"B{r5}:D{r5}").merge()
+            sheet.range(f"G{r3}:I{r3}").merge()
+            sheet.range(f"G{r4}:I{r4}").merge()
+            sheet.range(f"G{r5}:I{r5}").merge()
 
-    # Upper / call boundary.
-    upper = [
-        (r1, "Strike Price 1", call1[0], "OI (in K)", _to_k(call1[1])),
-        (r2, "Strike Price 2", call2[0], "OI (in K)", _to_k(call2[1])),
+            sheet.range(f"A{title}").value = "Open Interest Upper Boundary"
+            sheet.range(f"F{title}").value = "Open Interest Lower Boundary"
+            for addr in (f"A{title}", f"F{title}"):
+                sheet.range(addr).font.bold = True
+                sheet.range(addr).api.HorizontalAlignment = -4108
+                sheet.range(addr).api.VerticalAlignment = -4108
+                _fill(sheet.range(addr), _TITLE_FILL)
+
+            _style_panel_labels(sheet, title, r1, r2, r3, r4, r5)
+            sheet.range(f"D{r1}:D{r2}").number_format = "0.0"
+            sheet.range(f"I{r1}:I{r2}").number_format = "0.0"
+            sheet.range(f"G{r3}").number_format = "0.000"
+            for rr in range(title, r5 + 1):
+                sheet.range(f"{rr}:{rr}").row_height = 24
+            _panel_ready.add(index_name)
+        except Exception as e:
+            print(f"[OILiveDashboard] Panel layout setup skipped: {e}")
+            return
+
+    # Values only on every tick: substantially less Excel/COM work and no flicker.
+    sheet.range(f"A{r1}:D{r2}").value = [
+        ["Strike Price 1", call1[0], "OI (in K)", _to_k(call1[1])],
+        ["Strike Price 2", call2[0], "OI (in K)", _to_k(call2[1])],
     ]
-    for rr, l1, v1, l2, v2 in upper:
-        sheet.range(f"A{rr}").value = l1
-        sheet.range(f"B{rr}").value = v1
-        sheet.range(f"C{rr}").value = l2
-        sheet.range(f"D{rr}").value = v2
-        for addr in (f"A{rr}", f"C{rr}"):
-            sheet.range(addr).font.bold = True
-            _fill(sheet.range(addr), _LABEL_FILL)
-
     bias = row.get("Bias") or "N/A"
     sheet.range(f"A{r3}").value = "Open Interest"
-    sheet.range(f"B{r3}:D{r3}").merge()
     sheet.range(f"B{r3}").value = bias
     sheet.range(f"A{r4}").value = "Call Exits"
-    sheet.range(f"B{r4}:D{r4}").merge()
     sheet.range(f"B{r4}").value = "No"
-    sheet.range(f"A{r5}").value = "Call ITM"
-    sheet.range(f"B{r5}:D{r5}").merge()
     spot = row.get("Spot")
+    sheet.range(f"A{r5}").value = "Call ITM"
     sheet.range(f"B{r5}").value = "Yes" if spot is not None and call1[0] is not None and call1[0] < spot else "No"
 
-    # Lower / put boundary.
-    lower = [
-        (r1, "Strike Price 1", put1[0], "OI (in K)", _to_k(put1[1])),
-        (r2, "Strike Price 2", put2[0], "OI (in K)", _to_k(put2[1])),
+    sheet.range(f"F{r1}:I{r2}").value = [
+        ["Strike Price 1", put1[0], "OI (in K)", _to_k(put1[1])],
+        ["Strike Price 2", put2[0], "OI (in K)", _to_k(put2[1])],
     ]
-    for rr, l1, v1, l2, v2 in lower:
-        sheet.range(f"F{rr}").value = l1
-        sheet.range(f"G{rr}").value = v1
-        sheet.range(f"H{rr}").value = l2
-        sheet.range(f"I{rr}").value = v2
-        for addr in (f"F{rr}", f"H{rr}"):
-            sheet.range(addr).font.bold = True
-            _fill(sheet.range(addr), _LABEL_FILL)
-
     pcr = row.get("PCR")
     sheet.range(f"F{r3}").value = "PCR"
-    sheet.range(f"G{r3}:I{r3}").merge()
     sheet.range(f"G{r3}").value = pcr
     sheet.range(f"F{r4}").value = "Put Exits"
-    sheet.range(f"G{r4}:I{r4}").merge()
     sheet.range(f"G{r4}").value = "No"
     sheet.range(f"F{r5}").value = "Put ITM"
-    sheet.range(f"G{r5}:I{r5}").merge()
     put_itm = spot is not None and put1[0] is not None and put1[0] > spot
     sheet.range(f"G{r5}").value = "Yes" if put_itm else "No"
 
-    for addr in (f"A{r3}", f"A{r4}", f"A{r5}", f"F{r3}", f"F{r4}", f"F{r5}"):
-        sheet.range(addr).font.bold = True
+    # Restore label fills only if an old workbook lost them; this is lightweight
+    # compared with clearing/reformatting the whole panel every update.
+    for addr in (f"A{r1}", f"C{r1}", f"A{r2}", f"C{r2}", f"A{r3}", f"A{r4}", f"A{r5}",
+                 f"F{r1}", f"H{r1}", f"F{r2}", f"H{r2}", f"F{r3}", f"F{r4}", f"F{r5}"):
         _fill(sheet.range(addr), _LABEL_FILL)
 
-    if "Bullish" in bias:
-        _fill(sheet.range(f"B{r3}"), _GREEN_FILL)
-    elif "Bearish" in bias:
-        _fill(sheet.range(f"B{r3}"), _RED_FILL)
+    _fill(sheet.range(f"B{r3}"), _GREEN_FILL if "Bullish" in bias else _RED_FILL if "Bearish" in bias else _AMBER_FILL)
     if pcr is not None:
-        if pcr > 1.3:
-            _fill(sheet.range(f"G{r3}"), _GREEN_FILL)
-        elif pcr < 0.7:
-            _fill(sheet.range(f"G{r3}"), _RED_FILL)
-
-    try:
-        panel = sheet.range(f"A{title}:I{r5}")
-        panel.api.Borders.LineStyle = 1
-        panel.api.VerticalAlignment = -4108
-        panel.api.WrapText = True
-        sheet.range(f"D{r1}:D{r2}").number_format = "0.0"
-        sheet.range(f"I{r1}:I{r2}").number_format = "0.0"
-        sheet.range(f"G{r3}").number_format = "0.000"
-        for rr in range(title, r5 + 1):
-            sheet.range(f"{rr}:{rr}").row_height = 24
-    except Exception as e:
-        print(f"[OILiveDashboard] Panel border formatting skipped: {e}")
+        _fill(sheet.range(f"G{r3}"), _GREEN_FILL if pcr > 1.3 else _RED_FILL if pcr < 0.7 else _AMBER_FILL)
 
 
 def _write_dashboard_row(sheet, index_name, values):
-    """Write the newest sample into the compact live viewport and retain history below."""
-    # Move the current viewport down one row only when it is full. This keeps the
-    # reference-style bottom panel fixed while still retaining all historical rows
-    # in the workbook starting after the panel.
+    """Write the newest sample into the compact live viewport."""
     current_rows = max(0, _next_row.get(index_name, 2) - 2)
     if current_rows < _LIVE_VIEW_ROWS:
         row_num = 2 + current_rows
     else:
-        # Shift the visible live rows upward by one and append at the last viewport row.
         sheet.range(f"A3:M{_LIVE_VIEW_ROWS + 1}").value = sheet.range(f"A4:M{_LIVE_VIEW_ROWS + 2}").value
         row_num = _LIVE_VIEW_ROWS + 1
     sheet.range(f"A{row_num}:M{row_num}").value = [values]
@@ -368,7 +348,7 @@ def _write_dashboard_row(sheet, index_name, values):
 
 
 def write_live_dashboard(results):
-    """Append live OI data and keep a clear reference-style boundary panel."""
+    """Append live OI data and keep a stable reference-style boundary panel."""
     book = _get_dashboard_book()
     if book is None:
         return
