@@ -97,6 +97,13 @@ _book = None  # cached workbook handle
 _warned_once = False
 _next_row = {}         # {index_name: int} -- next empty row to write to
 _sheet_day_seen = {}   # {index_name: 'YYYY-MM-DD'} -- last calendar day this process appended a row for that sheet
+_prev_values = {}      # {index_name: [values from the last written row]} -- drives up/down coloring
+
+_GREEN_FILL = (198, 239, 206)  # Excel's own standard "Good" green
+_RED_FILL = (255, 199, 206)    # Excel's own standard "Bad" red
+_COL_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M"]
+_PCR_COL_INDEX = _LIVE_LOG_COLUMNS.index("PCR")
+_BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
 
 
 def compute_itm_ratios(rows, spot, total_ce_oi, total_pe_oi):
@@ -162,34 +169,120 @@ def _get_dashboard_book():
         return None
 
 
+def _style_header(sheet):
+    """Bold + light gray fill on the header row -- cosmetic only, wrapped
+    like everything else so a styling failure never blocks real data
+    from being written."""
+    try:
+        header_range = sheet.range(f"A1:{_COL_LETTERS[-1]}1")
+        header_range.font.bold = True
+        header_range.color = (242, 242, 242)
+    except Exception as e:
+        print(f"[OILiveDashboard] Header styling skipped: {e}")
+
+
+def _apply_row_colors(sheet, r, values, prev_values):
+    """Colors the row just written -- never touches any earlier row, so
+    colors accumulate down the sheet the same way the reference tool's
+    do. Two different rules depending on column:
+
+    - PCR: colored by his own stated thresholds (Bullish >1.3, Bearish
+      <0.7, from nse-scanner.md/_derive_bias's PCR vote) rather than
+      up/down tick -- a threshold he's already defined is a more
+      meaningful read than "did it move since last cycle."
+    - Bias: colored by its own label (Bullish/Bearish substring) --
+      it's already a category, not a number to compare.
+    - Everything else numeric: green if it rose vs the immediately
+      previous cycle, red if it fell, left uncolored if unchanged or
+      if there's no previous row yet (first row of the day)."""
+    for i, col in enumerate(_COL_LETTERS):
+        if i == 0:  # Time -- never colored
+            continue
+        cell = sheet.range(f"{col}{r}")
+        try:
+            if i == _BIAS_COL_INDEX:
+                bias = values[i] or ""
+                if "Bullish" in bias:
+                    cell.color = _GREEN_FILL
+                elif "Bearish" in bias:
+                    cell.color = _RED_FILL
+                continue
+            if i == _PCR_COL_INDEX:
+                pcr = values[i]
+                if pcr is not None:
+                    if pcr > 1.3:
+                        cell.color = _GREEN_FILL
+                    elif pcr < 0.7:
+                        cell.color = _RED_FILL
+                continue
+            if prev_values is None:
+                continue
+            old, new = prev_values[i], values[i]
+            if old is None or new is None:
+                continue
+            if new > old:
+                cell.color = _GREEN_FILL
+            elif new < old:
+                cell.color = _RED_FILL
+        except Exception as e:
+            print(f"[OILiveDashboard] Coloring {col}{r} skipped: {e}")
+
+
 def _get_or_create_sheet(book, index_name):
-    """Returns the sheet, guaranteed to have the header row in place and
-    _next_row/_sheet_day_seen correctly set for today. Handles three
-    real cases: brand-new sheet, existing sheet from earlier today
-    (just keep appending), existing sheet whose last data predates
-    today (persisted in the file from a previous day -- clear it back
-    to just the header, same "one day's worth of log" shape the
-    reference tool has)."""
+    """Returns a sheet whose header row is guaranteed to match
+    _LIVE_LOG_COLUMNS exactly and whose data starts fresh for today.
+
+    Real bug found Sep 10 (live, in his actual workbook): the earlier
+    version's in-place clear_contents() removes cell VALUES but leaves
+    NUMBER FORMATTING behind. The old fixed-cell layout had written a
+    Time value into B2; clearing the value later didn't clear that
+    Time format, so the new code's raw Spot price landing in that same
+    cell displayed as a nonsense time ("01:12:00") instead of a price
+    -- and row 1 still read "Field"/"Value" because the header was
+    only ever written on a BRAND-NEW sheet, never re-checked against
+    an existing one.
+
+    Fix: never clear-in-place. If the sheet doesn't exist, or its row-1
+    header doesn't exactly match today's _LIVE_LOG_COLUMNS (catches
+    both a leftover old-schema sheet like this one, and a new
+    calendar day), DELETE the sheet and add a fresh one instead. A
+    freshly added sheet's cells start at Excel's true default format,
+    so this whole bug class can't recur regardless of what schema
+    lived there before.
+    """
     today_str = datetime.now().strftime("%Y-%m-%d")
+    existing = index_name in [s.name for s in book.sheets]
 
-    if index_name not in [s.name for s in book.sheets]:
-        sheet = book.sheets.add(index_name, after=book.sheets[-1])
-        sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
-        _next_row[index_name] = 2
-        _sheet_day_seen[index_name] = today_str
-        return sheet
+    needs_reset = not existing
+    if existing:
+        sheet = book.sheets[index_name]
+        try:
+            current_header = sheet.range("A1").expand("right").value
+        except Exception:
+            current_header = None
+        if current_header != _LIVE_LOG_COLUMNS:
+            needs_reset = True
+        elif _sheet_day_seen.get(index_name) != today_str:
+            needs_reset = True
 
-    sheet = book.sheets[index_name]
-    if _sheet_day_seen.get(index_name) == today_str:
-        return sheet  # already confirmed fresh-for-today this process, nothing to check
+    if not needs_reset:
+        return book.sheets[index_name]
 
-    # First touch of this sheet this process (right after a restart) --
-    # if it's carrying rows from a previous day, clear them.
-    used = sheet.used_range
-    if used.last_cell.row > 1:
-        sheet.range(f"A2:{used.last_cell.address}").clear_contents()
+    old_sheet = book.sheets[index_name] if existing else None
+    # Add the new sheet under a temp name FIRST, then delete the old one
+    # -- avoids both "can't delete the workbook's last remaining sheet"
+    # and "duplicate sheet name" if done in the other order.
+    temp_name = f"{index_name}_new" if existing else index_name
+    sheet = book.sheets.add(temp_name, after=book.sheets[-1])
+    if old_sheet is not None:
+        old_sheet.delete()
+        sheet.name = index_name
+
+    sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
+    _style_header(sheet)
     _next_row[index_name] = 2
     _sheet_day_seen[index_name] = today_str
+    _prev_values.pop(index_name, None)
     return sheet
 
 
@@ -224,6 +317,8 @@ def write_live_dashboard(results):
             ]
             r = _next_row.get(index_name, 2)
             sheet.range(f"A{r}").value = [values]
+            _apply_row_colors(sheet, r, values, _prev_values.get(index_name))
+            _prev_values[index_name] = values
             _next_row[index_name] = r + 1
         except Exception as e:
             print(f"[OILiveDashboard] Failed writing {index_name} live row: {e}")
