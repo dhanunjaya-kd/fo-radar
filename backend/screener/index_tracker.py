@@ -318,6 +318,7 @@ COLUMNS = [
     "Total Put OI", "Total Call OI",
     "Highest Put OI Strike", "Highest Put OI Value",
     "Highest Call OI Strike", "Highest Call OI Value",
+    "Call ITM Ratio", "Put ITM Ratio",
     "IV %", "IV %ile", "VIX", "Support", "Resistance", "Max Pain", "Max Pain Dist %",
     "OI Buildup", "Bias", "Price Confirms Bias",
     "Confirms 5min", "Confirms 30min", "Confirms 60min", "Horizons Confirming",
@@ -1251,6 +1252,14 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     highest_put_value = (put_wall_row or {}).get("pe", {}).get("oi") if put_wall_row else None
     highest_call_value = (call_wall_row or {}).get("ce", {}).get("oi") if call_wall_row else None
 
+    # Sep 10 2026: what fraction of each side's chain-wide OI is already
+    # in-the-money right now -- new metric, not derived from anything
+    # above. Reuses `rows`/`oi` already fetched this cycle, no second
+    # call. See oi_live_dashboard.py's docstring for the real caveat
+    # about `rows` coverage vs oi['ce_oi']/oi['pe_oi']'s own population.
+    from .oi_live_dashboard import compute_itm_ratios
+    call_itm_ratio, put_itm_ratio = compute_itm_ratios(rows, oi.get("spot"), oi.get("ce_oi"), oi.get("pe_oi"))
+
     with _lock:
         prev = _last_snapshot.get(index_name, {})
         pe_chg = (pe_oi - prev["pe_oi"]) if (pe_oi is not None and "pe_oi" in prev) else None
@@ -1319,6 +1328,7 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "Total Put OI": oi.get("pe_oi"), "Total Call OI": oi.get("ce_oi"),
         "Highest Put OI Strike": highest_put_strike, "Highest Put OI Value": highest_put_value,
         "Highest Call OI Strike": highest_call_strike, "Highest Call OI Value": highest_call_value,
+        "Call ITM Ratio": call_itm_ratio, "Put ITM Ratio": put_itm_ratio,
         "IV %": oi.get("iv"), "IV %ile": iv_percentile, "VIX": vix,
         "Support": oi.get("support"), "Resistance": oi.get("resistance"),
         "Max Pain": oi.get("max_pain"), "Max Pain Dist %": oi.get("max_pain_dist_pct"),
@@ -1375,6 +1385,18 @@ def snapshot_all(change_percents=None, vix=None):
             except Exception as e:
                 print(f"[IndexTracker] {name} snapshot thread failed: {e}")
                 results[name] = None
+
+    # Sep 10 2026: pushes the same row dicts just built above into a
+    # live-visible Excel window via xlwings -- no new Fyers fetch, just
+    # a second write of data already in hand. Wrapped so a dashboard
+    # failure (Excel not open, xlwings not installed, etc.) can never
+    # affect the real return value the rest of the app depends on.
+    try:
+        from .oi_live_dashboard import write_live_dashboard
+        write_live_dashboard(results)
+    except Exception as e:
+        print(f"[IndexTracker] Live dashboard write failed (non-fatal): {e}")
+
     return results
 
 
