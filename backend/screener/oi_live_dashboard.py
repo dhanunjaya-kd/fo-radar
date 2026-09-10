@@ -33,8 +33,6 @@ _COL_LETTERS = [chr(ord("A") + i) for i in range(len(_LIVE_LOG_COLUMNS))]
 _PCR_COL_INDEX = _LIVE_LOG_COLUMNS.index("PCR")
 _BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
 
-# Keep the dashboard compact like the reference application. Older rows remain
-# in the workbook below the live viewport instead of being deleted.
 _LIVE_VIEW_ROWS = 18
 _PANEL_START_ROW = 21
 
@@ -45,6 +43,7 @@ _next_row = {}
 _sheet_day_seen = {}
 _prev_values = {}
 _panel_ready = set()
+_panel_start_rows = {}
 
 _GREEN_FILL = (198, 239, 206)
 _RED_FILL = (255, 199, 206)
@@ -223,6 +222,7 @@ def _prepare_sheet(book, index_name):
     _sheet_day_seen[index_name] = today
     _prev_values.pop(index_name, None)
     _panel_ready.discard(index_name)
+    _panel_start_rows[index_name] = _PANEL_START_ROW
 
     try:
         sheet.range(f"A1:M{_PANEL_START_ROW + 7}").clear_formats()
@@ -248,7 +248,7 @@ def _style_panel_labels(sheet, title, r1, r2, r3, r4, r5):
 
 
 def _write_boundary_panel(sheet, index_name, row):
-    """Update the bottom panel in-place; do not clear/re-merge it on every tick."""
+    """Update the bottom panel in-place at its current row."""
     oi_snap = get_last_oi_snapshot(index_name) or {}
     rows = oi_snap.get("rows") or []
     calls, puts = compute_boundary_pairs(rows)
@@ -258,12 +258,9 @@ def _write_boundary_panel(sheet, index_name, row):
     put1 = puts[0] if puts else (None, None)
     put2 = puts[1] if len(puts) > 1 else (None, None)
 
-    title = _PANEL_START_ROW
+    title = _panel_start_rows.get(index_name, _PANEL_START_ROW)
     r1, r2, r3, r4, r5 = title + 1, title + 2, title + 3, title + 4, title + 5
 
-    # Create the merged layout exactly once per sheet/day. Re-merging an already
-    # merged range was causing COM exceptions; the outer writer then stopped,
-    # making the lower panel appear to disappear intermittently.
     if index_name not in _panel_ready:
         try:
             sheet.range(f"A{title}:D{title}").merge()
@@ -294,7 +291,6 @@ def _write_boundary_panel(sheet, index_name, row):
             print(f"[OILiveDashboard] Panel layout setup skipped: {e}")
             return
 
-    # Values only on every tick: substantially less Excel/COM work and no flicker.
     sheet.range(f"A{r1}:D{r2}").value = [
         ["Strike Price 1", call1[0], "OI (in K)", _to_k(call1[1])],
         ["Strike Price 2", call2[0], "OI (in K)", _to_k(call2[1])],
@@ -321,8 +317,6 @@ def _write_boundary_panel(sheet, index_name, row):
     put_itm = spot is not None and put1[0] is not None and put1[0] > spot
     sheet.range(f"G{r5}").value = "Yes" if put_itm else "No"
 
-    # Restore label fills only if an old workbook lost them; this is lightweight
-    # compared with clearing/reformatting the whole panel every update.
     for addr in (f"A{r1}", f"C{r1}", f"A{r2}", f"C{r2}", f"A{r3}", f"A{r4}", f"A{r5}",
                  f"F{r1}", f"H{r1}", f"F{r2}", f"H{r2}", f"F{r3}", f"F{r4}", f"F{r5}"):
         _fill(sheet.range(addr), _LABEL_FILL)
@@ -333,22 +327,34 @@ def _write_boundary_panel(sheet, index_name, row):
 
 
 def _write_dashboard_row(sheet, index_name, values):
-    """Write the newest sample into the compact live viewport."""
+    """Append every live sample to the next row; move the panel down with it."""
     current_rows = max(0, _next_row.get(index_name, 2) - 2)
-    if current_rows < _LIVE_VIEW_ROWS:
-        row_num = 2 + current_rows
+
+    if current_rows == 0:
+        # First sample: panel is created later in the same write cycle.
+        row_num = 2
     else:
-        sheet.range(f"A3:M{_LIVE_VIEW_ROWS + 1}").value = sheet.range(f"A4:M{_LIVE_VIEW_ROWS + 2}").value
-        row_num = _LIVE_VIEW_ROWS + 1
+        # Insert exactly one row immediately above the current panel. Excel moves
+        # the existing panel down by one row, so every live sample gets its own
+        # permanent row without overwriting older samples.
+        panel_row = _panel_start_rows.get(index_name, _PANEL_START_ROW)
+        try:
+            sheet.range(f"{panel_row}:{panel_row}").api.EntireRow.Insert()
+        except Exception as e:
+            print(f"[OILiveDashboard] Could not insert dashboard row: {e}")
+            return None
+        row_num = panel_row
+        _panel_start_rows[index_name] = panel_row + 1
+
     sheet.range(f"A{row_num}:M{row_num}").value = [values]
     _style_live_row(sheet, row_num, values, _prev_values.get(index_name))
     _prev_values[index_name] = values
-    _next_row[index_name] = min(_next_row.get(index_name, 2) + 1, _LIVE_VIEW_ROWS + 2)
+    _next_row[index_name] = _next_row.get(index_name, 2) + 1
     return row_num
 
 
 def write_live_dashboard(results):
-    """Append live OI data and keep a stable reference-style boundary panel."""
+    """Append live OI data and keep the boundary panel below all live rows."""
     book = _get_dashboard_book()
     if book is None:
         return
@@ -368,11 +374,20 @@ def write_live_dashboard(results):
                 row.get("Put ITM Ratio"), row.get("Highest Call OI Strike"),
                 row.get("Highest Put OI Strike"), row.get("PCR"), row.get("Bias"),
             ]
+
+            # Create the panel on the first sample. Subsequent samples insert one
+            # row above it, moving the panel down while preserving all history.
+            if index_name not in _panel_ready:
+                _write_boundary_panel(sheet, index_name, row)
             row_num = _write_dashboard_row(sheet, index_name, values)
+            if row_num is None:
+                continue
+
             sheet.range(f"B{row_num}:G{row_num}").number_format = "#,##0.0"
             sheet.range(f"H{row_num}:I{row_num}").number_format = "0.000"
             sheet.range(f"J{row_num}:K{row_num}").number_format = "0"
             sheet.range(f"L{row_num}").number_format = "0.000"
+
             _write_boundary_panel(sheet, index_name, row)
         except Exception as e:
             print(f"[OILiveDashboard] Failed writing {index_name}: {e}")
