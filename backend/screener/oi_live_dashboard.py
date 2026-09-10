@@ -86,9 +86,9 @@ DASHBOARD_PATH = os.path.join(LOG_DIR, "oi_live_dashboard.xlsx")
 # Header row for the append-log layout -- one row per cycle underneath
 # this, same column order as the reference tool's scrolling table.
 _LIVE_LOG_COLUMNS = [
-    "Time", "Spot", "Total Call OI", "Total Put OI", "OI Diff",
-    "Call Boundary Strike", "Call Boundary OI",
-    "Put Boundary Strike", "Put Boundary OI",
+    "Time", "Spot", "Total Call OI (K)", "Total Put OI (K)", "OI Diff (K)",
+    "Call Boundary Strike", "Call Boundary OI (K)",
+    "Put Boundary Strike", "Put Boundary OI (K)",
     "Call ITM Ratio", "Put ITM Ratio", "PCR", "Bias",
 ]
 
@@ -116,6 +116,15 @@ _BOUNDARY_ROWS = {
 }
 _AMBER_FILL = (255, 235, 156)  # Excel's standard "Neutral/Note" amber -- used for Yes flags worth a second look
 _prev_boundary_oi = {}  # {index_name: {'call': oi, 'put': oi}} -- drives the Exits guess (see compute_boundary_pairs docstring)
+
+
+def _to_k(value):
+    """Raw OI count -> thousands, 1 decimal -- matches the reference
+    tool's "(in K)" columns (163.2 instead of 163200). Also sidesteps
+    the real bug hit Sep 10: writing raw 7-8 digit counts into an
+    unsized column made Excel display them in scientific notation
+    ("-1.4E+07") instead of a readable number."""
+    return round(value / 1000, 1) if value is not None else None
 
 
 def compute_itm_ratios(rows, spot, total_ce_oi, total_pe_oi):
@@ -205,13 +214,16 @@ def _get_dashboard_book():
 
 
 def _style_header(sheet):
-    """Bold + light gray fill on the header row -- cosmetic only, wrapped
-    like everything else so a styling failure never blocks real data
-    from being written."""
+    """Bold + light gray fill on the header row, then auto-size every
+    column to fit its header text -- run once per sheet (re)creation,
+    real bug found Sep 10: never doing this left every OI/ratio column
+    truncated (e.g. "Call Bounc") because Excel's default column width
+    is far narrower than these header labels."""
     try:
         header_range = sheet.range(f"A1:{_COL_LETTERS[-1]}1")
         header_range.font.bold = True
         header_range.color = (242, 242, 242)
+        sheet.autofit()
     except Exception as e:
         print(f"[OILiveDashboard] Header styling skipped: {e}")
 
@@ -276,6 +288,9 @@ def _write_boundary_panel_labels(sheet):
         }
         sheet.range(f"{_BOUNDARY_PANEL_COL}1").value = "OI boundary summary"
         sheet.range(f"{_BOUNDARY_PANEL_COL}1").font.bold = True
+        sheet.range("P1").value = "Strike"
+        sheet.range("Q1").value = "OI (K)"
+        sheet.range("P1:Q1").font.bold = True
         for key, r in _BOUNDARY_ROWS.items():
             sheet.range(f"{_BOUNDARY_PANEL_COL}{r}").value = labels[key]
     except Exception as e:
@@ -298,7 +313,7 @@ def _write_boundary_panel(sheet, index_name, row):
             r = _BOUNDARY_ROWS[key]
             strike, oi = (pair if pair else (None, None))
             sheet.range(f"P{r}").value = strike
-            sheet.range(f"Q{r}").value = oi
+            sheet.range(f"Q{r}").value = _to_k(oi)  # display only -- Exits logic below still compares the real raw oi
 
         _write_pair("call1", call_pairs[0] if len(call_pairs) > 0 else None)
         _write_pair("call2", call_pairs[1] if len(call_pairs) > 1 else None)
@@ -395,8 +410,8 @@ def _get_or_create_sheet(book, index_name):
         sheet.name = index_name
 
     sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
+    _write_boundary_panel_labels(sheet)  # must run BEFORE _style_header's autofit, so O:Q gets sized too
     _style_header(sheet)
-    _write_boundary_panel_labels(sheet)
     _next_row[index_name] = 2
     _sheet_day_seen[index_name] = today_str
     _prev_values.pop(index_name, None)
@@ -427,9 +442,9 @@ def write_live_dashboard(results):
             )
             values = [
                 row.get("Time"), row.get("Spot"),
-                total_call, total_put, oi_diff,
-                row.get("Highest Call OI Strike"), row.get("Highest Call OI Value"),
-                row.get("Highest Put OI Strike"), row.get("Highest Put OI Value"),
+                _to_k(total_call), _to_k(total_put), _to_k(oi_diff),
+                row.get("Highest Call OI Strike"), _to_k(row.get("Highest Call OI Value")),
+                row.get("Highest Put OI Strike"), _to_k(row.get("Highest Put OI Value")),
                 row.get("Call ITM Ratio"), row.get("Put ITM Ratio"),
                 row.get("PCR"), row.get("Bias"),
             ]
