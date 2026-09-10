@@ -1,19 +1,19 @@
-"""Live OI Excel dashboard.
+"""Live OI Excel dashboard writer.
 
-The module only writes data already fetched by index_tracker.snapshot_all();
-it does not make additional Fyers requests. The workbook is separate from the
-daily tracker workbook because Excel COM/xlwings and openpyxl should not share
-one file.
+Uses only the NIFTY/BANKNIFTY snapshot data already fetched by
+index_tracker.snapshot_all(); this module makes no extra Fyers requests.
 
-The layout follows the supplied NSE Option Chain Analyzer reference:
-- A:M: scrolling timestamped OI table.
-- Bottom: side-by-side Open Interest Upper Boundary and Open Interest Lower
-  Boundary panels with explicit label/value cells.
-- NIFTY and BANKNIFTY remain separate sheets.
+Workbook layout is intentionally close to the supplied NSE Option Chain
+Analyzer reference:
+  A:M  scrolling live table
+  A:D  Open Interest Upper Boundary (call side)
+  F:I  Open Interest Lower Boundary (put side)
+  E    visual spacer
 
-The reference tool's exact formula for its top-table Call Boundary/Put Boundary
-numbers is unavailable, so the existing project's highest call/put OI values
-are retained under those labels rather than inventing a formula.
+The first nine table headers use the reference wording exactly. The remaining
+four columns are existing project fields retained as clearly labelled bonus
+data. The reference tool's exact formula for its top-table Boundary numbers is
+not available, so the existing highest call/put OI calculation is preserved.
 """
 
 import os
@@ -51,7 +51,7 @@ _last_panel_rows = {}
 _GREEN_FILL = (198, 239, 206)
 _RED_FILL = (255, 199, 206)
 _AMBER_FILL = (255, 235, 156)
-_PANEL_LABEL_FILL = (226, 240, 217)
+_LABEL_FILL = (226, 240, 217)
 _TITLE_FILL = (217, 234, 247)
 
 
@@ -60,7 +60,7 @@ def _to_k(value):
 
 
 def compute_itm_ratios(rows, spot, total_ce_oi, total_pe_oi):
-    """Return the fraction of each side's OI that is currently ITM."""
+    """Return call/put ITM OI ratios; return None when required data is missing."""
     if not rows or spot is None:
         return None, None
     call_itm = sum(
@@ -80,7 +80,7 @@ def compute_itm_ratios(rows, spot, total_ce_oi, total_pe_oi):
 
 
 def compute_boundary_pairs(rows, top_n=2):
-    """Return top call-OI and put-OI strikes as (strike, oi) pairs."""
+    """Return the highest-OI call and put strikes as (strike, oi) pairs."""
     if not rows:
         return [], []
 
@@ -181,23 +181,22 @@ def _apply_row_colors(sheet, row_num, values, previous):
                     elif new < old:
                         _fill(cell, _RED_FILL)
         except Exception as e:
-            print(f"[OILiveDashboard] Cell colour skipped {col}{row_num}: {e}")
+            print(f"[OILiveDashboard] Colour skipped for {col}{row_num}: {e}")
 
 
 def _prepare_sheet(book, index_name):
-    """Create a clean per-day sheet so stale Excel number formats cannot leak."""
+    """Use a fresh sheet when the schema/day changes to prevent stale formats."""
     today = datetime.now().strftime("%Y-%m-%d")
-    names = [s.name for s in book.sheets]
-    exists = index_name in names
+    exists = index_name in [s.name for s in book.sheets]
     reset = not exists
 
     if exists:
         sheet = book.sheets[index_name]
         try:
-            header = sheet.range("A1").expand("right").value
+            current_header = sheet.range("A1").expand("right").value
         except Exception:
-            header = None
-        reset = header != _LIVE_LOG_COLUMNS or _sheet_day_seen.get(index_name) != today
+            current_header = None
+        reset = current_header != _LIVE_LOG_COLUMNS or _sheet_day_seen.get(index_name) != today
 
     if not reset:
         return book.sheets[index_name]
@@ -228,19 +227,11 @@ def _clear_previous_panel(sheet, index_name):
         sheet.range(f"A{start}:I{end}").clear_contents()
         sheet.range(f"A{start}:I{end}").clear_formats()
     except Exception as e:
-        print(f"[OILiveDashboard] Old panel cleanup skipped: {e}")
-
-
-def _merge_label_value(sheet, label_cell, value_cell, label, value, fill=None):
-    sheet.range(f"{label_cell}").value = label
-    sheet.range(f"{value_cell}").value = value
-    sheet.range(label_cell).font.bold = True
-    if fill:
-        _fill(sheet.range(label_cell), fill)
+        print(f"[OILiveDashboard] Previous panel cleanup skipped: {e}")
 
 
 def _write_boundary_panel(sheet, index_name, row, start_row):
-    """Write a single clean current-state panel below the scrolling table."""
+    """Write the reference-style bottom panel: title + two strikes + status rows."""
     oi_snap = get_last_oi_snapshot(index_name) or {}
     rows = oi_snap.get("rows") or []
     calls, puts = compute_boundary_pairs(rows)
@@ -253,12 +244,12 @@ def _write_boundary_panel(sheet, index_name, row, start_row):
     _clear_previous_panel(sheet, index_name)
 
     title = start_row
-    r1, r2, r3, r4 = title + 1, title + 2, title + 3, title + 4
-    r5, r6, r7 = title + 5, title + 6, title + 7
+    r1, r2, r3, r4, r5 = title + 1, title + 2, title + 3, title + 4, title + 5
 
-    # Upper/call block: A:D. Lower/put block: F:I. Column E is a visual spacer.
-    for rng, text in ((f"A{title}:D{title}", "Open Interest Upper Boundary"),
-                      (f"F{title}:I{title}", "Open Interest Lower Boundary")):
+    for rng, text in (
+        (f"A{title}:D{title}", "Open Interest Upper Boundary"),
+        (f"F{title}:I{title}", "Open Interest Lower Boundary"),
+    ):
         sheet.range(rng).merge()
         first = rng.split(":")[0]
         sheet.range(first).value = text
@@ -266,76 +257,85 @@ def _write_boundary_panel(sheet, index_name, row, start_row):
         sheet.range(first).api.HorizontalAlignment = -4108
         _fill(sheet.range(first), _TITLE_FILL)
 
-    # Row 1: Strike Price 1 + OI. Row 2: Strike Price 2 + OI.
-    _merge_label_value(sheet, f"A{r1}", f"B{r1}", "Strike Price 1", call1[0], _PANEL_LABEL_FILL)
-    _merge_label_value(sheet, f"C{r1}", f"D{r1}", "OI (in K)", _to_k(call1[1]), _PANEL_LABEL_FILL)
-    _merge_label_value(sheet, f"A{r2}", f"B{r2}", "Strike Price 2", call2[0], _PANEL_LABEL_FILL)
-    _merge_label_value(sheet, f"C{r2}", f"D{r2}", "OI (in K)", _to_k(call2[1]), _PANEL_LABEL_FILL)
+    # Upper boundary / call side.
+    upper_rows = [
+        (r1, "Strike Price 1", call1[0], "OI (in K)", _to_k(call1[1])),
+        (r2, "Strike Price 2", call2[0], "OI (in K)", _to_k(call2[1])),
+    ]
+    for rr, label1, value1, label2, value2 in upper_rows:
+        sheet.range(f"A{rr}").value = label1
+        sheet.range(f"B{rr}").value = value1
+        sheet.range(f"C{rr}").value = label2
+        sheet.range(f"D{rr}").value = value2
+        for addr in (f"A{rr}", f"C{rr}"):
+            sheet.range(addr).font.bold = True
+            _fill(sheet.range(addr), _LABEL_FILL)
 
-    _merge_label_value(sheet, f"F{r1}", f"G{r1}", "Strike Price 1", put1[0], _PANEL_LABEL_FILL)
-    _merge_label_value(sheet, f"H{r1}", f"I{r1}", "OI (in K)", _to_k(put1[1]), _PANEL_LABEL_FILL)
-    _merge_label_value(sheet, f"F{r2}", f"G{r2}", "Strike Price 2", put2[0], _PANEL_LABEL_FILL)
-    _merge_label_value(sheet, f"H{r2}", f"I{r2}", "OI (in K)", _to_k(put2[1]), _PANEL_LABEL_FILL)
-
-    # Summary/status rows mirror the reference wording and grouping.
     bias = row.get("Bias") or "N/A"
-    pcr = row.get("PCR")
+    sheet.range(f"A{r3}").value = "Open Interest"
+    sheet.range(f"B{r3}:D{r3}").merge()
+    sheet.range(f"B{r3}").value = bias
+    sheet.range(f"A{r4}").value = "Call Exits"
+    sheet.range(f"B{r4}:D{r4}").merge()
+    sheet.range(f"B{r4}").value = "No"
     spot = row.get("Spot")
     call_itm = spot is not None and call1[0] is not None and call1[0] < spot
-    put_itm = spot is not None and put1[0] is not None and put1[0] > spot
+    sheet.range(f"A{r5}").value = "Call ITM"
+    sheet.range(f"B{r5}:D{r5}").merge()
+    sheet.range(f"B{r5}").value = "Yes" if call_itm else "No"
 
-    _merge_label_value(sheet, f"A{r3}", f"B{r3}", "Open Interest", bias, _PANEL_LABEL_FILL)
-    sheet.range(f"A{r3}:B{r3}").merge()
-    sheet.range(f"C{r3}").value = "Open Interest"
-    sheet.range(f"D{r3}").value = bias
-    sheet.range(f"C{r3}").font.bold = True
-    _fill(sheet.range(f"C{r3}"), _PANEL_LABEL_FILL)
-    if "Bullish" in bias:
-        _fill(sheet.range(f"D{r3}"), _GREEN_FILL)
-    elif "Bearish" in bias:
-        _fill(sheet.range(f"D{r3}"), _RED_FILL)
+    # Lower boundary / put side.
+    lower_rows = [
+        (r1, "Strike Price 1", put1[0], "OI (in K)", _to_k(put1[1])),
+        (r2, "Strike Price 2", put2[0], "OI (in K)", _to_k(put2[1])),
+    ]
+    for rr, label1, value1, label2, value2 in lower_rows:
+        sheet.range(f"F{rr}").value = label1
+        sheet.range(f"G{rr}").value = value1
+        sheet.range(f"H{rr}").value = label2
+        sheet.range(f"I{rr}").value = value2
+        for addr in (f"F{rr}", f"H{rr}"):
+            sheet.range(addr).font.bold = True
+            _fill(sheet.range(addr), _LABEL_FILL)
 
-    sheet.range(f"A{r4}").value = "Call Exits"
-    sheet.range(f"B{r4}").value = "No"
-    sheet.range(f"C{r4}").value = "Call ITM"
-    sheet.range(f"D{r4}").value = "Yes" if call_itm else "No"
-    for c in (f"A{r4}", f"C{r4}"):
-        sheet.range(c).font.bold = True
-        _fill(sheet.range(c), _PANEL_LABEL_FILL)
-
+    pcr = row.get("PCR")
     sheet.range(f"F{r3}").value = "PCR"
+    sheet.range(f"G{r3}:I{r3}").merge()
     sheet.range(f"G{r3}").value = pcr
     sheet.range(f"F{r4}").value = "Put Exits"
+    sheet.range(f"G{r4}:I{r4}").merge()
     sheet.range(f"G{r4}").value = "No"
-    sheet.range(f"H{r4}").value = "Put ITM"
-    sheet.range(f"I{r4}").value = "Yes" if put_itm else "No"
-    for c in (f"F{r3}", f"F{r4}", f"H{r4}"):
-        sheet.range(c).font.bold = True
-        _fill(sheet.range(c), _PANEL_LABEL_FILL)
+    put_itm = spot is not None and put1[0] is not None and put1[0] > spot
+    sheet.range(f"F{r5}").value = "Put ITM"
+    sheet.range(f"G{r5}:I{r5}").merge()
+    sheet.range(f"G{r5}").value = "Yes" if put_itm else "No"
+
+    for addr in (f"A{r3}", f"A{r4}", f"A{r5}", f"F{r3}", f"F{r4}", f"F{r5}"):
+        sheet.range(addr).font.bold = True
+        _fill(sheet.range(addr), _LABEL_FILL)
+
+    if "Bullish" in bias:
+        _fill(sheet.range(f"B{r3}"), _GREEN_FILL)
+    elif "Bearish" in bias:
+        _fill(sheet.range(f"B{r3}"), _RED_FILL)
     if pcr is not None:
         if pcr > 1.3:
             _fill(sheet.range(f"G{r3}"), _GREEN_FILL)
         elif pcr < 0.7:
             _fill(sheet.range(f"G{r3}"), _RED_FILL)
 
-    panel = sheet.range(f"A{title}:I{r4}")
+    panel = sheet.range(f"A{title}:I{r5}")
     panel.api.Borders.LineStyle = 1
     panel.api.WrapText = True
     sheet.range(f"D{r1}:D{r2}").number_format = "0.0"
     sheet.range(f"I{r1}:I{r2}").number_format = "0.0"
     sheet.range(f"G{r3}").number_format = "0.000"
 
-    # Remove accidental temporary text in the duplicate helper cells created above.
-    sheet.range(f"A{r3}:B{r3}").clear_contents()
-    sheet.range(f"A{r3}:B{r3}").clear_formats()
-    sheet.range(f"A{r3}").value = ""
-    sheet.range(f"B{r3}").value = ""
-
-    _last_panel_rows[index_name] = (title, r4)
+    _last_panel_rows[index_name] = (title, r5)
 
 
 def write_live_dashboard(results):
-    """Append the already-fetched index rows and refresh the bottom panels."""
+    """Append one row per index and refresh its current boundary panel."""
     book = _get_dashboard_book()
     if book is None:
         return
@@ -362,7 +362,6 @@ def write_live_dashboard(results):
             _next_row[index_name] = row_num + 1
 
             _write_boundary_panel(sheet, index_name, row, row_num + 3)
-
             sheet.range(f"B{row_num}:G{row_num}").number_format = "#,##0.0"
             sheet.range(f"H{row_num}:I{row_num}").number_format = "0.000"
             sheet.range(f"J{row_num}:K{row_num}").number_format = "0"
