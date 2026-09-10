@@ -34,6 +34,24 @@ snapshot_all(), without changing how those already work:
    risk given this project's actual history with Windows file-lock
    issues (see index_tracker.py's own _atomic_save()).
 
+   Sep 10 2026: switched from a fixed Field/Value layout (overwritten
+   every cycle) to a header + APPENDED row per cycle -- same scrolling-
+   table shape as the reference NSE-Option-Chain-Analyzer screenshot
+   this whole feature was modeled on, so trend-by-eye (is the boundary
+   strike shifting, is OI Diff climbing) actually works, not just "what's
+   true right now." Row position is tracked in a Python-side dict
+   (_next_row) rather than re-derived from Excel's used-range each
+   cycle -- more reliable than xlwings' .end()/current_region, which
+   can behave unexpectedly around gaps or fresh sheets.
+
+   Grows across the day (~60s cadence -> a few hundred rows by close,
+   trivial for Excel), then gets cleared back to just the header on the
+   first write of a NEW calendar day -- the file persists across
+   restarts even though _next_row/_sheet_day_seen (in-memory) don't, so
+   this only actually fires once, right after each morning's fresh
+   startup. Same "no explicit day reset, relies on the daily restart"
+   convention as several of index_tracker.py's own caches.
+
    Fails soft everywhere: no Excel installed/open, sheet not reachable,
    any write error -- logs once and returns, never raises. Must not be
    able to take down the scan cycle that calls it.
@@ -53,6 +71,7 @@ before/after text):
      never breaks the real return value the rest of the app depends on.
 """
 import os
+from datetime import datetime
 
 try:
     import xlwings as xw
@@ -64,20 +83,20 @@ from .index_tracker import LOG_DIR
 
 DASHBOARD_PATH = os.path.join(LOG_DIR, "oi_live_dashboard.xlsx")
 
-# Fixed cell layout per index sheet -- overwritten every cycle, not
-# appended (that's what the openpyxl Snapshots log is already for).
-_FIELD_ROWS = [
-    ("Time", 2), ("Spot", 3),
-    ("Total Call OI", 4), ("Total Put OI", 5), ("OI Diff", 6),
-    ("Highest Call OI Strike", 7), ("Highest Call OI Value", 8),
-    ("Highest Put OI Strike", 9), ("Highest Put OI Value", 10),
-    ("Call ITM Ratio", 11), ("Put ITM Ratio", 12),
-    ("PCR", 13), ("Bias", 14),
+# Header row for the append-log layout -- one row per cycle underneath
+# this, same column order as the reference tool's scrolling table.
+_LIVE_LOG_COLUMNS = [
+    "Time", "Spot", "Total Call OI", "Total Put OI", "OI Diff",
+    "Call Boundary Strike", "Call Boundary OI",
+    "Put Boundary Strike", "Put Boundary OI",
+    "Call ITM Ratio", "Put ITM Ratio", "PCR", "Bias",
 ]
 
 _app = None   # cached xlwings App -- init once per process, never reopened every cycle
 _book = None  # cached workbook handle
 _warned_once = False
+_next_row = {}         # {index_name: int} -- next empty row to write to
+_sheet_day_seen = {}   # {index_name: 'YYYY-MM-DD'} -- last calendar day this process appended a row for that sheet
 
 
 def compute_itm_ratios(rows, spot, total_ce_oi, total_pe_oi):
@@ -144,22 +163,42 @@ def _get_dashboard_book():
 
 
 def _get_or_create_sheet(book, index_name):
-    if index_name in [s.name for s in book.sheets]:
-        return book.sheets[index_name]
-    sheet = book.sheets.add(index_name, after=book.sheets[-1])
-    sheet.range("A1").value = "Field"
-    sheet.range("B1").value = "Value"
-    for label, row in _FIELD_ROWS:
-        sheet.range(f"A{row}").value = label
+    """Returns the sheet, guaranteed to have the header row in place and
+    _next_row/_sheet_day_seen correctly set for today. Handles three
+    real cases: brand-new sheet, existing sheet from earlier today
+    (just keep appending), existing sheet whose last data predates
+    today (persisted in the file from a previous day -- clear it back
+    to just the header, same "one day's worth of log" shape the
+    reference tool has)."""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    if index_name not in [s.name for s in book.sheets]:
+        sheet = book.sheets.add(index_name, after=book.sheets[-1])
+        sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
+        _next_row[index_name] = 2
+        _sheet_day_seen[index_name] = today_str
+        return sheet
+
+    sheet = book.sheets[index_name]
+    if _sheet_day_seen.get(index_name) == today_str:
+        return sheet  # already confirmed fresh-for-today this process, nothing to check
+
+    # First touch of this sheet this process (right after a restart) --
+    # if it's carrying rows from a previous day, clear them.
+    used = sheet.used_range
+    if used.last_cell.row > 1:
+        sheet.range(f"A2:{used.last_cell.address}").clear_contents()
+    _next_row[index_name] = 2
+    _sheet_day_seen[index_name] = today_str
     return sheet
 
 
 def write_live_dashboard(results):
     """results: the same {'NIFTY': row_or_None, 'BANKNIFTY': row_or_None}
     dict snapshot_all() already returns -- no new Fyers fetch, just a
-    second write of data already in hand. Call from the end of
-    snapshot_all(). Never raises -- any failure here must not affect
-    the caller's return value."""
+    second write of data already in hand, appended as one new row per
+    index per cycle. Call from the end of snapshot_all(). Never raises
+    -- any failure here must not affect the caller's return value."""
     book = _get_dashboard_book()
     if book is None:
         return
@@ -175,22 +214,19 @@ def write_live_dashboard(results):
                 round(total_call - total_put, 2)
                 if total_call is not None and total_put is not None else None
             )
-            values = {
-                "Time": row.get("Time"), "Spot": row.get("Spot"),
-                "Total Call OI": total_call, "Total Put OI": total_put,
-                "OI Diff": oi_diff,
-                "Highest Call OI Strike": row.get("Highest Call OI Strike"),
-                "Highest Call OI Value": row.get("Highest Call OI Value"),
-                "Highest Put OI Strike": row.get("Highest Put OI Strike"),
-                "Highest Put OI Value": row.get("Highest Put OI Value"),
-                "Call ITM Ratio": row.get("Call ITM Ratio"),
-                "Put ITM Ratio": row.get("Put ITM Ratio"),
-                "PCR": row.get("PCR"), "Bias": row.get("Bias"),
-            }
-            for label, cell_row in _FIELD_ROWS:
-                sheet.range(f"B{cell_row}").value = values.get(label)
+            values = [
+                row.get("Time"), row.get("Spot"),
+                total_call, total_put, oi_diff,
+                row.get("Highest Call OI Strike"), row.get("Highest Call OI Value"),
+                row.get("Highest Put OI Strike"), row.get("Highest Put OI Value"),
+                row.get("Call ITM Ratio"), row.get("Put ITM Ratio"),
+                row.get("PCR"), row.get("Bias"),
+            ]
+            r = _next_row.get(index_name, 2)
+            sheet.range(f"A{r}").value = [values]
+            _next_row[index_name] = r + 1
         except Exception as e:
-            print(f"[OILiveDashboard] Failed writing {index_name} live view: {e}")
+            print(f"[OILiveDashboard] Failed writing {index_name} live row: {e}")
             # Deliberately continues to the other index rather than
             # returning -- one sheet failing shouldn't block the other.
 
