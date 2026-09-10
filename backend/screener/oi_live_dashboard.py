@@ -3,17 +3,11 @@
 Uses only the NIFTY/BANKNIFTY snapshot data already fetched by
 index_tracker.snapshot_all(); this module makes no extra Fyers requests.
 
-Workbook layout is intentionally close to the supplied NSE Option Chain
-Analyzer reference:
-  A:M  scrolling live table
-  A:D  Open Interest Upper Boundary (call side)
-  F:I  Open Interest Lower Boundary (put side)
-  E    visual spacer
-
-The first nine table headers use the reference wording exactly. The remaining
-four columns are existing project fields retained as clearly labelled bonus
-data. The reference tool's exact formula for its top-table Boundary numbers is
-not available, so the existing highest call/put OI calculation is preserved.
+The workbook is a live dashboard, deliberately modelled on the supplied
+NSE Option Chain Analyzer screenshot: a clearly labelled OI table followed by
+an Open Interest Upper Boundary / Lower Boundary panel.  The existing
+project's OI calculations are retained; this module changes presentation,
+not trading logic.
 """
 
 import os
@@ -39,20 +33,26 @@ _COL_LETTERS = [chr(ord("A") + i) for i in range(len(_LIVE_LOG_COLUMNS))]
 _PCR_COL_INDEX = _LIVE_LOG_COLUMNS.index("PCR")
 _BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
 
+# Keep the dashboard compact like the reference application. Older rows remain
+# in the workbook below the live viewport instead of being deleted.
+_LIVE_VIEW_ROWS = 18
+_PANEL_START_ROW = 21
+
 _app = None
 _book = None
 _warned_once = False
 _next_row = {}
 _sheet_day_seen = {}
 _prev_values = {}
-_prev_boundary_oi = {}
-_last_panel_rows = {}
 
 _GREEN_FILL = (198, 239, 206)
 _RED_FILL = (255, 199, 206)
 _AMBER_FILL = (255, 235, 156)
+_HEADER_FILL = (242, 242, 242)
+_HEADER_FONT = (0, 0, 0)
 _LABEL_FILL = (226, 240, 217)
 _TITLE_FILL = (217, 234, 247)
+_BORDER = (180, 180, 180)
 
 
 def _to_k(value):
@@ -137,12 +137,16 @@ def _fill(cell, colour):
 
 
 def _style_header(sheet):
+    """Make the table header readable and close to the reference screenshot."""
     try:
         header = sheet.range(f"A1:{_COL_LETTERS[-1]}1")
         header.font.bold = True
-        header.color = (0, 0, 0)
+        header.font.color = _HEADER_FONT
+        header.color = _HEADER_FILL
+        header.api.HorizontalAlignment = -4108
+        header.api.VerticalAlignment = -4108
         header.api.WrapText = True
-        header.row_height = 36
+        header.row_height = 38
         widths = {
             "A": 12, "B": 13, "C": 16, "D": 16, "E": 18,
             "F": 20, "G": 20, "H": 11, "I": 11, "J": 20,
@@ -150,16 +154,20 @@ def _style_header(sheet):
         }
         for col, width in widths.items():
             sheet.range(f"{col}:{col}").column_width = width
+        header.api.Borders.LineStyle = 1
     except Exception as e:
         print(f"[OILiveDashboard] Header formatting skipped: {e}")
 
 
-def _apply_row_colors(sheet, row_num, values, previous):
+def _style_live_row(sheet, row_num, values, previous):
+    """Colour cells according to movement, while retaining the reference look."""
     for i, col in enumerate(_COL_LETTERS):
-        if i == 0:
-            continue
         try:
             cell = sheet.range(f"{col}{row_num}")
+            cell.api.HorizontalAlignment = -4108
+            cell.api.VerticalAlignment = -4108
+            cell.api.Borders.LineStyle = 1
+
             if i == _BIAS_COL_INDEX:
                 bias = values[i] or ""
                 if "Bullish" in bias:
@@ -181,11 +189,11 @@ def _apply_row_colors(sheet, row_num, values, previous):
                     elif new < old:
                         _fill(cell, _RED_FILL)
         except Exception as e:
-            print(f"[OILiveDashboard] Colour skipped for {col}{row_num}: {e}")
+            print(f"[OILiveDashboard] Row formatting skipped for {col}{row_num}: {e}")
 
 
 def _prepare_sheet(book, index_name):
-    """Use a fresh sheet when the schema/day changes to prevent stale formats."""
+    """Prepare a clean daily sheet and keep the reference dashboard layout."""
     today = datetime.now().strftime("%Y-%m-%d")
     exists = index_name in [s.name for s in book.sheets]
     reset = not exists
@@ -213,25 +221,28 @@ def _prepare_sheet(book, index_name):
     _next_row[index_name] = 2
     _sheet_day_seen[index_name] = today
     _prev_values.pop(index_name, None)
-    _prev_boundary_oi.pop(index_name, None)
-    _last_panel_rows.pop(index_name, None)
+
+    # Clear the reference viewport explicitly so no stale black/header formatting
+    # from an older workbook survives the schema/day reset.
+    try:
+        sheet.range(f"A1:M{_PANEL_START_ROW + 7}").clear_formats()
+        sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
+        _style_header(sheet)
+    except Exception:
+        pass
     return sheet
 
 
-def _clear_previous_panel(sheet, index_name):
-    old = _last_panel_rows.get(index_name)
-    if not old:
-        return
+def _clear_panel_area(sheet):
     try:
-        start, end = old
-        sheet.range(f"A{start}:I{end}").clear_contents()
-        sheet.range(f"A{start}:I{end}").clear_formats()
+        sheet.range(f"A{_PANEL_START_ROW}:I{_PANEL_START_ROW + 6}").clear_contents()
+        sheet.range(f"A{_PANEL_START_ROW}:I{_PANEL_START_ROW + 6}").clear_formats()
     except Exception as e:
-        print(f"[OILiveDashboard] Previous panel cleanup skipped: {e}")
+        print(f"[OILiveDashboard] Panel cleanup skipped: {e}")
 
 
-def _write_boundary_panel(sheet, index_name, row, start_row):
-    """Write the reference-style bottom panel: title + two strikes + status rows."""
+def _write_boundary_panel(sheet, index_name, row):
+    """Write the bottom panel in the same compact structure as the reference."""
     oi_snap = get_last_oi_snapshot(index_name) or {}
     rows = oi_snap.get("rows") or []
     calls, puts = compute_boundary_pairs(rows)
@@ -241,32 +252,32 @@ def _write_boundary_panel(sheet, index_name, row, start_row):
     put1 = puts[0] if puts else (None, None)
     put2 = puts[1] if len(puts) > 1 else (None, None)
 
-    _clear_previous_panel(sheet, index_name)
+    _clear_panel_area(sheet)
 
-    title = start_row
+    title = _PANEL_START_ROW
     r1, r2, r3, r4, r5 = title + 1, title + 2, title + 3, title + 4, title + 5
 
-    for rng, text in (
-        (f"A{title}:D{title}", "Open Interest Upper Boundary"),
-        (f"F{title}:I{title}", "Open Interest Lower Boundary"),
-    ):
-        sheet.range(rng).merge()
-        first = rng.split(":")[0]
-        sheet.range(first).value = text
-        sheet.range(first).font.bold = True
-        sheet.range(first).api.HorizontalAlignment = -4108
-        _fill(sheet.range(first), _TITLE_FILL)
+    # Titles exactly describe what each side contains.
+    sheet.range(f"A{title}:D{title}").merge()
+    sheet.range(f"A{title}").value = "Open Interest Upper Boundary"
+    sheet.range(f"F{title}:I{title}").merge()
+    sheet.range(f"F{title}").value = "Open Interest Lower Boundary"
+    for addr in (f"A{title}", f"F{title}"):
+        sheet.range(addr).font.bold = True
+        sheet.range(addr).api.HorizontalAlignment = -4108
+        sheet.range(addr).api.VerticalAlignment = -4108
+        _fill(sheet.range(addr), _TITLE_FILL)
 
-    # Upper boundary / call side.
-    upper_rows = [
+    # Upper / call boundary.
+    upper = [
         (r1, "Strike Price 1", call1[0], "OI (in K)", _to_k(call1[1])),
         (r2, "Strike Price 2", call2[0], "OI (in K)", _to_k(call2[1])),
     ]
-    for rr, label1, value1, label2, value2 in upper_rows:
-        sheet.range(f"A{rr}").value = label1
-        sheet.range(f"B{rr}").value = value1
-        sheet.range(f"C{rr}").value = label2
-        sheet.range(f"D{rr}").value = value2
+    for rr, l1, v1, l2, v2 in upper:
+        sheet.range(f"A{rr}").value = l1
+        sheet.range(f"B{rr}").value = v1
+        sheet.range(f"C{rr}").value = l2
+        sheet.range(f"D{rr}").value = v2
         for addr in (f"A{rr}", f"C{rr}"):
             sheet.range(addr).font.bold = True
             _fill(sheet.range(addr), _LABEL_FILL)
@@ -278,22 +289,21 @@ def _write_boundary_panel(sheet, index_name, row, start_row):
     sheet.range(f"A{r4}").value = "Call Exits"
     sheet.range(f"B{r4}:D{r4}").merge()
     sheet.range(f"B{r4}").value = "No"
-    spot = row.get("Spot")
-    call_itm = spot is not None and call1[0] is not None and call1[0] < spot
     sheet.range(f"A{r5}").value = "Call ITM"
     sheet.range(f"B{r5}:D{r5}").merge()
-    sheet.range(f"B{r5}").value = "Yes" if call_itm else "No"
+    spot = row.get("Spot")
+    sheet.range(f"B{r5}").value = "Yes" if spot is not None and call1[0] is not None and call1[0] < spot else "No"
 
-    # Lower boundary / put side.
-    lower_rows = [
+    # Lower / put boundary.
+    lower = [
         (r1, "Strike Price 1", put1[0], "OI (in K)", _to_k(put1[1])),
         (r2, "Strike Price 2", put2[0], "OI (in K)", _to_k(put2[1])),
     ]
-    for rr, label1, value1, label2, value2 in lower_rows:
-        sheet.range(f"F{rr}").value = label1
-        sheet.range(f"G{rr}").value = value1
-        sheet.range(f"H{rr}").value = label2
-        sheet.range(f"I{rr}").value = value2
+    for rr, l1, v1, l2, v2 in lower:
+        sheet.range(f"F{rr}").value = l1
+        sheet.range(f"G{rr}").value = v1
+        sheet.range(f"H{rr}").value = l2
+        sheet.range(f"I{rr}").value = v2
         for addr in (f"F{rr}", f"H{rr}"):
             sheet.range(addr).font.bold = True
             _fill(sheet.range(addr), _LABEL_FILL)
@@ -305,9 +315,9 @@ def _write_boundary_panel(sheet, index_name, row, start_row):
     sheet.range(f"F{r4}").value = "Put Exits"
     sheet.range(f"G{r4}:I{r4}").merge()
     sheet.range(f"G{r4}").value = "No"
-    put_itm = spot is not None and put1[0] is not None and put1[0] > spot
     sheet.range(f"F{r5}").value = "Put ITM"
     sheet.range(f"G{r5}:I{r5}").merge()
+    put_itm = spot is not None and put1[0] is not None and put1[0] > spot
     sheet.range(f"G{r5}").value = "Yes" if put_itm else "No"
 
     for addr in (f"A{r3}", f"A{r4}", f"A{r5}", f"F{r3}", f"F{r4}", f"F{r5}"):
@@ -324,18 +334,41 @@ def _write_boundary_panel(sheet, index_name, row, start_row):
         elif pcr < 0.7:
             _fill(sheet.range(f"G{r3}"), _RED_FILL)
 
-    panel = sheet.range(f"A{title}:I{r5}")
-    panel.api.Borders.LineStyle = 1
-    panel.api.WrapText = True
-    sheet.range(f"D{r1}:D{r2}").number_format = "0.0"
-    sheet.range(f"I{r1}:I{r2}").number_format = "0.0"
-    sheet.range(f"G{r3}").number_format = "0.000"
+    try:
+        panel = sheet.range(f"A{title}:I{r5}")
+        panel.api.Borders.LineStyle = 1
+        panel.api.VerticalAlignment = -4108
+        panel.api.WrapText = True
+        sheet.range(f"D{r1}:D{r2}").number_format = "0.0"
+        sheet.range(f"I{r1}:I{r2}").number_format = "0.0"
+        sheet.range(f"G{r3}").number_format = "0.000"
+        for rr in range(title, r5 + 1):
+            sheet.range(f"{rr}:{rr}").row_height = 24
+    except Exception as e:
+        print(f"[OILiveDashboard] Panel border formatting skipped: {e}")
 
-    _last_panel_rows[index_name] = (title, r5)
+
+def _write_dashboard_row(sheet, index_name, values):
+    """Write the newest sample into the compact live viewport and retain history below."""
+    # Move the current viewport down one row only when it is full. This keeps the
+    # reference-style bottom panel fixed while still retaining all historical rows
+    # in the workbook starting after the panel.
+    current_rows = max(0, _next_row.get(index_name, 2) - 2)
+    if current_rows < _LIVE_VIEW_ROWS:
+        row_num = 2 + current_rows
+    else:
+        # Shift the visible live rows upward by one and append at the last viewport row.
+        sheet.range(f"A3:M{_LIVE_VIEW_ROWS + 1}").value = sheet.range(f"A4:M{_LIVE_VIEW_ROWS + 2}").value
+        row_num = _LIVE_VIEW_ROWS + 1
+    sheet.range(f"A{row_num}:M{row_num}").value = [values]
+    _style_live_row(sheet, row_num, values, _prev_values.get(index_name))
+    _prev_values[index_name] = values
+    _next_row[index_name] = min(_next_row.get(index_name, 2) + 1, _LIVE_VIEW_ROWS + 2)
+    return row_num
 
 
 def write_live_dashboard(results):
-    """Append one row per index and refresh its current boundary panel."""
+    """Append live OI data and keep a clear reference-style boundary panel."""
     book = _get_dashboard_book()
     if book is None:
         return
@@ -355,17 +388,12 @@ def write_live_dashboard(results):
                 row.get("Put ITM Ratio"), row.get("Highest Call OI Strike"),
                 row.get("Highest Put OI Strike"), row.get("PCR"), row.get("Bias"),
             ]
-            row_num = _next_row.get(index_name, 2)
-            sheet.range(f"A{row_num}").value = [values]
-            _apply_row_colors(sheet, row_num, values, _prev_values.get(index_name))
-            _prev_values[index_name] = values
-            _next_row[index_name] = row_num + 1
-
-            _write_boundary_panel(sheet, index_name, row, row_num + 3)
+            row_num = _write_dashboard_row(sheet, index_name, values)
             sheet.range(f"B{row_num}:G{row_num}").number_format = "#,##0.0"
             sheet.range(f"H{row_num}:I{row_num}").number_format = "0.000"
             sheet.range(f"J{row_num}:K{row_num}").number_format = "0"
             sheet.range(f"L{row_num}").number_format = "0.000"
+            _write_boundary_panel(sheet, index_name, row)
         except Exception as e:
             print(f"[OILiveDashboard] Failed writing {index_name}: {e}")
 
