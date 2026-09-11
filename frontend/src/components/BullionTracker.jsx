@@ -560,8 +560,13 @@ function OptionsChainSection({ contractId, contractLabel }) {
 }
 
 // --- top-level: contract toggle + summary/backtest + options chain ---
-export default function BullionTracker() {
-  const [contractId, setContractId] = useState('GOLD');
+// `metal` ('GOLD' | 'SILVER') is optional -- when passed, this only shows
+// that metal's Standard/Mini pair instead of all 4 contracts. Used by
+// CommoditiesTracker.jsx's Gold/Silver sub-tabs. Omit it (or mount this
+// directly, as before) to get the original all-4 behavior.
+export default function BullionTracker({ metal } = {}) {
+  const contracts = metal ? CONTRACTS.filter(c => c.id.startsWith(metal)) : CONTRACTS;
+  const [contractId, setContractId] = useState(contracts[0]?.id || 'GOLD');
   const [marketStatus, setMarketStatus] = useState(null);
   useEffect(() => {
     const update = () => {
@@ -620,14 +625,14 @@ export default function BullionTracker() {
   return (
     <div className="space-y-4">
       <TabInfoBanner>
-        Gold and Silver have their own dedicated tab, same reasoning as Crude Oil — no separate spot/cash index
+        Gold and Silver have their own view under Commodities, same reasoning as Crude — no separate spot/cash index
         (the futures contract IS the underlying), their own MCX trading hours, their own options chain below.
         Unlike Crude, these don't trade in every calendar month — the front-month resolver checks live Fyers
         data to find whichever contract is actually active right now, rather than assuming a fixed monthly cycle.
       </TabInfoBanner>
 
       <div className="flex gap-1 bg-slate-900/50 p-1 rounded-xl w-fit">
-        {CONTRACTS.map(c => (
+        {contracts.map(c => (
           <button key={c.id} onClick={() => { setContractId(c.id); setSelectedDate(''); }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${contractId === c.id ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>
             {c.label}
