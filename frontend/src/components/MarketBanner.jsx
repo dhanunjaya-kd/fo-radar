@@ -286,10 +286,10 @@ export default function MarketBanner() {
     const inner = (
       <div className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 ${fyersSymbol ? 'hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group' : ''}`}>
         <div className={`w-2 h-2 rounded-full ${dotClass}`} />
-        <div className="flex-1">
-          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1">
-            {label}
-            {fyersSymbol && <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400">↗ chart</span>}
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1 whitespace-nowrap">
+            <span className="truncate">{label}</span>
+            {fyersSymbol && <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 shrink-0">↗ chart</span>}
           </p>
           {priceStr != null ? (
             <>
@@ -347,8 +347,8 @@ export default function MarketBanner() {
           card, instead of its own separate "N/A" convention. */}
       <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
         <div className={`w-2 h-2 rounded-full ${pcr.value != null && marketStatus?.isOpen ? 'bg-purple-500 animate-pulse' : 'bg-slate-600'}`} />
-        <div>
-          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">PCR</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider whitespace-nowrap">PCR</p>
           <p className="text-lg font-bold text-white tabular-nums tier-important">{pcr.value != null ? pcr.value.toFixed(2) : '—'}</p>
           <p className={`text-xs font-medium ${pcr.value != null ? 'text-purple-400' : 'text-slate-500'}`}>{pcr.value != null ? (pcr.sentiment || 'N/A') : 'Data unavailable'}</p>
           <p className={`text-[9px] font-semibold uppercase tracking-wider mt-0.5 ${
@@ -371,10 +371,10 @@ export default function MarketBanner() {
         <a href={fyersChartUrl(crudeSymbol)} target="_blank" rel="noopener noreferrer" title="Open CRUDE OIL chart on Fyers"
           className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group">
           <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
-          <div className="flex-1">
-            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1">
-              CRUDE OIL
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400">↗ chart</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1 whitespace-nowrap">
+              <span className="truncate">CRUDE OIL</span>
+              <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 shrink-0">↗ chart</span>
             </p>
             <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice) ?? '—'}</p>
             <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -386,8 +386,8 @@ export default function MarketBanner() {
       ) : (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
           <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
-          <div className="flex-1">
-            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">CRUDE OIL</p>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider whitespace-nowrap">CRUDE OIL</p>
             <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice) ?? '—'}</p>
             <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
               {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}

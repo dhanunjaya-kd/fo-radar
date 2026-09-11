@@ -23,7 +23,7 @@ const BIAS_DOT = {
   'Bearish (Strong)': 'bg-rose-500',
 };
 
-const DISPLAY_NAME = { NIFTY: 'NIFTY', BANKNIFTY: 'BANKNIFTY' };
+const DISPLAY_NAME = { NIFTY: 'NIFTY', BANKNIFTY: 'BANKNIFTY', SENSEX: 'SENSEX' };
 
 function fmt(n, digits = 2) {
   if (n === null || n === undefined || isNaN(n)) return '—';
@@ -364,6 +364,7 @@ export default function MarketView() {
       </TabInfoBanner>
       <MarketViewSection indexName="NIFTY" />
       <MarketViewSection indexName="BANKNIFTY" />
+      <MarketViewSection indexName="SENSEX" />
     </div>
   );
 }
