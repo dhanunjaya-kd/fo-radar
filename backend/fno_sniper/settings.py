@@ -55,7 +55,7 @@ TEMPLATES = [
                 'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
-                'django.contrib.auth.context_processors.messages',
+                'django.contrib.messages.context_processors.messages',
             ],
         },
     },
@@ -110,18 +110,17 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
 }
 
-# NOTE: the .env file in this project defines the secret as FYERS_SECRET_KEY.
-# This used to look up FYERS_APP_SECRET / FYERS_SECRET_ID only, neither of
-# which exist in .env, so it silently fell through to a hardcoded stale
-# default ('ROTJ53EW72') on every run -- the real secret from .env was never
-# actually read. Same story for FYERS_APP_ID: it used to default to
-# '6OWXIMCOXF-100', an old app id that doesn't match the Fyers app actually
-# connected (LYNP1Z6GGG-100). Both defaults are removed below: if .env is
-# missing a value now, you get a loud KeyError at startup instead of a
-# silent wrong credential.
-FYERS_APP_ID = env.str('FYERS_APP_ID', default='LYNP1Z6GGG-100')
-FYERS_APP_SECRET = env.str('FYERS_APP_SECRET', default=env.str('FYERS_SECRET_ID', default=env.str('FYERS_SECRET_KEY', default=None)))
-FYERS_REDIRECT_URI = env.str('FYERS_REDIRECT_URI', default=env.str('FYERS_REDIRECT_URL', default='http://127.0.0.1:5000'))
+# Fyers credentials are loaded from .env. Do not silently substitute a stale
+# credential when the configured value is absent.
+FYERS_APP_ID = env.str('FYERS_APP_ID', default=None)
+FYERS_APP_SECRET = env.str(
+    'FYERS_APP_SECRET',
+    default=env.str('FYERS_SECRET_ID', default=env.str('FYERS_SECRET_KEY', default=None)),
+)
+FYERS_REDIRECT_URI = env.str(
+    'FYERS_REDIRECT_URI',
+    default=env.str('FYERS_REDIRECT_URL', default='http://127.0.0.1:5000'),
+)
 
 TELEGRAM_BOT_TOKEN = env.str('TELEGRAM_BOT_TOKEN', default='')
 TELEGRAM_CHAT_ID = env.str('TELEGRAM_CHAT_ID', default='')
