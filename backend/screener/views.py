@@ -183,6 +183,94 @@ def _is_qualified_with_hysteresis(symbol, action, score, state_dict=None, today=
             state['qualified'] = True
 
     return state['qualified']
+
+
+# Sep 12 2026: hysteresis for quality_engine's aggregate verdict, same
+# shape and same evidence-backed reasoning as _is_qualified_with_
+# hysteresis() above for the technical score -- compute_stock_quality_
+# score() gets recomputed fresh every cycle, same "blinks every cycle
+# on a score right at the boundary" risk that function already fixed
+# for the base technical score. Root motivation: a real logged trade
+# hit SL after entering on a signal that had already flickered off/on
+# in the live list before entry -- the technical score's own hysteresis
+# was never the problem there; oi_confirmation (recomputed fresh, no
+# memory) was.
+#
+# Separate dict, separate function from _qualification_state above --
+# different key semantics (bool confirmed/not, not a score threshold),
+# and this one also needs to distinguish a REAL contradiction from
+# ordinary noise, which the technical-score version doesn't need to.
+_quality_confirmation_state = {}  # {(symbol, action): {'date': 'YYYY-MM-DD', 'confirmed': bool}}
+
+
+def _is_quality_confirmed_with_hysteresis(symbol, action, quality_result, state_dict=None, today=None):
+    """
+    Whether (symbol, action) should count as quality_engine-confirmed
+    THIS cycle. Same injectable state_dict/today pattern as
+    _is_qualified_with_hysteresis() above, same reason (pure enough to
+    unit test directly, no dependency on wall-clock time or global
+    state in a test).
+
+    Asymmetric by DESIGN, not by a tuned number:
+      - ENTRY requires this cycle's OWN verdict to be TRADE, no grace
+        on the way in -- same "no grace on entry" shape as the
+        technical score's ENTRY_SCORE_THRESHOLD.
+      - EXIT is immediate ONLY on a real, confirmed contradiction --
+        quality_result['conflict_gate_triggered'] (options structure
+        or market regime actively fighting this direction, not a mere
+        score dip) -- same "excluded entirely, not just penalized"
+        principle the live oi_confirmation check already applies to a
+        fresh CONFLICT reading.
+      - Everything else that drops out of TRADE (a score dip with no
+        active conflict, a thin-data cycle, or quality_result itself
+        being None because _evaluate_and_log_shadow() itself raised)
+        is held through, not exited -- same "don't drop on noise or on
+        a data gap" principle as EXIT_SCORE_THRESHOLD's own gap gives
+        the base score one level up, and the same "a failed fetch
+        isn't new information" reasoning already used everywhere else
+        in this project for a transient failure.
+
+    Mutates state_dict as a side effect -- call exactly once per
+    (symbol, action) per cycle, same call-once contract as the
+    technical-score version.
+    """
+    if state_dict is None:
+        state_dict = _quality_confirmation_state
+    if today is None:
+        today = datetime.now().strftime("%Y-%m-%d")
+
+    key = (symbol, action)
+    state = state_dict.get(key)
+    if state is None or state.get('date') != today:
+        state = {'date': today, 'confirmed': False}
+        state_dict[key] = state
+
+    conflict = bool(quality_result and quality_result.get('conflict_gate_triggered'))
+    verdict = quality_result.get('verdict') if quality_result else None
+
+    if state['confirmed']:
+        if conflict:
+            state['confirmed'] = False
+        # else: hold through a WATCH/IGNORE-from-score dip, a thin-data
+        # cycle, or a computation failure -- see docstring above.
+    else:
+        if verdict == 'TRADE' and not conflict:
+            state['confirmed'] = True
+
+    return state['confirmed']
+
+
+# Sep 12 2026: same off-switch pattern tasks.py already uses for its
+# own disabled duplicate scanner (_DUPLICATE_SCANNER_ENABLED) -- this
+# gate is new and its real effect on list size hasn't been observed
+# live yet (multi_tf_trend/futures_oi are often INSUFFICIENT_DATA for
+# stocks today, so how often TRADE is actually reachable is currently
+# unknown). Default ON since it was explicitly requested, but instantly
+# reversible via env var with no code change if it turns out to
+# strangle the list more than intended -- quality_confirmed/score/
+# verdict/reasons stay attached to every signal either way, so the
+# gate's would-be effect is always visible even while it's toggled off.
+_QUALITY_GATE_ENABLED = os.environ.get("ENABLE_QUALITY_CONFIRMATION_GATE", "true").lower() == "true"
 _last_fetch = 0
 CACHE_TTL = 60
 
@@ -1143,7 +1231,7 @@ def _update_sector_rankings_cache():
 
 def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
                               v3_decision, v3_score, v3_grade, v3_reason, oi=None, signal_extra=None, option_leg=None,
-                              mtf_data=None, futures_oi_data=None):
+                              mtf_data=None, futures_oi_data=None, skip_logging=False):
     """
     Sep 8 2026: SHADOW MODE glue -- converts this cycle's already-
     computed tech/oi/stock data into quality_engine's function
@@ -1184,6 +1272,19 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
     Wrapped in try/except by BOTH call sites in _build_all() as well as
     internally here -- shadow mode must never be able to break the live
     scan loop, belt-and-braces on purpose.
+
+    skip_logging: Sep 12 2026 addition -- when True, computes and
+    returns (quality_result, reasons) WITHOUT calling shadow_logger.
+    Existing call sites are entirely unaffected (they don't pass this,
+    so it defaults to False and behaves exactly as before). Lets the
+    live SIGNAL path get quality_result BEFORE signals.append() (to
+    gate on it) without computing it twice or double-logging to
+    shadow_logger -- the caller logs separately, once, with these same
+    values, after append.
+
+    Returns (quality_result, reasons) on success, (None, []) if
+    anything in here raised -- the caller must treat None as "don't
+    know," never as a guessed confirmation.
     """
     try:
         from . import quality_engine as qe
@@ -1428,6 +1529,15 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
             quality_result['verdict'] = "WATCH"
             quality_result['grade'] = "B"
 
+        # Sep 12 2026: explicit field for the new live gating function
+        # below (_is_quality_confirmed_with_hysteresis) to check, rather
+        # than string-matching the human-readable reason text built just
+        # below this -- a real, confirmed contradiction (either of the
+        # two conflict caps just applied), not a mere score dip. Both
+        # gates were already computed above; this just names the OR of
+        # the two explicitly instead of leaving it implicit in verdict.
+        quality_result['conflict_gate_triggered'] = bool(regime_conflict or option_conflict)
+
         # Sep 8 2026: spec section 18, "Explainable Signals" -- "The
         # user must be able to understand the signal without opening
         # the source code." Every value used here was already computed
@@ -1494,9 +1604,12 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
             reasons.append(f"Futures OI unavailable ({futures_oi_data.get('reason', 'unknown')})")
 
         from . import shadow_logger
-        shadow_logger.log_shadow_candidate(sym, action, price, v3_decision, v3_score, v3_grade, v3_reason, quality_result, reasons=reasons)
+        if not skip_logging:
+            shadow_logger.log_shadow_candidate(sym, action, price, v3_decision, v3_score, v3_grade, v3_reason, quality_result, reasons=reasons)
+        return quality_result, reasons
     except Exception as e:
         print(f"[ShadowMode] {sym} evaluation failed (v3.0 unaffected): {e}")
+        return None, []
 
 
 def _build_all():
@@ -2287,6 +2400,20 @@ def _build_all():
         stock_vs_sector_pct = round(stock['change_percent'] - sector_change_pct, 2) if sector_change_pct is not None else None
         stock_vs_index_pct = round(stock['change_percent'] - nifty_change_pct, 2) if nifty_change_pct is not None else None
 
+        # Sep 12 2026: computed HERE, before append, so it can gate this
+        # signal -- previously this same computation only ran AFTER
+        # append, purely as a shadow-mode observer. skip_logging=True
+        # means shadow_logger isn't called yet; the logging call below
+        # (after append) reuses these same values instead of recomputing
+        # them, so nothing here doubles up the work or the log.
+        quality_result, quality_reasons = _evaluate_and_log_shadow(
+            sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+            v3_decision="SIGNAL", v3_score=score, v3_grade=grade, v3_reason=None,
+            oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
+            mtf_data=mtf_data, futures_oi_data=futures_oi_data, skip_logging=True,
+        )
+        quality_confirmed = _is_quality_confirmed_with_hysteresis(sym, action, quality_result)
+
         signals.append({
             "symbol": sym, "name": sym, "price": price,
             "change": stock['change'], "change_percent": stock['change_percent'],
@@ -2294,6 +2421,17 @@ def _build_all():
             "technical_score": score, "oi_adjustment": oi_adjustment, "score_breakdown": score_breakdown,
             "rsi": rsi, "adx": round(adx, 1),
             "oi_confirmation": oi_confirmation, "oi_reason": oi_reason, "pattern": pattern,
+            # Sep 12 2026: the new quality-engine confirmation layer --
+            # quality_confirmed is what quality_signals below actually
+            # gates on (when the feature flag is on); score/verdict/
+            # reasons are exposed unconditionally, same "explainable
+            # signals" principle as audit_snapshot below, and stay
+            # visible even if the gate itself is toggled off, so its
+            # would-be effect on the list can be watched before trusting it.
+            "quality_confirmed": quality_confirmed,
+            "quality_score": (quality_result or {}).get("score"),
+            "quality_verdict": (quality_result or {}).get("verdict"),
+            "quality_reasons": quality_reasons,
             "audit_snapshot": audit_snapshot,
             "sector": stock["sector"], "signal_type": "SNIPER",
             "action": action, "entry": entry, "quantity": qty,
@@ -2334,18 +2472,26 @@ def _build_all():
             **signal_extra,
         })
 
-        # Sep 8 2026: SHADOW MODE ONLY -- same as the hysteresis-fail
-        # hook above, but for a candidate that made it all the way to a
-        # real v3.0 signal, so the richer OI-informed evidence (oi,
-        # signal_extra) is available too. Still purely an observer --
-        # signals.append() above is v3.0's real, final decision; nothing
-        # here can alter it.
-        _evaluate_and_log_shadow(
-            sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
-            v3_decision="SIGNAL", v3_score=score, v3_grade=grade, v3_reason=None,
-            oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
-            mtf_data=mtf_data, futures_oi_data=futures_oi_data,
-        )
+        # Sep 12 2026: quality_result was already computed above (before
+        # append, to gate this signal) -- this just logs it, rather than
+        # recomputing the whole evaluation a second time the way this
+        # call site used to. Same shadow_logger call, same arguments,
+        # same log content as before this change. Guarded the same way
+        # _evaluate_and_log_shadow's own docstring requires (shadow
+        # logging must never be able to break the live scan loop) --
+        # that protection used to come from this call living INSIDE that
+        # function's own try/except; now that it's out here at the call
+        # site instead, it needs its own. Skips entirely when
+        # quality_result is None, matching the OLD behavior exactly: a
+        # failed computation never produced a shadow log entry before
+        # either (the log call sat after the point an exception would
+        # have already jumped past it).
+        if quality_result is not None:
+            try:
+                from . import shadow_logger
+                shadow_logger.log_shadow_candidate(sym, action, price, "SIGNAL", score, grade, None, quality_result, reasons=quality_reasons)
+            except Exception as e:
+                print(f"[ShadowMode] {sym} shadow log write failed (v3.0 unaffected): {e}")
     
     signals.sort(key=lambda x: int(x['confidence'].replace('%', '')), reverse=True)
 
@@ -2361,6 +2507,7 @@ def _build_all():
         s for s in signals
         if int(s['confidence'].replace('%', '')) >= 85
         and s.get('oi_confirmation') == 'CONFIRMED'
+        and (not _QUALITY_GATE_ENABLED or s.get('quality_confirmed'))
     ][:15]
 
     with _cache_lock:
