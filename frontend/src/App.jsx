@@ -10,8 +10,7 @@ import SignalList from './components/SignalList';
 import Analytics from './components/Analytics';
 import IndexTracker from './components/IndexTracker';
 import MarketView from './components/MarketView';
-import CrudeOilTracker from './components/CrudeOilTracker';
-import BullionTracker from './components/BullionTracker';
+import CommoditiesTracker from './components/CommoditiesTracker';
 import NextDayWatchlist from './components/NextDayWatchlist';
 import DailyBacktestTab from './components/DailyBacktestTab';
 import ShadowSignals from './components/ShadowSignals';
@@ -27,7 +26,7 @@ const IconBellOff = ({ size = 16 }) => (<svg xmlns="http://www.w3.org/2000/svg" 
 const IconMaximize = ({ size = 17 }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>);
 const IconLogOut = ({ size = 16 }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>);
 
-const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'crude', 'bullion', 'nextday', 'backtest', 'shadow', 'settings', 'strategy'];
+const VALID_TABS = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'commodities', 'nextday', 'backtest', 'shadow', 'settings', 'strategy'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -68,8 +67,7 @@ function AppShell() {
     { id: 'index', label: 'Index Tracker', count: null },
     { id: 'cas', label: 'CAS Radar', count: null },
     { id: 'market', label: 'Market View', count: null },
-    { id: 'crude', label: 'Crude Oil', count: null },
-    { id: 'bullion', label: 'Gold & Silver', count: null },
+    { id: 'commodities', label: 'Commodities', count: null },
     { id: 'nextday', label: "Tomorrow's Picks", count: null },
     { id: 'backtest', label: 'Daily Backtest', count: null },
     { id: 'shadow', label: 'Shadow Mode', count: null },
@@ -77,9 +75,9 @@ function AppShell() {
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
-  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'crude', 'bullion', 'nextday', 'backtest', 'shadow', 'settings'];
+  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'commodities', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
-  const tabIcon = (id) => ({ dashboard: '🏠', settings: '⚙️', signals: '⚡', oi: '📊', index: '📈', cas: '🏁', market: '📋', crude: '🛢️', bullion: '🥇', nextday: '🔭', backtest: '🧮', shadow: '🔍', strategy: '🧪' }[id] || '');
+  const tabIcon = (id) => ({ dashboard: '🏠', settings: '⚙️', signals: '⚡', oi: '📊', index: '📈', cas: '🏁', market: '📋', commodities: '🪙', nextday: '🔭', backtest: '🧮', shadow: '🔍', strategy: '🧪' }[id] || '');
 
   const TabButton = ({ tab }) => (
     <button onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>
@@ -130,8 +128,7 @@ function AppShell() {
         {activeTab === 'index' && <IndexTracker />}
         {activeTab === 'cas' && <CASRadar />}
         {activeTab === 'market' && <MarketView />}
-        {activeTab === 'crude' && <CrudeOilTracker />}
-        {activeTab === 'bullion' && <BullionTracker />}
+        {activeTab === 'commodities' && <CommoditiesTracker />}
         {activeTab === 'nextday' && <NextDayWatchlist />}
         {activeTab === 'backtest' && <DailyBacktestTab />}
         {activeTab === 'shadow' && <ShadowSignals />}
