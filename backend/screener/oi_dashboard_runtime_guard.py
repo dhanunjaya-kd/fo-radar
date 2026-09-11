@@ -1,9 +1,12 @@
 """Runtime guards for the live OI Excel dashboard.
 
 Keeps the existing OI calculations untouched while replacing the expensive
-whole-row insertion path with append-and-rebuild-panel behavior and makes raw
-OI movement formatting neutral.
+whole-row insertion path with append-and-rebuild-panel behavior, making raw
+OI movement formatting neutral, and restoring the append cursor from the
+existing workbook after a backend restart.
 """
+
+from datetime import datetime, time as dt_time
 
 
 def install():
@@ -13,6 +16,7 @@ def install():
         return
 
     original_style = dashboard._style_live_row
+    original_prepare_sheet = dashboard._prepare_sheet
 
     def style_live_row(sheet, row_num, values, previous):
         """Style the row without implying direction from raw OI movement."""
@@ -51,6 +55,95 @@ def install():
                 print(f"[OILiveDashboard] Row formatting skipped for {col}{row_num}: {exc}")
 
     dashboard._style_live_row = style_live_row
+
+    def _coerce_time(value):
+        """Read the dashboard's Time cell without depending on Excel's exact type."""
+        if isinstance(value, datetime):
+            return value.time()
+        if isinstance(value, dt_time):
+            return value
+        if isinstance(value, str):
+            text = value.strip()
+            for fmt in ("%H:%M:%S", "%H:%M"):
+                try:
+                    return datetime.strptime(text, fmt).time()
+                except ValueError:
+                    pass
+        return None
+
+    def _find_existing_rows(sheet):
+        """Return (last_data_row, last_values) from the existing live table."""
+        try:
+            last_used = sheet.used_range.last_cell.row
+            if last_used < 2:
+                return 1, None
+            raw = sheet.range(f"A2:M{last_used}").value
+        except Exception as exc:
+            print(f"[OILiveDashboard] Existing-row recovery skipped: {exc}")
+            return 1, None
+
+        if raw is None:
+            return 1, None
+        if not isinstance(raw, list):
+            raw = [[raw]]
+        elif raw and not isinstance(raw[0], list):
+            raw = [raw]
+
+        last_row = 1
+        last_values = None
+        for offset, values in enumerate(raw, start=2):
+            if not values:
+                break
+            t = _coerce_time(values[0] if len(values) > 0 else None)
+            if t is None:
+                # The boundary panel begins here (its A cell contains text),
+                # so the contiguous live-data block has ended.
+                break
+            row_values = list(values[:13])
+            if len(row_values) < 13:
+                row_values.extend([None] * (13 - len(row_values)))
+            last_row = offset
+            last_values = row_values
+        return last_row, last_values
+
+    def prepare_sheet(book, index_name):
+        """Resume today's existing workbook instead of restarting at row 2."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        try:
+            sheet_names = [s.name for s in book.sheets]
+            if index_name in sheet_names:
+                sheet = book.sheets[index_name]
+                header = sheet.range("A1").expand("right").value
+                if header == dashboard._LIVE_LOG_COLUMNS:
+                    last_row, last_values = _find_existing_rows(sheet)
+                    if last_row >= 2 and last_values:
+                        latest_time = _coerce_time(last_values[0])
+                        now_time = datetime.now().time()
+                        if latest_time is not None:
+                            # A later clock time than now means the workbook is
+                            # from a previous trading day. A small tolerance avoids
+                            # resetting because of a few seconds of clock skew.
+                            latest_seconds = (
+                                latest_time.hour * 3600 + latest_time.minute * 60 + latest_time.second
+                            )
+                            now_seconds = now_time.hour * 3600 + now_time.minute * 60 + now_time.second
+                            if latest_seconds <= now_seconds + 300:
+                                dashboard._next_row[index_name] = last_row + 1
+                                dashboard._panel_start_rows[index_name] = last_row + 1
+                                dashboard._sheet_day_seen[index_name] = today
+                                dashboard._prev_values[index_name] = last_values
+                                dashboard._panel_ready.discard(index_name)
+                                print(
+                                    f"[OILiveDashboard] Resuming {index_name} from row {last_row + 1}; "
+                                    f"preserving {last_row - 1} existing snapshots."
+                                )
+                                return sheet
+        except Exception as exc:
+            print(f"[OILiveDashboard] Workbook resume check failed: {exc}")
+
+        return original_prepare_sheet(book, index_name)
+
+    dashboard._prepare_sheet = prepare_sheet
 
     def _unmerge_panel(sheet, title):
         """Remove only the previous compact panel merges before relocating it."""
