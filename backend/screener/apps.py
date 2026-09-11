@@ -20,3 +20,11 @@ class ScreenerConfig(AppConfig):
             install()
         except Exception as exc:
             print(f"[OILiveDashboard] Header guard unavailable: {exc}")
+
+        # Keep live OI Excel refresh lightweight without changing OI math or
+        # scanner/trading logic.
+        try:
+            from .oi_dashboard_runtime_guard import install
+            install()
+        except Exception as exc:
+            print(f"[OILiveDashboard] Runtime guard unavailable: {exc}")
