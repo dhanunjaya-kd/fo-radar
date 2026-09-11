@@ -140,10 +140,17 @@ export const api = {
     try {
       // Trading app routes live under /api/trading/, not /api/pnl/.
       const res = await fetchWithTimeout(`${API_BASE}/trading/pnl/summary/`);
-      return await handleResponse(res);
+      const data = await handleResponse(res);
+      // Preserve the field name used by older UI components, but map it
+      // from the backend's real total_pnl value -- never invent a fallback.
+      return {
+        ...data,
+        totalPnL: data.total_pnl ?? 0,
+        winRate: data.win_rate ?? 0,
+      };
     } catch (error) {
       console.warn('PnL fetch failed:', error.message);
-      return { trades: [], totalPnL: 0, winRate: 0, error: error.message };
+      return { trades: [], totalPnL: null, winRate: null, error: error.message };
     }
   },
 };
