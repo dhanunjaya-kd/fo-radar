@@ -1,15 +1,27 @@
 """
 screener/index_tracker.py
 
-Time-series tracker for NIFTY and BANKNIFTY index option chains only
-(per explicit request -- not individual stocks). Every scan cycle, takes
-a snapshot of each index's option-chain analytics (PCR, ATM/adjacent
-Put & Call OI with writing/unwinding status, chain-wide Total Put/Call
-OI, IV, support/resistance, Max Pain, a derived directional Bias, and
-whether the index's actual price move agrees with that Bias) and appends
-it as a new row to a daily Excel file -- same "auto-log, one file per
-day" pattern as excel_logger.py, so you get a running intraday history
-instead of only the current snapshot.
+Time-series tracker for NIFTY, BANKNIFTY, and (Sep 11 2026) SENSEX
+index option chains only (per explicit request -- not individual
+stocks). Every scan cycle, takes a snapshot of each index's option-chain
+analytics (PCR, ATM/adjacent Put & Call OI with writing/unwinding
+status, chain-wide Total Put/Call OI, IV, support/resistance, Max Pain,
+a derived directional Bias, and whether the index's actual price move
+agrees with that Bias) and appends it as a new row to a daily Excel
+file -- same "auto-log, one file per day" pattern as excel_logger.py,
+so you get a running intraday history instead of only the current
+snapshot.
+
+SENSEX trades on BSE, not NSE -- its option chain (BSE:SENSEX-INDEX)
+works through the exact same get_option_analytics() call NIFTY/
+BANKNIFTY already use, so Spot/PCR/OI/IV/Max Pain/Bias all populate
+the same way. Its FUTURES price/OI is a separate story: BSE's expiry
+day (Friday, per BSE's own F&O launch material) and symbol format
+are NOT the same as NSE's NIFTY/BANKNIFTY convention below, and
+haven't been confirmed live yet -- see _CONFIRMED_FUTURES_INDICES
+and check_sensex_symbol.py. Until confirmed, SENSEX's Fut/Fut OI
+columns are left blank rather than guessed, same "don't fake it"
+principle as every other honest-failure case in this file.
 
 Now also tracks crude oil (CRUDEOIL standard + CRUDEOILM mini, on MCX)
 the same way, via snapshot_commodity()/snapshot_all_commodities() below
@@ -64,7 +76,18 @@ LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "signal_logs"
 INDEX_SYMBOLS = {
     "NIFTY": "NSE:NIFTY50-INDEX",
     "BANKNIFTY": "NSE:NIFTYBANK-INDEX",
+    # Sep 11 2026: confirmed real via Fyers' own docs/community (BSE
+    # F&O launch material, option-chain UI dropdown, and the public
+    # fyers Go SDK all use this exact symbol) -- see module docstring
+    # above for what's NOT yet confirmed (the futures contract).
+    "SENSEX": "BSE:SENSEX-INDEX",
 }
+
+# Sep 11 2026: which INDEX_SYMBOLS entries _front_month_futures_symbol()
+# below is actually confirmed to work for. NIFTY/BANKNIFTY only -- see
+# that function's own docstring. SENSEX is deliberately left out until
+# check_sensex_symbol.py confirms its real BSE futures format live.
+_CONFIRMED_FUTURES_INDICES = {"NIFTY", "BANKNIFTY"}
 
 # Commodities (MCX) work differently from the indices above -- there's
 # no separate spot/cash index symbol to give an option chain; the
@@ -153,7 +176,20 @@ def _last_tuesday(year, month):
 
 def _front_month_futures_symbol(index_name):
     """Confirmed-working format: NSE:{INDEX}{YY}{MON}FUT. Rolls to next
-    month automatically once the current month's contract has expired."""
+    month automatically once the current month's contract has expired.
+
+    Sep 11 2026: restricted to _CONFIRMED_FUTURES_INDICES -- this NSE +
+    last-Tuesday rule is confirmed only for NIFTY/BANKNIFTY (via
+    find_futures_symbol.py, see that file). SENSEX trades on BSE with
+    its own expiry pattern (Friday, per BSE's own F&O launch material),
+    not the same rule -- returns None for it rather than constructing a
+    symbol string that was never actually tested, matching this
+    project's existing "don't guess, confirm live" discipline (same
+    reasoning as Crude's/Gold's dedicated resolvers below). Run
+    check_sensex_symbol.py against live Fyers data to confirm SENSEX's
+    real format, then add it here the same way once confirmed."""
+    if index_name not in _CONFIRMED_FUTURES_INDICES:
+        return None
     today = datetime.now()
     expiry = _last_tuesday(today.year, today.month)
     if today > expiry:
@@ -1261,12 +1297,13 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     fut_oi_chg_pct = None
     try:
         fut_symbol = _front_month_futures_symbol(index_name)
-        depth_resp = get_market_depth(fut_symbol)
-        if depth_resp and depth_resp.get("s") == "ok":
-            fut_data = (depth_resp.get("d", {}) or {}).get(fut_symbol, {})
-            fut_price = fut_data.get("ltp")
-            fut_oi = fut_data.get("oi")
-            fut_oi_chg_pct = fut_data.get("oipercent")
+        if fut_symbol:
+            depth_resp = get_market_depth(fut_symbol)
+            if depth_resp and depth_resp.get("s") == "ok":
+                fut_data = (depth_resp.get("d", {}) or {}).get(fut_symbol, {})
+                fut_price = fut_data.get("ltp")
+                fut_oi = fut_data.get("oi")
+                fut_oi_chg_pct = fut_data.get("oipercent")
     except Exception as e:
         print(f"[IndexTracker] {index_name} futures price/OI fetch failed: {e}")
 
@@ -1387,18 +1424,19 @@ def snapshot_index(index_name, change_percent=None, vix=None):
 
 
 def snapshot_all(change_percents=None, vix=None):
-    """Called once per scan cycle -- snapshots both NIFTY and BANKNIFTY.
-    change_percents: optional {'NIFTY': pct, 'BANKNIFTY': pct}.
-    vix: India VIX value, same index for both rows (it's one number, not
+    """Called once per scan cycle -- snapshots every name in INDEX_SYMBOLS
+    (NIFTY, BANKNIFTY, and SENSEX as of Sep 11 2026).
+    change_percents: optional {'NIFTY': pct, 'BANKNIFTY': pct, 'SENSEX': pct}.
+    vix: India VIX value, same index for every row (it's one number, not
     per-index) -- reused from data already fetched elsewhere per cycle.
 
-    Runs both fetches in PARALLEL (was sequential -- NIFTY's full
+    Runs all fetches in PARALLEL (was sequential -- NIFTY's full
     fetch+write completing before BANKNIFTY's even started, adding both
     indices' network round-trip time back-to-back onto every single scan
     cycle). Threaded the same way the stock scanner already fetches data
     elsewhere in this project.
 
-    Returns {'NIFTY': row_or_None, 'BANKNIFTY': row_or_None}."""
+    Returns {'NIFTY': row_or_None, 'BANKNIFTY': row_or_None, 'SENSEX': row_or_None}."""
     from concurrent.futures import ThreadPoolExecutor
     change_percents = change_percents or {}
     results = {}

@@ -312,6 +312,12 @@ FYERS_INDEX_SYMBOLS = {
     "NIFTY 50": "NSE:NIFTY50-INDEX",
     "BANKNIFTY": "NSE:NIFTYBANK-INDEX",
     "INDIA VIX": "NSE:INDIAVIX-INDEX",
+    # Sep 11 2026: added for the Market Banner's new SENSEX card. Both
+    # _fetch_index() and _fetch_indices_batched() below already loop
+    # over this dict generically, so no changes needed to either --
+    # only the two call sites that unpack specific keys by name
+    # (_build_all(), _index_snapshot_worker()) need a matching update.
+    "SENSEX": "BSE:SENSEX-INDEX",
 }
 
 
@@ -1513,6 +1519,7 @@ def _build_all():
         nifty = cached_indices.get("nifty50", {'price': 0, 'change': 0, 'change_percent': 0})
         bank = cached_indices.get("banknifty", {'price': 0, 'change': 0, 'change_percent': 0})
         vix = cached_indices.get("india_vix", {'price': 0, 'change': 0, 'change_percent': 0})
+        sensex = cached_indices.get("sensex", {'price': 0, 'change': 0, 'change_percent': 0})
     else:
         # Sep 3 2026: was 3 separate _fetch_index() calls -- see
         # _fetch_indices_batched()'s docstring for why that's a real,
@@ -1521,8 +1528,9 @@ def _build_all():
         nifty = _batched_idx["NIFTY 50"]
         bank = _batched_idx["BANKNIFTY"]
         vix = _batched_idx["INDIA VIX"]
+        sensex = _batched_idx["SENSEX"]
         with _cache_lock:
-            _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix}
+            _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix, "sensex": sensex}
             _index_cache_updated_at = time.time()
     
     # 2. Fetch all stock prices -- Fyers only, no Yahoo involved at all.
@@ -2656,18 +2664,29 @@ def _index_snapshot_worker():
                 nifty = _batched_idx["NIFTY 50"]
                 bank = _batched_idx["BANKNIFTY"]
                 vix = _batched_idx["INDIA VIX"]
+                sensex = _batched_idx["SENSEX"]
                 global _index_cache, _index_cache_updated_at
                 with _cache_lock:
-                    _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix}
+                    _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix, "sensex": sensex}
                     _index_cache_updated_at = time.time()
                 index_rows = snapshot_all(
                     change_percents={
                         "NIFTY": nifty.get("change_percent"),
                         "BANKNIFTY": bank.get("change_percent"),
+                        "SENSEX": sensex.get("change_percent"),
                     },
                     vix=vix.get("price"),
                 )
 
+                # Sep 11 2026: SENSEX snapshots into Index Tracker/the
+                # Market Banner above (snapshot_all() already looped it
+                # in via INDEX_SYMBOLS), but deliberately does NOT run
+                # through the loop below -- that generates live
+                # tradeable option calls, Shadow Mode entries, and
+                # Bias-vs-OI-Signal agreement logging, none of which
+                # were asked for here and each of which is its own real
+                # scope (SENSEX's ATR/strike-selection math hasn't been
+                # built or tested). NIFTY/BANKNIFTY only, same as before.
                 for name, fyers_symbol in (("NIFTY", "NSE:NIFTY50-INDEX"), ("BANKNIFTY", "NSE:NIFTYBANK-INDEX")):
                     row = (index_rows or {}).get(name)
                     oi = get_last_oi_snapshot(name)
@@ -2903,6 +2922,7 @@ class MarketSummaryOldView(APIView):
             nifty = _index_cache.get("nifty50")
             bank = _index_cache.get("banknifty")
             vix = _index_cache.get("india_vix")
+            sensex = _index_cache.get("sensex")
             pcr = _index_cache.get("pcr", {"value": None, "sentiment": "N/A"})
             warming = len(_stock_cache) == 0
             breadth = _compute_breadth(list(_stock_cache.values()))
@@ -2929,6 +2949,7 @@ class MarketSummaryOldView(APIView):
             "nifty50": nifty or {"price": 0, "change": 0, "change_percent": 0},
             "banknifty": bank or {"price": 0, "change": 0, "change_percent": 0},
             "india_vix": vix or {"value": 0, "change": 0, "change_percent": 0},
+            "sensex": sensex or {"price": 0, "change": 0, "change_percent": 0},
             "pcr": pcr,
             "breadth": breadth,
             "sectors": sectors,
@@ -3462,8 +3483,20 @@ class TrendMomentumView(APIView):
         name = index_name.upper()
         if name not in INDEX_SYMBOLS:
             return Response({"error": f"index_name must be one of {list(INDEX_SYMBOLS)}"}, status=400)
+        # Sep 11 2026: was a binary ternary ("nifty50" if NIFTY else
+        # "banknifty") that silently mapped anything else -- SENSEX
+        # included, once it joined INDEX_SYMBOLS -- to BANKNIFTY's
+        # cached price. get_trend_momentum_card() itself is already
+        # name-generic (goes through _fetch_daily_history() -> Fyers
+        # history API, nothing NSE/BSE-specific), so this endpoint now
+        # works correctly for SENSEX too if something calls it -- this
+        # fix is only about not mislabeling the live spot, not a claim
+        # that SENSEX is wired into the Dashboard's Trend & Momentum
+        # UI (it isn't, wasn't asked for, and Dashboard.jsx wasn't
+        # part of this change).
+        _CACHE_KEY = {"NIFTY": "nifty50", "BANKNIFTY": "banknifty", "SENSEX": "sensex"}
         with _cache_lock:
-            live_snapshot = _index_cache.get("nifty50" if name == "NIFTY" else "banknifty")
+            live_snapshot = _index_cache.get(_CACHE_KEY.get(name))
         current_spot = (live_snapshot or {}).get("price")
         card = get_trend_momentum_card(name, current_spot=current_spot)
         if card is None:
