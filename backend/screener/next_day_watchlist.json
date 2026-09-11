@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-11T19:09:26.506464",
+  "generated_at": "2026-09-11T19:10:25.954236",
   "universe_scanned": 2677,
   "stocks_with_enough_data": 2507,
   "excluded_low_price": 546,
-  "excluded_low_liquidity": 946,
+  "excluded_low_liquidity": 945,
   "excluded_unknown_sector": 2300,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
@@ -34,30 +34,6 @@
       "rank": 1
     },
     {
-      "symbol": "NSE:BLUESTARCO-EQ",
-      "sector": "Consumer Durables",
-      "eod_price": 1558,
-      "change_percent": 2.91,
-      "rsi": 37.4,
-      "sma_20": 1490.13,
-      "distance_from_sma_pct": 4.55,
-      "today_volume": 1336366,
-      "avg_volume_20d": 428627.0,
-      "volume_ratio": 3.12,
-      "sector_relative_pct": 2.81,
-      "sector_strength": "Leading",
-      "trend_status": "Moderate",
-      "volume_status": "Heavy Accumulation",
-      "score": 98,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 23,
-        "volume": 30,
-        "sector_strength": 25
-      },
-      "rank": 2
-    },
-    {
       "symbol": "NSE:PAYTM-EQ",
       "sector": "Fintech",
       "eod_price": 1807.5,
@@ -79,7 +55,7 @@
         "volume": 23,
         "sector_strength": 25
       },
-      "rank": 3
+      "rank": 2
     },
     {
       "symbol": "NSE:DMART-EQ",
@@ -103,7 +79,7 @@
         "volume": 10,
         "sector_strength": 25
       },
-      "rank": 4
+      "rank": 3
     },
     {
       "symbol": "NSE:PRESTIGE-EQ",
@@ -127,7 +103,7 @@
         "volume": 8,
         "sector_strength": 25
       },
-      "rank": 5
+      "rank": 4
     },
     {
       "symbol": "NSE:BANDHANBNK-EQ",
@@ -151,7 +127,7 @@
         "volume": 30,
         "sector_strength": 25
       },
-      "rank": 6
+      "rank": 5
     },
     {
       "symbol": "NSE:COCHINSHIP-EQ",
@@ -175,7 +151,7 @@
         "volume": 30,
         "sector_strength": 0
       },
-      "rank": 7
+      "rank": 6
     },
     {
       "symbol": "NSE:GODREJPROP-EQ",
@@ -199,7 +175,7 @@
         "volume": 30,
         "sector_strength": 0
       },
-      "rank": 8
+      "rank": 7
     },
     {
       "symbol": "NSE:PIIND-EQ",
@@ -222,6 +198,30 @@
         "trend_distance": 25,
         "volume": 30,
         "sector_strength": 0
+      },
+      "rank": 8
+    },
+    {
+      "symbol": "NSE:BLUESTARCO-EQ",
+      "sector": "Consumer Durables",
+      "eod_price": 1558,
+      "change_percent": 2.91,
+      "rsi": 55.5,
+      "sma_20": 1492.64,
+      "distance_from_sma_pct": 4.38,
+      "today_volume": 1336366,
+      "avg_volume_20d": 472069.0,
+      "volume_ratio": 2.83,
+      "sector_relative_pct": 2.81,
+      "sector_strength": "Leading",
+      "trend_status": "Weak",
+      "volume_status": "Accumulation",
+      "score": 74,
+      "score_breakdown": {
+        "rsi": 0,
+        "trend_distance": 22,
+        "volume": 27,
+        "sector_strength": 25
       },
       "rank": 9
     },
