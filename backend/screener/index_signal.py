@@ -25,9 +25,9 @@ scoped to just this module is simpler and doesn't risk the
 already-working stock-locking logic.
 
 STRIKE SELECTION (per explicit request, Aug 27 2026): NOT the ATM
-strike Index Tracker itself already snapshots -- the OI WALL the
-vote-based Bias just confirmed. Bearish -> PE at Resistance (the
-highest Call-OI strike, where call writers are actively defending);
+strike Index Tracker itself already snapshots -- the OI WALL the vote-
+based Bias just confirmed. Bearish -> PE at Resistance (the highest
+Call-OI strike, where call writers are actively defending);
 Bullish -> CE at Support (the highest Put-OI strike). The bet is on
 rejection from the wall the OI is defending, not a plain at-the-money
 bet.
@@ -38,8 +38,8 @@ HONEST LIMITATIONS:
   system it sits on top of. A wall can sit meaningfully far from spot,
   meaning a deep-OTM strike with small delta and a cheap premium (and
   correspondingly small absolute SL/Target Rupee amounts) -- the delta
-  floor below (0.05) keeps the math from blowing up, but doesn't make a
-  deep-OTM bet the same risk profile as a near-ATM one.
+  floor below (0.05) keeps the math from blowing up, but doesn't make
+  a deep-OTM bet the same risk profile as a near-ATM one.
 - This can't be retroactively backtested against past logged data --
   needs real accumulated calls, watched going forward from here, same
   as everything else new in this project.
@@ -88,21 +88,11 @@ def generate_index_call(index_name, bias, oi, spot_or_fut, atr):
     """
     action = _bias_action(bias)
     if action is None:
-        # Bias dropped back to Neutral (or flipped since this function
-        # doesn't get called on an unrecognized/opposite bias without
-        # going through here again) -- drop any locked call rather than
-        # keep serving one that no longer matches current Bias.
         _locked_calls.pop(index_name, None)
         return None
 
     locked = _locked_calls.get(index_name)
     if locked and locked.get("action") == action and not locked.get("sl_hit") and locked.get("furthest_target_hit", 0) < 3:
-        # Same direction still active, plan not yet fully resolved --
-        # reuse the frozen numbers. Same "a trade plan has to hold still
-        # once shown to you" principle the stock engine already follows
-        # (see views.py's locked-plan reuse in _build_all()) -- price/
-        # ATR drift throughout the day, so a call can't be recomputed
-        # fresh every cycle and still be something you can act on.
         return locked
 
     opt_side = "PE" if action == "SELL" else "CE"
@@ -113,16 +103,13 @@ def generate_index_call(index_name, bias, oi, spot_or_fut, atr):
     row = next((r for r in oi.get("rows", []) if r["strike"] == strike), None)
     leg = (row or {}).get(opt_side.lower()) if row else None
     if not leg or not leg.get("ltp"):
-        return None  # no live premium for this exact strike right now -- don't guess
+        return None
 
     premium_entry = leg["ltp"]
     delta_for_premium = leg.get("delta")
     if delta_for_premium is None or atr is None or spot_or_fut is None:
         return None
 
-    # Same math as views.py's stock-signal engine: ATR-sized underlying
-    # move (fractions of one session's range), translated to premium via
-    # the contract's own delta, SL weighted 1.4x.
     if action == "BUY":
         idx_sl = spot_or_fut - atr * 0.4
         idx_t1 = spot_or_fut + atr * 0.5
@@ -134,14 +121,29 @@ def generate_index_call(index_name, bias, oi, spot_or_fut, atr):
         idx_t2 = spot_or_fut - atr * 0.8
         idx_t3 = spot_or_fut - atr * 1.2
 
-    d = max(abs(delta_for_premium), 0.05)  # floor so a deep-OTM wall strike's small delta doesn't zero out the math
+    d = max(abs(delta_for_premium), 0.05)
     entry = round(premium_entry, 2)
     sl = round(max(0.05, premium_entry - d * abs(spot_or_fut - idx_sl) * 1.4), 2)
     t1 = round(premium_entry + d * abs(idx_t1 - spot_or_fut), 2)
     t2 = round(premium_entry + d * abs(idx_t2 - spot_or_fut), 2)
     t3 = round(premium_entry + d * abs(idx_t3 - spot_or_fut), 2)
 
-    qty = max(1, int(50000 / entry))
+    # Quantity is an exchange-defined number of units per lot. Never derive
+    # it from an arbitrary Rs 50,000 capital assumption. The resolver reads
+    # the current NSE contract file and therefore tracks lot-size revisions.
+    try:
+        from .lot_size_resolver import get_lot_size
+        lot_size = get_lot_size(index_name)
+    except Exception as exc:
+        print(f"[IndexSignal] Lot-size lookup failed for {index_name}: {exc}")
+        lot_size = None
+    if not lot_size or lot_size <= 0:
+        # No real lot size -> no tradeable quantity. Do not silently replace
+        # it with a fabricated unit count.
+        print(f"[IndexSignal] No valid lot size for {index_name}; skipping call")
+        return None
+    qty = int(lot_size)
+
     risk = abs(entry - sl)
     rr = round(abs(t1 - entry) / risk, 2) if risk else 1.5
 
@@ -152,7 +154,7 @@ def generate_index_call(index_name, bias, oi, spot_or_fut, atr):
         "wall_type": "Resistance" if action == "SELL" else "Support",
         "entry": entry, "sl": sl,
         "target1": t1, "target2": t2, "target3": t3,
-        "quantity": qty, "risk_reward": rr,
+        "quantity": qty, "lot_size": lot_size, "risk_reward": rr,
         "option_symbol": leg.get("symbol"),
         "bias": bias, "spot_at_entry": spot_or_fut,
         "sl_hit": False, "furthest_target_hit": 0,
