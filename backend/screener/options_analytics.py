@@ -9,6 +9,41 @@ because Fyers' option-chain endpoint does not return IV/Greeks at all).
 import math
 
 
+def _num(row, key, cast):
+    """cast(row[key]) if the raw Fyers response actually included this
+    field, else None -- distinguishes "Fyers genuinely reported zero"
+    from "Fyers didn't report this field at all". The old `cast(row.get
+    (key) or 0)` pattern here could not tell those apart: a strike with
+    a genuinely missing oich/oi/bid/ask/ltp/volume silently became
+    indistinguishable from one that really had zero, a real gap under
+    this project's own no-fabrication rule.
+
+    Downstream aggregate functions below (compute_pcr, compute_oi_
+    change, etc.) still treat a missing value as contributing 0 to a
+    SUM or ranking -- a disclosed, deliberate simplification at the
+    AGGREGATE level (see _leg_field() right below). What changes is the
+    PER-LEG value itself: it now stays honestly None for any caller
+    that inspects one specific strike/leg directly -- e.g.
+    quality_engine.evaluate_liquidity_gate's `bid is None`/`ask is
+    None` checks, which this exact gap was silently defeating (bid/ask
+    could never actually be None before, so that gate's own explicit
+    UNAVAILABLE handling for missing liquidity data was effectively
+    dead code until now)."""
+    val = row.get(key)
+    return cast(val) if val is not None else None
+
+
+def _leg_field(leg, field):
+    """(leg or {}).get(field) or 0 -- a leg that doesn't exist at all,
+    and one that exists but has this specific field missing, both
+    contribute 0 to a SUM or a max()-ranking comparison below. This is
+    the disclosed, deliberate AGGREGATE-level simplification described
+    in _num()'s docstring above -- not a fabricated value, just "this
+    one unknown strike out of the window doesn't add to the total,"
+    same as it would if genuinely excluded from the chain entirely."""
+    return (leg or {}).get(field) or 0
+
+
 def parse_option_chain(raw_response):
     data = (raw_response or {}).get('data', {}) or {}
     chain = data.get('optionsChain', []) or []
@@ -21,13 +56,13 @@ def parse_option_chain(raw_response):
             continue
         strike = int(row.get('strike_price') or 0)
         entry = {
-            'ltp': float(row.get('ltp') or 0),
-            'oi': int(row.get('oi') or 0),
-            'oi_chg': int(row.get('oich') or 0),
-            'oi_chg_pct': float(row.get('oichp') or 0),
-            'volume': int(row.get('volume') or 0),
-            'bid': float(row.get('bid') or 0),
-            'ask': float(row.get('ask') or 0),
+            'ltp': _num(row, 'ltp', float),
+            'oi': _num(row, 'oi', int),
+            'oi_chg': _num(row, 'oich', int),
+            'oi_chg_pct': _num(row, 'oichp', float),
+            'volume': _num(row, 'volume', int),
+            'bid': _num(row, 'bid', float),
+            'ask': _num(row, 'ask', float),
             'symbol': row.get('symbol', ''),
         }
         slot = by_strike.setdefault(strike, {'strike': strike, 'ce': None, 'pe': None})
@@ -43,24 +78,24 @@ def parse_option_chain(raw_response):
 
 
 def compute_pcr(rows):
-    ce_oi = sum((r['ce']['oi'] if r['ce'] else 0) for r in rows)
-    pe_oi = sum((r['pe']['oi'] if r['pe'] else 0) for r in rows)
+    ce_oi = sum(_leg_field(r['ce'], 'oi') for r in rows)
+    pe_oi = sum(_leg_field(r['pe'], 'oi') for r in rows)
     if ce_oi <= 0:
         return None, ce_oi, pe_oi
     return round(pe_oi / ce_oi, 3), ce_oi, pe_oi
 
 
 def compute_pcr_volume(rows):
-    ce_vol = sum((r['ce']['volume'] if r['ce'] else 0) for r in rows)
-    pe_vol = sum((r['pe']['volume'] if r['pe'] else 0) for r in rows)
+    ce_vol = sum(_leg_field(r['ce'], 'volume') for r in rows)
+    pe_vol = sum(_leg_field(r['pe'], 'volume') for r in rows)
     if ce_vol <= 0:
         return None, ce_vol, pe_vol
     return round(pe_vol / ce_vol, 3), ce_vol, pe_vol
 
 
 def compute_oi_change(rows):
-    ce_chg = sum((r['ce']['oi_chg'] if r['ce'] else 0) for r in rows)
-    pe_chg = sum((r['pe']['oi_chg'] if r['pe'] else 0) for r in rows)
+    ce_chg = sum(_leg_field(r['ce'], 'oi_chg') for r in rows)
+    pe_chg = sum(_leg_field(r['pe'], 'oi_chg') for r in rows)
     return ce_chg, pe_chg
 
 
@@ -85,8 +120,8 @@ def compute_max_pain(rows):
         total_loss = 0
         for r in rows:
             k = r['strike']
-            ce_oi = r['ce']['oi'] if r['ce'] else 0
-            pe_oi = r['pe']['oi'] if r['pe'] else 0
+            ce_oi = _leg_field(r['ce'], 'oi')
+            pe_oi = _leg_field(r['pe'], 'oi')
             if candidate > k:
                 total_loss += ce_oi * (candidate - k)
             if candidate < k:
@@ -99,8 +134,8 @@ def compute_max_pain(rows):
 def compute_support_resistance(rows):
     ce_rows = [r for r in rows if r['ce']]
     pe_rows = [r for r in rows if r['pe']]
-    resistance = max(ce_rows, key=lambda r: r['ce']['oi'])['strike'] if ce_rows else None
-    support = max(pe_rows, key=lambda r: r['pe']['oi'])['strike'] if pe_rows else None
+    resistance = max(ce_rows, key=lambda r: _leg_field(r['ce'], 'oi'))['strike'] if ce_rows else None
+    support = max(pe_rows, key=lambda r: _leg_field(r['pe'], 'oi'))['strike'] if pe_rows else None
     return support, resistance
 
 
@@ -174,12 +209,12 @@ def compute_atm_iv(rows, spot, days_to_expiry):
     T = days_to_expiry / 365.0
     ivs = []
     greeks = {}
-    if atm_row['ce'] and atm_row['ce']['ltp'] > 0:
+    if atm_row['ce'] and (atm_row['ce'].get('ltp') or 0) > 0:
         iv_ce = implied_volatility(atm_row['ce']['ltp'], spot, atm_strike, days_to_expiry, 'CE')
         if iv_ce:
             ivs.append(iv_ce)
             greeks['CE'] = _greeks(spot, atm_strike, T, 0.07, iv_ce / 100, 'CE')
-    if atm_row['pe'] and atm_row['pe']['ltp'] > 0:
+    if atm_row['pe'] and (atm_row['pe'].get('ltp') or 0) > 0:
         iv_pe = implied_volatility(atm_row['pe']['ltp'], spot, atm_strike, days_to_expiry, 'PE')
         if iv_pe:
             ivs.append(iv_pe)
@@ -195,7 +230,8 @@ def enrich_rows_with_iv_greeks(rows, spot, days_to_expiry, risk_free_rate=0.07):
             if not leg:
                 continue
             opt_type = 'CE' if side == 'ce' else 'PE'
-            iv = implied_volatility(leg['ltp'], spot, r['strike'], days_to_expiry, opt_type, risk_free_rate) if leg['ltp'] > 0 else None
+            ltp = leg.get('ltp') or 0
+            iv = implied_volatility(ltp, spot, r['strike'], days_to_expiry, opt_type, risk_free_rate) if ltp > 0 else None
             leg['iv'] = iv
             g = _greeks(spot, r['strike'], T, risk_free_rate, iv / 100, opt_type) if iv else None
             leg.update(g or {'delta': None, 'gamma': None, 'theta': None, 'vega': None})
