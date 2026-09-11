@@ -170,7 +170,12 @@ def _style_live_row(sheet, row_num, values, previous):
 
             if i == _BIAS_COL_INDEX:
                 bias = values[i] or ""
-                _fill(cell, _GREEN_FILL if "Bullish" in bias else _RED_FILL if "Bearish" in bias else _AMBER_FILL)
+                if "Bullish" in bias:
+                    _fill(cell, _GREEN_FILL)
+                elif "Bearish" in bias:
+                    _fill(cell, _RED_FILL)
+                elif bias == "Neutral":
+                    _fill(cell, _AMBER_FILL)
             elif i == _PCR_COL_INDEX:
                 pcr = values[i]
                 if isinstance(pcr, (int, float)):
@@ -317,7 +322,12 @@ def _write_boundary_panel(sheet, index_name, row, oi_snap):
             for addr in (f"A{rr}", f"C{rr}", f"F{rr}", f"H{rr}"):
                 sheet.range(addr).font.bold = True
                 _fill(sheet.range(addr), _LABEL_FILL)
-        _fill(sheet.range(f"B{r3}"), _GREEN_FILL if "Bullish" in bias else _RED_FILL if "Bearish" in bias else _AMBER_FILL)
+        if "Bullish" in bias:
+            _fill(sheet.range(f"B{r3}"), _GREEN_FILL)
+        elif "Bearish" in bias:
+            _fill(sheet.range(f"B{r3}"), _RED_FILL)
+        elif bias == "Neutral":
+            _fill(sheet.range(f"B{r3}"), _AMBER_FILL)
         if isinstance(pcr, (int, float)):
             _fill(sheet.range(f"G{r3}"), _GREEN_FILL if pcr > 1.05 else _RED_FILL if pcr < 0.95 else _AMBER_FILL)
 
@@ -335,6 +345,10 @@ def _write_boundary_panel(sheet, index_name, row, oi_snap):
 
 def _write_dashboard_row(sheet, index_name, values):
     row_num = _next_row.get(index_name, 2)
+    # The current panel occupies this row after the previous sample. Remove
+    # it before writing the next row so merged cells never block the append.
+    if row_num > 2:
+        _clear_panel(sheet, _panel_start_rows.get(index_name, row_num))
     sheet.range(f"A{row_num}:M{row_num}").value = [values]
     _style_live_row(sheet, row_num, values, _prev_values.get(index_name))
     _prev_values[index_name] = values
@@ -373,7 +387,7 @@ def _row_from_snapshot(name, oi_snap):
         "Highest Call OI Strike": call_wall[0],
         "Highest Put OI Strike": put_wall[0],
         "PCR": oi_snap.get("pcr"),
-        "Bias": oi_snap.get("bias") or "Neutral",
+        "Bias": oi_snap.get("bias") or "N/A",
     }
 
 
@@ -402,9 +416,6 @@ def write_live_dashboard(results):
         return
 
     combined = dict(results or {})
-    # No Fyers call here. Commodity data comes from the option-chain snapshot
-    # already held by index_tracker. If the first commodity snapshot has not
-    # arrived yet, its sheet simply starts on the first confirmed snapshot.
     for name in _COMMODITY_NAMES:
         if not combined.get(name):
             cached = get_last_oi_snapshot(name)
