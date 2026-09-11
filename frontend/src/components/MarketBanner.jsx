@@ -284,7 +284,7 @@ export default function MarketBanner() {
       : 'text-slate-500';
 
     const inner = (
-      <div className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 ${fyersSymbol ? 'hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group' : ''}`}>
+      <div className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 md:min-w-[150px] md:flex-1 ${fyersSymbol ? 'hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group' : ''}`}>
         <div className={`w-2 h-2 rounded-full ${dotClass}`} />
         <div className="flex-1 min-w-0">
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1 whitespace-nowrap">
@@ -309,7 +309,7 @@ export default function MarketBanner() {
 
     if (!fyersSymbol) return inner;
     return (
-      <a href={fyersChartUrl(fyersSymbol)} target="_blank" rel="noopener noreferrer" title={`Open ${label} chart on Fyers`}>
+      <a href={fyersChartUrl(fyersSymbol)} target="_blank" rel="noopener noreferrer" title={`Open ${label} chart on Fyers`} className="block md:min-w-[150px] md:flex-1">
         {inner}
       </a>
     );
@@ -335,7 +335,7 @@ export default function MarketBanner() {
   const crudeIsPos = (crudeChangePct || 0) >= 0;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-7 gap-3 mb-4">
+    <div className="grid grid-cols-2 gap-3 mb-4 md:flex md:overflow-x-auto md:pb-1">
       <Card label="NIFTY 50" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
       <Card label="SENSEX" price={sensex.price} change={sensex.change} changePercent={sensex.change_percent} fyersSymbol="BSE:SENSEX-INDEX" sparklineData={sensexHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
       <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
@@ -345,7 +345,7 @@ export default function MarketBanner() {
           instead of change%, no sparkline), but now uses the same
           LIVE/CLOSED/DATA UNAVAILABLE status labeling as every other
           card, instead of its own separate "N/A" convention. */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 md:min-w-[150px] md:flex-1">
         <div className={`w-2 h-2 rounded-full ${pcr.value != null && marketStatus?.isOpen ? 'bg-purple-500 animate-pulse' : 'bg-slate-600'}`} />
         <div className="flex-1 min-w-0">
           <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider whitespace-nowrap">PCR</p>
@@ -369,7 +369,7 @@ export default function MarketBanner() {
           every other "don't guess" fallback in this project. */}
       {crudeSymbol ? (
         <a href={fyersChartUrl(crudeSymbol)} target="_blank" rel="noopener noreferrer" title="Open CRUDE OIL chart on Fyers"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group">
+          className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group md:min-w-[150px] md:flex-1">
           <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1 whitespace-nowrap">
@@ -384,7 +384,7 @@ export default function MarketBanner() {
           <Sparkline values={crudeHistory} />
         </a>
       ) : (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50">
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 md:min-w-[150px] md:flex-1">
           <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider whitespace-nowrap">CRUDE OIL</p>
@@ -400,7 +400,7 @@ export default function MarketBanner() {
       {/* Time + Market Status -- moved here from its own standalone
           card in Market View, per direct feedback: whether the market
           is open matters globally, not just on one tab. */}
-      <div className="hidden md:flex items-center justify-end px-4 py-3">
+      <div className="hidden md:flex items-center justify-end px-4 py-3 md:shrink-0">
         <div className="text-right">
           {marketStatus && (
             <div className="flex items-center justify-end gap-1.5 mb-1">
