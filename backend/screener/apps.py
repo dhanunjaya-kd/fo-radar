@@ -28,3 +28,27 @@ class ScreenerConfig(AppConfig):
             install()
         except Exception as exc:
             print(f"[OILiveDashboard] Runtime guard unavailable: {exc}")
+
+        # Preserve the last good live signal list when a whole Fyers quote
+        # cycle fails. A genuine successful scan that finds zero signals is
+        # still allowed to publish zero.
+        try:
+            from .scanner_runtime_guard import install
+            install()
+        except Exception as exc:
+            print(f"[ScannerGuard] unavailable: {exc}")
+
+        # Centralize the current NSE F&O Tuesday-expiry rule for legacy
+        # callers that still expose the old _last_thursday() helper name.
+        try:
+            from .expiry_runtime_guard import install
+            install()
+        except Exception as exc:
+            print(f"[ExpiryGuard] unavailable: {exc}")
+
+        # RSS/network reliability and Telegram retry behavior.
+        try:
+            from .news_runtime_guard import install
+            install()
+        except Exception as exc:
+            print(f"[NewsGuard] unavailable: {exc}")
