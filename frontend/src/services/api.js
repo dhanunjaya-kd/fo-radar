@@ -44,29 +44,15 @@ const fetchWithTimeout = async (url, options = {}, timeout = 10000) => {
 export const api = {
   // Market Summary (Banner data)
   getMarketSummary: async () => {
-    try {
-      // This used to call '/screener/signals/' -- a copy-paste leftover
-      // from getSignals below, not the market-summary endpoint at all.
-      const res = await fetchWithTimeout(`${API_BASE}/market-summary/`);
-      return await handleResponse(res);
-    } catch (error) {
-      console.warn('Market summary fetch failed:', error.message);
-      // Return fallback data so UI never breaks
-      return {
-        nifty: { value: 22438.788, change: 125.30, changePercent: 0.56 },
-        banknifty: { value: 47817.601, change: -45.20, changePercent: -0.09 }, 
-        vix: { value: 13.45, change: -0.82 },
-        pcr: 1.02,
-      };
-    }
+    const res = await fetchWithTimeout(`${API_BASE}/market-summary/`);
+    return await handleResponse(res);
   },
 
   // Scanner Signals
   getSignals: async () => {
     try {
       // '/screener/signals/' was never a registered path (the real one is
-      // '/signals/', which reads the same live cache '/sniper-only/' does)
-      // -- this always 404'd.
+      // '/signals/', which reads the same live cache '/sniper-only/' does).
       const res = await fetchWithTimeout(`${API_BASE}/signals/`);
       return await handleResponse(res);
     } catch (error) {
@@ -78,7 +64,7 @@ export const api = {
   // News
   getNews: async (symbol = null) => {
     try {
-      const url = symbol 
+      const url = symbol
         ? `${API_BASE}/news/?symbol=${encodeURIComponent(symbol)}`
         : `${API_BASE}/news/`;
       const res = await fetchWithTimeout(url);
@@ -129,24 +115,9 @@ export const api = {
       return await handleResponse(res);
     } catch (error) {
       console.warn('F&O list fetch failed:', error.message);
-      // Fallback: Top F&O stocks
-      return [
-        { symbol: 'RELIANCE', name: 'Reliance', close: 1278.00, change: 0.46 },
-        { symbol: 'TCS', name: 'TCS', close: 4150.00, change: 0.80 },
-        { symbol: 'HDFCBANK', name: 'HDFC Bank', close: 1680.00, change: -0.30 },
-        { symbol: 'INFY', name: 'Infosys', close: 1845.60, change: 1.50 },
-        { symbol: 'ICICIBANK', name: 'ICICI Bank', close: 1187.40, change: 0.50 },
-        { symbol: 'SBIN', name: 'SBI', close: 760.00, change: 2.10 },
-        { symbol: 'BHARTIARTL', name: 'Bharti Airtel', close: 1423.80, change: -0.80 },
-        { symbol: 'ITC', name: 'ITC', close: 478.90, change: 0.30 },
-        { symbol: 'KOTAKBANK', name: 'Kotak', close: 1789.50, change: -0.50 },
-        { symbol: 'LT', name: 'L&T', close: 3567.80, change: 1.80 },
-        { symbol: 'AXISBANK', name: 'Axis Bank', close: 1123.40, change: 0.90 },
-        { symbol: 'HINDUNILVR', name: 'HUL', close: 2456.70, change: -0.20 },
-        { symbol: 'BAJFINANCE', name: 'Bajaj Finance', close: 6850.00, change: 1.10 },
-        { symbol: 'ASIANPAINT', name: 'Asian Paints', close: 3120.00, change: -0.40 },
-        { symbol: 'MARUTI', name: 'Maruti Suzuki', close: 11200.00, change: 0.70 },
-      ];
+      // No fabricated market rows. An unavailable backend means the
+      // marquee has no trustworthy live list to display.
+      return { stocks: [], error: error.message };
     }
   },
 
@@ -167,11 +138,12 @@ export const api = {
   // P&L Tracker
   getPnL: async () => {
     try {
-      const res = await fetchWithTimeout(`${API_BASE}/pnl/`);
+      // Trading app routes live under /api/trading/, not /api/pnl/.
+      const res = await fetchWithTimeout(`${API_BASE}/trading/pnl/summary/`);
       return await handleResponse(res);
     } catch (error) {
       console.warn('PnL fetch failed:', error.message);
-      return { trades: [], totalPnL: 0, winRate: 0 };
+      return { trades: [], totalPnL: 0, winRate: 0, error: error.message };
     }
   },
 };
