@@ -6,7 +6,13 @@ OI movement formatting neutral, and restoring the append cursor from the
 existing workbook after a backend restart.
 """
 
+import os
 from datetime import datetime, time as dt_time
+
+
+_METADATA_KEY_CELL = "XFD1"
+_METADATA_DATE_CELL = "XFD2"
+_METADATA_KEY = "OI_LIVE_DASHBOARD_DATE"
 
 
 def install():
@@ -106,6 +112,32 @@ def install():
             last_values = row_values
         return last_row, last_values
 
+    def _set_metadata(sheet, today):
+        try:
+            sheet.range(_METADATA_KEY_CELL).value = _METADATA_KEY
+            sheet.range(_METADATA_DATE_CELL).value = today
+        except Exception as exc:
+            print(f"[OILiveDashboard] Metadata write skipped: {exc}")
+
+    def _get_metadata_date(sheet):
+        try:
+            key = sheet.range(_METADATA_KEY_CELL).value
+            value = sheet.range(_METADATA_DATE_CELL).value
+            if key != _METADATA_KEY or value is None:
+                return None
+            if isinstance(value, datetime):
+                return value.strftime("%Y-%m-%d")
+            return str(value)[:10]
+        except Exception:
+            return None
+
+    def _is_file_modified_today():
+        try:
+            mtime = os.path.getmtime(dashboard.DASHBOARD_PATH)
+            return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d") == datetime.now().strftime("%Y-%m-%d")
+        except Exception:
+            return False
+
     def prepare_sheet(book, index_name):
         """Resume today's existing workbook instead of restarting at row 2."""
         today = datetime.now().strftime("%Y-%m-%d")
@@ -115,33 +147,44 @@ def install():
                 sheet = book.sheets[index_name]
                 header = sheet.range("A1").expand("right").value
                 if header == dashboard._LIVE_LOG_COLUMNS:
+                    metadata_date = _get_metadata_date(sheet)
                     last_row, last_values = _find_existing_rows(sheet)
-                    if last_row >= 2 and last_values:
+
+                    # A persisted trading date is authoritative. This is what
+                    # makes a restart deterministic rather than relying on the
+                    # in-memory _sheet_day_seen dictionary.
+                    same_day = metadata_date == today
+
+                    # Existing workbooks created before this metadata existed get
+                    # a one-time compatibility fallback. Only consider them today's
+                    # workbook when the file itself was modified today AND the last
+                    # snapshot's clock time is not materially in the future.
+                    if metadata_date is None and last_row >= 2 and last_values and _is_file_modified_today():
                         latest_time = _coerce_time(last_values[0])
-                        now_time = datetime.now().time()
                         if latest_time is not None:
-                            # A later clock time than now means the workbook is
-                            # from a previous trading day. A small tolerance avoids
-                            # resetting because of a few seconds of clock skew.
-                            latest_seconds = (
-                                latest_time.hour * 3600 + latest_time.minute * 60 + latest_time.second
-                            )
+                            latest_seconds = latest_time.hour * 3600 + latest_time.minute * 60 + latest_time.second
+                            now_time = datetime.now().time()
                             now_seconds = now_time.hour * 3600 + now_time.minute * 60 + now_time.second
-                            if latest_seconds <= now_seconds + 300:
-                                dashboard._next_row[index_name] = last_row + 1
-                                dashboard._panel_start_rows[index_name] = last_row + 1
-                                dashboard._sheet_day_seen[index_name] = today
-                                dashboard._prev_values[index_name] = last_values
-                                dashboard._panel_ready.discard(index_name)
-                                print(
-                                    f"[OILiveDashboard] Resuming {index_name} from row {last_row + 1}; "
-                                    f"preserving {last_row - 1} existing snapshots."
-                                )
-                                return sheet
+                            same_day = latest_seconds <= now_seconds + 300
+
+                    if same_day and last_row >= 2 and last_values:
+                        dashboard._next_row[index_name] = last_row + 1
+                        dashboard._panel_start_rows[index_name] = last_row + 1
+                        dashboard._sheet_day_seen[index_name] = today
+                        dashboard._prev_values[index_name] = last_values
+                        dashboard._panel_ready.discard(index_name)
+                        _set_metadata(sheet, today)
+                        print(
+                            f"[OILiveDashboard] Resuming {index_name} from row {last_row + 1}; "
+                            f"preserving {last_row - 1} existing snapshots."
+                        )
+                        return sheet
         except Exception as exc:
             print(f"[OILiveDashboard] Workbook resume check failed: {exc}")
 
-        return original_prepare_sheet(book, index_name)
+        sheet = original_prepare_sheet(book, index_name)
+        _set_metadata(sheet, today)
+        return sheet
 
     dashboard._prepare_sheet = prepare_sheet
 
