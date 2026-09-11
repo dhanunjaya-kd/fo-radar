@@ -115,9 +115,9 @@ export const api = {
       return await handleResponse(res);
     } catch (error) {
       console.warn('F&O list fetch failed:', error.message);
-      // No fabricated market rows. An unavailable backend means the
-      // marquee has no trustworthy live list to display.
-      return { stocks: [], error: error.message };
+      // No fabricated market rows. Preserve the endpoint's array contract
+      // while honestly returning no rows when the backend is unavailable.
+      return [];
     }
   },
 
