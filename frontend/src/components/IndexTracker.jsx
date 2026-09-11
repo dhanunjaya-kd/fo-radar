@@ -436,6 +436,7 @@ function BacktestSection({ indexName }) {
 const DISPLAY_NAME = {
   NIFTY: 'NIFTY',
   BANKNIFTY: 'BANKNIFTY',
+  SENSEX: 'SENSEX',
   CRUDEOIL: 'CRUDE OIL',
   CRUDEOILM: 'CRUDE OIL MINI',
 };
@@ -517,7 +518,7 @@ function CASMovesSection({ indexName }) {
   );
 }
 
-function IndexSection({ indexName, showBacktest = true, topSideContent = null }) {
+function IndexSection({ indexName, showBacktest = true, showCasMoves = true, topSideContent = null }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -648,7 +649,7 @@ function IndexSection({ indexName, showBacktest = true, topSideContent = null })
           <>
             <SnapshotTable rows={rows} showAll={showHistory} onToggleShowAll={() => setShowHistory(v => !v)} />
             {showBacktest && <BacktestSection indexName={indexName} />}
-            {showBacktest && <CASMovesSection indexName={indexName} />}
+            {showCasMoves && <CASMovesSection indexName={indexName} />}
           </>
         )}
       </div>
@@ -660,11 +661,13 @@ export default function IndexTracker() {
   return (
     <div className="space-y-4">
       <TabInfoBanner>
-        NIFTY and BANKNIFTY only, snapshotted every scan cycle. "Fut" is the real front-month futures
-        price; "Fut OI" and "Fut OI Chg%" (day-over-day) are now tracked too, via Fyers' Market Depth
-        API. Crude oil moved to its own dedicated tab, since it works differently enough (no spot/cash
-        index, its own MCX hours, its own options chain) to deserve a separate home rather than being
-        squeezed in here.
+        NIFTY, BANKNIFTY, and SENSEX, snapshotted every scan cycle. "Fut" is the real front-month futures
+        price; "Fut OI" and "Fut OI Chg%" (day-over-day) are tracked via Fyers' Market Depth API for
+        NIFTY/BANKNIFTY. SENSEX trades on BSE with its own futures-expiry pattern, not yet confirmed
+        live — its Fut columns stay blank until that's resolved, everything else (Spot, PCR, OI, IV, Max
+        Pain, Bias) is real. Crude oil moved to its own dedicated tab, since it works differently enough
+        (no spot/cash index, its own MCX hours, its own options chain) to deserve a separate home rather
+        than being squeezed in here.
       </TabInfoBanner>
       {/* Aug 30 2026: Advances/Declines used to be its own full-width
           row above both index sections -- moved to sit beside NIFTY's
@@ -683,6 +686,13 @@ export default function IndexTracker() {
         }
       />
       <IndexSection indexName="BANKNIFTY" />
+      {/* Sep 11 2026: CAS is an NSE cash-market mechanism (backend's
+          CASAuctionMovesView explicitly rejects anything but NIFTY/
+          BANKNIFTY) -- SENSEX is BSE, so showCasMoves={false} here
+          rather than showing a section that would just 400. The Bias
+          backtest above it works fine for SENSEX (generic per-name
+          endpoint), so that stays on. */}
+      <IndexSection indexName="SENSEX" showCasMoves={false} />
     </div>
   );
 }

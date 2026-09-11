@@ -124,6 +124,7 @@ export default function MarketBanner() {
   const [bankHistory, setBankHistory] = useState([]);
   const [vixHistory, setVixHistory] = useState([]);
   const [crudeHistory, setCrudeHistory] = useState([]);
+  const [sensexHistory, setSensexHistory] = useState([]);
 
   useEffect(() => {
     let mounted = true;
@@ -183,18 +184,22 @@ export default function MarketBanner() {
     let mounted = true;
     const fetchHistories = async () => {
       try {
-        const [niftyRes, bankRes] = await Promise.all([
+        const [niftyRes, bankRes, sensexRes] = await Promise.all([
           fetch(`${API_BASE}/api/index-tracker/NIFTY/`),
           fetch(`${API_BASE}/api/index-tracker/BANKNIFTY/`),
+          fetch(`${API_BASE}/api/index-tracker/SENSEX/`),
         ]);
         const niftyJson = niftyRes.ok ? await niftyRes.json() : { snapshots: [] };
         const bankJson = bankRes.ok ? await bankRes.json() : { snapshots: [] };
+        const sensexJson = sensexRes.ok ? await sensexRes.json() : { snapshots: [] };
         const niftySnaps = [...(niftyJson.snapshots || [])].reverse();
         const bankSnaps = [...(bankJson.snapshots || [])].reverse();
+        const sensexSnaps = [...(sensexJson.snapshots || [])].reverse();
         if (mounted) {
           setNiftyHistory(niftySnaps.map(s => s.Spot));
           setBankHistory(bankSnaps.map(s => s.Spot));
           setVixHistory(niftySnaps.map(s => s.VIX));
+          setSensexHistory(sensexSnaps.map(s => s.Spot));
         }
       } catch (err) {
         console.error('Index history fetch error:', err);
@@ -324,13 +329,15 @@ export default function MarketBanner() {
   const bank = data.banknifty || {};
   const vix = data.india_vix || {};
   const pcr = data.pcr || {};
+  const sensex = data.sensex || {};
   const crudePrice = crudeRow?.Fut;
   const crudeChangePct = crudeRow?.['Change %'];
   const crudeIsPos = (crudeChangePct || 0) >= 0;
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
+    <div className="grid grid-cols-2 md:grid-cols-7 gap-3 mb-4">
       <Card label="NIFTY 50" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
+      <Card label="SENSEX" price={sensex.price} change={sensex.change} changePercent={sensex.change_percent} fyersSymbol="BSE:SENSEX-INDEX" sparklineData={sensexHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
       <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
       <Card label="INDIA VIX" price={vix.price ?? vix.value} change={vix.change} changePercent={vix.change_percent} fyersSymbol="NSE:INDIAVIX-INDEX" sparklineData={vixHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
 
