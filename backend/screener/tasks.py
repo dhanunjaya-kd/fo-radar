@@ -3,6 +3,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.utils import timezone
 from datetime import timedelta
+import os
 import pandas as pd
 import numpy as np
 
@@ -11,6 +12,32 @@ from .scoring_engine import ScoringEngine, PredictionEngine
 from .fyers_client import is_authenticated, get_quotes, get_option_analytics
 from .views import _fyers_history_df
 
+# Sep 10 2026: DUPLICATE SCANNER FINDING -- scan_all_stocks() below is a
+# complete, independent, second stock-scanning pipeline: its own Fyers
+# quote fetch, its own RSI/ADX/MACD/EMA/VWAP/ATR (all separate
+# implementations from views.py's own _compute_indicators()), its own
+# ScoringEngine/PredictionEngine, writing to the separate Signal/
+# StockSnapshot Django models -- completely parallel to _build_all()'s
+# in-memory _signal_cache + excel_logger.py, which is the actual
+# production scanner path the frontend reads from (confirmed:
+# /api/signals/ and every other endpoint the real log shows being
+# polled are views.py routes, not anything backed by the Signal model
+# these tasks write to).
+#
+# What I could NOT verify this pass: whether Celery Beat is actually
+# scheduled to run this (that config -- CELERY_BEAT_SCHEDULE -- lives
+# in settings.py, which wasn't available to inspect). But real,
+# fairly strong evidence points to "not currently firing": this
+# task's own distinctive "[SCANNER]"/"[MARKET]" print lines never
+# once appear anywhere in the real, extended runtime log provided,
+# despite this task's own docstring claiming it runs every 5 minutes.
+#
+# Given that uncertainty, the safe, conservative fix is here rather
+# than in a schedule config I can't see: an explicit, loud, easily-
+# reversible off-switch. Nothing is deleted -- if this pipeline is
+# ever genuinely needed again, one env var turns it back on.
+_DUPLICATE_SCANNER_ENABLED = os.environ.get("ENABLE_LEGACY_CELERY_SCANNER", "false").lower() == "true"
+
 
 def to_fyers_symbol(stock):
     return f"NSE:{stock}-EQ"
@@ -18,7 +45,18 @@ def to_fyers_symbol(stock):
 
 @shared_task
 def scan_all_stocks():
-    """Run every 5 minutes during market hours."""
+    """Run every 5 minutes during market hours.
+
+    Sep 10 2026: see the DUPLICATE SCANNER FINDING comment at the top
+    of this file. Disabled by default -- set env var
+    ENABLE_LEGACY_CELERY_SCANNER=true to re-enable if this turns out
+    to still be needed for something the production views.py path
+    doesn't cover.
+    """
+    if not _DUPLICATE_SCANNER_ENABLED:
+        print("[SCANNER] scan_all_stocks() is disabled (duplicate of the production views.py scanner) -- set ENABLE_LEGACY_CELERY_SCANNER=true to re-enable")
+        return {"signals_created": 0, "failed_stocks": [], "disabled": True}
+
     engine = ScoringEngine()
     pred_engine = PredictionEngine()
     stocks = Stock.objects.filter(is_fno=True)
@@ -158,6 +196,17 @@ def scan_all_stocks():
 
 @shared_task
 def update_market_overview():
+    """
+    Sep 10 2026: same DUPLICATE SCANNER finding as scan_all_stocks()
+    above -- writes to the separate MarketOverview model, which
+    overlaps with views.py's own /api/market-summary/ endpoint
+    (confirmed in the real log as the one actually being polled and
+    served). This task's own "[MARKET]" print lines never appear in
+    that same log either. Same conservative off-switch, same reason.
+    """
+    if not _DUPLICATE_SCANNER_ENABLED:
+        print("[MARKET] update_market_overview() is disabled (duplicate of the production views.py market-summary path) -- set ENABLE_LEGACY_CELERY_SCANNER=true to re-enable")
+        return
     try:
         if not is_authenticated():
             print("[MARKET] Fyers not authenticated -- skipping overview update (no Yahoo fallback)")

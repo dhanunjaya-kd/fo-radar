@@ -104,7 +104,13 @@ TRACKABLE_NAMES = tuple(INDEX_SYMBOLS) + tuple(COMMODITY_BASES)
 
 
 def _last_thursday(year, month):
-    """Last Thursday of the month -- NSE's monthly F&O expiry day."""
+    """Last Thursday of the month. Sep 10 2026: NO LONGER USED for NSE
+    monthly/futures expiry below -- see _last_tuesday() right after
+    this. Kept defined (not deleted) only because nothing in this
+    codebase's own search turned up any OTHER caller of it, but I
+    can't rule out something outside the files actually inspected this
+    pass -- safer to leave an unused function than risk breaking a
+    caller that wasn't checked."""
     if month == 12:
         next_month_first = datetime(year + 1, 1, 1)
     else:
@@ -115,11 +121,41 @@ def _last_thursday(year, month):
     return d
 
 
+def _last_tuesday(year, month):
+    """
+    Sep 10 2026: real fix -- NSE's monthly AND futures expiry for
+    NIFTY/BANKNIFTY moved from the last Thursday to the last Tuesday
+    of the month, effective Sep 1 2025 (confirmed directly against
+    NSE's own contract-specification page, nseindia.com: "BANKNIFTY
+    futures contracts expire on the last Tuesday of the expiry
+    period"). _last_thursday() above was still being used for this
+    live, current calculation -- genuinely stale, not a historical
+    reference.
+
+    HONEST LIMITATION, same as this project's other date-rule
+    functions (e.g. market_hours.py's own explicit disclosure): this
+    does NOT shift for NSE trading holidays. NSE's own rule is "if the
+    last Tuesday is a holiday, expiry falls to the previous trading
+    day" -- this codebase has no NSE holiday calendar to check that
+    against, so a Tuesday that happens to be a market holiday will be
+    wrong by one trading day until a real holiday calendar exists
+    here. Not silently assumed correct; stated plainly.
+    """
+    if month == 12:
+        next_month_first = datetime(year + 1, 1, 1)
+    else:
+        next_month_first = datetime(year, month + 1, 1)
+    d = next_month_first - timedelta(days=1)
+    while d.weekday() != 1:  # Tuesday
+        d -= timedelta(days=1)
+    return d
+
+
 def _front_month_futures_symbol(index_name):
     """Confirmed-working format: NSE:{INDEX}{YY}{MON}FUT. Rolls to next
     month automatically once the current month's contract has expired."""
     today = datetime.now()
-    expiry = _last_thursday(today.year, today.month)
+    expiry = _last_tuesday(today.year, today.month)
     if today > expiry:
         y, m = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
     else:
@@ -318,7 +354,6 @@ COLUMNS = [
     "Total Put OI", "Total Call OI",
     "Highest Put OI Strike", "Highest Put OI Value",
     "Highest Call OI Strike", "Highest Call OI Value",
-    "Call ITM Ratio", "Put ITM Ratio",
     "IV %", "IV %ile", "VIX", "Support", "Resistance", "Max Pain", "Max Pain Dist %",
     "OI Buildup", "Bias", "Price Confirms Bias",
     "Confirms 5min", "Confirms 30min", "Confirms 60min", "Horizons Confirming",
@@ -1252,14 +1287,6 @@ def snapshot_index(index_name, change_percent=None, vix=None):
     highest_put_value = (put_wall_row or {}).get("pe", {}).get("oi") if put_wall_row else None
     highest_call_value = (call_wall_row or {}).get("ce", {}).get("oi") if call_wall_row else None
 
-    # Sep 10 2026: what fraction of each side's chain-wide OI is already
-    # in-the-money right now -- new metric, not derived from anything
-    # above. Reuses `rows`/`oi` already fetched this cycle, no second
-    # call. See oi_live_dashboard.py's docstring for the real caveat
-    # about `rows` coverage vs oi['ce_oi']/oi['pe_oi']'s own population.
-    from .oi_live_dashboard import compute_itm_ratios
-    call_itm_ratio, put_itm_ratio = compute_itm_ratios(rows, oi.get("spot"), oi.get("ce_oi"), oi.get("pe_oi"))
-
     with _lock:
         prev = _last_snapshot.get(index_name, {})
         pe_chg = (pe_oi - prev["pe_oi"]) if (pe_oi is not None and "pe_oi" in prev) else None
@@ -1328,7 +1355,6 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "Total Put OI": oi.get("pe_oi"), "Total Call OI": oi.get("ce_oi"),
         "Highest Put OI Strike": highest_put_strike, "Highest Put OI Value": highest_put_value,
         "Highest Call OI Strike": highest_call_strike, "Highest Call OI Value": highest_call_value,
-        "Call ITM Ratio": call_itm_ratio, "Put ITM Ratio": put_itm_ratio,
         "IV %": oi.get("iv"), "IV %ile": iv_percentile, "VIX": vix,
         "Support": oi.get("support"), "Resistance": oi.get("resistance"),
         "Max Pain": oi.get("max_pain"), "Max Pain Dist %": oi.get("max_pain_dist_pct"),
@@ -1385,18 +1411,6 @@ def snapshot_all(change_percents=None, vix=None):
             except Exception as e:
                 print(f"[IndexTracker] {name} snapshot thread failed: {e}")
                 results[name] = None
-
-    # Sep 10 2026: pushes the same row dicts just built above into a
-    # live-visible Excel window via xlwings -- no new Fyers fetch, just
-    # a second write of data already in hand. Wrapped so a dashboard
-    # failure (Excel not open, xlwings not installed, etc.) can never
-    # affect the real return value the rest of the app depends on.
-    try:
-        from .oi_live_dashboard import write_live_dashboard
-        write_live_dashboard(results)
-    except Exception as e:
-        print(f"[IndexTracker] Live dashboard write failed (non-fatal): {e}")
-
     return results
 
 

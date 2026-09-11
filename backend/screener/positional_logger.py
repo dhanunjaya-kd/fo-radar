@@ -121,15 +121,21 @@ def compute_positional_levels(signal):
 
 def _expiry_date_for(entry_dt):
     """Locked at entry time -- same NSE monthly-expiry rule
-    index_tracker.py's _last_thursday() already uses. Deferred import:
-    this is a shared NSE-calendar fact, not index-specific logic, but
-    kept deferred to match this project's existing convention for
-    avoiding import-time coupling between modules."""
-    from .index_tracker import _last_thursday
-    expiry = _last_thursday(entry_dt.year, entry_dt.month)
+    index_tracker.py's _last_tuesday() uses. Deferred import: this is
+    a shared NSE-calendar fact, not index-specific logic, but kept
+    deferred to match this project's existing convention for avoiding
+    import-time coupling between modules.
+
+    Sep 10 2026: was _last_thursday() -- NSE's monthly/futures expiry
+    moved to the last Tuesday of the month effective Sep 1 2025 (see
+    index_tracker.py's _last_tuesday() docstring for the confirmed
+    source). This function computes a real, live expiry lock for
+    actual open positions -- genuinely stale, not historical logic."""
+    from .index_tracker import _last_tuesday
+    expiry = _last_tuesday(entry_dt.year, entry_dt.month)
     if entry_dt.date() > expiry.date():
         y, m = (entry_dt.year + 1, 1) if entry_dt.month == 12 else (entry_dt.year, entry_dt.month + 1)
-        expiry = _last_thursday(y, m)
+        expiry = _last_tuesday(y, m)
     return expiry
 
 

@@ -31,6 +31,7 @@ _LIVE_LOG_COLUMNS = [
 _COL_LETTERS = [chr(ord("A") + i) for i in range(len(_LIVE_LOG_COLUMNS))]
 _PCR_COL_INDEX = _LIVE_LOG_COLUMNS.index("PCR")
 _BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
+_PRICE_COL_INDEX = _LIVE_LOG_COLUMNS.index("Value")  # this is the index's own spot price -- the one column Change 3 keeps directional colour on
 
 # The panel now sits immediately below the last live row. It moves down by one
 # row for every new sample, so there are no artificial blank rows between samples
@@ -160,7 +161,22 @@ def _style_header(sheet):
 
 
 def _style_live_row(sheet, row_num, values, previous):
-    """Colour cells according to movement, while retaining the reference look."""
+    """Colour cells according to movement, while retaining the reference look.
+
+    Sep 10 2026: Change 3 -- only Price (this index's own spot move) and
+    Bias keep directional green/red. PCR and every OI-derived numeric
+    column (Call/Put OI sums, their difference, boundary OI values, ITM
+    ratios, boundary strikes) previously got the SAME increase=green/
+    decrease=red treatment as Price, via the old generic 'any numeric
+    column that changed' branch below. That's the exact misleading
+    pattern being fixed: a rising Call OI or a rising PCR isn't
+    inherently bullish the way a rising price is -- see this project's
+    own options_analytics.py four-quadrant reasoning (OI direction only
+    means something combined with price direction, never alone). Those
+    columns now get no fill at all, same "keep readable and neutral"
+    treatment the task calls for -- the real numbers are unchanged,
+    only the implied direction is removed.
+    """
     for i, col in enumerate(_COL_LETTERS):
         try:
             cell = sheet.range(f"{col}{row_num}")
@@ -174,26 +190,55 @@ def _style_live_row(sheet, row_num, values, previous):
                     _fill(cell, _GREEN_FILL)
                 elif "Bearish" in bias:
                     _fill(cell, _RED_FILL)
-            elif i == _PCR_COL_INDEX:
-                pcr = values[i]
-                if pcr is not None:
-                    if pcr > 1.3:
-                        _fill(cell, _GREEN_FILL)
-                    elif pcr < 0.7:
-                        _fill(cell, _RED_FILL)
-            elif previous is not None:
+            elif i == _PRICE_COL_INDEX and previous is not None:
                 old, new = previous[i], values[i]
                 if isinstance(old, (int, float)) and isinstance(new, (int, float)):
                     if new > old:
                         _fill(cell, _GREEN_FILL)
                     elif new < old:
                         _fill(cell, _RED_FILL)
+            # PCR and every other numeric column: deliberately no
+            # directional fill -- neutral/default, per Change 3.
         except Exception as e:
             print(f"[OILiveDashboard] Row formatting skipped for {col}{row_num}: {e}")
 
 
 def _prepare_sheet(book, index_name):
-    """Prepare a clean daily sheet and place the panel immediately after live rows."""
+    """Prepare a clean daily sheet and place the panel immediately after live rows.
+
+    Sep 10 2026: real fix for TWO confirmed, connected bugs:
+
+    (1) OI EXCEL SAME-DAY RESTART: _sheet_day_seen was pure in-memory
+    state. On any backend restart it's empty again, so the OLD check
+    (_sheet_day_seen.get(index_name) != today) was True unconditionally
+    on the very first call after ANY restart -- wiping today's real,
+    already-written snapshot rows even on a same-day restart, not just
+    a genuine new day. Confirmed by reading the code directly, not
+    assumed.
+
+    (2) OI DASHBOARD PANEL COM ERROR ("Exception occurred",
+    -2147352567): _write_boundary_panel()'s merge-setup block gates on
+    `index_name not in _panel_ready` -- also pure in-memory, also empty
+    after a restart. Once (1) is fixed and the sheet is genuinely
+    preserved across a restart, the panel's cells are STILL physically
+    merged from before the restart -- but _panel_ready wouldn't know
+    that, so it would try to .merge() already-merged/overlapping cells
+    every single cycle. That's exactly the class of invalid-operation
+    error this HRESULT represents. Fixing (1) properly -- restoring
+    _panel_ready along with everything else -- removes the repeated
+    re-merge attempt entirely, which is the actual fix for (2). Not
+    two separate patches; one root cause.
+
+    Neither _next_row/_panel_start_rows/_panel_ready/_sheet_day_seen
+    persists anywhere on disk, so "is this really today's data" is
+    inferred from the workbook FILE's own last-modified date (this
+    module only ever saves it during a live write gated by
+    is_mcx_hours(), so its mtime is a genuine "last real write"
+    signal) -- not guessed, and verified against the sheet's own
+    content (the panel's known title text) before trusting it; any
+    mismatch falls back to the original safe behavior (reset) rather
+    than risk writing to a miscalculated row.
+    """
     today = datetime.now().strftime("%Y-%m-%d")
     exists = index_name in [s.name for s in book.sheets]
     reset = not exists
@@ -204,7 +249,35 @@ def _prepare_sheet(book, index_name):
             current_header = sheet.range("A1").expand("right").value
         except Exception:
             current_header = None
-        reset = current_header != _LIVE_LOG_COLUMNS or _sheet_day_seen.get(index_name) != today
+        already_seen_this_run = _sheet_day_seen.get(index_name) == today
+        reset = current_header != _LIVE_LOG_COLUMNS
+
+        if not reset and not already_seen_this_run:
+            # First call after a restart (or first call ever this
+            # process) for a sheet that already has today's real
+            # header. Figure out honestly whether the CONTENT is
+            # actually from today before trusting it.
+            restored = False
+            try:
+                file_mtime_date = datetime.fromtimestamp(os.path.getmtime(DASHBOARD_PATH)).strftime("%Y-%m-%d")
+                if file_mtime_date == today:
+                    last_row = sheet.used_range.last_cell.row
+                    candidate_panel_row = last_row - 5  # panel is exactly 6 rows: title..title+5
+                    title_value = sheet.range(f"A{candidate_panel_row}").value
+                    if candidate_panel_row >= _FIRST_PANEL_ROW and title_value == "Open Interest Upper Boundary":
+                        _next_row[index_name] = candidate_panel_row
+                        _panel_start_rows[index_name] = candidate_panel_row
+                        _panel_ready.add(index_name)
+                        _sheet_day_seen[index_name] = today
+                        restored = True
+            except Exception as e:
+                print(f"[OILiveDashboard] Could not verify same-day state for {index_name}, will reset: {e}")
+            if not restored:
+                reset = True
+            else:
+                reset = False
+        elif not reset:
+            reset = False
 
     if not reset:
         return book.sheets[index_name]
@@ -314,9 +387,14 @@ def _write_boundary_panel(sheet, index_name, row):
                  f"F{r1}", f"H{r1}", f"F{r2}", f"H{r2}", f"F{r3}", f"F{r4}", f"F{r5}"):
         _fill(sheet.range(addr), _LABEL_FILL)
 
-    _fill(sheet.range(f"B{r3}"), _GREEN_FILL if "Bullish" in bias else _RED_FILL if "Bearish" in bias else _AMBER_FILL)
-    if pcr is not None:
-        _fill(sheet.range(f"G{r3}"), _GREEN_FILL if pcr > 1.3 else _RED_FILL if pcr < 0.7 else _AMBER_FILL)
+    # Sep 10 2026: Change 3 -- Bias keeps its directional colour
+    # (Bullish/Bearish), but Neutral now clears to no-fill instead of
+    # amber -- the task's own wording is "Neutral -> neutral/default",
+    # not a third implied-meaning colour. PCR no longer gets ANY
+    # directional fill here, same reasoning as _style_live_row() above:
+    # no clearly-justified PCR-direction interpretation is documented
+    # in this file, so it stays neutral rather than implying one.
+    _fill(sheet.range(f"B{r3}"), _GREEN_FILL if "Bullish" in bias else _RED_FILL if "Bearish" in bias else None)
 
 
 def _write_dashboard_row(sheet, index_name, values):
@@ -327,13 +405,28 @@ def _write_dashboard_row(sheet, index_name, values):
         row_num = 2
     else:
         panel_row = _panel_start_rows.get(index_name, _FIRST_PANEL_ROW)
+        panel_height = 6  # title row + r1..r5 -- see _write_boundary_panel()
+        new_panel_row = panel_row + 1
         try:
-            sheet.range(f"{panel_row}:{panel_row}").api.EntireRow.Insert()
+            # Sep 10 2026: real perf fix -- EntireRow.Insert() here was
+            # shifting the ENTIRE row across the whole workbook on every
+            # single live update (this is exactly what made Excel
+            # visibly slow down as rows accumulated through the day).
+            # Replaced with a targeted Cut of just the panel's own small
+            # block (already merged/formatted) down by one row -- a
+            # much cheaper, localized move that carries the existing
+            # merges along automatically (nothing needs re-merging),
+            # and leaves every historical row above completely
+            # untouched. Same "move, don't insert" principle a manual
+            # drag-down-by-one-row in Excel already uses.
+            source = sheet.range(f"A{panel_row}:M{panel_row + panel_height - 1}")
+            dest = sheet.range(f"A{new_panel_row}:M{new_panel_row + panel_height - 1}")
+            source.api.Cut(dest.api)
         except Exception as e:
-            print(f"[OILiveDashboard] Could not insert dashboard row: {e}")
+            print(f"[OILiveDashboard] Could not relocate boundary panel: {e}")
             return None
-        row_num = panel_row
-        _panel_start_rows[index_name] = panel_row + 1
+        row_num = panel_row  # the row the panel just vacated becomes the new data row
+        _panel_start_rows[index_name] = new_panel_row
 
     sheet.range(f"A{row_num}:M{row_num}").value = [values]
     _style_live_row(sheet, row_num, values, _prev_values.get(index_name))
