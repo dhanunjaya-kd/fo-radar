@@ -7,15 +7,13 @@ app = Celery('fno_sniper')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 app.autodiscover_tasks()
 
+# The live scanner in screener.views owns the production Fyers scan cadence.
+# Do not schedule screener.tasks.scan_all_stocks() or update_market_overview()
+# here as a second pipeline: doing so duplicates quote/history/option-chain
+# traffic and can write competing Signal rows. The Celery task functions
+# remain available for explicit/manual execution and for any future worker
+# workflow; only their automatic Beat schedules are retired.
 app.conf.beat_schedule = {
-    'scan-stocks-every-5-min': {
-        'task': 'screener.tasks.scan_all_stocks',
-        'schedule': 300.0,  # 5 minutes
-    },
-    'update-market-overview': {
-        'task': 'screener.tasks.update_market_overview',
-        'schedule': 300.0,
-    },
     'fetch-news-every-30-min': {
         'task': 'news.tasks.fetch_and_save_news',
         'schedule': 1800.0,  # 30 minutes
