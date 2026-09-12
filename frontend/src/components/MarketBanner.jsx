@@ -208,9 +208,7 @@ export default function MarketBanner() {
     let mounted = true;
     const fetchCrude = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/index-tracker/CRUDEOIL/`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
+        const json = await fetchLatestSnapshotRow('CRUDEOIL');
         const snapshots = json.snapshots || [];
         if (mounted) {
           setCrudeRow(snapshots[0] || null);
@@ -236,9 +234,7 @@ export default function MarketBanner() {
     let mounted = true;
     const fetchGold = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/index-tracker/GOLD/`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
+        const json = await fetchLatestSnapshotRow('GOLD');
         const snapshots = json.snapshots || [];
         if (mounted) {
           setGoldRow(snapshots[0] || null);
@@ -258,9 +254,7 @@ export default function MarketBanner() {
     let mounted = true;
     const fetchSilver = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/index-tracker/SILVER/`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
+        const json = await fetchLatestSnapshotRow('SILVER');
         const snapshots = json.snapshots || [];
         if (mounted) {
           setSilverRow(snapshots[0] || null);
@@ -334,6 +328,45 @@ export default function MarketBanner() {
     if (n === null || n === undefined || isNaN(n)) return null;
     return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
+
+  // Sep 12 2026: CRUDEOIL/GOLD/SILVER (and SENSEX's sparkline) source
+  // from Index Tracker's TODAY-only snapshot log, unlike NIFTY/
+  // BANKNIFTY's price which comes from a sticky in-memory cache that
+  // persists the last real value indefinitely. That meant these three
+  // showed N/A whenever nothing had logged yet today (a weekend, or
+  // before the first cycle of a new trading day) -- real, honest
+  // behavior per "never fabricate," but a worse experience than
+  // necessary given real historical data usually exists. This falls
+  // back to the most recent day that DOES have logged data, via the
+  // already-existing /dates/ endpoint (same one CrudeOilTracker.jsx's
+  // own date-picker already reads) -- only fires the two extra calls
+  // when today's log is actually empty, so the common case (a real
+  // trading day with data already logged) costs nothing extra.
+  // Expiry fields are kept from TODAY's own response, never borrowed
+  // from the fallback date -- "is today expiry" must reflect today,
+  // not whichever day the price happens to be sourced from.
+  async function fetchLatestSnapshotRow(name) {
+    const todayRes = await fetch(`${API_BASE}/api/index-tracker/${name}/`);
+    if (!todayRes.ok) throw new Error('HTTP ' + todayRes.status);
+    const todayJson = await todayRes.json();
+    if ((todayJson.snapshots || []).length > 0) return todayJson;
+
+    try {
+      const datesRes = await fetch(`${API_BASE}/api/index-tracker/${name}/dates/`);
+      if (!datesRes.ok) return todayJson;
+      const datesJson = await datesRes.json();
+      const dates = (datesJson.dates || []).slice().sort();
+      const mostRecent = dates[dates.length - 1];
+      if (!mostRecent) return todayJson;
+
+      const pastRes = await fetch(`${API_BASE}/api/index-tracker/${name}/?date=${mostRecent}`);
+      if (!pastRes.ok) return todayJson;
+      const pastJson = await pastRes.json();
+      return { ...pastJson, is_expiry_today: todayJson.is_expiry_today, expiry_date: todayJson.expiry_date };
+    } catch {
+      return todayJson; // fallback lookup itself failed -- honest empty-today result, not a crash
+    }
+  }
 
   // Tested in test_data_state.js (6 cases, including the important
   // "a genuine 0 price must still show as live, not be confused with
