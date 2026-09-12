@@ -55,6 +55,42 @@ function computeMarketStatus(day, totalMinutes) {
   return { isOpen: false, label: 'Market Closed', nextEvent: `Opens 9:15 AM ${dayLabel}` };
 }
 
+// Sep 12 2026: CRUDEOIL/GOLD/SILVER trade on MCX hours (~9:00 AM -
+// 11:30 PM), genuinely different from NSE's 9:15 AM-3:30 PM above --
+// reusing marketStatus for these three would mislabel PRICE as
+// INDICATIVE (or vice versa) any time the two markets' hours diverge,
+// which is most of the day. Copied verbatim from CrudeOilTracker.jsx's
+// own computeMcxStatus (tested there in test_mcx_status.js, 9 cases
+// including the near-midnight close NSE's hours never had to handle)
+// rather than re-derived.
+const MCX_OPEN_MIN = 9 * 60;        // 9:00 AM
+const MCX_CLOSE_MIN = 23 * 60 + 30; // 11:30 PM
+
+function computeMcxStatus(day, totalMinutes) {
+  const isWeekday = day >= 1 && day <= 5;
+  const isWithinHours = totalMinutes >= MCX_OPEN_MIN && totalMinutes < MCX_CLOSE_MIN;
+  const isOpen = isWeekday && isWithinHours;
+
+  if (isOpen) {
+    return { isOpen: true, label: 'Market Open', nextEvent: 'Closes at 11:30 PM' };
+  }
+
+  let daysUntilNextOpen = 0;
+  let candidateDay = day;
+
+  if (isWeekday && totalMinutes < MCX_OPEN_MIN) {
+    daysUntilNextOpen = 0;
+  } else {
+    do {
+      candidateDay = (candidateDay + 1) % 7;
+      daysUntilNextOpen++;
+    } while (candidateDay === 0 || candidateDay === 6);
+  }
+
+  const dayLabel = daysUntilNextOpen === 0 ? 'today' : (daysUntilNextOpen === 1 ? 'tomorrow' : `on ${DAY_NAMES[candidateDay]}`);
+  return { isOpen: false, label: 'Market Closed', nextEvent: `Opens 9:00 AM ${dayLabel}` };
+}
+
 // Aug 28 2026: pure SVG sparkline -- same coordinate-transform pattern
 // already tested for DailyBacktestTab.jsx's EquityCurveChart (verified
 // there against flat/single-point/rising/falling edge cases before
@@ -94,6 +130,7 @@ function Sparkline({ values, width = 64, height = 24 }) {
 export default function MarketBanner() {
   const [data, setData] = useState(null);
   const [marketStatus, setMarketStatus] = useState(null);
+  const [mcxStatus, setMcxStatus] = useState(null);
 
   // Own independent clock, same as MarketSummary.jsx used -- reflects
   // right now, not whenever the backend's data.timestamp last updated
@@ -102,6 +139,7 @@ export default function MarketBanner() {
     const update = () => {
       const { day, totalMinutes } = getIstDayAndMinutes(new Date());
       setMarketStatus(computeMarketStatus(day, totalMinutes));
+      setMcxStatus(computeMcxStatus(day, totalMinutes));
     };
     update();
     const interval = setInterval(update, 30000);
@@ -125,6 +163,28 @@ export default function MarketBanner() {
   const [vixHistory, setVixHistory] = useState([]);
   const [crudeHistory, setCrudeHistory] = useState([]);
   const [sensexHistory, setSensexHistory] = useState([]);
+  // Sep 12 2026: real per-instrument expiry ("is today THIS
+  // instrument's own real contract expiry"), sourced from
+  // IndexTrackerView's new expiry_date/is_expiry_today fields -- same
+  // fetches already below, no new requests. Six flags, not one shared
+  // boolean: each instrument's real expiry is independent (confirmed
+  // different contracts/cycles), never one hardcoded weekday applied
+  // to all.
+  const [niftyExpiryToday, setNiftyExpiryToday] = useState(false);
+  const [bankExpiryToday, setBankExpiryToday] = useState(false);
+  const [sensexExpiryToday, setSensexExpiryToday] = useState(false);
+  const [crudeExpiryToday, setCrudeExpiryToday] = useState(false);
+  const [goldExpiryToday, setGoldExpiryToday] = useState(false);
+  const [silverExpiryToday, setSilverExpiryToday] = useState(false);
+  // Sep 12 2026: GOLD/SILVER banner cards -- same exact pattern
+  // crudeRow/crudeHistory already use (their own dedicated Index
+  // Tracker fetch below), not the market-summary cache (which has no
+  // commodity data at all, same reason crudeRow already isn't wired
+  // to it).
+  const [goldRow, setGoldRow] = useState(null);
+  const [goldHistory, setGoldHistory] = useState([]);
+  const [silverRow, setSilverRow] = useState(null);
+  const [silverHistory, setSilverHistory] = useState([]);
 
   useEffect(() => {
     let mounted = true;
@@ -162,6 +222,9 @@ export default function MarketBanner() {
           // reversed here, same convention as the NIFTY/BANKNIFTY/VIX
           // fetch below and DailyBacktestTab's equity curve.
           setCrudeHistory([...snapshots].reverse().map(s => s.Fut));
+          // Sep 12 2026: same response, no extra request -- see
+          // IndexTrackerView's own new expiry fields.
+          setCrudeExpiryToday(!!json.is_expiry_today);
         }
       } catch (err) {
         console.error('Crude oil fetch error:', err);
@@ -169,6 +232,56 @@ export default function MarketBanner() {
     };
     fetchCrude();
     const interval = setInterval(fetchCrude, 30000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
+  // Sep 12 2026: GOLD/SILVER banner cards -- exact same fetch shape as
+  // CRUDEOIL above, against the same already-existing, already-running
+  // Index Tracker endpoint (GOLD/SILVER's own snapshot cycle already
+  // populates this regardless of whether anything reads it here -- no
+  // new Fyers call, no new backend polling, just a new frontend reader
+  // of data that's already flowing).
+  useEffect(() => {
+    let mounted = true;
+    const fetchGold = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/index-tracker/GOLD/`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const snapshots = json.snapshots || [];
+        if (mounted) {
+          setGoldRow(snapshots[0] || null);
+          setGoldHistory([...snapshots].reverse().map(s => s.Fut));
+          setGoldExpiryToday(!!json.is_expiry_today);
+        }
+      } catch (err) {
+        console.error('Gold fetch error:', err);
+      }
+    };
+    fetchGold();
+    const interval = setInterval(fetchGold, 30000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchSilver = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/index-tracker/SILVER/`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const snapshots = json.snapshots || [];
+        if (mounted) {
+          setSilverRow(snapshots[0] || null);
+          setSilverHistory([...snapshots].reverse().map(s => s.Fut));
+          setSilverExpiryToday(!!json.is_expiry_today);
+        }
+      } catch (err) {
+        console.error('Silver fetch error:', err);
+      }
+    };
+    fetchSilver();
+    const interval = setInterval(fetchSilver, 30000);
     return () => { mounted = false; clearInterval(interval); };
   }, []);
 
@@ -200,6 +313,12 @@ export default function MarketBanner() {
           setBankHistory(bankSnaps.map(s => s.Spot));
           setVixHistory(niftySnaps.map(s => s.VIX));
           setSensexHistory(sensexSnaps.map(s => s.Spot));
+          // Sep 12 2026: same three responses already parsed above for
+          // sparkline history, no extra request -- see IndexTrackerView's
+          // new expiry fields.
+          setNiftyExpiryToday(!!niftyJson.is_expiry_today);
+          setBankExpiryToday(!!bankJson.is_expiry_today);
+          setSensexExpiryToday(!!sensexJson.is_expiry_today);
         }
       } catch (err) {
         console.error('Index history fetch error:', err);
@@ -261,7 +380,7 @@ export default function MarketBanner() {
   // states, replacing the old always-pulsing-dot-plus-fake-0.00
   // display. isMarketOpen comes from this component's own tested
   // marketStatus (added earlier), not re-derived here.
-  const Card = ({ label, price, change, changePercent, fyersSymbol, sparklineData, isMarketOpen, err, showPriceLabel = false }) => {
+  const Card = ({ label, price, change, changePercent, fyersSymbol, sparklineData, isMarketOpen, err, showPriceLabel = false, isExpiryToday = false }) => {
     const state = determineDataState(price, isMarketOpen, err);
     const isPos = (change || 0) >= 0;
     const arrow = isPos ? '↗' : '↘';
@@ -270,14 +389,16 @@ export default function MarketBanner() {
     const changeStr = fmt(change);
     const changePctStr = fmt(changePercent);
 
-    // Sep 12 2026: NIFTY/BANKNIFTY-only dynamic price label, per
-    // explicit request. Reuses the SAME `state` this card already
-    // computes from data already on hand (determineDataState) --
-    // no new prop beyond the one boolean flag below, no new data
-    // source. "PRICE" only when state is genuinely 'live'; every
-    // other state (closed/error/no_data -- pre-open, after hours, or
-    // a fetch problem) reads "INDICATIVE PRICE", since none of those
-    // are a live tick.
+    // Sep 12 2026: dynamic price label, per explicit request -- now
+    // applied to all six of NIFTY/BANKNIFTY/SENSEX/CRUDEOIL/GOLD/SILVER
+    // via the showPriceLabel flag (INDIA VIX/PCR stay out of scope, so
+    // their call sites simply don't pass it). Reuses the SAME `state`
+    // this card already computes from data already on hand
+    // (determineDataState) -- no new prop beyond the one boolean flag,
+    // no new data source. "PRICE" only when state is genuinely 'live';
+    // every other state (closed/error/no_data -- pre-open, after
+    // hours, or a fetch problem) reads "INDICATIVE PRICE", since none
+    // of those are a live tick.
     const priceLabelText = state === 'live' ? 'PRICE' : 'INDICATIVE PRICE';
 
     const dotClass = state === 'live'
@@ -320,6 +441,9 @@ export default function MarketBanner() {
             </>
           )}
           <p className={`text-[9px] font-semibold uppercase tracking-wider mt-0.5 ${statusColor}`}>{statusLabel}</p>
+          {isExpiryToday && (
+            <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 text-amber-400">EXPIRY TODAY</p>
+          )}
         </div>
         <Sparkline values={sparklineData} />
       </div>
@@ -351,12 +475,30 @@ export default function MarketBanner() {
   const crudePrice = crudeRow?.Fut;
   const crudeChangePct = crudeRow?.['Change %'];
   const crudeIsPos = (crudeChangePct || 0) >= 0;
+  // Sep 12 2026: CRUDEOIL/GOLD/SILVER price label -- same determineDataState
+  // helper every other card already uses, fed MCX's own hours (mcxStatus),
+  // not NSE's (marketStatus) -- these three trade on MCX, genuinely
+  // different hours from NIFTY/BANKNIFTY/SENSEX.
+  const crudeState = determineDataState(crudePrice, mcxStatus?.isOpen, null);
+  const crudePriceLabelText = crudeState === 'live' ? 'PRICE' : 'INDICATIVE PRICE';
+
+  const goldPrice = goldRow?.Fut;
+  const goldChangePct = goldRow?.['Change %'];
+  const goldIsPos = (goldChangePct || 0) >= 0;
+  const goldState = determineDataState(goldPrice, mcxStatus?.isOpen, null);
+  const goldPriceLabelText = goldState === 'live' ? 'PRICE' : 'INDICATIVE PRICE';
+
+  const silverPrice = silverRow?.Fut;
+  const silverChangePct = silverRow?.['Change %'];
+  const silverIsPos = (silverChangePct || 0) >= 0;
+  const silverState = determineDataState(silverPrice, mcxStatus?.isOpen, null);
+  const silverPriceLabelText = silverState === 'live' ? 'PRICE' : 'INDICATIVE PRICE';
 
   return (
     <div className="grid grid-cols-2 gap-3 mb-4 md:flex md:overflow-x-auto md:pb-1">
-      <Card label="NIFTY 50" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} showPriceLabel />
-      <Card label="SENSEX" price={sensex.price} change={sensex.change} changePercent={sensex.change_percent} fyersSymbol="BSE:SENSEX-INDEX" sparklineData={sensexHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
-      <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} showPriceLabel />
+      <Card label="NIFTY 50" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} showPriceLabel isExpiryToday={niftyExpiryToday} />
+      <Card label="SENSEX" price={sensex.price} change={sensex.change} changePercent={sensex.change_percent} fyersSymbol="BSE:SENSEX-INDEX" sparklineData={sensexHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} showPriceLabel isExpiryToday={sensexExpiryToday} />
+      <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} showPriceLabel isExpiryToday={bankExpiryToday} />
       <Card label="INDIA VIX" price={vix.price ?? vix.value} change={vix.change} changePercent={vix.change_percent} fyersSymbol="NSE:INDIAVIX-INDEX" sparklineData={vixHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
 
       {/* PCR -- kept in its own distinct shape (sentiment label
@@ -394,10 +536,14 @@ export default function MarketBanner() {
               <span className="truncate">CRUDE OIL</span>
               <span className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 shrink-0">↗ chart</span>
             </p>
-            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice) ?? '—'}</p>
+            <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">{crudePriceLabelText}</p>
+            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice) ?? 'N/A'}</p>
             <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
               {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}
             </p>
+            {crudeExpiryToday && (
+              <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 text-amber-400">EXPIRY TODAY</p>
+            )}
           </div>
           <Sparkline values={crudeHistory} />
         </a>
@@ -406,14 +552,54 @@ export default function MarketBanner() {
           <div className={`w-2 h-2 rounded-full ${crudeIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider whitespace-nowrap">CRUDE OIL</p>
-            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice) ?? '—'}</p>
+            <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">{crudePriceLabelText}</p>
+            <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(crudePrice) ?? 'N/A'}</p>
             <p className={`text-xs font-medium ${crudeIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
               {crudeChangePct != null ? `${crudeIsPos ? '↗ +' : '↘ '}${crudeChangePct.toFixed(2)}%` : '—'}
             </p>
+            {crudeExpiryToday && (
+              <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 text-amber-400">EXPIRY TODAY</p>
+            )}
           </div>
           <Sparkline values={crudeHistory} />
         </div>
       )}
+
+      {/* Sep 12 2026: GOLD/SILVER banner cards -- same shape as CRUDE
+          OIL's non-clickable variant above (no chart-link symbol
+          resolved for these two, so kept simple rather than adding a
+          new fetch to get one -- that wasn't asked for here). */}
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 md:min-w-[150px] md:flex-1">
+        <div className={`w-2 h-2 rounded-full ${goldIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider whitespace-nowrap">GOLD</p>
+          <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">{goldPriceLabelText}</p>
+          <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(goldPrice) ?? 'N/A'}</p>
+          <p className={`text-xs font-medium ${goldIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {goldChangePct != null ? `${goldIsPos ? '↗ +' : '↘ '}${goldChangePct.toFixed(2)}%` : '—'}
+          </p>
+          {goldExpiryToday && (
+            <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 text-amber-400">EXPIRY TODAY</p>
+          )}
+        </div>
+        <Sparkline values={goldHistory} />
+      </div>
+
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-800/60 border border-slate-700/50 md:min-w-[150px] md:flex-1">
+        <div className={`w-2 h-2 rounded-full ${silverIsPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider whitespace-nowrap">SILVER</p>
+          <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">{silverPriceLabelText}</p>
+          <p className="text-lg font-bold text-white tabular-nums tier-critical">{fmt(silverPrice) ?? 'N/A'}</p>
+          <p className={`text-xs font-medium ${silverIsPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {silverChangePct != null ? `${silverIsPos ? '↗ +' : '↘ '}${silverChangePct.toFixed(2)}%` : '—'}
+          </p>
+          {silverExpiryToday && (
+            <p className="text-[9px] font-bold uppercase tracking-wider mt-0.5 text-amber-400">EXPIRY TODAY</p>
+          )}
+        </div>
+        <Sparkline values={silverHistory} />
+      </div>
 
       {/* Time + Market Status -- moved here from its own standalone
           card in Market View, per direct feedback: whether the market
