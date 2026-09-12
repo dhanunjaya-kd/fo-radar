@@ -6,6 +6,7 @@ import ThemeToggle from './components/ThemeToggle';
 import './components/theme-overrides.css';
 import './components/density-overrides.css';
 import MarketBanner from './components/MarketBanner';
+import MarketStatusHeader from './components/MarketStatusHeader';
 import SignalList from './components/SignalList';
 import Analytics from './components/Analytics';
 import IndexTracker from './components/IndexTracker';
@@ -116,6 +117,7 @@ function AppShell() {
     <div className={`min-h-screen bg-slate-950 text-white overflow-x-hidden ${theme === 'light' ? 'light' : ''} density-${density}`}>
       <div className="px-4 pt-4 pb-3 flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2 shrink-0"><span className="text-xl">🎯</span><span className="font-bold text-white text-sm sm:text-base whitespace-nowrap">F&amp;O SNIPER <span className="text-slate-500 font-normal">SCANNER v3.0</span></span></div>
+        <MarketStatusHeader />
         <div className="flex items-center gap-1.5 ml-auto"><ThemeToggle /><button onClick={enableAlerts} disabled={alertsEnabled} title={alertsEnabled ? 'Alerts on' : 'Enable alerts'} aria-label={alertsEnabled ? 'Alerts on' : 'Enable alerts'} className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${alertsEnabled ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25 cursor-default' : 'text-amber-400 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20'}`}>{alertsEnabled ? <IconBell size={16} /> : <IconBellOff size={16} />}</button><button onClick={toggleFullscreen} title="Toggle fullscreen" aria-label="Toggle fullscreen" className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-700/50 bg-slate-900/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"><IconMaximize size={16} /></button><button onClick={disconnectFyers} disabled={disconnecting} title="Disconnect Fyers" aria-label="Disconnect Fyers" className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${disconnecting ? 'text-slate-500 bg-slate-800 border-slate-700 cursor-wait' : 'text-rose-400 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20'}`}><IconLogOut size={16} /></button></div>
       </div>
       <div className="px-4 pb-2"><MarketBanner /></div>
