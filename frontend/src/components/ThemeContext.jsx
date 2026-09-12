@@ -32,9 +32,16 @@ export function ThemeProvider({ children }) {
   const [themeMode, setThemeModeState] = useState(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : 'system';
+      // Sep 12 2026: default changed from 'system' to 'dark' -- a
+      // first-time visitor on a light-mode OS was getting the light
+      // theme by default (via resolveTheme('system') following their
+      // OS), which is the reported "defaults to system instead of
+      // dark" issue. Only the no-stored-value case changes here --
+      // an explicit prior 'light' or 'system' selection is still
+      // read back and honored exactly as before.
+      return (stored === 'light' || stored === 'dark' || stored === 'system') ? stored : 'dark';
     } catch {
-      return 'system'; // localStorage unavailable (private browsing etc.) -- default to following the OS
+      return 'dark'; // localStorage unavailable (private browsing etc.) -- default to dark
     }
   });
 

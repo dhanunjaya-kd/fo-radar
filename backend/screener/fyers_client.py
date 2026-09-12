@@ -9,6 +9,7 @@ import json
 import os
 import time
 import threading
+import concurrent.futures
 from datetime import datetime
 
 from fyers_apiv3 import fyersModel
@@ -221,6 +222,25 @@ def _note_success():
     _rate_limit_state["cooldown_seconds"] = 60.0
 
 
+# Sep 12 2026: hard network timeout around the actual SDK call below.
+# fyers-apiv3 makes its own HTTP requests internally with no timeout
+# configured anywhere in this project -- a genuinely hung connection
+# could block _call() forever, and since _call() holds _request_lock
+# for its whole duration, that one hang would also block every OTHER
+# thread waiting on the SAME shared governor, not just the caller that
+# happened to trigger it. Cross-platform on purpose (this project runs
+# on Windows, where signal.alarm() -- the usual Unix timeout trick --
+# doesn't exist): run the SDK call in a small dedicated worker pool and
+# give up cleanly if it doesn't return in time. Python can't forcibly
+# kill a running thread, so a timed-out call's underlying thread keeps
+# running in the background until it finishes or errors on its own --
+# accepted trade-off; the goal here is "don't let one hang block the
+# whole scanner," which this achieves, not "guarantee the leaked
+# thread stops instantly."
+_FYERS_CALL_TIMEOUT_SECONDS = 15
+_timeout_executor = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="fyers-call")
+
+
 def _call(method, label, *args, **kwargs):
     """Execute one Fyers SDK request through the shared transport governor."""
     global _last_request_at
@@ -245,7 +265,18 @@ def _call(method, label, *args, **kwargs):
 
         try:
             _last_request_at = time.monotonic()
-            resp = method(*args, **kwargs)
+            future = _timeout_executor.submit(method, *args, **kwargs)
+            try:
+                resp = future.result(timeout=_FYERS_CALL_TIMEOUT_SECONDS)
+            except concurrent.futures.TimeoutError:
+                # Same failure representation as any other error below
+                # (None) -- caller code already treats None as "no
+                # data," never fabricates a response for it. Does NOT
+                # touch the rate-limit counters -- a hang isn't a 429,
+                # and forcing it through _note_429() or _note_success()
+                # would misrepresent what actually happened.
+                print(f"[Fyers] {label}: timed out after {_FYERS_CALL_TIMEOUT_SECONDS}s -- treating as no response.")
+                return None
         except Exception as exc:
             print(f"[Fyers] {label} error: {exc}")
             return None
@@ -346,10 +377,10 @@ def get_nearest_expiry_days(raw_option_chain_response):
         return None
 
 
-def get_option_analytics(symbol, strikecount=10):
+def get_option_analytics(symbol, strikecount=10, timestamp=""):
     from .options_analytics import analyze_option_chain
 
-    raw = get_option_chain(symbol, strikecount=strikecount)
+    raw = get_option_chain(symbol, strikecount=strikecount, timestamp=timestamp)
     if not raw or raw.get("s") != "ok":
         return None
 

@@ -81,6 +81,22 @@ export default function NextDayWatchlist() {
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const scanInProgressRef = useRef(false);
+  // Sep 12 2026: fixes the stale-closure bug in the 2-second polling
+  // effect below -- that effect deliberately keeps `[]` deps (so its
+  // one-time mount setup -- loadAvailableDates/loadScanStatus/initial
+  // loadWatchlist -- doesn't re-fire every time the date picker
+  // changes, which would race against changeDate()'s own explicit
+  // calls and briefly flash today's data over whatever historical
+  // date was just selected). But that also meant its interval
+  // callback's `selectedDate` reference was frozen at mount time
+  // forever -- switching to a past date via the dropdown never
+  // stopped it from polling and overwriting the view with today's
+  // watchlist every 2 seconds. Same ref-for-latest-value pattern
+  // scanInProgressRef right above already uses for this exact class
+  // of problem -- the interval callback now reads
+  // selectedDateRef.current instead of the stale closure variable.
+  const selectedDateRef = useRef(selectedDate);
+  useEffect(() => { selectedDateRef.current = selectedDate; }, [selectedDate]);
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const viewingToday = selectedDate === todayStr;
@@ -179,7 +195,7 @@ export default function NextDayWatchlist() {
       const status = await loadScanStatus();
       if (status?.scan_in_progress) {
         await loadWatchlist(todayStr);
-      } else if (scanInProgressRef.current === false && selectedDate === todayStr) {
+      } else if (scanInProgressRef.current === false && selectedDateRef.current === todayStr) {
         await loadWatchlist(todayStr);
       }
       if (!status?.scan_in_progress) loadAvailableDates();

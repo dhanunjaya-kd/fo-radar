@@ -28,6 +28,20 @@ const IconAlertTriangle = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
 );
 
+// Sep 12 2026: single source of truth for the Bearish/Bullish/Mixed
+// regime label -- the new headline badge below and OptionsInterpretation
+// further down the page both derive from this one function now, so they
+// can never show a different verdict off the same data. Pure
+// presentation, zero new computation -- oiBuildup itself is completely
+// unchanged, still options_analytics.py's own "CE writing dominant
+// (bearish)"-style string, nothing here alters or reinterprets it.
+function classifyRegime(oiBuildup) {
+  if (!oiBuildup) return { label: 'Unclear', color: 'text-slate-400', dotColor: 'bg-slate-500' };
+  if (oiBuildup.includes('bearish')) return { label: 'Bearish', color: 'text-rose-400', dotColor: 'bg-rose-500' };
+  if (oiBuildup.includes('bullish')) return { label: 'Bullish', color: 'text-emerald-400', dotColor: 'bg-emerald-500' };
+  return { label: 'Mixed', color: 'text-amber-400', dotColor: 'bg-amber-500' };
+}
+
 const Analytics = ({ stock, onStockSelect }) => {
   const [selectedExpiry, setSelectedExpiry] = useState('current');
   const [showGreeks, setShowGreeks] = useState(false);
@@ -72,7 +86,12 @@ const Analytics = ({ stock, onStockSelect }) => {
     setLoading(true);
     setError(null);
 
-    api.getOptionAnalytics(symbol)
+    // Sep 12 2026: was api.getOptionAnalytics(symbol) -- selectedExpiry
+    // was already in this effect's dependency array (triggering a
+    // re-fetch on every button click) but never actually sent to the
+    // API, so every click re-fetched the exact same default expiry.
+    // api.js and OptionAnalyticsView both now accept/use this.
+    api.getOptionAnalytics(symbol, selectedExpiry)
       .then((res) => {
         if (cancelled) return;
 
@@ -95,6 +114,11 @@ const Analytics = ({ stock, onStockSelect }) => {
           support: res.support,
           resistance: res.resistance,
           oiBuildup: res.oiBuildup,
+          // Sep 12 2026: the real expiry date this specific response
+          // actually came from -- lets the expiry buttons show visible
+          // confirmation that switching them genuinely changed
+          // something, rather than a silent no-op.
+          resolvedExpiryDate: res.resolvedExpiryDate,
           atmGreeks: res.greeks || {},
           totalCeOi: res.totalCeOi || 0,
           totalPeOi: res.totalPeOi || 0,
@@ -186,6 +210,7 @@ const Analytics = ({ stock, onStockSelect }) => {
   }
 
   const { ceData, peData, pcr, maxPain, atmIv, atmStrike, spot } = oiData;
+  const regime = classifyRegime(oiData.oiBuildup);
 
   return (
     <div className="space-y-6">
@@ -206,29 +231,59 @@ const Analytics = ({ stock, onStockSelect }) => {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            {['current', 'next', 'monthly'].map(exp => (
-              <button
-                key={exp}
-                onClick={() => setSelectedExpiry(exp)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
-                  selectedExpiry === exp
-                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                    : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
-                }`}
-              >
-                {exp === 'current' ? 'Current Expiry' : exp === 'next' ? 'Next Expiry' : 'Monthly'}
-              </button>
-            ))}
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex gap-2">
+              {['current', 'next', 'monthly'].map(exp => (
+                <button
+                  key={exp}
+                  onClick={() => setSelectedExpiry(exp)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
+                    selectedExpiry === exp
+                      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                      : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600'
+                  }`}
+                >
+                  {exp === 'current' ? 'Current Expiry' : exp === 'next' ? 'Next Expiry' : 'Monthly'}
+                </button>
+              ))}
+            </div>
+            {oiData.resolvedExpiryDate && (
+              <p className="text-[10px] text-slate-500">Showing expiry: <span className="text-slate-300 font-medium">{oiData.resolvedExpiryDate}</span></p>
+            )}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <MetricCard label="Put-Call Ratio (OI)" value={pcr} description=">1 = Bearish bias, <1 = Bullish bias" color={parseFloat(pcr) > 1 ? 'rose' : 'emerald'} />
-          <MetricCard label="Max Pain" value={`₹${maxPain}`} description="Strike where option buyers lose most" color="blue" />
-          <MetricCard label="ATM Implied Vol" value={`${atmIv}%`} description="Expected price swing (annualized)" color="amber" />
-          <MetricCard label="ATM Strike" value={`₹${atmStrike}`} description="Nearest strike to current spot price" color="purple" />
+        {/* Sep 12 2026: visual hierarchy pass -- was four separate
+            colored MetricCards (PCR/Max Pain/ATM IV/ATM Strike) with no
+            single headline verdict; the actual regime call only showed
+            up much further down inside OptionsInterpretation, past
+            MarketPositionBar, StrikeOIChart, and the OI Buildup section.
+            Now the regime is the first thing shown, with a compact
+            stat line beside it -- same five figures the old cards
+            already showed (plus ATM IV as its own small line below,
+            preserved per instruction, just no longer a full card of
+            its own). No calculation changed anywhere in this file --
+            classifyRegime() reads the exact same oiBuildup string
+            OptionsInterpretation always has. */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8 mb-2 pb-6 border-b border-slate-800">
+          <div className="flex items-center gap-3 shrink-0">
+            <span className={`w-2.5 h-2.5 rounded-full ${regime.dotColor}`} />
+            <div>
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Options Regime</p>
+              <p className={`text-2xl font-bold leading-tight ${regime.color}`}>{regime.label}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-6 gap-y-3 flex-1">
+            <StatLine label="PCR" value={pcr} />
+            <StatLine label="CE OI" value={`${(oiData.totalCeOi / 100000).toFixed(1)}L`} />
+            <StatLine label="PE OI" value={`${(oiData.totalPeOi / 100000).toFixed(1)}L`} />
+            <StatLine label="Max Pain" value={`₹${maxPain}`} />
+            <StatLine label="ATM" value={`₹${atmStrike}`} />
+          </div>
         </div>
+        <p className="text-xs text-slate-500 mb-6">
+          ATM Implied Vol: <span className="text-amber-400 font-semibold">{atmIv}%</span> — expected annualized price swing
+        </p>
 
         <MarketPositionBar spot={spot} support={oiData.support} resistance={oiData.resistance} />
 
@@ -490,12 +545,17 @@ const OptionsInterpretation = ({ oiData }) => {
   // PCR level the metric card above already covers separately), so
   // it drives the headline verdict rather than recomputing a second,
   // possibly-conflicting one from PCR alone.
-  const pressureLabel = oiBuildup.includes('bearish') ? 'Bearish pressure detected'
-    : oiBuildup.includes('bullish') ? 'Bullish pressure detected'
+  //
+  // Sep 12 2026: now sourced from the shared classifyRegime() helper
+  // (same one the page's new top-of-page regime badge uses) instead
+  // of its own separate bearish/bullish string check -- same wording
+  // as before, just guaranteed to never show a different verdict than
+  // the headline above it.
+  const regime = classifyRegime(oiBuildup);
+  const pressureLabel = regime.label === 'Bearish' ? 'Bearish pressure detected'
+    : regime.label === 'Bullish' ? 'Bullish pressure detected'
     : 'Mixed signals — no clear pressure';
-  const pressureColor = oiBuildup.includes('bearish') ? 'text-rose-400'
-    : oiBuildup.includes('bullish') ? 'text-emerald-400'
-    : 'text-amber-400';
+  const pressureColor = regime.color;
 
   return (
     <div className="bg-slate-900 rounded-lg border border-slate-800 p-6 mb-6">
@@ -519,30 +579,12 @@ const OptionsInterpretation = ({ oiData }) => {
   );
 };
 
-const MetricCard = ({ label, value, description, color }) => {
-  const colors = {
-    emerald: 'border-emerald-500/20 bg-emerald-500/5',
-    rose: 'border-rose-500/20 bg-rose-500/5',
-    blue: 'border-blue-500/20 bg-blue-500/5',
-    amber: 'border-amber-500/20 bg-amber-500/5',
-    purple: 'border-purple-500/20 bg-purple-500/5',
-  };
-  const textColors = {
-    emerald: 'text-emerald-400',
-    rose: 'text-rose-400',
-    blue: 'text-blue-400',
-    amber: 'text-amber-400',
-    purple: 'text-purple-400',
-  };
-
-  return (
-    <div className={`border rounded-lg p-4 ${colors[color]}`}>
-      <div className="text-xs text-slate-500 mb-1">{label}</div>
-      <div className={`text-2xl font-bold ${textColors[color]} mb-1 tier-important`}>{value}</div>
-      <div className="text-[10px] text-slate-600 leading-tight">{description}</div>
-    </div>
-  );
-};
+const StatLine = ({ label, value }) => (
+  <div>
+    <p className="text-[9px] text-slate-500 uppercase tracking-wider">{label}</p>
+    <p className="text-sm font-bold text-slate-100 tabular-nums">{value}</p>
+  </div>
+);
 
 const GreekExplain = ({ label, value, desc }) => (
   <div className="bg-slate-800/50 rounded-lg p-3">

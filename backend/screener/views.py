@@ -4170,6 +4170,17 @@ class OptionAnalyticsView(APIView):
     symbol to NSE:{sym}-EQ, which is wrong for commodities -- their option
     chain's underlying is the rolling front-month FUTURES contract, not an
     NSE equity symbol (confirmed via check_crude_oil_options.py).
+
+    Sep 12 2026: expiry selection now actually wired through -- see the
+    `expiry` query param below. Previously selectedExpiry existed only in
+    the frontend's own React state and was never sent to this view at
+    all, so clicking any of the three expiry buttons re-fetched the exact
+    same default (nearest) expiry every time. Fyers' own option-chain
+    API's `timestamp` parameter is (per Fyers' community support posts)
+    actually "which expiry to fetch", not a point-in-time snapshot -- it
+    expects the real `expiry` value from that same chain's own
+    expiryData list, not an arbitrary date string, so a genuine expiry
+    switch needs a real value from Fyers first, never a guessed one.
     """
     def get(self, request, symbol):
         sym = symbol.upper().replace(".NS", "")
@@ -4204,8 +4215,48 @@ class OptionAnalyticsView(APIView):
         else:
             fyers_symbol = f"NSE:{sym}-EQ"
 
+        # Sep 12 2026: 'current' (the UI's default, always-existing
+        # behavior) needs no extra call -- timestamp="" is already
+        # Fyers' own "nearest expiry" default, exactly what this view
+        # always did before this fix. 'next'/'monthly' need one
+        # lightweight probe first (strikecount=1 -- only expiryData is
+        # needed here, not real strike rows) to discover the REAL
+        # expiries Fyers is currently listing for this symbol, since
+        # there's no way to know a valid one without asking directly.
+        expiry_choice = (request.GET.get("expiry") or "current").lower()
+        if expiry_choice not in ("current", "next", "monthly"):
+            return Response({"symbol": sym, "live": False, "error": f"Unknown expiry choice '{expiry_choice}'."})
+
+        timestamp = ""
+        if expiry_choice != "current":
+            from .fyers_client import get_option_chain
+            try:
+                probe = get_option_chain(fyers_symbol, strikecount=1)
+            except Exception as e:
+                return Response({"symbol": sym, "live": False, "error": f"Could not resolve available expiries: {e}"})
+            expiry_list = ((probe or {}).get("data", {}) or {}).get("expiryData", []) if probe else []
+            if not expiry_list:
+                return Response({"symbol": sym, "live": False, "error": "No expiry data available for this symbol right now."})
+            # 'next' = the second listed expiry if one exists, else
+            # falls back to the nearest (same as 'current') rather than
+            # erroring on a symbol that only has one expiry listed.
+            # 'monthly' = the FURTHEST expiry Fyers is currently
+            # listing -- a positional best-effort reading of Fyers' own
+            # real, live list (this symbol may not have a distinct
+            # monthly contract separate from its weeklies), not a
+            # verified "this IS the monthly contract" guarantee.
+            # resolvedExpiryDate in the response below always reflects
+            # whichever real expiry actually got used, so this is
+            # verifiable against the live account either way.
+            target = expiry_list[1] if expiry_choice == "next" and len(expiry_list) > 1 else (
+                expiry_list[-1] if expiry_choice == "monthly" else expiry_list[0]
+            )
+            timestamp = target.get("expiry") or ""
+            if not timestamp:
+                return Response({"symbol": sym, "live": False, "error": "Could not resolve a real expiry identifier for this choice."})
+
         try:
-            oi = get_option_analytics(fyers_symbol, strikecount=10)
+            oi = get_option_analytics(fyers_symbol, strikecount=10, timestamp=timestamp)
         except Exception as e:
             return Response({"symbol": sym, "live": False, "error": str(e)})
         if not oi:
@@ -4228,6 +4279,8 @@ class OptionAnalyticsView(APIView):
             "totalCeOi": oi["ce_oi"], "totalPeOi": oi["pe_oi"],
             "ceOiChg": oi["ce_oi_chg"], "peOiChg": oi["pe_oi_chg"],
             "ceData": ce_data, "peData": pe_data,
+            "expiryChoice": expiry_choice,
+            "resolvedExpiryDate": oi.get("expiry_date"),
         }))
 
 

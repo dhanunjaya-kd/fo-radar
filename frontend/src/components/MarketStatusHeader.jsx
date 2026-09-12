@@ -124,13 +124,30 @@ export default function MarketStatusHeader() {
     timeZone: 'Asia/Kolkata', weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
   }).format(now);
 
+  // Sep 12 2026: was `new Date(dateStr + 'T00:00:00').toLocaleDateString(...)`
+  // -- interpreting a date-only string as LOCAL midnight then formatting
+  // with no explicit timeZone relies on the browser's own local zone for
+  // BOTH steps, which happen to cancel out under normal circumstances but
+  // make the correctness of the whole thing an accident of two defaults
+  // matching rather than something provably correct regardless of where
+  // this page is opened from. holidayAwareSession.date is a pure calendar
+  // date (YYYY-MM-DD) from the backend, not an instant in time -- treating
+  // it as one (even briefly, mid-calculation) is exactly the "date-only
+  // value shifting because of browser timezone" class of bug. Parses the
+  // three integers directly and builds/formats the weekday entirely in
+  // UTC instead, so no local timezone is ever consulted at any step.
+  const weekdayFromCalendarDate = (isoDate) => {
+    const [y, m, d] = isoDate.split('-').map(Number);
+    return new Intl.DateTimeFormat('en-IN', { weekday: 'long', timeZone: 'UTC' }).format(Date.UTC(y, m - 1, d));
+  };
+
   // Real, holiday-aware text when the backend resolved one; otherwise
   // the plain-weekday fallback computed locally above. Never shown at
   // all while the market is genuinely open (nothing to announce).
   const nextSessionText = marketStatus.isOpen
     ? null
     : holidayAwareSession
-      ? `${new Date(holidayAwareSession.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long' })} · 9:00 AM`
+      ? `${weekdayFromCalendarDate(holidayAwareSession.date)} · 9:00 AM`
       : marketStatus.nextSessionText;
 
   return (

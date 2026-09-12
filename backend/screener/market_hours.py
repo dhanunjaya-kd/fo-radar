@@ -54,13 +54,25 @@ def is_market_hours(now=None):
     Doesn't account for NSE holidays -- those still need to be
     manually avoided (or the app just left off) same as always; this
     only handles the daily/weekend boundary and the post-CAS close
-    time."""
+    time.
+
+    Sep 12 2026: switched from a full-precision datetime comparison to
+    minute-granularity, matching MarketBanner.jsx/MarketStatusHeader.jsx's
+    own totalMinutes-based check exactly (both frontend files already
+    compare "hour*60+minute" against 940 for the 3:40 PM close). The old
+    datetime comparison used <= against a zeroed-seconds market_close,
+    which allowed the single exact instant 15:40:00.000000 as open while
+    the frontend (which can't represent sub-minute precision at all)
+    already treated that same instant as closed -- confirmed via an
+    exhaustive per-second sweep of the whole 9:00-15:42 window: exactly
+    one second of difference existed (15:40:00 itself), nothing else.
+    That one second was the entire "frontend/backend 3:40 PM boundary
+    mismatch" -- removed by using the same granularity on both sides."""
     now = now or datetime.now()
     if now.weekday() >= 5:  # Saturday=5, Sunday=6
         return False
-    market_open = now.replace(hour=9, minute=0, second=0, microsecond=0)
-    market_close = now.replace(hour=15, minute=40, second=0, microsecond=0)
-    return market_open <= now <= market_close
+    total_minutes = now.hour * 60 + now.minute
+    return (9 * 60) <= total_minutes < (15 * 60 + 40)
 
 
 def is_cas_auction_window(now=None):

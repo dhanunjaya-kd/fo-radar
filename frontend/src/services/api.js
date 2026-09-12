@@ -103,8 +103,16 @@ export const api = {
   // Real-time option chain analytics: PCR, Max Pain, support/resistance,
   // IV, Greeks -- fetched fresh from Fyers on every call. Backs the
   // 'OI Analytics' tab.
-  getOptionAnalytics: async (symbol) => {
-    const res = await fetchWithTimeout(`${API_BASE}/option-analytics/${encodeURIComponent(symbol)}/`, {}, 15000);
+  //
+  // Sep 12 2026: added the expiry param -- the view now actually reads
+  // it (?expiry=current|next|monthly, matching OptionAnalyticsView's own
+  // three accepted values), completing the fix on the frontend side.
+  // Default 'current' matches the backend's own default exactly, so
+  // any other caller that doesn't pass this gets identical behavior to
+  // before this change.
+  getOptionAnalytics: async (symbol, expiry = 'current') => {
+    const url = `${API_BASE}/option-analytics/${encodeURIComponent(symbol)}/?expiry=${encodeURIComponent(expiry)}`;
+    const res = await fetchWithTimeout(url, {}, 15000);
     return await handleResponse(res);
   },
 
