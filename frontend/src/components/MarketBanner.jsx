@@ -261,7 +261,7 @@ export default function MarketBanner() {
   // states, replacing the old always-pulsing-dot-plus-fake-0.00
   // display. isMarketOpen comes from this component's own tested
   // marketStatus (added earlier), not re-derived here.
-  const Card = ({ label, price, change, changePercent, fyersSymbol, sparklineData, isMarketOpen, err }) => {
+  const Card = ({ label, price, change, changePercent, fyersSymbol, sparklineData, isMarketOpen, err, showPriceLabel = false }) => {
     const state = determineDataState(price, isMarketOpen, err);
     const isPos = (change || 0) >= 0;
     const arrow = isPos ? '↗' : '↘';
@@ -269,6 +269,16 @@ export default function MarketBanner() {
     const priceStr = fmt(price);
     const changeStr = fmt(change);
     const changePctStr = fmt(changePercent);
+
+    // Sep 12 2026: NIFTY/BANKNIFTY-only dynamic price label, per
+    // explicit request. Reuses the SAME `state` this card already
+    // computes from data already on hand (determineDataState) --
+    // no new prop beyond the one boolean flag below, no new data
+    // source. "PRICE" only when state is genuinely 'live'; every
+    // other state (closed/error/no_data -- pre-open, after hours, or
+    // a fetch problem) reads "INDICATIVE PRICE", since none of those
+    // are a live tick.
+    const priceLabelText = state === 'live' ? 'PRICE' : 'INDICATIVE PRICE';
 
     const dotClass = state === 'live'
       ? `${isPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`
@@ -293,13 +303,21 @@ export default function MarketBanner() {
           </p>
           {priceStr != null ? (
             <>
+              {showPriceLabel && (
+                <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">{priceLabelText}</p>
+              )}
               <p className="text-lg font-bold text-white tabular-nums tier-critical">{priceStr}</p>
               <p className={`text-xs font-medium ${state === 'live' ? (isPos ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'}`}>
                 {arrow} {isPos ? '+' : ''}{changeStr ?? '—'} ({isPos ? '+' : ''}{changePctStr ?? '—'}%)
               </p>
             </>
           ) : (
-            <p className="text-lg font-bold text-slate-600 tabular-nums">—</p>
+            <>
+              {showPriceLabel && (
+                <p className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider">{priceLabelText}</p>
+              )}
+              <p className="text-lg font-bold text-slate-600 tabular-nums">{showPriceLabel ? 'N/A' : '—'}</p>
+            </>
           )}
           <p className={`text-[9px] font-semibold uppercase tracking-wider mt-0.5 ${statusColor}`}>{statusLabel}</p>
         </div>
@@ -336,9 +354,9 @@ export default function MarketBanner() {
 
   return (
     <div className="grid grid-cols-2 gap-3 mb-4 md:flex md:overflow-x-auto md:pb-1">
-      <Card label="NIFTY 50" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
+      <Card label="NIFTY 50" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} showPriceLabel />
       <Card label="SENSEX" price={sensex.price} change={sensex.change} changePercent={sensex.change_percent} fyersSymbol="BSE:SENSEX-INDEX" sparklineData={sensexHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
-      <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
+      <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} showPriceLabel />
       <Card label="INDIA VIX" price={vix.price ?? vix.value} change={vix.change} changePercent={vix.change_percent} fyersSymbol="NSE:INDIAVIX-INDEX" sparklineData={vixHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} />
 
       {/* PCR -- kept in its own distinct shape (sentiment label
