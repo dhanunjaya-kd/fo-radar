@@ -3686,6 +3686,39 @@ class SignalExcelExportByDateView(APIView):
         return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
 
 
+def _instrument_expiry_info(name):
+    """
+    Sep 12 2026: real, per-instrument nearest-expiry date and whether
+    that's TODAY -- for a banner's "EXPIRY TODAY" line. Reads
+    get_last_oi_snapshot(name), the same already-populated, in-memory
+    cache oi_live_dashboard.py already reads from -- get_option_
+    analytics()'s own already-computed expiry_date (real expiryData
+    from Fyers' option chain response), added when that chain was
+    fetched this cycle. Nothing new fetched here.
+
+    Deliberately does NOT touch index_tracker.py's Excel-facing
+    Snapshots row/COLUMNS -- this is an additional field on the API
+    response only, so the Excel workbook's own layout is unaffected.
+
+    Each instrument's own real fetched expiry, never one hardcoded
+    weekday for everything -- NIFTY/BANKNIFTY/SENSEX each get whatever
+    Fyers' own expiryData reports for THAT chain (confirmed different:
+    SENSEX's own weekly cycle isn't NIFTY/BANKNIFTY's), and CRUDEOIL/
+    GOLD/SILVER each get their own MCX contract's real expiry.
+
+    Returns {"expiry_date": iso_date_str_or_None, "is_expiry_today": bool}.
+    is_expiry_today is only True when a REAL expiry_date was found AND
+    it matches today's real date -- a missing snapshot or missing
+    expiry_date both read as False, same "unknown is never fabricated
+    into a positive" rule as everywhere else in this project.
+    """
+    from .index_tracker import get_last_oi_snapshot
+    snap = get_last_oi_snapshot(name)
+    expiry_date = (snap or {}).get("expiry_date")
+    is_today = bool(expiry_date and expiry_date == datetime.now().date().isoformat())
+    return {"expiry_date": expiry_date, "is_expiry_today": is_today}
+
+
 class IndexTrackerView(APIView):
     """Intraday OI snapshot history for one index/commodity, most recent
     first -- today's by default, or a specific past date via ?date=.
@@ -3697,7 +3730,11 @@ class IndexTrackerView(APIView):
             return Response({"error": f"index_name must be one of {TRACKABLE_NAMES}"}, status=400)
         date_str = request.GET.get("date")
         rows = get_snapshots_for_date(name, date_str) if date_str else get_today_snapshots(name)
-        return Response(clean_json({"index": name, "date": date_str, "snapshots": rows}))
+        # Sep 12 2026: real per-instrument expiry, for the banner's
+        # PRICE/INDICATIVE PRICE + EXPIRY TODAY line -- see
+        # _instrument_expiry_info()'s own docstring above.
+        expiry_info = _instrument_expiry_info(name)
+        return Response(clean_json({"index": name, "date": date_str, "snapshots": rows, **expiry_info}))
 
 
 class TrendMomentumView(APIView):
