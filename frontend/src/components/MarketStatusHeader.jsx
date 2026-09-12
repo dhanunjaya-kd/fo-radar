@@ -12,8 +12,13 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 // only owns the VISUAL clock/status display now, not the underlying
 // "is NSE open" check other things still depend on.
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MARKET_OPEN_MIN = 9 * 60 + 15;  // 9:15 AM
-const MARKET_CLOSE_MIN = 15 * 60 + 30; // 3:30 PM
+// Sep 12 2026 (part 2): was 9:15-3:30 -- aligned to the backend's real
+// is_market_hours() window (9:00 AM-3:40 PM) so this header's badge
+// and the Dashboard's own "Session: OPEN/CLOSED" (which reflects that
+// same backend check) can never contradict each other again. See the
+// identical fix in MarketBanner.jsx.
+const MARKET_OPEN_MIN = 9 * 60;        // 9:00 AM
+const MARKET_CLOSE_MIN = 15 * 60 + 40; // 3:40 PM
 
 function getIstDayAndMinutes(date) {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -60,7 +65,7 @@ function computeMarketStatus(day, totalMinutes) {
   }
 
   const dayLabel = daysUntilNextOpen === 0 ? 'Today' : (daysUntilNextOpen === 1 ? 'Tomorrow' : DAY_NAMES[candidateDay]);
-  return { isOpen: false, label: 'Market Closed', nextSessionText: `${dayLabel} · 9:15 AM` };
+  return { isOpen: false, label: 'Market Closed', nextSessionText: `${dayLabel} · 9:00 AM` };
 }
 
 export default function MarketStatusHeader() {
@@ -125,7 +130,7 @@ export default function MarketStatusHeader() {
   const nextSessionText = marketStatus.isOpen
     ? null
     : holidayAwareSession
-      ? `${new Date(holidayAwareSession.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long' })} · 9:15 AM`
+      ? `${new Date(holidayAwareSession.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long' })} · 9:00 AM`
       : marketStatus.nextSessionText;
 
   return (
@@ -133,11 +138,11 @@ export default function MarketStatusHeader() {
       <div className="flex items-center gap-3">
         <span className="flex items-center gap-1.5">
           <span className={`w-2 h-2 rounded-full ${marketStatus.isOpen ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-          <span className={`text-sm font-semibold ${marketStatus.isOpen ? 'text-emerald-400' : 'text-rose-400'}`}>{marketStatus.label}</span>
+          <span className={`text-sm font-semibold uppercase tracking-wide ${marketStatus.isOpen ? 'text-emerald-400' : 'text-rose-400'}`}>{marketStatus.label}</span>
         </span>
         <span className="text-slate-600">|</span>
         <span className="text-sm text-slate-300">{dateStr}</span>
-        <span className="text-sm font-bold text-white tabular-nums">{timeStr}</span>
+        <span className="text-sm font-bold text-white tabular-nums">{timeStr} IST</span>
       </div>
       {nextSessionText && (
         <div className="text-[11px] text-slate-500">

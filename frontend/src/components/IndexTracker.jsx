@@ -593,6 +593,44 @@ function IndexSection({ indexName, showBacktest = true, showCasMoves = true, top
         </div>
       </div>
 
+      {/* Sep 12 2026: compact summary card -- same data `rows` already
+          has (rows[0] is the most recent snapshot, this section
+          already fetches it above), no new request. Explicit "LAST ·
+          <time>" labeling is the direct fix for the top ticker vs.
+          Index Monitor price mismatch: they're genuinely different
+          sources (ticker: a live quote; here: this index's own
+          option-chain-derived Spot from its last snapshot cycle, up
+          to ~60s old) -- not a bug, just previously unlabeled. Only
+          rendered when a real most-recent row exists; never fabricates
+          a placeholder row when rows is empty. */}
+      {!selectedDate && rows.length > 0 && (() => {
+        const latest = rows[0];
+        const fields = [
+          { label: 'Futures', value: latest['Fut'] },
+          { label: 'Fut OI', value: latest['Fut OI'] },
+          { label: 'Fut OI Change', value: latest['Fut OI Chg %'] != null ? `${latest['Fut OI Chg %']}%` : null },
+          { label: 'PCR', value: latest['PCR'] },
+          { label: 'Max Pain', value: latest['Max Pain'] },
+          { label: 'Bias', value: latest['Bias'] },
+        ];
+        return (
+          <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/30">
+            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+              <div>
+                <p className="text-2xl font-bold text-white tabular-nums leading-none">{latest['Spot'] ?? 'N/A'}</p>
+                <p className="text-[10px] text-slate-500 font-medium tracking-wide mt-1">LAST · {latest['Time'] || '—'}</p>
+              </div>
+              {fields.map(f => f.value != null && (
+                <div key={f.label}>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-wider">{f.label}</p>
+                  <p className="text-sm font-semibold text-slate-200 tabular-nums">{f.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Aug 28 2026: new price chart, from the Module 5 (Index
           Tracker) redesign reference -- own component, own file, no
           backend changes (reuses the same dates/snapshots endpoints

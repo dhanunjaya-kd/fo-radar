@@ -19,9 +19,24 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 // BANKNIFTY/SENSEX cards below still need isMarketOpen to decide
 // PRICE vs INDICATIVE, same as before -- only the big visual clock
 // block was moved, not the underlying "is NSE open right now" check.
+// Sep 12 2026 (part 2): was 9:15 AM-3:30 PM here, but the BACKEND's
+// real is_market_hours() (market_hours.py) gates the live scanner on
+// 9:00 AM-3:40 PM -- a genuine, confirmed mismatch that's the direct
+// cause of "header says Market Closed while Dashboard says Session:
+// OPEN" (both were correct readings of two DIFFERENT windows). Aligned
+// to the backend's real window so there's only one definition of
+// "session open" in this app, not two.
+//
+// PRE_OPEN_END_MIN keeps the 9:00-9:15 sub-window distinct -- NSE's
+// real pre-open call auction (9:00-9:08) plus transition (9:08-9:15),
+// same period market_hours.py's own is_market_hours() docstring
+// already describes -- used ONLY for NIFTY/BANKNIFTY's Indicative
+// Price presentation below, per explicit instruction that no other
+// instrument gets this treatment.
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MARKET_OPEN_MIN = 9 * 60 + 15;  // 9:15 AM
-const MARKET_CLOSE_MIN = 15 * 60 + 30; // 3:30 PM
+const MARKET_OPEN_MIN = 9 * 60;        // 9:00 AM -- matches backend is_market_hours()
+const PRE_OPEN_END_MIN = 9 * 60 + 15;  // 9:15 AM -- end of NSE's real pre-open window
+const MARKET_CLOSE_MIN = 15 * 60 + 40; // 3:40 PM -- matches backend is_market_hours()
 
 function getIstDayAndMinutes(date) {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -41,9 +56,12 @@ function computeMarketStatus(day, totalMinutes) {
   const isWeekday = day >= 1 && day <= 5;
   const isWithinHours = totalMinutes >= MARKET_OPEN_MIN && totalMinutes < MARKET_CLOSE_MIN;
   const isOpen = isWeekday && isWithinHours;
+  // Real NSE pre-open window -- only meaningful while the session is
+  // otherwise open; see PRE_OPEN_END_MIN comment above.
+  const isPreOpen = isOpen && totalMinutes < PRE_OPEN_END_MIN;
 
   if (isOpen) {
-    return { isOpen: true, label: 'Market Open', nextEvent: 'Closes at 3:30 PM' };
+    return { isOpen: true, isPreOpen, label: 'Market Open', nextEvent: 'Closes at 3:40 PM' };
   }
 
   let daysUntilNextOpen = 0;
@@ -59,7 +77,7 @@ function computeMarketStatus(day, totalMinutes) {
   }
 
   const dayLabel = daysUntilNextOpen === 0 ? 'today' : (daysUntilNextOpen === 1 ? 'tomorrow' : `on ${DAY_NAMES[candidateDay]}`);
-  return { isOpen: false, label: 'Market Closed', nextEvent: `Opens 9:15 AM ${dayLabel}` };
+  return { isOpen: false, isPreOpen: false, label: 'Market Closed', nextEvent: `Opens 9:00 AM ${dayLabel}` };
 }
 
 // Sep 12 2026: CRUDEOIL/GOLD/SILVER trade on MCX hours (~9:00 AM -
@@ -371,9 +389,16 @@ export default function MarketBanner() {
   // Tested in test_data_state.js (6 cases, including the important
   // "a genuine 0 price must still show as live, not be confused with
   // missing data" case -- uses == null, not a falsy check).
-  const determineDataState = (price, isMarketOpen, err) => {
+  //
+  // Sep 12 2026 (part 2): 'pre-open' added as a real fourth state,
+  // reachable only when the caller explicitly says this instrument
+  // supports it (isPreOpen truthy) -- see supportsPreOpen on Card
+  // below. Every other instrument keeps the original three-state
+  // behavior unchanged.
+  const determineDataState = (price, isMarketOpen, isPreOpen, err) => {
     if (err) return 'error';
     if (price == null) return 'no_data';
+    if (isPreOpen) return 'pre-open';
     return isMarketOpen ? 'live' : 'closed';
   };
 
@@ -383,24 +408,17 @@ export default function MarketBanner() {
   const fyersChartUrl = (symbol) =>
     `https://trade.fyers.in/popout/index.html?symbol=${encodeURIComponent(symbol)}&resolution=5&theme=light`;
 
-  // Sep 12 2026: dashboard redesign -- compact layout per explicit
-  // reference: name+status on one row, big price + sparkline on the
-  // next, change/% below that, then the two conditional lines
-  // (Indicative, Expiry Today). showPriceLabel is gone -- every card
-  // using this component is now in the six-instrument scope, so the
-  // Indicative logic applies uniformly rather than needing an opt-in
-  // flag.
-  //
-  // "Indicative" is the SAME real price this card already has, shown
-  // as a small secondary caption -- never a second, separately-sourced
-  // number (no such field exists anywhere in this app's real data, and
-  // inventing one would violate this whole project's no-fabrication
-  // rule). Main price never gets replaced by it -- the big number is
-  // always the real last-known price, live or not; Indicative only
-  // adds a small clarifying line underneath when the state genuinely
-  // isn't live.
-  const Card = ({ label, price, change, changePercent, fyersSymbol, sparklineData, isMarketOpen, err, isExpiryToday = false }) => {
-    const state = determineDataState(price, isMarketOpen, err);
+  // Sep 12 2026 (part 2): per explicit correction -- "Indicative
+  // Price" is NOT a generic "not live" caption for every instrument.
+  // It's specifically NSE's real pre-open call-auction state, which
+  // only NIFTY/BANKNIFTY get here (supportsPreOpen prop, passed only
+  // on those two call sites below). SENSEX/CRUDEOIL/GOLD/SILVER never
+  // reach the 'pre-open' state at all (their isPreOpen is always
+  // false), so they fall through to plain live/closed -- closed shows
+  // "Last" (their own real last-known price, honestly labeled),
+  // never "Indicative".
+  const Card = ({ label, price, change, changePercent, fyersSymbol, sparklineData, isMarketOpen, isPreOpen = false, err, isExpiryToday = false }) => {
+    const state = determineDataState(price, isMarketOpen, isPreOpen, err);
     // Sep 12 2026: falls back to changePercent's own sign when no
     // absolute change is available (CRUDEOIL/GOLD/SILVER's Index
     // Tracker row has no raw "Change" field, only "Change %" -- see
@@ -408,7 +426,7 @@ export default function MarketBanner() {
     // being undefined would make isPos default to true regardless of
     // real direction.
     const isPos = change != null ? change >= 0 : (changePercent || 0) >= 0;
-    const arrow = isPos ? '↗' : '↘';
+    const arrow = isPos ? '▲' : '▼';
 
     const priceStr = fmt(price);
     const changeStr = fmt(change);
@@ -416,13 +434,12 @@ export default function MarketBanner() {
 
     const dotClass = state === 'live'
       ? `${isPos ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`
+      : state === 'pre-open' ? 'bg-amber-500 animate-pulse'
       : state === 'error' ? 'bg-amber-500'
       : 'bg-slate-500';
 
-    const statusText = state === 'live' ? 'LIVE' : state === 'closed' ? 'CLOSED' : state === 'error' ? 'ERROR' : 'N/A';
-    const statusColor = state === 'live' ? 'text-emerald-500' : state === 'error' ? 'text-amber-500' : 'text-slate-500';
-
-    const showIndicative = state !== 'live' && priceStr != null;
+    const statusText = state === 'live' ? 'LIVE' : state === 'pre-open' ? 'PRE-OPEN' : state === 'closed' ? 'CLOSED' : state === 'error' ? 'ERROR' : 'N/A';
+    const statusColor = state === 'live' ? 'text-emerald-500' : state === 'pre-open' ? 'text-amber-500' : state === 'error' ? 'text-amber-500' : 'text-slate-500';
 
     const inner = (
       <div className={`flex flex-col gap-0.5 px-3 py-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50 h-full md:min-w-[150px] md:flex-1 ${fyersSymbol ? 'hover:border-blue-500/50 hover:bg-slate-800/90 transition-colors cursor-pointer group' : ''}`}>
@@ -440,11 +457,18 @@ export default function MarketBanner() {
           <p className="text-xl font-bold text-white tabular-nums tier-critical leading-tight">{priceStr ?? 'N/A'}</p>
           <Sparkline values={sparklineData} />
         </div>
-        <p className={`text-[11px] font-medium leading-tight ${state === 'live' ? (isPos ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'}`}>
-          {priceStr != null ? `${arrow} ${isPos ? '+' : ''}${changeStr ?? '—'} (${isPos ? '+' : ''}${changePctStr ?? '—'}%)` : '—'}
-        </p>
-        {showIndicative && (
-          <p className="text-[10px] text-slate-500 leading-tight">Indicative: {priceStr}</p>
+        {state === 'pre-open' ? (
+          // Pre-open: no change/% shown at all -- there's no prior
+          // continuous-session close to compare against yet today,
+          // only the real indicative figure Fyers itself reports.
+          <p className="text-[11px] font-medium text-amber-400 leading-tight">Indicative Price</p>
+        ) : (
+          <p className={`text-[11px] font-medium leading-tight ${state === 'live' ? (isPos ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'}`}>
+            {priceStr != null ? `${arrow} ${isPos ? '+' : ''}${changeStr ?? '—'} (${isPos ? '+' : ''}${changePctStr ?? '—'}%)` : '—'}
+          </p>
+        )}
+        {state === 'closed' && priceStr != null && (
+          <p className="text-[10px] text-slate-500 leading-tight">Last</p>
         )}
         {isExpiryToday && (
           <span className="inline-block w-fit text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 mt-0.5">
@@ -484,14 +508,21 @@ export default function MarketBanner() {
 
   return (
     <div className="grid grid-cols-2 gap-3 mb-4 md:flex md:overflow-x-auto md:pb-1 md:items-stretch">
-      <Card label="NIFTY" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} isExpiryToday={niftyExpiryToday} />
-      <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} isExpiryToday={bankExpiryToday} />
+      <Card label="NIFTY" price={nifty.price} change={nifty.change} changePercent={nifty.change_percent} fyersSymbol="NSE:NIFTY50-INDEX" sparklineData={niftyHistory} isMarketOpen={marketStatus?.isOpen} isPreOpen={marketStatus?.isPreOpen} err={fetchError} isExpiryToday={niftyExpiryToday} />
+      <Card label="BANKNIFTY" price={bank.price} change={bank.change} changePercent={bank.change_percent} fyersSymbol="NSE:NIFTYBANK-INDEX" sparklineData={bankHistory} isMarketOpen={marketStatus?.isOpen} isPreOpen={marketStatus?.isPreOpen} err={fetchError} isExpiryToday={bankExpiryToday} />
+      {/* Sep 12 2026: SENSEX deliberately does NOT get isPreOpen --
+          per explicit instruction, only NIFTY/BANKNIFTY use the
+          Indicative Price presentation. SENSEX uses its own real
+          session state (still NSE/BSE hours via marketStatus) with
+          plain live/closed semantics, same as the commodities below. */}
       <Card label="SENSEX" price={sensex.price} change={sensex.change} changePercent={sensex.change_percent} fyersSymbol="BSE:SENSEX-INDEX" sparklineData={sensexHistory} isMarketOpen={marketStatus?.isOpen} err={fetchError} isExpiryToday={sensexExpiryToday} />
       {/* CRUDEOIL/GOLD/SILVER: no absolute "Change" field exists on
           the Index Tracker row (COLUMNS only has "Change %"), so
           `change` is deliberately left unpassed rather than guessing
           one -- Card's changeStr shows '—' for it, same "never
-          fabricate" rule as everywhere else in this project. */}
+          fabricate" rule as everywhere else in this project. Their
+          own MCX session state (mcxStatus), plain live/closed, no
+          pre-open concept modeled for MCX anywhere in this project. */}
       <Card label="CRUDE OIL" price={crudePrice} changePercent={crudeChangePct} fyersSymbol={crudeSymbol || undefined} sparklineData={crudeHistory} isMarketOpen={mcxStatus?.isOpen} err={null} isExpiryToday={crudeExpiryToday} />
       <Card label="GOLD" price={goldPrice} changePercent={goldChangePct} sparklineData={goldHistory} isMarketOpen={mcxStatus?.isOpen} err={null} isExpiryToday={goldExpiryToday} />
       <Card label="SILVER" price={silverPrice} changePercent={silverChangePct} sparklineData={silverHistory} isMarketOpen={mcxStatus?.isOpen} err={null} isExpiryToday={silverExpiryToday} />

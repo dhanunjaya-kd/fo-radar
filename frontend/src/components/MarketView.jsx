@@ -328,11 +328,29 @@ function MarketViewSection({ indexName }) {
 
       <div className="p-4">
         {loading && rows.length === 0 && (
-          <div className="py-8 text-center text-slate-500 text-sm">Loading {DISPLAY_NAME[indexName] || indexName}...</div>
+          <div className="py-10 text-center">
+            <p className="text-slate-400 text-sm font-medium">Loading market snapshots…</p>
+          </div>
         )}
         {!loading && rows.length === 0 && !error && (
-          <div className="py-8 text-center text-slate-500 text-sm">
-            {selectedDate ? `Nothing logged on ${selectedDate}.` : 'No snapshots logged yet today.'}
+          <div className="py-10 text-center space-y-2">
+            <p className="text-slate-400 text-sm font-medium">
+              {selectedDate ? `No snapshots available for ${selectedDate}.` : 'No snapshots available for this session.'}
+            </p>
+            {!selectedDate && (
+              <p className="text-slate-600 text-xs max-w-sm mx-auto leading-relaxed">
+                The view will populate automatically when market-data snapshots become available.
+              </p>
+            )}
+            {/* Sep 12 2026: real last-available date from availableDates
+                (already fetched above for the date picker) -- never a
+                fabricated or estimated timestamp, just the most recent
+                entry in the same real list the dropdown itself uses. */}
+            {availableDates.length > 0 && (
+              <p className="text-slate-500 text-xs pt-1">
+                Last available snapshot: <span className="text-slate-300 font-medium">{availableDates.slice().sort().slice(-1)[0]}</span>
+              </p>
+            )}
           </div>
         )}
         {error && <div className="py-4 text-center text-rose-400 text-sm">⚠ {error}</div>}
