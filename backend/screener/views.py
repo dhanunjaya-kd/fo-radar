@@ -260,6 +260,64 @@ def _is_quality_confirmed_with_hysteresis(symbol, action, quality_result, state_
     return state['confirmed']
 
 
+# Sep 12 2026 (later same day): hysteresis for oi_confirmation ITSELF --
+# the actual root-cause field. Adding quality_confirmed's own
+# persistence above did NOT fix the real reported bug (a signal
+# flickering off/on before a real logged loss on ANGELONE 295 PE),
+# because quality_signals' final filter ANDs oi_confirmation=='CONFIRMED'
+# together with quality_confirmed -- oi_confirmation was still being
+# recomputed fresh every cycle from a 1.2x CE/PE-ratio check with no
+# floor, no memory, completely unprotected by either hysteresis
+# function above. A signal could still drop out purely because THIS
+# field read NEUTRAL for one cycle, regardless of what quality_confirmed
+# said. This is the fix for the actual, evidenced problem.
+_oi_confirmation_state = {}  # {(symbol, action): {'date': 'YYYY-MM-DD', 'confirmed': bool}}
+
+
+def _is_oi_confirmed_with_hysteresis(symbol, action, oi_confirmation_reading, state_dict=None, today=None):
+    """
+    Same asymmetric shape as the two hysteresis functions above, applied
+    to the oi_confirmation field itself (CONFIRMED/NEUTRAL/NO_DATA on an
+    appended signal -- CONFLICT never reaches this function at all, see
+    below).
+
+    ENTRY: only from a fresh CONFIRMED reading this cycle, no grace.
+
+    EXIT: this function only ever sees CONFIRMED/NEUTRAL/NO_DATA -- a
+    CONFLICT reading causes an immediate `continue` in the caller BEFORE
+    a signal is even built for this cycle (see the oi_confirmation
+    computation block above), so there's no "reading" to hand this
+    function for that case. The caller explicitly clears this state to
+    False in that CONFLICT branch instead -- a real, confirmed
+    contradiction exits immediately, same principle as the other two
+    hysteresis functions' conflict handling, just enforced at the call
+    site here rather than inside this function, because the CONFLICT
+    candidate is dropped before reaching this point in the loop.
+
+    Everything else (NEUTRAL or NO_DATA this cycle) holds whatever the
+    state already was -- the exact 1.2x-ratio wobble this exists to
+    absorb.
+    """
+    if state_dict is None:
+        state_dict = _oi_confirmation_state
+    if today is None:
+        today = datetime.now().strftime("%Y-%m-%d")
+
+    key = (symbol, action)
+    state = state_dict.get(key)
+    if state is None or state.get('date') != today:
+        state = {'date': today, 'confirmed': False}
+        state_dict[key] = state
+
+    if oi_confirmation_reading == 'CONFIRMED':
+        state['confirmed'] = True
+    # else: NEUTRAL or NO_DATA this cycle -- hold, don't newly enter and
+    # don't drop out either. See docstring above for why CONFLICT is
+    # handled by the caller clearing this state directly instead.
+
+    return state['confirmed']
+
+
 # Sep 12 2026: same off-switch pattern tasks.py already uses for its
 # own disabled duplicate scanner (_DUPLICATE_SCANNER_ENABLED) -- this
 # gate is new and its real effect on list size hasn't been observed
@@ -1942,6 +2000,14 @@ def _build_all():
                 # as the confirmed-live-chain requirement -- not just
                 # scored down, not shown as a trade recommendation at all.
                 no_trade_log.append({"symbol": sym, "reason": f"OI conflicts with {action} direction ({buildup or 'no clear buildup'})"})
+                # Sep 12 2026: a real, confirmed contradiction -- drop
+                # any persisted oi_confirmation state for this (symbol,
+                # action) rather than leaving a stale CONFIRMED sitting
+                # there. This candidate is dropped before signals.append()
+                # this cycle regardless, but the NEXT time it reads
+                # CONFIRMED again, it should have to re-earn entry, not
+                # silently resume as if the conflict never happened.
+                _oi_confirmation_state.pop((sym, action), None)
                 # Sep 8 2026: SHADOW MODE ONLY -- oi is available here
                 # (unlike the hysteresis-fail hook above), so the richer
                 # options_confirmation evidence is too. signal_extra
@@ -1983,6 +2049,12 @@ def _build_all():
 
         total_score = max(0, min(100, score + oi_adjustment))
         grade = 'A+' if total_score >= 95 else 'A' if total_score >= 85 else 'B' if total_score >= 75 else 'C' if total_score >= 60 else 'D'
+
+        # Sep 12 2026: the actual root-cause fix -- see
+        # _is_oi_confirmed_with_hysteresis()'s own docstring above.
+        # oi_confirmation itself, not just quality_confirmed, needed
+        # this.
+        oi_confirmed_persisted = _is_oi_confirmed_with_hysteresis(sym, action, oi_confirmation)
 
         # Aug 31 2026: P0-4 from the UI Corrections checklist -- "no
         # hidden formulas, every score has a documented factor
@@ -2134,13 +2206,20 @@ def _build_all():
             entry, strike = locked['entry'], locked['strike'] or strike
             sl = locked['sl']
             t1, t2, t3 = locked['target1'], locked['target2'], locked['target3']
-            # Aug 27 2026: real lot size as the fallback here too (was
-            # int(50000/entry)) -- this branch is a rare defensive case
-            # (an already-locked plan whose stored quantity is somehow
-            # empty), not the primary path, but should stay consistent
-            # with the real fix rather than quietly keep the old
-            # capital-based distortion alive in an edge case.
-            qty = locked['quantity'] or get_lot_size(sym) or 1
+            # Sep 12 2026: was `locked['quantity'] or get_lot_size(sym) or 1`
+            # -- that final `or 1` is the exact same class of bug
+            # index_signal.py's own Sep 10 fix already root-caused and
+            # removed for index calls (an arbitrary quantity standing in
+            # for the real exchange lot size, silently wrong regardless
+            # of which number it happened to be). Genuinely rare -- an
+            # already-locked plan whose stored quantity is somehow empty
+            # AND a fresh lot-size lookup also fails -- but "rare" isn't
+            # "safe to guess a real position size for." Skip instead,
+            # same as every other missing-data path in this function.
+            qty = locked['quantity'] or get_lot_size(sym)
+            if qty is None:
+                no_trade_log.append({"symbol": sym, "reason": f"Locked plan for {sym} {action} has no stored quantity and lot size is unresolvable -- not guessing a position size"})
+                continue
             rr = locked['risk_reward'] or 1.5
             option_symbol = locked['option_symbol']
             # Already-tracked outcome status for this locked plan -- see
@@ -2421,6 +2500,10 @@ def _build_all():
             "technical_score": score, "oi_adjustment": oi_adjustment, "score_breakdown": score_breakdown,
             "rsi": rsi, "adx": round(adx, 1),
             "oi_confirmation": oi_confirmation, "oi_reason": oi_reason, "pattern": pattern,
+            # Sep 12 2026: the actual root-cause fix, alongside the
+            # quality-gate persistence added earlier today -- see
+            # _is_oi_confirmed_with_hysteresis()'s docstring above.
+            "oi_confirmed_persisted": oi_confirmed_persisted,
             # Sep 12 2026: the new quality-engine confirmation layer --
             # quality_confirmed is what quality_signals below actually
             # gates on (when the feature flag is on); score/verdict/
@@ -2506,7 +2589,7 @@ def _build_all():
     quality_signals = [
         s for s in signals
         if int(s['confidence'].replace('%', '')) >= 85
-        and s.get('oi_confirmation') == 'CONFIRMED'
+        and s.get('oi_confirmed_persisted')
         and (not _QUALITY_GATE_ENABLED or s.get('quality_confirmed'))
     ][:15]
 
