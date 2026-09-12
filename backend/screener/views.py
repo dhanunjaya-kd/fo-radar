@@ -3376,6 +3376,24 @@ class IndexAgreementLogView(APIView):
         })
 
 
+class NextTradingSessionView(APIView):
+    """
+    Sep 12 2026: holiday-aware "when does trading next resume", for the
+    header's Market Status display -- see get_next_trading_session()'s
+    own docstring in market_hours.py for the real 2026 holiday
+    calendars this is built on and their sourcing/limitations.
+
+    Deliberately does NOT touch is_market_hours() or anything the live
+    scanner's own on/off gate depends on -- this is purely informational,
+    same principle as every other read-only status endpoint in this file.
+
+    GET /api/next-trading-session/<NSE|BSE|MCX>/"""
+    def get(self, request, market):
+        from .market_hours import get_next_trading_session
+        session = get_next_trading_session(market)
+        return Response({"market": market.upper(), "next_session": session})
+
+
 class DataHealthView(APIView):
     """
     Aug 31 2026: Section 18 from the UI Corrections checklist -- Data
