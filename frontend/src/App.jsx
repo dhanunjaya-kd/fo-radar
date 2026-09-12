@@ -63,26 +63,25 @@ function AppShell() {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', count: null },
-    { id: 'signals', label: 'Live Signals', count: signalCount },
-    { id: 'oi', label: 'OI Analytics', count: null },
-    { id: 'index', label: 'Index Tracker', count: null },
+    { id: 'signals', label: 'Sniper Signals', count: signalCount },
+    { id: 'oi', label: 'Open Interest Analytics', count: null },
+    { id: 'index', label: 'Index Monitor', count: null },
     { id: 'cas', label: 'CAS Radar', count: null },
-    { id: 'market', label: 'Market View', count: null },
+    { id: 'market', label: 'Market Overview', count: null },
     { id: 'commodities', label: 'Commodities', count: null },
-    { id: 'nextday', label: "Tomorrow's Picks", count: null },
+    { id: 'nextday', label: "Next-Day Watchlist", count: null },
     { id: 'backtest', label: 'Daily Backtest', count: null },
-    { id: 'shadow', label: 'Shadow Mode', count: null },
+    { id: 'shadow', label: 'Simulation', count: null },
     { id: 'settings', label: 'Settings', count: null },
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
   const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'commodities', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
-  const tabIcon = (id) => ({ dashboard: '🏠', settings: '⚙️', signals: '⚡', oi: '📊', index: '📈', cas: '🏁', market: '📋', commodities: '🪙', nextday: '🔭', backtest: '🧮', shadow: '🔍', strategy: '🧪' }[id] || '');
 
   const TabButton = ({ tab }) => (
     <button onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab.id ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>
-      {tabIcon(tab.id)} {tab.label}
+      {tab.label}
       {tab.count !== null && <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'}`}>{tab.count}</span>}
     </button>
   );
@@ -116,7 +115,15 @@ function AppShell() {
   return (
     <div className={`min-h-screen bg-slate-950 text-white overflow-x-hidden ${theme === 'light' ? 'light' : ''} density-${density}`}>
       <div className="px-4 pt-4 pb-3 flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2 shrink-0"><span className="text-xl">🎯</span><span className="font-bold text-white text-sm sm:text-base whitespace-nowrap">F&amp;O SNIPER <span className="text-slate-500 font-normal">SCANNER v3.0</span></span></div>
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shrink-0">
+            <span className="text-white font-bold text-base leading-none">M</span>
+          </div>
+          <div className="leading-tight">
+            <div className="font-bold text-white text-sm sm:text-base tracking-wide whitespace-nowrap">MARKETEDGE</div>
+            <div className="text-[10px] text-slate-500 font-medium tracking-wide whitespace-nowrap">Market Intelligence Terminal</div>
+          </div>
+        </div>
         <MarketStatusHeader />
         <div className="flex items-center gap-1.5 ml-auto"><ThemeToggle /><button onClick={enableAlerts} disabled={alertsEnabled} title={alertsEnabled ? 'Alerts on' : 'Enable alerts'} aria-label={alertsEnabled ? 'Alerts on' : 'Enable alerts'} className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${alertsEnabled ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25 cursor-default' : 'text-amber-400 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20'}`}>{alertsEnabled ? <IconBell size={16} /> : <IconBellOff size={16} />}</button><button onClick={toggleFullscreen} title="Toggle fullscreen" aria-label="Toggle fullscreen" className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-700/50 bg-slate-900/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"><IconMaximize size={16} /></button><button onClick={disconnectFyers} disabled={disconnecting} title="Disconnect Fyers" aria-label="Disconnect Fyers" className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${disconnecting ? 'text-slate-500 bg-slate-800 border-slate-700 cursor-wait' : 'text-rose-400 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20'}`}><IconLogOut size={16} /></button></div>
       </div>
