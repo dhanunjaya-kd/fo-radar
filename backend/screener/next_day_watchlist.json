@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-11T19:10:25.954236",
-  "universe_scanned": 2677,
-  "stocks_with_enough_data": 2507,
-  "excluded_low_price": 546,
-  "excluded_low_liquidity": 945,
-  "excluded_unknown_sector": 2300,
+  "generated_at": "2026-09-12T11:29:22.743468",
+  "universe_scanned": 2682,
+  "stocks_with_enough_data": 2512,
+  "excluded_low_price": 548,
+  "excluded_low_liquidity": 951,
+  "excluded_unknown_sector": 2305,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
   "require_known_sector": true,
@@ -58,30 +58,6 @@
       "rank": 2
     },
     {
-      "symbol": "NSE:DMART-EQ",
-      "sector": "Retail",
-      "eod_price": 3688,
-      "change_percent": -0.05,
-      "rsi": 35.1,
-      "sma_20": 3876.35,
-      "distance_from_sma_pct": -4.86,
-      "today_volume": 710188,
-      "avg_volume_20d": 431826.0,
-      "volume_ratio": 1.64,
-      "sector_relative_pct": 0.7,
-      "sector_strength": "Leading",
-      "trend_status": "Moderate",
-      "volume_status": "Accumulation",
-      "score": 79,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 24,
-        "volume": 10,
-        "sector_strength": 25
-      },
-      "rank": 3
-    },
-    {
       "symbol": "NSE:PRESTIGE-EQ",
       "sector": "Realty",
       "eod_price": 1498,
@@ -103,7 +79,7 @@
         "volume": 8,
         "sector_strength": 25
       },
-      "rank": 4
+      "rank": 3
     },
     {
       "symbol": "NSE:BANDHANBNK-EQ",
@@ -127,19 +103,19 @@
         "volume": 30,
         "sector_strength": 25
       },
-      "rank": 5
+      "rank": 4
     },
     {
       "symbol": "NSE:COCHINSHIP-EQ",
       "sector": "Defence",
       "eod_price": 1381,
       "change_percent": -9.17,
-      "rsi": 63.8,
-      "sma_20": 1504.19,
-      "distance_from_sma_pct": -8.19,
+      "rsi": 35.4,
+      "sma_20": 1499.08,
+      "distance_from_sma_pct": -7.88,
       "today_volume": 6390480,
-      "avg_volume_20d": 858333.0,
-      "volume_ratio": 7.45,
+      "avg_volume_20d": 884408.0,
+      "volume_ratio": 7.23,
       "sector_relative_pct": -6.67,
       "sector_strength": "Lagging",
       "trend_status": "Strong",
@@ -150,6 +126,30 @@
         "trend_distance": 25,
         "volume": 30,
         "sector_strength": 0
+      },
+      "rank": 5
+    },
+    {
+      "symbol": "NSE:DMART-EQ",
+      "sector": "Retail",
+      "eod_price": 3688,
+      "change_percent": -0.05,
+      "rsi": 32.6,
+      "sma_20": 3838.76,
+      "distance_from_sma_pct": -3.93,
+      "today_volume": 710188,
+      "avg_volume_20d": 417573.0,
+      "volume_ratio": 1.7,
+      "sector_relative_pct": 0.7,
+      "sector_strength": "Leading",
+      "trend_status": "Moderate",
+      "volume_status": "Accumulation",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 20,
+        "volume": 10,
+        "sector_strength": 25
       },
       "rank": 6
     },
