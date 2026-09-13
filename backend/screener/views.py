@@ -425,6 +425,100 @@ _symbol_daily_state = {}
 # history is the durable source of truth for anything more than a day old.
 _symbol_recurrence_history = {}
 
+# ---------------------------------------------------------------------------
+# Sep 13 2026: SNIPER STOCKS filter candidates -- SHADOW MODE ONLY.
+# Historical replay was checked and is genuinely impossible: this
+# sandbox's network egress explicitly blocks every financial data host
+# (confirmed via curl -- x-deny-reason: host_not_allowed on Yahoo
+# Finance and NSE directly), so there is no way to reconstruct real
+# historical OHLCV at past signal timestamps. This evaluates all six
+# candidates against every REAL signal going forward, using data
+# already computed this cycle -- none of it gates or alters the actual
+# BUY/SELL/NEUTRAL decision. The comparison report below only produces
+# a verdict once real accumulated evidence clears an explicit minimum
+# bar; until then it reports exactly how much has been collected.
+
+# {symbol: {'macd': float, 'date': 'YYYY-MM-DD'}} -- cross-CYCLE (not
+# cross-day) comparison is enough for MACD slope: cycles run every
+# ~90s, so two observations of the same symbol in one session already
+# show real direction. Resets on restart, same accepted limitation as
+# every other in-memory tracker in this file -- the first time a
+# symbol is seen after a restart, candidate C reports
+# UNKNOWN_INSUFFICIENT_HISTORY rather than guessing a slope from one
+# reading.
+_macd_cycle_tracker = {}
+
+
+def _evaluate_shadow_candidates(sym, action, price, change_percent, macd, rsi, adx, vol, vol_avg, ema20, ema50):
+    """
+    Returns a dict of six {candidate: 'PASS'|'REJECT'|'UNKNOWN', candidate+'_reason': str}
+    entries. Every value here is computed from data the live signal
+    already has this cycle -- nothing new fetched, nothing guessed.
+    Never called before the real action/score decision, and its output
+    is never read by anything that gates a signal.
+    """
+    out = {}
+
+    # A. Today's own price-action direction.
+    if action == "BUY":
+        out["candidate_a"] = "PASS" if change_percent > 0 else "REJECT"
+    else:
+        out["candidate_a"] = "PASS" if change_percent < 0 else "REJECT"
+    out["candidate_a_reason"] = f"change_percent={change_percent:+.2f}%"
+
+    # B. EMA20/EMA50 trend structure -- both already computed, never
+    # used for direction anywhere in the live scoring today.
+    if ema20 is not None and ema50 is not None:
+        if action == "BUY":
+            out["candidate_b"] = "PASS" if (price > ema20 > ema50) else "REJECT"
+        else:
+            out["candidate_b"] = "PASS" if (price < ema20 < ema50) else "REJECT"
+        out["candidate_b_reason"] = f"price={price:.2f}, ema20={ema20:.2f}, ema50={ema50:.2f}"
+    else:
+        out["candidate_b"] = "UNKNOWN"
+        out["candidate_b_reason"] = "ema20/ema50 unavailable this cycle"
+
+    # C. MACD slope -- needs a PRIOR cycle's reading for this exact
+    # symbol; the very first time a symbol is seen in this session,
+    # there is nothing to compare against, so this is UNKNOWN, not
+    # guessed as PASS or REJECT.
+    prev = _macd_cycle_tracker.get(sym)
+    if prev is not None:
+        macd_rising = macd > prev["macd"]
+        if action == "BUY":
+            out["candidate_c"] = "PASS" if macd_rising else "REJECT"
+        else:
+            out["candidate_c"] = "PASS" if not macd_rising else "REJECT"
+        out["candidate_c_reason"] = f"macd={macd:.4f} vs previous_cycle_macd={prev['macd']:.4f}"
+    else:
+        out["candidate_c"] = "UNKNOWN"
+        out["candidate_c_reason"] = "no prior cycle reading for this symbol yet this session"
+    _macd_cycle_tracker[sym] = {"macd": macd, "date": datetime.now().strftime("%Y-%m-%d")}
+
+    # D. Directional RSI -- 50 is RSI's own conventional midpoint
+    # (bullish/bearish split), not an invented threshold.
+    if action == "BUY":
+        out["candidate_d"] = "PASS" if rsi > 50 else "REJECT"
+    else:
+        out["candidate_d"] = "PASS" if rsi < 50 else "REJECT"
+    out["candidate_d_reason"] = f"rsi={rsi:.1f}"
+
+    # E. Direction-aware volume -- high volume AND today's own move
+    # agreeing with the claimed direction, not volume alone.
+    high_vol = vol >= vol_avg * 1.5 if vol_avg else False
+    directional_move = (change_percent > 0) if action == "BUY" else (change_percent < 0)
+    out["candidate_e"] = "PASS" if (high_vol and directional_move) else "REJECT"
+    out["candidate_e_reason"] = f"volume_ratio={(vol/vol_avg):.2f}x, change_percent={change_percent:+.2f}%" if vol_avg else "volume_avg unavailable"
+
+    # F. ADX minimum trend-strength -- same 25 threshold already live
+    # (as REQUIRE_ADX_TREND_STRENGTH, off by default) -- this records
+    # what it WOULD have decided regardless of that flag's state, so
+    # shadow evidence keeps accumulating even while the real flag is off.
+    out["candidate_f"] = "PASS" if adx >= 25 else "REJECT"
+    out["candidate_f_reason"] = f"adx={adx:.1f}"
+
+    return out
+
 
 def _recurrence_status(prior_signal_count):
     """
@@ -2721,6 +2815,16 @@ def _build_all():
         stock_vs_sector_pct = round(stock['change_percent'] - sector_change_pct, 2) if sector_change_pct is not None else None
         stock_vs_index_pct = round(stock['change_percent'] - nifty_change_pct, 2) if nifty_change_pct is not None else None
 
+        # Sep 13 2026: SNIPER STOCKS filter candidates, shadow-only --
+        # see _evaluate_shadow_candidates()'s own module-level comment
+        # for why historical replay was ruled out and shadow mode was
+        # built instead. Computed here, purely observational -- nothing
+        # below this line reads shadow_candidates to decide anything.
+        shadow_candidates = _evaluate_shadow_candidates(
+            sym, action, price, stock['change_percent'], macd, rsi, adx, vol, vol_avg,
+            tech.get('ema20'), tech.get('ema50'),
+        )
+
         # Sep 12 2026: SNIPER V2 observability -- see the module-level
         # note above _symbol_daily_state for exactly what this can and
         # cannot honestly claim. Purely additive fields, never gates
@@ -2818,6 +2922,12 @@ def _build_all():
             "volume_ratio": round(vol / vol_avg, 3) if vol_avg else None,
             "ema20": tech.get("ema20"),
             "ema50": tech.get("ema50"),
+            # Sep 13 2026: six shadow candidate PASS/REJECT/UNKNOWN
+            # verdicts + their exact reasons -- see
+            # _evaluate_shadow_candidates()'s own docstring. Purely
+            # observational; none of these were read by anything above
+            # this line that decided the real signal.
+            **shadow_candidates,
             # Sep 12 2026: the actual root-cause fix, alongside the
             # quality-gate persistence added earlier today -- see
             # _is_oi_confirmed_with_hysteresis()'s docstring above.

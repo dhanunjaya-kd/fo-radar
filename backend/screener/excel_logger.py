@@ -195,6 +195,16 @@ COLUMNS = [
     # "was price >0.5% above VWAP") -- not a new computation, just a
     # more directly usable persisted form of values already on hand.
     "MACD", "VWAP Distance %", "Volume Ratio", "EMA20", "EMA50",
+    # Sep 13 2026: SNIPER STOCKS filter candidates, shadow-only -- see
+    # views.py's _evaluate_shadow_candidates(). PASS/REJECT/UNKNOWN
+    # verdict + the exact reason/values behind it, for each of the six
+    # candidates discussed. None of these gate a real signal.
+    "Candidate A (Price Action)", "Candidate A Reason",
+    "Candidate B (EMA Trend)", "Candidate B Reason",
+    "Candidate C (MACD Slope)", "Candidate C Reason",
+    "Candidate D (Directional RSI)", "Candidate D Reason",
+    "Candidate E (Direction-Aware Volume)", "Candidate E Reason",
+    "Candidate F (ADX Gate)", "Candidate F Reason",
 ]
 
 _lock = threading.Lock()
@@ -359,6 +369,12 @@ def _write_new_row(ws, signal):
         sig_id,
         signal.get("macd"), signal.get("vwap_distance_pct"), signal.get("volume_ratio"),
         signal.get("ema20"), signal.get("ema50"),
+        signal.get("candidate_a"), signal.get("candidate_a_reason"),
+        signal.get("candidate_b"), signal.get("candidate_b_reason"),
+        signal.get("candidate_c"), signal.get("candidate_c_reason"),
+        signal.get("candidate_d"), signal.get("candidate_d_reason"),
+        signal.get("candidate_e"), signal.get("candidate_e_reason"),
+        signal.get("candidate_f"), signal.get("candidate_f_reason"),
     ]
 
     key = (signal.get("symbol"), signal.get("action"))
@@ -744,3 +760,132 @@ def get_symbol_recurrence_info(symbol):
             most_recent["date"], symbol, most_recent.get("action"), most_recent.get("option_symbol"),
         ),
     }
+
+
+# Sep 13 2026: minimum evidence threshold, stated explicitly and
+# checked automatically -- per instruction, this must not just say
+# "wait for more data" without defining exactly how much. Chosen
+# conservatively:
+#   - MIN_RESOLVED_SIGNALS: 30 total resolved (win or loss) signals
+#     overall -- roughly matches the scale of the original forensic
+#     audit's own 41-signal sample, the only real precedent this
+#     project has for what's been treated as "a real, if small, sample"
+#     rather than statistical noise.
+#   - MIN_WINS / MIN_LOSSES within the PASS subset: 10 each -- without
+#     both, a "100% win rate" or "0% win rate" reading is as likely to
+#     be a tiny-sample artifact as a real signal.
+#   - MIN_IMPROVEMENT_PP: +1.0 percentage point, exactly the promotion
+#     bar already set.
+SHADOW_MIN_RESOLVED_SIGNALS = 30
+SHADOW_MIN_WINS_IN_PASS_SUBSET = 10
+SHADOW_MIN_LOSSES_IN_PASS_SUBSET = 10
+SHADOW_MIN_IMPROVEMENT_PP = 1.0
+
+_CANDIDATE_COLUMNS = {
+    "A": "Candidate A (Price Action)", "B": "Candidate B (EMA Trend)",
+    "C": "Candidate C (MACD Slope)", "D": "Candidate D (Directional RSI)",
+    "E": "Candidate E (Direction-Aware Volume)", "F": "Candidate F (ADX Gate)",
+}
+
+
+def generate_shadow_comparison_report(lookback_days=90):
+    """
+    Reads every resolved signal (real "Target N Hit" or "SL Hit"
+    Outcome -- never "Expired" or blank, same exact-match discipline as
+    get_symbol_recurrence_info()) across up to `lookback_days` of real
+    daily logs, and for each of the six shadow candidates, compares the
+    PASS subset's win rate against the overall baseline.
+
+    Returns, per candidate, either:
+      {'status': 'INSUFFICIENT_EVIDENCE', 'collected': {...}, 'required': {...}}
+    or, once the thresholds above are cleared:
+      {'status': 'READY', 'baseline_win_rate':..., 'pass_win_rate':...,
+       'delta_pp':..., 'signal_reduction_pct':..., 'verdict': 'PROMOTE'|'REJECT'}
+
+    verdict is 'PROMOTE' only when delta_pp >= SHADOW_MIN_IMPROVEMENT_PP
+    -- matches the exact promotion rule already set (a candidate that
+    raises win rate below that bar, or that clears it but on too few
+    signals, is never called an improvement here).
+    """
+    _REAL_RESOLVED = {"Target 1 Hit", "Target 2 Hit", "Target 3 Hit", "SL Hit"}
+    _REAL_WIN = {"Target 1 Hit", "Target 2 Hit", "Target 3 Hit"}
+
+    dates = list_available_dates()[:lookback_days]
+    resolved_rows = []
+    for date_str in dates:
+        path = get_log_path_for_date(date_str)
+        if not path:
+            continue
+        try:
+            wb = load_workbook(path, read_only=True, data_only=True)
+            ws = wb["Signals"]
+            rows_iter = ws.iter_rows(values_only=True)
+            headers = next(rows_iter, None)
+            if not headers or "Outcome" not in headers:
+                continue
+            col = {name: i for i, name in enumerate(headers)}
+            for row in rows_iter:
+                outcome = row[col["Outcome"]] if col["Outcome"] < len(row) else None
+                if outcome not in _REAL_RESOLVED:
+                    continue
+                entry = {"outcome": outcome, "is_win": outcome in _REAL_WIN}
+                for key, colname in _CANDIDATE_COLUMNS.items():
+                    entry[key] = row[col[colname]] if colname in col and col[colname] < len(row) else None
+                resolved_rows.append(entry)
+            wb.close()
+        except Exception as e:
+            print(f"[ExcelLog] Shadow report: skipped {date_str} ({e})")
+            continue
+
+    total_resolved = len(resolved_rows)
+    baseline_wins = sum(1 for r in resolved_rows if r["is_win"])
+    baseline_win_rate = round(baseline_wins / total_resolved * 100, 2) if total_resolved else None
+
+    report = {
+        "total_resolved_signals": total_resolved,
+        "baseline_wins": baseline_wins,
+        "baseline_losses": total_resolved - baseline_wins,
+        "baseline_win_rate": baseline_win_rate,
+        "candidates": {},
+    }
+
+    for key in _CANDIDATE_COLUMNS:
+        pass_rows = [r for r in resolved_rows if r[key] == "PASS"]
+        pass_wins = sum(1 for r in pass_rows if r["is_win"])
+        pass_losses = len(pass_rows) - pass_wins
+
+        collected = {
+            "total_resolved_signals": total_resolved,
+            "pass_subset_wins": pass_wins,
+            "pass_subset_losses": pass_losses,
+        }
+        required = {
+            "total_resolved_signals": SHADOW_MIN_RESOLVED_SIGNALS,
+            "pass_subset_wins": SHADOW_MIN_WINS_IN_PASS_SUBSET,
+            "pass_subset_losses": SHADOW_MIN_LOSSES_IN_PASS_SUBSET,
+        }
+
+        if (total_resolved < SHADOW_MIN_RESOLVED_SIGNALS
+                or pass_wins < SHADOW_MIN_WINS_IN_PASS_SUBSET
+                or pass_losses < SHADOW_MIN_LOSSES_IN_PASS_SUBSET):
+            report["candidates"][key] = {
+                "status": "INSUFFICIENT_EVIDENCE",
+                "collected": collected,
+                "required": required,
+            }
+            continue
+
+        pass_win_rate = round(pass_wins / len(pass_rows) * 100, 2)
+        delta_pp = round(pass_win_rate - baseline_win_rate, 2)
+        signal_reduction_pct = round((1 - len(pass_rows) / total_resolved) * 100, 2)
+        report["candidates"][key] = {
+            "status": "READY",
+            "pass_subset_signals": len(pass_rows),
+            "pass_subset_win_rate": pass_win_rate,
+            "baseline_win_rate": baseline_win_rate,
+            "delta_pp": delta_pp,
+            "signal_reduction_pct": signal_reduction_pct,
+            "verdict": "PROMOTE" if delta_pp >= SHADOW_MIN_IMPROVEMENT_PP else "REJECT",
+        }
+
+    return report
