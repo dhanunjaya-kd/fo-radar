@@ -362,6 +362,20 @@ SNIPER_V2_CONFIG = {
     "TIME_FILTER": False,       # no time-of-day filter built -- forensic audit's own data had no timestamp column to validate one against
     "LIQUIDITY_FILTER": False,  # no option liquidity/spread data source wired in yet
     "REENTRY_MODE": "SAFE",     # "SAFE" = classify as UNKNOWN rather than guess NEW_SETUP/GENUINE_REENTRY without real structure data
+    # Sep 13 2026: ADX (trend strength) currently only ever adds +20 to
+    # score -- a stock can still qualify (RSI+Volume+direction alone =
+    # 60 >= the 50 threshold) with ZERO trend strength, which directly
+    # contradicts ADX's own stated reason for being added here in the
+    # first place ("a stock can look great on RSI/volume/VWAP/MACD and
+    # still be going nowhere" -- see the Aug 31 comment right above the
+    # score computation). Default False: this is a real, defensible
+    # reading of ADX's own established purpose, but NOT validated
+    # against real historical outcomes -- the audited 41-signal sample
+    # has no per-signal ADX recorded, so I cannot show this improves
+    # results, only that it closes a real gap between stated intent and
+    # actual enforcement. Same discipline as every other switch here:
+    # ready, not silently activated.
+    "REQUIRE_ADX_TREND_STRENGTH": os.environ.get("REQUIRE_ADX_TREND_STRENGTH", "false").lower() == "true",
 }
 # Back-compat module-level names some earlier code in this session already
 # reads directly -- same values, single source of truth is the dict above.
@@ -2038,6 +2052,14 @@ def _build_all():
         if vol >= vol_avg * 1.5: score += 15
         if adx >= 25: score += 20  # genuine trend strength, not chop
 
+        # Sep 13 2026: SNIPER_V2_CONFIG["REQUIRE_ADX_TREND_STRENGTH"] --
+        # see its own comment there for why this exists. Defaults False,
+        # so this is a no-op today -- current production behavior is
+        # byte-for-byte unchanged unless explicitly enabled.
+        if SNIPER_V2_CONFIG["REQUIRE_ADX_TREND_STRENGTH"] and adx < 25:
+            no_trade_log.append({"symbol": sym, "reason": f"ADX {adx:.1f} below 25 -- no real trend strength (REQUIRE_ADX_TREND_STRENGTH enabled)"})
+            continue
+
         # Directional confirmation -- this used to be two separate checks
         # ('price > vwap': +15, 'macd > 0': +15) that only ever rewarded
         # the BULLISH combination. A genuinely clean bearish setup
@@ -2051,11 +2073,39 @@ def _build_all():
         if bullish_aligned or bearish_aligned:
             score += 30
 
+        # Sep 13 2026: REAL BUG FOUND -- the previous line here was
+        # `action = "BUY" if bullish_aligned else "SELL"`. That's an
+        # implicit two-branch fallback: whenever NEITHER bullish_aligned
+        # NOR bearish_aligned was true (price/VWAP and MACD disagree --
+        # a genuinely ambiguous/no-trend reading), the `else` silently
+        # forced "SELL" anyway, with zero bearish evidence behind it.
+        # Since the +30 alignment bonus wasn't earned in that case, this
+        # was reachable: RSI-in-range + high volume + ADX>=25 alone
+        # (15+15+20=50) exactly clears ENTRY_SCORE_THRESHOLD, meaning a
+        # stock with no real directional read could still qualify and
+        # get labeled SELL purely by fallthrough, not genuine bearish
+        # alignment.
+        #
+        # Fixed with an explicit three-state classification. NEUTRAL is
+        # rejected here, before `action` is assigned or used by anything
+        # downstream (hysteresis keying, OI-direction check, SNIPER V2
+        # classification, shadow logging, the final signal dict) --
+        # every one of those still only ever sees a real "BUY" or "SELL",
+        # exactly as before, for the two genuine cases. Nothing about
+        # scoring, duplicate protection, recurrence, signal_id, or
+        # logging changes -- this only prevents a candidate with no
+        # real directional evidence from reaching any of that in the
+        # first place.
+        directional_bias = "BULLISH" if bullish_aligned else "BEARISH" if bearish_aligned else "NEUTRAL"
+        if directional_bias == "NEUTRAL":
+            no_trade_log.append({"symbol": sym, "reason": "No clear directional bias -- price-vs-VWAP and MACD sign disagree; rejecting rather than defaulting to SELL"})
+            continue
+
         # Sep 3 2026: action needs to exist BEFORE the gate now -- the
         # hysteresis check below is keyed per (symbol, action), and
         # both bullish_aligned/bearish_aligned are already known at
         # this point, so this is just a reorder, not new logic.
-        action = "BUY" if bullish_aligned else "SELL"
+        action = "BUY" if directional_bias == "BULLISH" else "SELL"
 
         if not _is_qualified_with_hysteresis(sym, action, score):
             no_trade_log.append({"symbol": sym, "reason": f"Technical score {score} below qualification threshold (hysteresis: needs {ENTRY_SCORE_THRESHOLD} to enter, {EXIT_SCORE_THRESHOLD} to exit)"})
