@@ -65,6 +65,13 @@ COLUMNS = [
     "MFE %", "MAE %",
     "Agreement",  # "AGREE" / "V3_ONLY" / "QUALITY_ONLY" / "DISAGREE" -- both said no-trade differently, etc.
     "Reasons",  # Sep 8 2026: spec section 18, "Explainable Signals" -- semicolon-joined plain-English reasons/warnings
+    # Sep 12 2026: SNIPER V2 duplicate/recurrence observability fields
+    # -- see views.py's _update_symbol_state_and_classify(). Purely
+    # descriptive; existing _get_workbook() archive-and-restart
+    # protection above handles this schema change automatically.
+    "Setup Classification",  # ACTIVE_CONTINUING / NEW_SETUP_FIRST_SEEN / NEW_SETUP_RECURRING_SYMBOL
+    "Symbol Signals Today",
+    "Symbol Prior Occurrences (session)",
 ]
 
 _lock = threading.Lock()
@@ -134,7 +141,8 @@ def _agreement_label(v3_decision, quality_verdict):
 
 
 def log_shadow_candidate(symbol, action, price, v3_decision, v3_score, v3_grade, v3_reason,
-                          quality_result, reasons=None):
+                          quality_result, reasons=None, setup_classification=None,
+                          symbol_signals_fired_today=None, symbol_prior_occurrences=None):
     """
     Logs one row for a genuinely new (symbol, action) today, or
     silently does nothing if already logged today (same symbol stays
@@ -152,6 +160,12 @@ def log_shadow_candidate(symbol, action, price, v3_decision, v3_score, v3_grade,
     explaining WHY, built by the caller from the same evidence it
     already computed for scoring. Optional and defaults to None/empty
     for backward compatibility with any caller not yet passing it.
+
+    Sep 12 2026: three more optional fields, same backward-compatible
+    default-None pattern -- SNIPER V2's duplicate/recurrence
+    observability layer (see views.py's _update_symbol_state_and_
+    classify()). Purely descriptive columns; nothing here changes this
+    function's own already-existing per-day dedup logic below.
 
     Returns True if a new row was written, False otherwise (already
     logged today, or openpyxl unavailable, or price is None).
@@ -185,6 +199,7 @@ def log_shadow_candidate(symbol, action, price, v3_decision, v3_score, v3_grade,
                 0.0, 0.0,  # MFE/MAE start at 0 (no observation yet)
                 agreement,
                 "; ".join(reasons) if reasons else None,
+                setup_classification, symbol_signals_fired_today, symbol_prior_occurrences,
             ]
             ws.append(row)
             row_num = ws.max_row

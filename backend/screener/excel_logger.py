@@ -51,58 +51,12 @@ COLUMNS = [
     "PCR", "IV %", "RSI", "ADX", "Sector", "Option Symbol",
     "SL Hit At", "Target 1 Hit At", "Target 2 Hit At", "Target 3 Hit At",
     "Outcome", "Exited At",
-    # Sep 2 2026: added so every FUTURE signal is self-documenting --
-    # no more reconstructing what formula/market-condition generated a
-    # trade after the fact. All four values already existed in the
-    # live signal dict, just never persisted:
-    #  - Signal Logic Version: which SIGNAL_LOGIC_VERSION (views.py)
-    #    generated this exact row. Directly closes the gap that took
-    #    a git-history dig + a code comment to work around for Aug 3-7.
-    #  - Base Score (Pre-OI): the exact technical_score BEFORE any OI
-    #    adjustment -- no more reconstructing it from Confidence minus
-    #    an assumed bonus.
-    #  - India VIX At Signal: real VIX reading at the moment this
-    #    signal fired -- enables an honest volatility-regime breakdown
-    #    later, which wasn't possible before (no historical VIX was
-    #    ever tied to a specific signal).
-    #  - Stock vs Sector %: real relative-strength reading at signal
-    #    time -- lets a future review actually check whether relative
-    #    strength predicts anything, instead of guessing.
-    #  - Stock vs Index %: same idea, against NIFTY instead of sector
-    #    -- completes the relative-strength picture rather than
-    #    leaving half of it unpersisted.
-    #  - Expiry Date: the real contract expiry, not just a day-count --
-    #    enables "expiry day vs non-expiry day" (a real, currently-
-    #    blocked PDF-recommended validation dimension) once enough
-    #    signals have accumulated.
-    #  - MFE/MAE Premium: Maximum Favorable/Adverse Excursion, in real
-    #    premium terms -- the best and worst price actually seen during
-    #    the trade's life, not just entry vs final exit. Both PDF
-    #    documents ask for this repeatedly. Tracked live in
-    #    check_outcomes() below, same polling cycle that already
-    #    checks SL/Target, not a separate fetch. HONEST LIMITATION:
-    #    if the server restarts mid-trade, the running high/low seen
-    #    SO FAR is lost (nothing in the Excel row itself records an
-    #    intratrade price path to rebuild from) -- tracking restarts
-    #    fresh from whatever the price is at restart, so MFE/MAE on a
-    #    position that survives a same-day restart will UNDERSTATE
-    #    the true excursion. Flagged here and in the rebuild code
-    #    below, not hidden.
     "Signal Logic Version", "Base Score (Pre-OI)", "India VIX At Signal", "Stock vs Sector %",
     "Stock vs Index %", "Expiry Date", "MFE Premium", "MAE Premium",
 ]
 
 _lock = threading.Lock()
-# In-memory: {(symbol, action): {'row': N, 'exited_at': datetime|None}}
-# 'exited_at' None means currently active. Resets when the date changes
-# (new day = new file = fresh tracking).
 _row_index = {}
-# In-memory: {(symbol, action): {'row', 'option_symbol', 'sl', 't1','t2','t3',
-# 'furthest_target': 0-3, 'sl_hit': bool}} -- only for positions still
-# being watched for an outcome. A position stops being tracked once SL is
-# hit (trade's over) but keeps being tracked after a target hit in case a
-# FURTHER target also gets hit later (you'd have scaled out, but it's
-# still useful to know the premium kept running).
 _open_positions = {}
 _current_date = None
 _initialized_today = False
@@ -122,12 +76,6 @@ def _get_workbook(path):
         ws = wb["Signals"]
         existing_header = [c.value for c in ws[1]]
         if existing_header != COLUMNS:
-            # Same fix as index_tracker.py: rewriting the header in place
-            # would silently shift existing rows' data under the wrong
-            # headers whenever a column is inserted anywhere but the very
-            # end (tested and confirmed this corrupts data, not fixes
-            # it). Archive the old file untouched, start fresh with the
-            # current schema.
             archive_path = path.replace(".xlsx", "_pre-update.xlsx")
             if not os.path.exists(archive_path):
                 wb.save(archive_path)
@@ -139,10 +87,6 @@ def _get_workbook(path):
             for cell in ws[1]:
                 cell.font = Font(bold=True, color="FFFFFF")
                 cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
-            # Row numbers in _row_index/_open_positions point at rows in
-            # the OLD (now archived) file -- meaningless against this
-            # fresh one. Clear them; any still-active signals get logged
-            # again as "new" on the next cycle, in the new file.
             _row_index = {}
             _open_positions = {}
         return wb
@@ -157,36 +101,13 @@ def _get_workbook(path):
 
 
 def _ensure_fresh():
-    """
-    Called by all 4 state-touching consumer functions (log_new_signal,
-    mark_exited, sync_active_signals, check_outcomes) before their own
-    early-exit checks -- replaces the old _reset_if_new_day().
-
-    That old version wiped _row_index/_open_positions to empty on ANY
-    process restart, not just a genuine day change -- because
-    _current_date is a fresh None on every process start, the very
-    first call after any restart looked identical to a real day
-    rollover. Confirmed live (2026-08-10): a same-day restart silently
-    orphaned several already-open positions from outcome-tracking, and
-    duplicate-logged them on reappearance since get_locked_plan() also
-    reads from the wiped _open_positions.
-
-    This version rebuilds both dicts FROM today's existing Excel file
-    the first time it's called in a process, instead of discarding
-    what's already logged. Cheap after that first call (returns
-    immediately once _initialized_today is set), so no behavior change
-    for the common case of a server that just keeps running.
-    """
     global _current_date, _row_index, _open_positions, _initialized_today
     today = datetime.now().strftime("%Y-%m-%d")
 
     if _current_date == today and _initialized_today:
-        return  # already up to date for today in this process, nothing to do
+        return
 
     if _current_date != today:
-        # Genuine day change (or the very first call ever) -- nothing
-        # from a previous day carries over regardless of what's rebuilt
-        # below.
         _row_index = {}
         _open_positions = {}
         _current_date = today
@@ -195,14 +116,14 @@ def _ensure_fresh():
 
     path, _ = _today_path()
     if not os.path.exists(path):
-        return  # nothing logged yet today -- empty dicts are already correct
+        return
 
     try:
         wb = load_workbook(path)
         ws = wb["Signals"]
         headers = [c.value for c in ws[1]]
         if headers != COLUMNS:
-            return  # schema mismatch -- _get_workbook will archive+start fresh on next write; nothing usable to rebuild from
+            return
         col = {name: i + 1 for i, name in enumerate(headers)}
 
         rebuilt_open = 0
@@ -222,9 +143,6 @@ def _ensure_fresh():
                     exited_at = None
             _row_index[key] = {"row": row_num, "exited_at": exited_at}
 
-            # Same "stops being tracked" rule as check_outcomes(): once SL
-            # is hit, or the furthest target (3) is reached, this position
-            # is done -- don't resurrect it into _open_positions.
             sl_hit_already = bool(ws.cell(row=row_num, column=col["SL Hit At"]).value)
             furthest_target = 0
             for n in (3, 2, 1):
@@ -240,12 +158,6 @@ def _ensure_fresh():
             t2 = ws.cell(row=row_num, column=col["Target 2"]).value
             t3 = ws.cell(row=row_num, column=col["Target 3"]).value
             if opt_symbol and None not in (sl, t1, t2, t3):
-                # Aug 31 2026: Section 3 from the UI Corrections checklist
-                # -- "add signal age." The Timestamp column already
-                # records when this row was first created; parsed here
-                # the same defensive way "Exited At" already is above,
-                # so a restart doesn't lose how long a position's really
-                # been open.
                 created_raw = ws.cell(row=row_num, column=col["Timestamp"]).value
                 created_at = None
                 if created_raw:
@@ -262,15 +174,6 @@ def _ensure_fresh():
                     "sl": sl, "t1": t1, "t2": t2, "t3": t3,
                     "sl_hit": False, "furthest_target": furthest_target,
                     "created_at": created_at,
-                    # Sep 2 2026: restarts fresh from entry, same as a
-                    # brand new position -- the Excel row has no
-                    # intratrade price path to rebuild the TRUE
-                    # running high/low from, only entry/SL/target/
-                    # final exit. Any real excursion this position saw
-                    # BEFORE this restart is genuinely lost; MFE/MAE
-                    # for a position that survives a same-day restart
-                    # will understate the true excursion. Documented
-                    # here and in COLUMNS' own comment, not hidden.
                     "max_premium_seen": ws.cell(row=row_num, column=col["Entry (Premium)"]).value,
                     "min_premium_seen": ws.cell(row=row_num, column=col["Entry (Premium)"]).value,
                 }
@@ -294,38 +197,17 @@ def _write_new_row(ws, signal):
         signal.get("oi_confirmation"), signal.get("pattern"),
         signal.get("pcr"), signal.get("iv"), signal.get("rsi"), signal.get("adx"),
         signal.get("sector"), signal.get("option_symbol"),
-        "", "", "", "",  # SL/Target 1/2/3 Hit At -- blank until it happens
-        "",  # Outcome
-        "",  # Exited At -- blank until it drops out
+        "", "", "", "",
+        "",
+        "",
         signal.get("signal_logic_version"), signal.get("technical_score"),
         signal.get("india_vix_at_signal"), signal.get("stock_vs_sector_pct"),
         signal.get("stock_vs_index_pct"), signal.get("expiry_date"),
-        "", "",  # MFE/MAE Premium -- blank until the position closes
+        "", "",
     ]
 
     key = (signal.get("symbol"), signal.get("action"))
 
-    # Sep 9 2026: REAL BUG FOUND -- traced directly from a live report
-    # showing two genuinely different rows (different Hit At timestamps,
-    # different Trade Progression) for the SAME symbol+action+locked-
-    # plan (LAURUSLABS, BHEL in a real 2026-09-02..09 run). Root cause:
-    # when a signal exits the active list and reappears PAST
-    # COOLDOWN_MINUTES, it's correctly treated as a fresh setup below --
-    # but _open_positions[key] was being unconditionally overwritten,
-    # silently dropping whatever was tracked under the OLD row without
-    # ever recording a real conclusion for it. That old row's Outcome
-    # cell just stopped being touched -- not "Expired", not resolved,
-    # just abandoned. This is the exact "silently lose an open position"
-    # failure this project has been careful to avoid everywhere else
-    # (same principle as mark_exited()'s own "genuinely nothing
-    # resolved, not a fabricated status" rule right below).
-    #
-    # Fix: before handing the key to the new row, explicitly finalize
-    # whatever was there. If it never resolved, it gets the same
-    # "Expired (no SL/Target hit)" mark_exited() already uses for that
-    # exact situation -- write once, never silently overwritten -- and
-    # its real MFE/MAE snapshot up to this point, so no P&L data is
-    # lost, just correctly closed out instead of orphaned.
     stale = _open_positions.get(key)
     if stale is not None and not stale.get("sl_hit") and stale.get("furthest_target", 0) < 3:
         try:
@@ -350,27 +232,13 @@ def _write_new_row(ws, signal):
             "quantity": signal.get("quantity"), "risk_reward": signal.get("risk_reward"),
             "sl": signal["sl"], "t1": signal["target1"], "t2": signal["target2"], "t3": signal["target3"],
             "sl_hit": False, "furthest_target": 0,
-            "created_at": now,  # Aug 31 2026: Section 3 -- signal age, same source as the row's own Timestamp
+            "created_at": now,
             "max_premium_seen": signal.get("entry"), "min_premium_seen": signal.get("entry"),
         }
     return row_num
 
 
 def get_locked_plan(symbol, action):
-    """
-    Returns the FROZEN trade plan (entry/strike/sl/target1-3/quantity/
-    risk_reward/option_symbol) for a signal already being tracked today
-    (still active or within the reactivation cooldown), or None if this
-    would be a genuinely new signal that needs fresh numbers computed.
-
-    This is what _build_all() checks before recomputing entry/SL/target
-    from scratch every cycle -- without it, a stock sitting in the live
-    signal list for an hour would show a DIFFERENT entry/SL/target every
-    90 seconds as price/ATR/premium drift, which is useless to actually
-    trade off of. A trade plan has to hold still once it's been shown to
-    you; only a genuinely new signal (or one that already resolved and
-    later re-qualifies) should get fresh numbers.
-    """
     key = (symbol, action)
     with _lock:
         pos = _open_positions.get(key)
@@ -386,24 +254,6 @@ def get_locked_plan(symbol, action):
 
 
 def log_new_signal(signal):
-    """
-    Called for a signal that's active this cycle but wasn't in the
-    previous cycle's active set. Three cases:
-      1. Never seen today -> log a fresh row.
-      2. Seen today, exited more than COOLDOWN_MINUTES ago -> log a
-         fresh row (this counts as a genuinely new setup).
-      3. Seen today, exited within COOLDOWN_MINUTES -> reactivate the
-         existing row (clear "Exited At") instead of creating a
-         duplicate -- this is what stops a threshold-hovering stock from
-         spamming a dozen near-identical rows a few minutes apart.
-
-    Returns True only for case 1/2 (a genuinely fresh row was created).
-    Reactivations, already-active no-ops, and write failures all return
-    False. Callers use this to know when a signal is worth alerting on
-    elsewhere (e.g. Telegram) without re-implementing the same
-    new-vs-reactivation distinction -- a reactivated threshold-hoverer
-    shouldn't re-alert any more than it should re-log.
-    """
     if not OPENPYXL_AVAILABLE:
         return False
     key = (signal.get("symbol"), signal.get("action"))
@@ -416,7 +266,7 @@ def log_new_signal(signal):
 
         existing = _row_index.get(key)
         if existing and existing["exited_at"] is None:
-            return False  # already active and logged, nothing to do
+            return False
 
         try:
             wb = _get_workbook(path)
@@ -425,15 +275,12 @@ def log_new_signal(signal):
             if existing and existing["exited_at"] is not None:
                 gap_minutes = (datetime.now() - existing["exited_at"]).total_seconds() / 60
                 if gap_minutes < COOLDOWN_MINUTES:
-                    # Reactivate the same row instead of duplicating.
                     exited_col = COLUMNS.index("Exited At") + 1
                     ws.cell(row=existing["row"], column=exited_col).value = ""
                     wb.save(path)
                     existing["exited_at"] = None
                     return False
 
-            # Fresh row -- either never seen today, or the gap since it
-            # last exited was long enough to count as a new setup.
             row_num = _write_new_row(ws, signal)
             wb.save(path)
             _row_index[key] = {"row": row_num, "exited_at": None}
@@ -444,10 +291,6 @@ def log_new_signal(signal):
 
 
 def mark_exited(symbol, action):
-    """Called when a previously-active signal drops out of the current
-    cycle -- fills in the Exited At cell on its existing row (row stays
-    tracked in memory so a quick reappearance within the cooldown window
-    reactivates it instead of creating a new one)."""
     if not OPENPYXL_AVAILABLE:
         return
     key = (symbol, action)
@@ -457,7 +300,7 @@ def mark_exited(symbol, action):
         _ensure_fresh()
         existing = _row_index.get(key)
         if existing is None or existing["exited_at"] is not None:
-            return  # wasn't logged today, or already marked exited
+            return
 
         try:
             wb = _get_workbook(path)
@@ -466,25 +309,9 @@ def mark_exited(symbol, action):
             outcome_col = COLUMNS.index("Outcome") + 1
             now = datetime.now()
             ws.cell(row=existing["row"], column=exited_col).value = now.strftime("%Y-%m-%d %H:%M:%S")
-            # Aug 31 2026: REAL GAP FOUND (not from the checklist -- found
-            # by actually reading this function) -- if a position exits
-            # without ever hitting SL or a target, Outcome was never set
-            # by anything. check_outcomes() only ever WRITES "SL Hit"/
-            # "Target N Hit"; nothing ever wrote a value for "neither
-            # happened before it dropped out". That's the checklist's
-            # EXPIRED state (Section 8, Signal Lifecycle) -- genuinely
-            # nothing resolved, not a fabricated status. Only sets it if
-            # Outcome is still blank, so a real SL/Target hit that
-            # already fired is never overwritten.
             existing_outcome = ws.cell(row=existing["row"], column=outcome_col).value
             if not existing_outcome:
                 ws.cell(row=existing["row"], column=outcome_col).value = "Expired (no SL/Target hit)"
-            # Sep 2 2026: an EOD/manual exit still has real MFE/MAE data
-            # -- whatever excursion the position saw before it dropped
-            # out, not just its entry-to-final-mark move. Only writes
-            # if this position was actually being tracked (had a
-            # confirmed option chain in the first place); otherwise
-            # both cells stay honestly blank, not zeroed.
             pos = _open_positions.get(key)
             if pos is not None:
                 mfe_col = COLUMNS.index("MFE Premium") + 1
@@ -498,17 +325,6 @@ def mark_exited(symbol, action):
 
 
 def sync_active_signals(current_signals):
-    """
-    Call once per scan cycle with the full current signal list. Figures
-    out what's newly appeared (logs/reactivates it) and what dropped out
-    since last cycle (marks it exited) -- this is the only function
-    _build_all() needs to call.
-
-    Returns the list of signal dicts that were genuinely new this cycle
-    (fresh rows only, not reactivations) -- callers use this to trigger
-    something like a Telegram alert without duplicating the new-vs-
-    reactivation logic already handled here.
-    """
     if not OPENPYXL_AVAILABLE:
         return []
     current_keys = {(s.get("symbol"), s.get("action")) for s in current_signals if s.get("symbol")}
@@ -518,7 +334,6 @@ def sync_active_signals(current_signals):
         _ensure_fresh()
         previously_active = {k for k, v in _row_index.items() if v["exited_at"] is None}
 
-    # New signals this cycle (not currently marked active in memory)
     newly_logged = []
     for s in current_signals:
         key = (s.get("symbol"), s.get("action"))
@@ -526,7 +341,6 @@ def sync_active_signals(current_signals):
             if log_new_signal(s):
                 newly_logged.append(s)
 
-    # Signals that dropped out since last cycle
     for key in previously_active - current_keys:
         mark_exited(key[0], key[1])
 
@@ -534,29 +348,12 @@ def sync_active_signals(current_signals):
 
 
 def check_outcomes(get_quotes_fn):
-    """
-    Call once per scan cycle. Batch-fetches live premiums for every
-    currently-open (unresolved) position's exact option contract, and
-    checks whether SL or any target has been crossed since the last
-    check. The moment one is, it's recorded with a timestamp in that
-    row -- this is what actually answers "did this signal work" instead
-    of just "did it appear".
-
-    get_quotes_fn: pass screener.fyers_client.get_quotes (batches up to
-    50 symbols per call). Injected as a parameter rather than imported
-    directly so this stays testable with a fake quotes function and
-    doesn't create an import-time dependency on the Fyers client.
-
-    Once SL is hit (trade's over) OR Target 3 (the furthest) is reached,
-    a position stops being tracked. Between those, tracking continues
-    after a lower target hits in case a further one also gets hit later.
-    """
     if not OPENPYXL_AVAILABLE:
         return
     with _lock:
         path, today = _today_path()
         _ensure_fresh()
-        open_now = dict(_open_positions)  # snapshot; network call happens outside the lock
+        open_now = dict(_open_positions)
 
     symbols_to_check = {v["option_symbol"]: k for k, v in open_now.items() if v.get("option_symbol")}
     if not symbols_to_check:
@@ -595,9 +392,6 @@ def check_outcomes(get_quotes_fn):
                 if ltp is None:
                     continue
 
-                # Sep 2 2026: MFE/MAE -- update every poll, same cadence
-                # already used for the SL/Target checks right below,
-                # not a separate fetch.
                 pos["max_premium_seen"] = max(pos.get("max_premium_seen", pos["entry"]), ltp)
                 pos["min_premium_seen"] = min(pos.get("min_premium_seen", pos["entry"]), ltp)
 
@@ -631,18 +425,11 @@ def check_outcomes(get_quotes_fn):
 
 
 def get_today_log_path():
-    """Path to today's log file, for the download endpoint. Returns None
-    if it doesn't exist yet (no signals logged today)."""
     path, _ = _today_path()
     return path if os.path.exists(path) else None
 
 
 def list_available_dates():
-    """Every date that has a signals log, newest first. Checks both the
-    new nested layout (signal_logs/YYYY-MM-DD/signals_YYYY-MM-DD.xlsx)
-    and the old flat one (signal_logs/signals_YYYY-MM-DD.xlsx, from
-    before the folder reorg), so dates from before that change still
-    show up alongside newer ones."""
     import glob
     import re
     dates = set()
@@ -661,9 +448,6 @@ def list_available_dates():
 
 
 def get_log_path_for_date(date_str):
-    """Path to a specific past day's log file (YYYY-MM-DD), for the
-    export-by-date endpoint. Checks the nested layout first, falls back
-    to the old flat one. Returns None if that date has no log."""
     nested = os.path.join(LOG_DIR, date_str, f"signals_{date_str}.xlsx")
     if os.path.exists(nested):
         return nested
@@ -671,3 +455,100 @@ def get_log_path_for_date(date_str):
     if os.path.exists(flat):
         return flat
     return None
+
+
+# ---------------------------------------------------------------------------
+# Sep 12 2026: SNIPER V2 -- real cross-date symbol recurrence, built from
+# actual past daily logs. This is the durable version of what views.py's
+# own in-memory _symbol_recurrence_history (added earlier the same day)
+# could not provide on its own -- that tracker only sees symbols since
+# the current server process started, with no visibility into anything
+# from before a restart. This reads the real, persisted Excel files
+# instead, so a genuinely fresh process still knows a symbol's real
+# history from yesterday or last week.
+#
+# Cached once per day, not once per symbol-check -- 200+ stocks get
+# evaluated every ~90s scan cycle, and re-scanning every past log file
+# for every single one of them would be real, unnecessary disk I/O.
+_recurrence_cache = {}  # {symbol: [{'date':..., 'action':..., 'outcome':...}, ...]}
+_recurrence_cache_built_date = None
+_recurrence_cache_lock = threading.Lock()
+
+
+def _build_recurrence_cache(lookback_days=60):
+    """Scans up to `lookback_days` of past daily logs (STRICTLY BEFORE
+    today -- today's own in-progress signals are what _row_index/
+    _open_positions already handle live; mixing the two would double-
+    count a signal that's still active today) and indexes every row's
+    real recorded Outcome by symbol. Built once per day; cheap no-op on
+    every subsequent call the same day."""
+    global _recurrence_cache, _recurrence_cache_built_date
+    today = datetime.now().strftime("%Y-%m-%d")
+    with _recurrence_cache_lock:
+        if _recurrence_cache_built_date == today:
+            return
+
+        cache = {}
+        dates = [d for d in list_available_dates() if d < today][:lookback_days]
+        for date_str in dates:
+            path = get_log_path_for_date(date_str)
+            if not path:
+                continue
+            try:
+                wb = load_workbook(path, read_only=True, data_only=True)
+                ws = wb["Signals"]
+                rows_iter = ws.iter_rows(values_only=True)
+                headers = next(rows_iter, None)
+                if not headers or "Symbol" not in headers or "Outcome" not in headers:
+                    continue
+                col = {name: i for i, name in enumerate(headers)}
+                for row in rows_iter:
+                    symbol = row[col["Symbol"]] if col["Symbol"] < len(row) else None
+                    if not symbol:
+                        continue
+                    cache.setdefault(symbol, []).append({
+                        "date": date_str,
+                        "action": row[col["Action"]] if col.get("Action", -1) < len(row) else None,
+                        "outcome": row[col["Outcome"]] if col.get("Outcome", -1) < len(row) else None,
+                    })
+                wb.close()
+            except Exception as e:
+                print(f"[ExcelLog] Recurrence cache: skipped {date_str} ({e})")
+                continue
+
+        _recurrence_cache = cache
+        _recurrence_cache_built_date = today
+        print(f"[ExcelLog] Recurrence cache built: {len(cache)} symbol(s) with real history across {len(dates)} prior day(s)")
+
+
+def get_symbol_recurrence_info(symbol):
+    """
+    Real cross-date recurrence for one symbol, from actual past logs --
+    never fabricated, never session-memory-only. Returns None if this
+    symbol has no prior occurrence in the cached lookback window (a
+    genuinely new/rare symbol), otherwise a dict with its real history.
+
+    Resolved outcomes only ("Target N Hit" / "SL Hit") count toward
+    prior_wins/prior_losses -- "Expired (no SL/Target hit)" and blank
+    outcomes are counted in prior_signal_count but not classified as a
+    win or loss, since neither genuinely happened. prior_win_rate is
+    None (not 0 or a guess) when there aren't any resolved priors to
+    compute a rate from.
+    """
+    _build_recurrence_cache()
+    occurrences = _recurrence_cache.get(symbol)
+    if not occurrences:
+        return None
+
+    wins = sum(1 for o in occurrences if o["outcome"] and "Target" in str(o["outcome"]))
+    losses = sum(1 for o in occurrences if o["outcome"] == "SL Hit")
+    resolved = wins + losses
+    dates = [o["date"] for o in occurrences]
+    return {
+        "first_seen_date": min(dates),
+        "last_seen_date": max(dates),
+        "prior_signal_count": len(occurrences),
+        "prior_wins": wins,
+        "prior_losses": losses,
+        "prior_win_rate": round(wins / resolved * 100, 1) if resolved > 0 else None,
+    }
