@@ -65,6 +65,107 @@ def compute_signal_id(date_str, symbol, action, option_symbol):
     return f"{date_str}|{symbol}|{action}|{option_symbol}"
 
 
+def compute_setup_id(structure_data=None):
+    """
+    Sep 12 2026: setup_id architecture -- deliberately separate from
+    signal_id (which identifies THIS specific signal instance;
+    setup_id would identify the STRUCTURAL SETUP TYPE it represents,
+    e.g. "breakout retest" vs "range reversal"). No real structure/BOS
+    classification exists anywhere in this codebase's live data yet.
+
+    structure_data: reserved for when real structure/BOS data becomes
+    available (e.g. {'pattern': 'breakout', 'bos_level': ..., 'tf':
+    ...}) -- once populated, this function computes a real deterministic
+    id from it (same principle as compute_signal_id: a formula over
+    stable real inputs, not a random value). Ready to accept that
+    without another rewrite of any caller.
+
+    Until then: returns (None, "UNAVAILABLE_NO_STRUCTURE_DATA") --
+    never a guessed or fabricated id.
+    """
+    if not structure_data:
+        return None, "UNAVAILABLE_NO_STRUCTURE_DATA"
+    # Real path, unused until a real caller supplies structure_data.
+    parts = "|".join(f"{k}={structure_data[k]}" for k in sorted(structure_data))
+    return f"setup:{parts}", "AVAILABLE"
+
+
+# Sep 12 2026: real, evidence-based re-entry classification -- the
+# authoritative one. views.py's own classifier explicitly defers
+# EXACT_DUPLICATE/SAME_SETUP_RETRIGGER to this file, since only this
+# file has the persisted state (existing row + its real exit/cooldown
+# timing) needed to actually prove either. GENUINE_REENTRY requires
+# real proof the previous relevant trade RESOLVED (a real "Target N
+# Hit"/"SL Hit" outcome, not blank or "Expired") before this candidate
+# -- never inferred just because the symbol appeared before.
+def classify_signal_event(symbol, action, option_symbol):
+    """
+    Read-only classifier -- makes no writes, safe to call independently
+    of log_new_signal() (which still owns the actual write path and its
+    own cooldown/reactivation logic; this shares the same underlying
+    state rather than duplicating or racing it).
+
+    Returns one of:
+      'ACTIVE' -- get_locked_plan() has a plan for (symbol, action)
+        right now; this isn't a new event, the same signal continues.
+      'EXACT_DUPLICATE' -- a row already exists today for (symbol,
+        action) with the IDENTICAL option_symbol, still active
+        (exited_at is None) -- would be a true duplicate write of the
+        same live contract.
+      'SAME_SETUP_RETRIGGER' -- a row exists today that exited less
+        than COOLDOWN_MINUTES ago -- log_new_signal() would reactivate
+        it rather than write a new row.
+      'GENUINE_REENTRY' -- real persisted history (from
+        get_symbol_recurrence_info) shows a prior occurrence for this
+        symbol whose recorded Outcome is a REAL resolved value ("Target
+        N Hit" or "SL Hit") -- proof the earlier trade concluded before
+        this candidate. Never returned from an unresolved or ambiguous
+        prior state.
+      'NEW_SETUP' -- no prior occurrence anywhere (today's state or
+        past persisted logs).
+      'UNKNOWN' -- a prior occurrence exists, but its resolution isn't
+        provably a real win/loss (blank Outcome, or "Expired (no
+        SL/Target hit)") -- insufficient evidence for GENUINE_REENTRY,
+        and calling it NEW_SETUP would contradict its own history.
+    """
+    with _lock:
+        _ensure_fresh()
+        existing = _row_index.get((symbol, action))
+        open_pos = _open_positions.get((symbol, action))
+
+    if open_pos is not None:
+        return 'ACTIVE'
+
+    if existing is not None:
+        if existing["exited_at"] is None:
+            # Row still marked active in today's index but no
+            # _open_positions entry -- e.g. an option_symbol never
+            # resolved to a trackable position. Treat conservatively:
+            # a live row exists, this isn't provably a fresh setup.
+            return 'EXACT_DUPLICATE' if option_symbol == existing.get("option_symbol") else 'UNKNOWN'
+        gap_minutes = (datetime.now() - existing["exited_at"]).total_seconds() / 60
+        if gap_minutes < COOLDOWN_MINUTES:
+            return 'SAME_SETUP_RETRIGGER'
+
+    real_history = get_symbol_recurrence_info(symbol)
+    if real_history is None:
+        return 'NEW_SETUP'
+
+    prev_result = real_history.get("previous_result")
+    # Sep 12 2026: exact match against the real strings check_outcomes()
+    # writes for a genuine resolution -- NOT a substring check. A prior
+    # bug here used "Target" in str(prev_result), which incorrectly
+    # matched "Expired (no SL/Target hit)" (mark_exited()'s own string
+    # for an UNRESOLVED position) as if it were a real win, since that
+    # string happens to contain the word "Target" while meaning the
+    # opposite. Caught by testing scenario E (unresolved prior signal)
+    # before this shipped, not after.
+    _REAL_RESOLVED_OUTCOMES = {"Target 1 Hit", "Target 2 Hit", "Target 3 Hit", "SL Hit"}
+    if prev_result in _REAL_RESOLVED_OUTCOMES:
+        return 'GENUINE_REENTRY'
+    return 'UNKNOWN'
+
+
 COLUMNS = [
     "Timestamp", "Symbol", "Action", "Grade", "Confidence",
     "Stock Price", "Change %", "Strike", "Entry (Premium)", "SL", "Target 1",
@@ -588,7 +689,14 @@ def get_symbol_recurrence_info(symbol):
     if not occurrences:
         return None
 
-    wins = sum(1 for o in occurrences if o["outcome"] and "Target" in str(o["outcome"]))
+    # Sep 12 2026: exact match, not substring -- "Target" in str(...)
+    # incorrectly counted "Expired (no SL/Target hit)" as a win (that
+    # string contains the word "Target" while meaning the opposite:
+    # no target was ever hit). This bug affected every symbol's
+    # prior_wins/prior_win_rate, not just the classifier above -- found
+    # and fixed together, same root cause.
+    _REAL_WIN_OUTCOMES = {"Target 1 Hit", "Target 2 Hit", "Target 3 Hit"}
+    wins = sum(1 for o in occurrences if o["outcome"] in _REAL_WIN_OUTCOMES)
     losses = sum(1 for o in occurrences if o["outcome"] == "SL Hit")
     resolved = wins + losses
     dates = [o["date"] for o in occurrences]
