@@ -180,6 +180,21 @@ COLUMNS = [
     # formula over stable fields already in this row, not a randomly
     # generated value needing its own persistence.
     "Signal ID",
+    # Sep 13 2026: raw values needed to test the SNIPER STOCKS filter
+    # candidates (today's price action, EMA20/50 trend confirmation,
+    # MACD magnitude, volume ratio) discussed but explicitly NOT
+    # implemented yet -- none of these were ever persisted anywhere in
+    # this project before now, which is exactly why those candidates
+    # couldn't be tested against real history. All five are already
+    # computed every cycle (tech['macd']/['vwap']/['ema20']/['ema50']/
+    # ['volume_avg']) -- this only starts WRITING them, it does not
+    # change what qualifies a signal or how it's scored. "VWAP
+    # Distance %" and "Volume Ratio" are logged as ratios/percentages
+    # rather than raw VWAP/volume, since that's the form the actual
+    # candidate experiments need (e.g. "was volume >=1.5x average",
+    # "was price >0.5% above VWAP") -- not a new computation, just a
+    # more directly usable persisted form of values already on hand.
+    "MACD", "VWAP Distance %", "Volume Ratio", "EMA20", "EMA50",
 ]
 
 _lock = threading.Lock()
@@ -342,6 +357,8 @@ def _write_new_row(ws, signal):
         signal.get("stock_vs_index_pct"), signal.get("expiry_date"),
         "", "",
         sig_id,
+        signal.get("macd"), signal.get("vwap_distance_pct"), signal.get("volume_ratio"),
+        signal.get("ema20"), signal.get("ema50"),
     ]
 
     key = (signal.get("symbol"), signal.get("action"))

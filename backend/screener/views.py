@@ -2806,6 +2806,18 @@ def _build_all():
             "technical_score": score, "oi_adjustment": oi_adjustment, "score_breakdown": score_breakdown,
             "rsi": rsi, "adx": round(adx, 1),
             "oi_confirmation": oi_confirmation, "oi_reason": oi_reason, "pattern": pattern,
+            # Sep 13 2026: raw values for the not-yet-tested SNIPER
+            # STOCKS filter candidates -- see excel_logger.py's own
+            # COLUMNS comment for why these specific forms (ratio/%
+            # rather than raw VWAP/volume). All five already computed
+            # this cycle (tech dict, vol/vol_avg, price/vwap) -- purely
+            # additive logging, not read by any scoring/qualification
+            # code above this point.
+            "macd": round(macd, 4),
+            "vwap_distance_pct": round((price - vwap) / vwap * 100, 3) if vwap else None,
+            "volume_ratio": round(vol / vol_avg, 3) if vol_avg else None,
+            "ema20": tech.get("ema20"),
+            "ema50": tech.get("ema50"),
             # Sep 12 2026: the actual root-cause fix, alongside the
             # quality-gate persistence added earlier today -- see
             # _is_oi_confirmed_with_hysteresis()'s docstring above.
