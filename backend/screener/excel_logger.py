@@ -44,6 +44,27 @@ except ImportError:
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "signal_logs")
 COOLDOWN_MINUTES = 30
 
+def compute_signal_id(date_str, symbol, action, option_symbol):
+    """
+    Sep 12 2026: deterministic signal_id -- NOT a random UUID generated
+    at write time (which would need its own restart-safe storage and
+    could drift if regenerated). Built entirely from values that are
+    already stable and already persisted per-row: the calendar date
+    this signal first appeared, symbol, action, and its frozen option
+    contract. Recomputing this from the SAME row's data after a
+    restart yields the IDENTICAL string every time -- nothing to lose,
+    nothing to resynchronize, by construction rather than by tracking.
+
+    option_symbol is required (not optional) -- a signal with no
+    resolved option contract yet has no stable identity to hash, and
+    this project's own rule elsewhere is to skip rather than fabricate
+    an identifier for a state that isn't real yet.
+    """
+    if not option_symbol:
+        return None
+    return f"{date_str}|{symbol}|{action}|{option_symbol}"
+
+
 COLUMNS = [
     "Timestamp", "Symbol", "Action", "Grade", "Confidence",
     "Stock Price", "Change %", "Strike", "Entry (Premium)", "SL", "Target 1",
@@ -53,6 +74,11 @@ COLUMNS = [
     "Outcome", "Exited At",
     "Signal Logic Version", "Base Score (Pre-OI)", "India VIX At Signal", "Stock vs Sector %",
     "Stock vs Index %", "Expiry Date", "MFE Premium", "MAE Premium",
+    # Sep 12 2026: SNIPER V2 -- deterministic, restart-safe identity.
+    # See compute_signal_id()'s own docstring above for why this is a
+    # formula over stable fields already in this row, not a randomly
+    # generated value needing its own persistence.
+    "Signal ID",
 ]
 
 _lock = threading.Lock()
@@ -165,8 +191,16 @@ def _ensure_fresh():
                         created_at = datetime.strptime(str(created_raw), "%Y-%m-%d %H:%M:%S")
                     except Exception:
                         created_at = None
+                # Sep 12 2026: prefer the stored "Signal ID" cell, but
+                # fall back to recomputing it deterministically (same
+                # formula compute_signal_id() always uses) for any row
+                # written before this column existed -- never leaves
+                # signal_id blank when it's derivable from data already
+                # on this row.
+                stored_sig_id = ws.cell(row=row_num, column=col["Signal ID"]).value if "Signal ID" in col else None
+                sig_id = stored_sig_id or compute_signal_id(today, symbol, action, opt_symbol)
                 _open_positions[key] = {
-                    "row": row_num, "option_symbol": opt_symbol,
+                    "row": row_num, "option_symbol": opt_symbol, "signal_id": sig_id,
                     "entry": ws.cell(row=row_num, column=col["Entry (Premium)"]).value,
                     "strike": ws.cell(row=row_num, column=col["Strike"]).value,
                     "quantity": ws.cell(row=row_num, column=col["Qty"]).value,
@@ -187,6 +221,8 @@ def _ensure_fresh():
 
 def _write_new_row(ws, signal):
     now = datetime.now()
+    today_str = now.strftime("%Y-%m-%d")
+    sig_id = compute_signal_id(today_str, signal.get("symbol"), signal.get("action"), signal.get("option_symbol"))
     row = [
         now.strftime("%Y-%m-%d %H:%M:%S"),
         signal.get("symbol"), signal.get("action"), signal.get("grade"),
@@ -204,6 +240,7 @@ def _write_new_row(ws, signal):
         signal.get("india_vix_at_signal"), signal.get("stock_vs_sector_pct"),
         signal.get("stock_vs_index_pct"), signal.get("expiry_date"),
         "", "",
+        sig_id,
     ]
 
     key = (signal.get("symbol"), signal.get("action"))
@@ -227,7 +264,7 @@ def _write_new_row(ws, signal):
     opt_sym = signal.get("option_symbol")
     if opt_sym and all(signal.get(f) is not None for f in ("sl", "target1", "target2", "target3")):
         _open_positions[key] = {
-            "row": row_num, "option_symbol": opt_sym,
+            "row": row_num, "option_symbol": opt_sym, "signal_id": sig_id,
             "entry": signal.get("entry"), "strike": signal.get("strike"),
             "quantity": signal.get("quantity"), "risk_reward": signal.get("risk_reward"),
             "sl": signal["sl"], "t1": signal["target1"], "t2": signal["target2"], "t3": signal["target3"],
@@ -250,6 +287,7 @@ def get_locked_plan(symbol, action):
             "quantity": pos.get("quantity"), "risk_reward": pos.get("risk_reward"),
             "option_symbol": pos.get("option_symbol"),
             "created_at": pos.get("created_at"),
+            "signal_id": pos.get("signal_id"),
         }
 
 
@@ -510,6 +548,8 @@ def _build_recurrence_cache(lookback_days=60):
                         "date": date_str,
                         "action": row[col["Action"]] if col.get("Action", -1) < len(row) else None,
                         "outcome": row[col["Outcome"]] if col.get("Outcome", -1) < len(row) else None,
+                        "option_symbol": row[col["Option Symbol"]] if col.get("Option Symbol", -1) < len(row) else None,
+                        "signal_id": row[col["Signal ID"]] if "Signal ID" in col and col["Signal ID"] < len(row) else None,
                     })
                 wb.close()
             except Exception as e:
@@ -534,6 +574,14 @@ def get_symbol_recurrence_info(symbol):
     win or loss, since neither genuinely happened. prior_win_rate is
     None (not 0 or a guess) when there aren't any resolved priors to
     compute a rate from.
+
+    Sep 12 2026: added previous_direction/previous_result/
+    previous_signal_id (the single most recent real occurrence's own
+    values) and days_since_last_signal (real calendar-day gap, computed
+    from last_seen_date to today -- never guessed when there's no prior
+    occurrence, since the field simply isn't returned at all in that
+    case, same "return None, not a fabricated 0" rule as everywhere
+    else in this function).
     """
     _build_recurrence_cache()
     occurrences = _recurrence_cache.get(symbol)
@@ -544,11 +592,30 @@ def get_symbol_recurrence_info(symbol):
     losses = sum(1 for o in occurrences if o["outcome"] == "SL Hit")
     resolved = wins + losses
     dates = [o["date"] for o in occurrences]
+    last_seen = max(dates)
+    # Most recent occurrence by date -- if multiple occurrences share
+    # the same last_seen date (shouldn't happen given the daily-lock
+    # discussion, but real data should never assume it can't), takes
+    # the last one encountered for that date rather than guessing an
+    # order that isn't actually recorded.
+    most_recent = [o for o in occurrences if o["date"] == last_seen][-1]
+    today = datetime.now().strftime("%Y-%m-%d")
+    try:
+        days_since = (datetime.strptime(today, "%Y-%m-%d") - datetime.strptime(last_seen, "%Y-%m-%d")).days
+    except Exception:
+        days_since = None
+
     return {
         "first_seen_date": min(dates),
-        "last_seen_date": max(dates),
+        "last_seen_date": last_seen,
         "prior_signal_count": len(occurrences),
         "prior_wins": wins,
         "prior_losses": losses,
         "prior_win_rate": round(wins / resolved * 100, 1) if resolved > 0 else None,
+        "days_since_last_signal": days_since,
+        "previous_direction": most_recent.get("action"),
+        "previous_result": most_recent.get("outcome"),
+        "previous_signal_id": most_recent.get("signal_id") or compute_signal_id(
+            most_recent["date"], symbol, most_recent.get("action"), most_recent.get("option_symbol"),
+        ),
     }

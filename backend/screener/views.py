@@ -332,108 +332,197 @@ _QUALITY_GATE_ENABLED = os.environ.get("ENABLE_QUALITY_CONFIRMATION_GATE", "true
 
 
 # ---------------------------------------------------------------------------
-# Sep 12 2026: SNIPER V2 -- duplicate/recurrence observability layer.
+# Sep 12 2026: SNIPER V2 -- central configuration.
 #
-# IMPORTANT SCOPE NOTE, read before touching this section: the forensic
-# audit's Change 1 (restart-proof duplicate guard) and the durable half
-# of Change 4 (true cross-date OUTCOME history -- did a past signal
-# actually win or lose) both belong to excel_logger.py's
-# get_locked_plan() + its 30-min cooldown/reactivation window, which
-# ALREADY implements real, working per-(symbol,action) state --
-# confirmed by reading its call site above (locked-plan reuse) and by
-# shadow_logger.py's own _shadow_row_index, which already does exactly
-# this "{(symbol,action): {'date': today, ...}}" pattern for its own
-# per-day dedup. Nothing here duplicates or overrides that -- this
-# section only adds what's honestly buildable from what views.py can
-# ITSELF observe (which symbols reached quality_signals, when, how
-# often), purely as additional logged/shadow fields. It does not know
-# a past signal's final win/loss (that requires excel_logger.py's own
-# outcome tracking) and does not persist across a server restart (same
-# accepted limitation as _qualification_state and every other in-
-# memory dict in this file) -- both limitations stated on every field
-# this produces, not hidden.
+# IMPORTANT SCOPE NOTE: the forensic audit's Change 1 (restart-proof
+# duplicate guard) and the durable half of cross-date OUTCOME history
+# both belong to excel_logger.py's get_locked_plan() +
+# get_symbol_recurrence_info(), which already implement real, tested
+# (see excel_logger.py's own restart-simulation tests), persisted
+# per-(symbol,action) state. Nothing here duplicates that -- this
+# section adds what excel_logger.py does NOT already provide: a
+# same-day-scoped observation counter, and the classification/shadow/
+# config layer sitting on top of both data sources.
 #
-# All flags default to OFF or observation-only. Per explicit
-# instruction: do not activate same-day lock or a recurrence penalty
-# until real evidence supports it -- the Sep 5-12 forensic audit found
-# ZERO genuine same-day repeat signals to test a lock against, and the
-# cross-date recurrence gap (50% first-occurrence vs 11% later, n=8/9)
-# is too small to act on yet.
-ENABLE_RECURRENCE_TRACKING = os.environ.get("ENABLE_RECURRENCE_TRACKING", "true").lower() == "true"
-ENABLE_SAME_DAY_SYMBOL_LOCK = os.environ.get("ENABLE_SAME_DAY_SYMBOL_LOCK", "false").lower() == "true"
-ENABLE_RECURRENCE_PENALTY = os.environ.get("ENABLE_RECURRENCE_PENALTY", "false").lower() == "true"
+# All flags default to OFF or observation-only, per explicit
+# instruction: the Sep 5-12 forensic audit found ZERO genuine same-day
+# repeat signals to test a lock against, and the cross-date recurrence
+# gap (50% first-occurrence vs 11% later, n=8/9) is too small to act on
+# yet.
+SNIPER_V2_CONFIG = {
+    "DUPLICATE_GUARD": True,  # excel_logger.py's get_locked_plan()/cooldown -- always on, already proven
+    "SAME_DAY_SYMBOL_LOCK": os.environ.get("ENABLE_SAME_DAY_SYMBOL_LOCK", "false").lower() == "true",
+    "RECURRENCE_TRACKING": os.environ.get("ENABLE_RECURRENCE_TRACKING", "true").lower() == "true",
+    "RECURRENCE_PENALTY": os.environ.get("ENABLE_RECURRENCE_PENALTY", "false").lower() == "true",
+    "SHADOW_MODE": os.environ.get("SNIPER_V2_SHADOW_MODE", "true").lower() == "true",
+    "MARKET_FILTER": False,     # no market-regime data source wired in yet
+    "SECTOR_FILTER": False,     # no sector-regime data source wired in yet
+    "OI_FILTER": False,         # oi_confirmation exists and already gates via _is_oi_confirmed_with_hysteresis -- this flag is for a SEPARATE, not-yet-built recurrence-style OI filter, not a duplicate of the existing one
+    "STRUCTURE_FILTER": False,  # no real BOS/structure classification data source exists
+    "TIME_FILTER": False,       # no time-of-day filter built -- forensic audit's own data had no timestamp column to validate one against
+    "LIQUIDITY_FILTER": False,  # no option liquidity/spread data source wired in yet
+    "REENTRY_MODE": "SAFE",     # "SAFE" = classify as UNKNOWN rather than guess NEW_SETUP/GENUINE_REENTRY without real structure data
+}
+# Back-compat module-level names some earlier code in this session already
+# reads directly -- same values, single source of truth is the dict above.
+ENABLE_RECURRENCE_TRACKING = SNIPER_V2_CONFIG["RECURRENCE_TRACKING"]
+ENABLE_SAME_DAY_SYMBOL_LOCK = SNIPER_V2_CONFIG["SAME_DAY_SYMBOL_LOCK"]
+ENABLE_RECURRENCE_PENALTY = SNIPER_V2_CONFIG["RECURRENCE_PENALTY"]
+
+# Sep 12 2026: standardized block-reason vocabulary. Defined here as the
+# shared vocabulary for any FUTURE blocking rule to use -- does NOT
+# retrofit the ~15 existing free-text no_trade_log.append() call sites
+# elsewhere in this file (that's a much bigger, separately-risky change,
+# and every one of them already works). Nothing currently blocks using
+# these values, since every filter that would is still disabled above.
+BLOCK_REASON_CODES = (
+    "DUPLICATE_SIGNAL", "SAME_SETUP_RETRIGGER", "SYMBOL_COOLDOWN", "RECURRENT_SYMBOL",
+    "MARKET_CONFLICT", "SECTOR_CONFLICT", "OI_CONFLICT", "WEAK_STRUCTURE", "RANGE_PINNED",
+    "LOW_LIQUIDITY", "LATE_ENTRY", "LOW_SCORE", "UNKNOWN", "OTHER",
+)
+
+# Sep 12 2026: signal state machine -- CANDIDATE/VALIDATED/EMITTED/
+# ACTIVE/RESOLVED already exists, implemented in excel_logger.py, not
+# reimplemented here (per "do not rebuild existing working
+# functionality"): a candidate that reaches signals.append() and gets
+# logged IS "EMITTED"; get_locked_plan() returning a plan IS "ACTIVE";
+# the Outcome column being set to "Target N Hit"/"SL Hit"/"Expired (no
+# SL/Target hit)" IS "RESOLVED" with its specific outcome -- and this
+# whole chain is already proven restart-safe (excel_logger.py's own
+# _ensure_fresh() rebuild, tested against a real simulated restart).
+# "CANCELLED" is the one state with no current equivalent -- nothing in
+# this codebase explicitly cancels an already-emitted signal today.
 
 # {symbol: {'date': 'YYYY-MM-DD', 'signals_fired_today': int,
 #           'first_signal_time': iso_str, 'latest_signal_time': iso_str}}
 # Resets when the date rolls over, same check-and-replace pattern as
 # _qualification_state/_oi_confirmation_state/_quality_confirmation_state
-# above.
+# above. This is the one piece excel_logger.py doesn't already track
+# (it counts ROWS, not "how many times did a fresh setup fire today"
+# as a same-day-scoped running count).
 _symbol_daily_state = {}
 
-# {symbol: {'first_seen_date': 'YYYY-MM-DD', 'last_seen_date': 'YYYY-MM-DD',
-#           'occurrences': [{'date':..., 'action':..., 'option_symbol':...}, ...]}}
-# Deliberately NOT reset daily (that's the whole point -- cross-DATE
-# recurrence, not same-day) -- but IS reset on a server restart, same
-# as every other in-memory dict in this file. Cannot see any symbol
-# history from before this process started; a freshly-restarted server
-# will read every symbol as "first occurrence" until it accumulates its
-# own real observations again.
+# {symbol: {'occurrences': [{'date':..., 'action':..., 'option_symbol':...}, ...]}}
+# Session-lifetime supplement to excel_logger.get_symbol_recurrence_info()
+# -- catches a symbol firing multiple times TODAY before excel_logger's
+# own once-per-day cache would reflect it (that cache only covers
+# STRICTLY PRIOR days). Wiped on restart, same accepted limitation as
+# every in-memory dict in this file; excel_logger's own persisted
+# history is the durable source of truth for anything more than a day old.
 _symbol_recurrence_history = {}
+
+
+def _recurrence_status(prior_signal_count):
+    """
+    Sep 12 2026: NEW / RECURRING / HIGH_FREQUENCY_RECURRING bucketing.
+    The 1-2 / 3+ thresholds are a round, conservative starting point,
+    NOT statistically derived -- the forensic audit's real sample
+    (n=8 first-occurrence, n=9 later) is nowhere near large enough to
+    fit a real threshold from data. This exists so shadow logging can
+    start accumulating evidence on where a real threshold should sit,
+    not because 3 is a proven cutoff.
+    """
+    if not prior_signal_count:
+        return "NEW"
+    return "HIGH_FREQUENCY_RECURRING" if prior_signal_count >= 3 else "RECURRING"
+
+
+def _build_shadow_assessment(recurrence_status):
+    """
+    Sep 12 2026: generic actual/shadow framework (spec section 9) --
+    built for the recurrence rule specifically, since it's the only one
+    with any real evidence behind it so far. The SAME {actual_decision,
+    shadow_decision, shadow_block_reason} shape is meant to be reused
+    for every future filter (market/sector/OI/structure/time/
+    liquidity) once each has real data to evaluate against, not
+    reinvented per filter.
+
+    actual_decision is always 'PASS' -- nothing here blocks anything;
+    RECURRENCE_PENALTY defaults False. shadow_decision reflects what
+    WOULD happen if it were flipped on, purely for logging.
+    """
+    shadow_penalty = 0
+    shadow_decision = "PASS"
+    shadow_block_reason = None
+    if recurrence_status in ("RECURRING", "HIGH_FREQUENCY_RECURRING") and SNIPER_V2_CONFIG["RECURRENCE_TRACKING"]:
+        # Sep 12 2026: provisional penalty size, NOT statistically
+        # derived -- flagged explicitly, same reasoning as
+        # _recurrence_status()'s own threshold above. Exists to let
+        # shadow logging start accumulating evidence on what size
+        # would actually help.
+        shadow_penalty = 20 if recurrence_status == "HIGH_FREQUENCY_RECURRING" else 10
+        if SNIPER_V2_CONFIG["RECURRENCE_PENALTY"]:
+            shadow_decision = "WOULD_BLOCK"
+            shadow_block_reason = "RECURRENT_SYMBOL"
+        else:
+            shadow_decision = "PASS_SHADOW_FLAGGED"
+    return {
+        "actual_decision": "PASS",
+        "shadow_decision": shadow_decision,
+        "shadow_block_reason": shadow_block_reason,
+        "shadow_recurrence_penalty": shadow_penalty,
+    }
 
 
 def _update_symbol_state_and_classify(sym, action, locked, entry, sl, target1, option_symbol):
     """
-    Sep 12 2026: updates the two trackers above for this (symbol,
-    action) reaching this point in today's cycle, and returns a
-    classification string for logging -- never used to block anything
-    here, purely observational (see module note above for exactly
-    which parts of Change 3/6 this can and cannot honestly answer).
+    Sep 12 2026: updates the same-day counter for this (symbol, action)
+    reaching this point in today's cycle, and returns a classification
+    string -- never used to block anything, purely observational.
 
-    Classification values:
-      'ACTIVE_CONTINUING' -- get_locked_plan() returned a plan (the
-        SAME signal from an earlier cycle today or within its
-        reactivation window is still being reused, per excel_logger.py's
-        own existing mechanism) -- not a new event at all.
-      'NEW_SETUP_FIRST_SEEN' -- fresh numbers computed (locked was
-        None), and this exact (symbol, action) has no recorded
-        occurrence in _symbol_recurrence_history yet this session.
-      'NEW_SETUP_RECURRING_SYMBOL' -- fresh numbers computed, but this
-        symbol DOES have a prior occurrence (possibly a different
-        action/date) recorded this session -- the real, evidence-backed
-        pattern from the forensic audit (50%->11%) lives in this
-        bucket, not resolved further than "recurring" without
-        excel_logger.py's own outcome history.
-    Does NOT return 'EXACT_DUPLICATE' or 'SAME_SETUP_RETRIGGER' --
+    Sep 12 2026 (revision): re-mapped to the full 5-value taxonomy
+    (EXACT_DUPLICATE / SAME_SETUP_RETRIGGER / NEW_SETUP /
+    GENUINE_REENTRY / UNKNOWN) per explicit instruction: "Do not
+    classify a signal as NEW_SETUP merely because its timestamp is
+    different... use UNKNOWN rather than guessing." Concretely:
+
+      None (not a candidate-classification event at all) -- returned
+        when get_locked_plan() already returned a plan: the SAME
+        signal is just continuing, not a new candidate to classify.
+      'NEW_SETUP' -- fresh numbers computed AND this exact symbol has
+        no recorded prior occurrence (this session, or in
+        excel_logger's real persisted history) -- a genuinely
+        first-ever appearance is the one case safe to call "new"
+        without guessing.
+      'UNKNOWN' -- fresh numbers computed, but this symbol DOES have a
+        prior occurrence somewhere. Deliberately NOT classified as
+        GENUINE_REENTRY or NEW_SETUP -- there's no real structure/setup
+        data to justify calling it a validated re-entry, and calling it
+        "new" would contradict its own recorded history. This is
+        exactly the bucket REENTRY_MODE="SAFE" describes.
+
+    EXACT_DUPLICATE and SAME_SETUP_RETRIGGER are never returned here --
     those are excel_logger.py's determination to make (it owns the
-    persisted write), not something views.py's in-memory view of one
-    cycle can honestly claim to detect.
+    persisted write and its cooldown/reactivation window), not
+    something a single cycle's in-memory view can honestly detect.
     """
     today = datetime.now().strftime("%Y-%m-%d")
     now_iso = datetime.now().isoformat()
 
-    if ENABLE_RECURRENCE_TRACKING:
-        day_state = _symbol_daily_state.get(sym)
-        if day_state is None or day_state.get('date') != today:
-            day_state = {'date': today, 'signals_fired_today': 0, 'first_signal_time': now_iso, 'latest_signal_time': now_iso}
-            _symbol_daily_state[sym] = day_state
-        else:
-            day_state['latest_signal_time'] = now_iso
+    if not SNIPER_V2_CONFIG["RECURRENCE_TRACKING"]:
+        return None, None, None
 
-        hist = _symbol_recurrence_history.get(sym)
-        had_prior_occurrence = hist is not None and any(o['date'] != today for o in hist.get('occurrences', []))
+    day_state = _symbol_daily_state.get(sym)
+    if day_state is None or day_state.get('date') != today:
+        day_state = {'date': today, 'signals_fired_today': 0, 'first_signal_time': now_iso, 'latest_signal_time': now_iso}
+        _symbol_daily_state[sym] = day_state
+    else:
+        day_state['latest_signal_time'] = now_iso
 
-        if locked:
-            classification = 'ACTIVE_CONTINUING'
-        else:
-            day_state['signals_fired_today'] += 1
-            classification = 'NEW_SETUP_RECURRING_SYMBOL' if had_prior_occurrence else 'NEW_SETUP_FIRST_SEEN'
-            if hist is None:
-                hist = {'first_seen_date': today, 'last_seen_date': today, 'occurrences': []}
-                _symbol_recurrence_history[sym] = hist
-            hist['last_seen_date'] = today
-            hist['occurrences'].append({'date': today, 'action': action, 'option_symbol': option_symbol})
-        return classification, day_state, hist
-    return None, None, None
+    hist = _symbol_recurrence_history.get(sym)
+    had_prior_occurrence_this_session = hist is not None and any(o['date'] != today for o in hist.get('occurrences', []))
+
+    if locked:
+        return None, day_state, hist
+
+    day_state['signals_fired_today'] += 1
+    classification = 'UNKNOWN' if had_prior_occurrence_this_session else 'NEW_SETUP'
+    if hist is None:
+        hist = {'first_seen_date': today, 'last_seen_date': today, 'occurrences': []}
+        _symbol_recurrence_history[sym] = hist
+    hist['last_seen_date'] = today
+    hist['occurrences'].append({'date': today, 'action': action, 'option_symbol': option_symbol})
+    return classification, day_state, hist
 
 _last_fetch = 0
 CACHE_TTL = 60
@@ -2609,6 +2698,27 @@ def _build_all():
             print(f"[SNIPER V2] Recurrence lookup failed for {sym}: {e}")
             symbol_real_history = None
 
+        # Sep 12 2026: setup_id architecture -- explicitly UNAVAILABLE,
+        # not guessed. Real structure/BOS classification (breakout,
+        # pullback, reversal, range, etc.) doesn't exist anywhere in
+        # this codebase's live data yet; inventing a setup_id from
+        # insufficient data is exactly what was explicitly ruled out.
+        # signal_id (from excel_logger, once locked) is a real,
+        # deterministic identity for THIS signal -- setup_id would be a
+        # DIFFERENT concept (which structural setup TYPE this is), not
+        # a synonym for it, so it stays None rather than reusing
+        # signal_id as a stand-in.
+        setup_id = None
+        setup_id_status = "UNAVAILABLE_NO_STRUCTURE_DATA"
+
+        # Sep 12 2026: real prior_signal_count (excel_logger's actual
+        # persisted history) drives the NEW/RECURRING/HIGH_FREQUENCY_
+        # RECURRING bucket -- more authoritative than session-only
+        # symbol_recurrence above, which can't see anything before a
+        # restart.
+        recurrence_status = _recurrence_status((symbol_real_history or {}).get("prior_signal_count", 0))
+        shadow_assessment = _build_shadow_assessment(recurrence_status)
+
         # Sep 12 2026: computed HERE, before append, so it can gate this
         # signal -- previously this same computation only ran AFTER
         # append, purely as a shadow-mode observer. skip_logging=True
@@ -2651,6 +2761,28 @@ def _build_all():
             "symbol_real_prior_signal_count": (symbol_real_history or {}).get("prior_signal_count"),
             "symbol_real_prior_win_rate": (symbol_real_history or {}).get("prior_win_rate"),
             "symbol_real_last_seen_date": (symbol_real_history or {}).get("last_seen_date"),
+            # Sep 12 2026: setup_id -- explicitly unavailable, see the
+            # setup_id_status computation above for why this isn't
+            # guessed from insufficient data.
+            "setup_id": setup_id,
+            "setup_id_status": setup_id_status,
+            # Sep 12 2026: previous-signal fields, sourced from
+            # excel_logger's real persisted history -- None when there
+            # is no real prior occurrence, never a guessed value.
+            "previous_signal_id": (symbol_real_history or {}).get("previous_signal_id"),
+            "previous_signal_status": (symbol_real_history or {}).get("previous_result"),
+            "previous_signal_direction": (symbol_real_history or {}).get("previous_direction"),
+            "days_since_last_signal": (symbol_real_history or {}).get("days_since_last_signal"),
+            # Sep 12 2026: NEW/RECURRING/HIGH_FREQUENCY_RECURRING bucket
+            # and the generic actual/shadow assessment -- see
+            # _recurrence_status()/_build_shadow_assessment()'s own
+            # docstrings for the "not yet statistically derived"
+            # caveat on the specific thresholds/penalty sizes.
+            "recurrence_status": recurrence_status,
+            "actual_decision": shadow_assessment["actual_decision"],
+            "shadow_decision": shadow_assessment["shadow_decision"],
+            "shadow_block_reason": shadow_assessment["shadow_block_reason"],
+            "shadow_recurrence_penalty": shadow_assessment["shadow_recurrence_penalty"],
             # Sep 12 2026: the new quality-engine confirmation layer --
             # quality_confirmed is what quality_signals below actually
             # gates on (when the feature flag is on); score/verdict/
