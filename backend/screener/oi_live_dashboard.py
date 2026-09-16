@@ -62,6 +62,19 @@ _next_row = {}
 _prev_values = {}
 _panel_start_rows = {}
 _sheet_day_seen = {}
+# Sep 16 2026: REAL GAP FOUND -- the circuit breaker added to views.py
+# several turns ago wraps this module's write_live_dashboard() call,
+# but every failure in here is already caught and printed internally
+# (per-index try/except, plus _get_dashboard_book's own try/except) --
+# so write_live_dashboard() always returns normally, no exception ever
+# reaches views.py's circuit breaker, and it never trips. Confirmed
+# live: the same COM error code repeating on every single cycle,
+# unthrottled. This is the fix -- the breaker has to live where the
+# failures actually happen.
+_consecutive_total_failures = 0
+_cycles_since_disabled = 0
+_TOTAL_FAILURE_THRESHOLD = 3
+_RETRY_EVERY_N_CYCLES = 20  # ~20 scan cycles before quietly trying again, in case Excel recovers on its own
 # Sep 16 2026: REAL ROOT CAUSE FOUND -- this was the actual missing
 # piece the whole time. oi_dashboard_runtime_guard.py (an existing
 # project file, monkey-patches this module's _prepare_sheet and
@@ -477,8 +490,24 @@ def _build_values(row):
 def write_live_dashboard(results):
     """Write NIFTY/BANKNIFTY/SENSEX rows in one save. See module docstring
     for the Sep 16 2026 rewrite -- same tested logic, new internal names."""
+    global _consecutive_total_failures, _cycles_since_disabled
+
+    if _consecutive_total_failures >= _TOTAL_FAILURE_THRESHOLD:
+        _cycles_since_disabled += 1
+        if _cycles_since_disabled < _RETRY_EVERY_N_CYCLES:
+            return
+        _cycles_since_disabled = 0  # time to quietly try again
+
     book = _get_dashboard_book()
     if book is None:
+        _consecutive_total_failures += 1
+        if _consecutive_total_failures == _TOTAL_FAILURE_THRESHOLD:
+            print(f"[OILiveDashboard] Excel dashboard failed {_consecutive_total_failures} cycles in a "
+                  f"row with the same COM error -- this is almost always orphaned Excel.exe "
+                  f"processes left behind by an earlier crash, not this code. Going quiet for "
+                  f"roughly {_RETRY_EVERY_N_CYCLES} cycles rather than repeating this every time; "
+                  f"will retry automatically. To fix now: close Excel, kill any remaining EXCEL.EXE "
+                  f"in Task Manager, then restart the server.")
         return
 
     # Sep 16 2026: suspend Excel's own screen redraw while this cycle's
@@ -509,13 +538,24 @@ def write_live_dashboard(results):
                 _write_boundary_panel(sheet, index_name, row, get_last_oi_snapshot(index_name))
                 wrote_any = True
             except Exception as e:
-                print(f"[OILiveDashboard] Failed writing {index_name}: {e}")
+                if _consecutive_total_failures < _TOTAL_FAILURE_THRESHOLD:
+                    print(f"[OILiveDashboard] Failed writing {index_name}: {e}")
 
         if wrote_any:
+            _consecutive_total_failures = 0
             try:
                 book.save()
             except Exception as e:
                 print(f"[OILiveDashboard] Failed saving dashboard: {e}")
+        else:
+            _consecutive_total_failures += 1
+            if _consecutive_total_failures == _TOTAL_FAILURE_THRESHOLD:
+                print(f"[OILiveDashboard] Excel dashboard failed {_consecutive_total_failures} cycles in a "
+                      f"row with the same COM error -- this is almost always orphaned Excel.exe "
+                      f"processes left behind by an earlier crash, not this code. Going quiet for "
+                      f"roughly {_RETRY_EVERY_N_CYCLES} cycles rather than repeating this every time; "
+                      f"will retry automatically. To fix now: close Excel, kill any remaining EXCEL.EXE "
+                      f"in Task Manager, then restart the server.")
     finally:
         if screen_updating_supported:
             try:
