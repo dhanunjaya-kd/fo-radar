@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-16T19:24:21.632406",
+  "generated_at": "2026-09-16T19:33:39.971659",
   "universe_scanned": 2694,
-  "stocks_with_enough_data": 2565,
-  "excluded_low_price": 567,
-  "excluded_low_liquidity": 1004,
-  "excluded_unknown_sector": 2358,
+  "stocks_with_enough_data": 2582,
+  "excluded_low_price": 571,
+  "excluded_low_liquidity": 1022,
+  "excluded_unknown_sector": 2375,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
   "require_known_sector": true,
@@ -82,40 +82,16 @@
       "rank": 3
     },
     {
-      "symbol": "NSE:IRFC-EQ",
-      "sector": "Finance",
-      "eod_price": 78.95,
-      "change_percent": -0.25,
-      "rsi": 25.2,
-      "sma_20": 83.99,
-      "distance_from_sma_pct": -6.0,
-      "today_volume": 9834178,
-      "avg_volume_20d": 7202486.0,
-      "volume_ratio": 1.37,
-      "sector_relative_pct": 0.21,
-      "sector_strength": "Leading",
-      "trend_status": "Strong",
-      "volume_status": "Normal",
-      "score": 76,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 6,
-        "sector_strength": 25
-      },
-      "rank": 4
-    },
-    {
       "symbol": "NSE:M&M-EQ",
       "sector": "Auto",
       "eod_price": 3070,
       "change_percent": 1.34,
-      "rsi": 31.0,
-      "sma_20": 3286.75,
-      "distance_from_sma_pct": -6.59,
+      "rsi": 32.7,
+      "sma_20": 3251.13,
+      "distance_from_sma_pct": -5.57,
       "today_volume": 2390779,
-      "avg_volume_20d": 1684699.0,
-      "volume_ratio": 1.42,
+      "avg_volume_20d": 1719627.0,
+      "volume_ratio": 1.39,
       "sector_relative_pct": 0.9,
       "sector_strength": "Leading",
       "trend_status": "Strong",
@@ -127,7 +103,7 @@
         "volume": 6,
         "sector_strength": 25
       },
-      "rank": 5
+      "rank": 4
     },
     {
       "symbol": "NSE:ALKEM-EQ",
@@ -149,6 +125,30 @@
         "rsi": 20,
         "trend_distance": 8,
         "volume": 22,
+        "sector_strength": 25
+      },
+      "rank": 5
+    },
+    {
+      "symbol": "NSE:IRFC-EQ",
+      "sector": "Finance",
+      "eod_price": 78.95,
+      "change_percent": -0.25,
+      "rsi": 20.0,
+      "sma_20": 83.24,
+      "distance_from_sma_pct": -5.15,
+      "today_volume": 9834178,
+      "avg_volume_20d": 7465861.0,
+      "volume_ratio": 1.32,
+      "sector_relative_pct": 0.21,
+      "sector_strength": "Leading",
+      "trend_status": "Strong",
+      "volume_status": "Normal",
+      "score": 75,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 5,
         "sector_strength": 25
       },
       "rank": 6
