@@ -147,34 +147,43 @@ def _get_dashboard_book():
 
     try:
         os.makedirs(LOG_DIR, exist_ok=True)
-        _app = xw.apps.active or xw.App(visible=True)
         dashboard_filename = os.path.basename(DASHBOARD_PATH)
-        # Sep 16 2026: REAL BUG FOUND live -- "Could not open workbook:
-        # ... Open method of Workbooks class failed" confirmed in
-        # production. Root cause: calling .open() on a path that's
-        # ALREADY open in this same Excel instance (confirmed via the
-        # user's own screenshot showing the file open) can fail this way
-        # -- Excel doesn't always like being asked to re-open what it
-        # already has open, especially right after another process died
-        # mid-write (the stale-lock recovery immediately before this in
-        # the same log). Check for an already-open match first; only
-        # call .open() when nothing matching is already there.
-        already_open = None
+        # Sep 16 2026 (revision): the previous fix only checked
+        # xw.apps.active's books -- but "active" means whichever Excel
+        # window has OS-level focus at that instant, which is a
+        # DIFFERENT thing from "the Excel window that has the dashboard
+        # file open". Confirmed still failing live after that fix
+        # shipped: the user is looking at the PowerShell terminal, not
+        # Excel, when this runs, so xw.apps.active is either None or a
+        # different, unrelated Excel window -- not necessarily the one
+        # with oi_live_dashboard.xlsx open. Search every running Excel
+        # instance (xw.apps, the full collection), not just the active
+        # one, so the file is found regardless of which window has
+        # focus.
+        already_open_app = None
+        already_open_book = None
         try:
-            for existing_book in _app.books:
-                if existing_book.name == dashboard_filename:
-                    already_open = existing_book
+            for running_app in xw.apps:
+                for existing_book in running_app.books:
+                    if existing_book.name == dashboard_filename:
+                        already_open_app = running_app
+                        already_open_book = existing_book
+                        break
+                if already_open_book is not None:
                     break
         except Exception:
             pass
 
-        if already_open is not None:
-            _book = already_open
-        elif os.path.exists(DASHBOARD_PATH):
-            _book = _app.books.open(DASHBOARD_PATH)
+        if already_open_book is not None:
+            _app = already_open_app
+            _book = already_open_book
         else:
-            _book = _app.books.add()
-            _book.save(DASHBOARD_PATH)
+            _app = xw.apps.active or xw.App(visible=True)
+            if os.path.exists(DASHBOARD_PATH):
+                _book = _app.books.open(DASHBOARD_PATH)
+            else:
+                _book = _app.books.add()
+                _book.save(DASHBOARD_PATH)
         return _book
     except Exception as e:
         print(f"[OILiveDashboard] Could not open workbook: {e}")
