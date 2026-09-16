@@ -41,8 +41,82 @@ check).
 """
 import os
 import threading
+import time
 import zipfile
 from datetime import datetime, timedelta
+
+
+class _FileLock:
+    """
+    Sep 16 2026: cross-PROCESS file lock -- the actual root-cause fix
+    for the corruption confirmed live (many symbols all failing with
+    "File is not a zip file"/"Bad magic number for central directory"
+    on the same day). _lock below (threading.Lock) only protects
+    against two THREADS in the SAME process colliding; it does nothing
+    for two separate PROCESSES writing the same path at once, which is
+    the actual real-world scenario here -- Django's own autoreloader
+    spawns a watcher process plus a child server process, and if
+    anything schedules work in both (the "Daily backtest running
+    twice" pattern already observed live), both can call
+    log_shadow_candidate() at the same real moment with no
+    cross-process coordination at all.
+
+    Pure standard library, no new pip dependency -- this project has
+    never needed one beyond openpyxl, and Windows has no fcntl (the
+    usual POSIX file-lock module) at all, so a cross-platform fix has
+    to avoid it. Uses the one truly OS-level-atomic primitive both
+    platforms actually share: os.O_CREAT | os.O_EXCL cannot succeed
+    for two processes on the same path at once -- exactly one wins,
+    the other gets FileExistsError, deterministically, at the kernel
+    level, not something either process could accidentally race around.
+    """
+    def __init__(self, target_path, timeout=10, poll_interval=0.05):
+        self.lock_path = target_path + ".lock"
+        self.timeout = timeout
+        self.poll_interval = poll_interval
+        self._fd = None
+
+    def __enter__(self):
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                self._fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+                return self
+            except FileExistsError:
+                if time.monotonic() >= deadline:
+                    # Sep 16 2026: a lock file older than the timeout
+                    # almost certainly means the process holding it
+                    # died (crash, kill, Windows task-kill) rather
+                    # than a genuinely long write still in progress --
+                    # a real .xlsx save here takes well under a
+                    # second. Stealing a stale lock is safer than
+                    # deadlocking shadow logging for the rest of the
+                    # day over a lock nothing will ever release.
+                    try:
+                        stale_age = time.time() - os.path.getmtime(self.lock_path)
+                    except OSError:
+                        stale_age = None
+                    if stale_age is not None and stale_age > self.timeout:
+                        print(f"[FileLock] Stale lock ({stale_age:.1f}s old) on "
+                              f"{os.path.basename(self.lock_path)} -- assuming the process that "
+                              f"held it is gone, taking over.")
+                        try:
+                            os.remove(self.lock_path)
+                        except OSError:
+                            pass
+                        continue
+                    raise TimeoutError(f"Could not acquire lock on {self.lock_path} within "
+                                        f"{self.timeout}s -- another process is actively using it.")
+                time.sleep(self.poll_interval)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._fd is not None:
+            os.close(self._fd)
+        try:
+            os.remove(self.lock_path)
+        except OSError:
+            pass
+        return False
 
 try:
     from openpyxl import Workbook, load_workbook
@@ -227,27 +301,28 @@ def log_shadow_candidate(symbol, action, price, v3_decision, v3_score, v3_grade,
 
         path, _ = _today_path()
         try:
-            wb = _get_workbook(path)
-            ws = wb["Shadow"]
-            now = datetime.now()
+            with _FileLock(path):
+                wb = _get_workbook(path)
+                ws = wb["Shadow"]
+                now = datetime.now()
 
-            agreement = _agreement_label(v3_decision, quality_result.get("verdict"))
-            row = [
-                now.strftime("%Y-%m-%d %H:%M:%S"), symbol, action,
-                v3_decision, v3_score, v3_grade, v3_reason,
-                quality_result.get("verdict"), quality_result.get("score"), quality_result.get("grade"),
-                ",".join(quality_result.get("components_scored", [])),
-                ",".join(quality_result.get("components_unavailable", [])),
-                price,
-                None, None, None, None, None,  # horizon prices, filled in later
-                0.0, 0.0,  # MFE/MAE start at 0 (no observation yet)
-                agreement,
-                "; ".join(reasons) if reasons else None,
-                setup_classification, symbol_signals_fired_today, symbol_prior_occurrences,
-            ]
-            ws.append(row)
-            row_num = ws.max_row
-            wb.save(path)
+                agreement = _agreement_label(v3_decision, quality_result.get("verdict"))
+                row = [
+                    now.strftime("%Y-%m-%d %H:%M:%S"), symbol, action,
+                    v3_decision, v3_score, v3_grade, v3_reason,
+                    quality_result.get("verdict"), quality_result.get("score"), quality_result.get("grade"),
+                    ",".join(quality_result.get("components_scored", [])),
+                    ",".join(quality_result.get("components_unavailable", [])),
+                    price,
+                    None, None, None, None, None,  # horizon prices, filled in later
+                    0.0, 0.0,  # MFE/MAE start at 0 (no observation yet)
+                    agreement,
+                    "; ".join(reasons) if reasons else None,
+                    setup_classification, symbol_signals_fired_today, symbol_prior_occurrences,
+                ]
+                ws.append(row)
+                row_num = ws.max_row
+                wb.save(path)
 
             _shadow_row_index[key] = {
                 "row": row_num, "date": today, "reference_price": price,
@@ -329,40 +404,41 @@ def check_shadow_outcomes(get_quotes_fn):
     path, _ = _today_path()
     with _lock:
         try:
-            wb = _get_workbook(path)
-            ws = wb["Shadow"]
-            col = {name: i + 1 for i, name in enumerate(COLUMNS)}
-            changed = False
+            with _FileLock(path):
+                wb = _get_workbook(path)
+                ws = wb["Shadow"]
+                col = {name: i + 1 for i, name in enumerate(COLUMNS)}
+                changed = False
 
-            horizon_col = {"5m": "Price +5m", "15m": "Price +15m", "30m": "Price +30m",
-                            "60m": "Price +60m", "eod": "Price EOD"}
+                horizon_col = {"5m": "Price +5m", "15m": "Price +15m", "30m": "Price +30m",
+                                "60m": "Price +60m", "eod": "Price EOD"}
 
-            for key, horizons_due in due.items():
-                symbol, action = key
-                ltp = ltp_by_symbol.get(symbol)
-                if ltp is None:
-                    continue  # this symbol's fetch didn't come back clean this cycle -- try again next cycle
-                state = _shadow_row_index[key]
-                row_num = state["row"]
-                ref_price = state["reference_price"]
+                for key, horizons_due in due.items():
+                    symbol, action = key
+                    ltp = ltp_by_symbol.get(symbol)
+                    if ltp is None:
+                        continue  # this symbol's fetch didn't come back clean this cycle -- try again next cycle
+                    state = _shadow_row_index[key]
+                    row_num = state["row"]
+                    ref_price = state["reference_price"]
 
-                for label in horizons_due:
-                    ws.cell(row=row_num, column=col[horizon_col[label]]).value = ltp
-                    state["resolved"][label] = True
-                    changed = True
+                    for label in horizons_due:
+                        ws.cell(row=row_num, column=col[horizon_col[label]]).value = ltp
+                        state["resolved"][label] = True
+                        changed = True
 
-                # Running MFE/MAE, direction-aware (BUY: favorable=up,
-                # SELL: favorable=down) -- computed from every real price
-                # observed so far, INCLUDING this one, never estimated.
-                direction = 1 if action == "BUY" else -1
-                move_pct = round((ltp - ref_price) / ref_price * 100 * direction, 2) if ref_price else 0.0
-                mfe = ws.cell(row=row_num, column=col["MFE %"]).value or 0.0
-                mae = ws.cell(row=row_num, column=col["MAE %"]).value or 0.0
-                ws.cell(row=row_num, column=col["MFE %"]).value = round(max(mfe, move_pct), 2)
-                ws.cell(row=row_num, column=col["MAE %"]).value = round(min(mae, move_pct), 2)
+                    # Running MFE/MAE, direction-aware (BUY: favorable=up,
+                    # SELL: favorable=down) -- computed from every real price
+                    # observed so far, INCLUDING this one, never estimated.
+                    direction = 1 if action == "BUY" else -1
+                    move_pct = round((ltp - ref_price) / ref_price * 100 * direction, 2) if ref_price else 0.0
+                    mfe = ws.cell(row=row_num, column=col["MFE %"]).value or 0.0
+                    mae = ws.cell(row=row_num, column=col["MAE %"]).value or 0.0
+                    ws.cell(row=row_num, column=col["MFE %"]).value = round(max(mfe, move_pct), 2)
+                    ws.cell(row=row_num, column=col["MAE %"]).value = round(min(mae, move_pct), 2)
 
-            if changed:
-                wb.save(path)
+                if changed:
+                    wb.save(path)
         except Exception as e:
             print(f"[ShadowLog] Failed to write outcomes: {e}")
 

@@ -561,7 +561,14 @@ def _evaluate_shadow_candidates(sym, action, price, change_percent, macd, rsi, a
     # NEUTRAL and INSUFFICIENT_DATA both map to UNKNOWN here (NEUTRAL
     # is a genuine real state, not a data gap, but it doesn't
     # constitute either confirmation or rejection).
-    import quality_engine as qe
+    #
+    # Sep 16 2026: REAL BUG FOUND live -- this was `import quality_engine
+    # as qe` (absolute), which fails every single cycle with "No module
+    # named 'quality_engine'" because it's not a top-level module, it's
+    # a submodule of this same Django app package. Every other import
+    # of this exact module elsewhere in this file (4 other call sites)
+    # correctly uses the relative form -- matched here.
+    from . import quality_engine as qe
     sector_result = qe.evaluate_sector_alignment(action, change_percent, sector_change_pct, nifty_change_pct)
     if sector_result["state"] == "ALIGNED":
         out["candidate_i"] = "PASS"

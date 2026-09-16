@@ -32,7 +32,66 @@ gap longer than the cooldown counts as a genuinely new setup.
 """
 import os
 import threading
+import time
+import zipfile
 from datetime import datetime, timedelta
+
+
+class _FileLock:
+    """
+    Sep 16 2026: cross-PROCESS file lock -- same fix applied to
+    shadow_logger.py this same session, for the identical risk (a
+    per-day .xlsx being written from potentially more than one
+    process, most likely Django's own autoreloader watcher+child
+    pattern, with nothing coordinating between them). See
+    shadow_logger.py's own copy of this class for the full reasoning;
+    duplicated here rather than imported since these two files don't
+    otherwise depend on each other and this project has no shared
+    utils module to put a single copy in.
+
+    Pure standard library (os.O_CREAT | os.O_EXCL's atomicity), no new
+    pip dependency -- Windows has no fcntl, so a cross-platform lock
+    can't rely on it.
+    """
+    def __init__(self, target_path, timeout=10, poll_interval=0.05):
+        self.lock_path = target_path + ".lock"
+        self.timeout = timeout
+        self.poll_interval = poll_interval
+        self._fd = None
+
+    def __enter__(self):
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                self._fd = os.open(self.lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+                return self
+            except FileExistsError:
+                if time.monotonic() >= deadline:
+                    try:
+                        stale_age = time.time() - os.path.getmtime(self.lock_path)
+                    except OSError:
+                        stale_age = None
+                    if stale_age is not None and stale_age > self.timeout:
+                        print(f"[FileLock] Stale lock ({stale_age:.1f}s old) on "
+                              f"{os.path.basename(self.lock_path)} -- assuming the process that "
+                              f"held it is gone, taking over.")
+                        try:
+                            os.remove(self.lock_path)
+                        except OSError:
+                            pass
+                        continue
+                    raise TimeoutError(f"Could not acquire lock on {self.lock_path} within "
+                                        f"{self.timeout}s -- another process is actively using it.")
+                time.sleep(self.poll_interval)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._fd is not None:
+            os.close(self._fd)
+        try:
+            os.remove(self.lock_path)
+        except OSError:
+            pass
+        return False
 
 try:
     from openpyxl import Workbook, load_workbook
@@ -232,9 +291,43 @@ def _today_path():
 
 
 def _get_workbook(path):
+    """
+    Sep 16 2026: same corruption-recovery fix applied to
+    shadow_logger.py's _get_workbook this same session, for the
+    identical underlying problem -- load_workbook(path) had no
+    exception handling here either, so a corrupted file (confirmed
+    live in shadow_logger.py's case: "File is not a zip file"/"Bad
+    magic number for central directory", most likely from two
+    processes writing the same path at once with no cross-process
+    lock -- see the _FileLock class above) would fail identically on
+    every single retry for the rest of the day. This file is the LIVE
+    production signal log, more critical than the shadow one, so the
+    same silent-forever-failure risk applies here too, just not yet
+    triggered by luck of timing.
+    """
     global _row_index, _open_positions
     if os.path.exists(path):
-        wb = load_workbook(path)
+        try:
+            wb = load_workbook(path)
+        except zipfile.BadZipFile as e:
+            archive_path = path.replace(".xlsx", f"_corrupted_{datetime.now().strftime('%H%M%S')}.xlsx")
+            try:
+                os.rename(path, archive_path)
+                print(f"[ExcelLog] {os.path.basename(path)} is corrupted ({e}) -- moved aside to "
+                      f"{os.path.basename(archive_path)}, starting fresh so logging can continue today.")
+            except OSError as rename_err:
+                print(f"[ExcelLog] {os.path.basename(path)} is corrupted ({e}) and could not be moved aside "
+                      f"({rename_err}) -- starting fresh anyway; the corrupted file will be overwritten.")
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Signals"
+            ws.append(COLUMNS)
+            for cell in ws[1]:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+            _row_index = {}
+            _open_positions = {}
+            return wb
         ws = wb["Signals"]
         existing_header = [c.value for c in ws[1]]
         if existing_header != COLUMNS:
@@ -454,20 +547,21 @@ def log_new_signal(signal):
             return False
 
         try:
-            wb = _get_workbook(path)
-            ws = wb["Signals"]
+            with _FileLock(path):
+                wb = _get_workbook(path)
+                ws = wb["Signals"]
 
-            if existing and existing["exited_at"] is not None:
-                gap_minutes = (datetime.now() - existing["exited_at"]).total_seconds() / 60
-                if gap_minutes < COOLDOWN_MINUTES:
-                    exited_col = COLUMNS.index("Exited At") + 1
-                    ws.cell(row=existing["row"], column=exited_col).value = ""
-                    wb.save(path)
-                    existing["exited_at"] = None
-                    return False
+                if existing and existing["exited_at"] is not None:
+                    gap_minutes = (datetime.now() - existing["exited_at"]).total_seconds() / 60
+                    if gap_minutes < COOLDOWN_MINUTES:
+                        exited_col = COLUMNS.index("Exited At") + 1
+                        ws.cell(row=existing["row"], column=exited_col).value = ""
+                        wb.save(path)
+                        existing["exited_at"] = None
+                        return False
 
-            row_num = _write_new_row(ws, signal)
-            wb.save(path)
+                row_num = _write_new_row(ws, signal)
+                wb.save(path)
             _row_index[key] = {"row": row_num, "exited_at": None}
             return True
         except Exception as e:
@@ -488,22 +582,23 @@ def mark_exited(symbol, action):
             return
 
         try:
-            wb = _get_workbook(path)
-            ws = wb["Signals"]
-            exited_col = COLUMNS.index("Exited At") + 1
-            outcome_col = COLUMNS.index("Outcome") + 1
-            now = datetime.now()
-            ws.cell(row=existing["row"], column=exited_col).value = now.strftime("%Y-%m-%d %H:%M:%S")
-            existing_outcome = ws.cell(row=existing["row"], column=outcome_col).value
-            if not existing_outcome:
-                ws.cell(row=existing["row"], column=outcome_col).value = "Expired (no SL/Target hit)"
-            pos = _open_positions.get(key)
-            if pos is not None:
-                mfe_col = COLUMNS.index("MFE Premium") + 1
-                mae_col = COLUMNS.index("MAE Premium") + 1
-                ws.cell(row=existing["row"], column=mfe_col).value = pos.get("max_premium_seen")
-                ws.cell(row=existing["row"], column=mae_col).value = pos.get("min_premium_seen")
-            wb.save(path)
+            with _FileLock(path):
+                wb = _get_workbook(path)
+                ws = wb["Signals"]
+                exited_col = COLUMNS.index("Exited At") + 1
+                outcome_col = COLUMNS.index("Outcome") + 1
+                now = datetime.now()
+                ws.cell(row=existing["row"], column=exited_col).value = now.strftime("%Y-%m-%d %H:%M:%S")
+                existing_outcome = ws.cell(row=existing["row"], column=outcome_col).value
+                if not existing_outcome:
+                    ws.cell(row=existing["row"], column=outcome_col).value = "Expired (no SL/Target hit)"
+                pos = _open_positions.get(key)
+                if pos is not None:
+                    mfe_col = COLUMNS.index("MFE Premium") + 1
+                    mae_col = COLUMNS.index("MAE Premium") + 1
+                    ws.cell(row=existing["row"], column=mfe_col).value = pos.get("max_premium_seen")
+                    ws.cell(row=existing["row"], column=mae_col).value = pos.get("min_premium_seen")
+                wb.save(path)
             existing["exited_at"] = now
         except Exception as e:
             print(f"[ExcelLog] Failed to mark exit for {key}: {e}")
@@ -564,47 +659,48 @@ def check_outcomes(get_quotes_fn):
 
     with _lock:
         try:
-            wb = _get_workbook(path)
-            ws = wb["Signals"]
-            changed = False
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with _FileLock(path):
+                wb = _get_workbook(path)
+                ws = wb["Signals"]
+                changed = False
+                now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            for opt_symbol, key in symbols_to_check.items():
-                pos = _open_positions.get(key)
-                if pos is None:
-                    continue
-                ltp = ltp_by_symbol.get(opt_symbol)
-                if ltp is None:
-                    continue
+                for opt_symbol, key in symbols_to_check.items():
+                    pos = _open_positions.get(key)
+                    if pos is None:
+                        continue
+                    ltp = ltp_by_symbol.get(opt_symbol)
+                    if ltp is None:
+                        continue
 
-                pos["max_premium_seen"] = max(pos.get("max_premium_seen", pos["entry"]), ltp)
-                pos["min_premium_seen"] = min(pos.get("min_premium_seen", pos["entry"]), ltp)
+                    pos["max_premium_seen"] = max(pos.get("max_premium_seen", pos["entry"]), ltp)
+                    pos["min_premium_seen"] = min(pos.get("min_premium_seen", pos["entry"]), ltp)
 
-                if not pos["sl_hit"] and ltp <= pos["sl"]:
-                    pos["sl_hit"] = True
-                    ws.cell(row=pos["row"], column=COLUMNS.index("SL Hit At") + 1).value = now_str
-                    ws.cell(row=pos["row"], column=COLUMNS.index("Outcome") + 1).value = "SL Hit"
-                    changed = True
-
-                for n in (3, 2, 1):
-                    if pos["furthest_target"] >= n:
-                        break
-                    if ltp >= pos[f"t{n}"]:
-                        pos["furthest_target"] = n
-                        ws.cell(row=pos["row"], column=COLUMNS.index(f"Target {n} Hit At") + 1).value = now_str
-                        if not pos["sl_hit"]:
-                            ws.cell(row=pos["row"], column=COLUMNS.index("Outcome") + 1).value = f"Target {n} Hit"
+                    if not pos["sl_hit"] and ltp <= pos["sl"]:
+                        pos["sl_hit"] = True
+                        ws.cell(row=pos["row"], column=COLUMNS.index("SL Hit At") + 1).value = now_str
+                        ws.cell(row=pos["row"], column=COLUMNS.index("Outcome") + 1).value = "SL Hit"
                         changed = True
-                        break
 
-                if pos["sl_hit"] or pos["furthest_target"] >= 3:
-                    ws.cell(row=pos["row"], column=COLUMNS.index("MFE Premium") + 1).value = pos.get("max_premium_seen")
-                    ws.cell(row=pos["row"], column=COLUMNS.index("MAE Premium") + 1).value = pos.get("min_premium_seen")
-                    changed = True
-                    del _open_positions[key]
+                    for n in (3, 2, 1):
+                        if pos["furthest_target"] >= n:
+                            break
+                        if ltp >= pos[f"t{n}"]:
+                            pos["furthest_target"] = n
+                            ws.cell(row=pos["row"], column=COLUMNS.index(f"Target {n} Hit At") + 1).value = now_str
+                            if not pos["sl_hit"]:
+                                ws.cell(row=pos["row"], column=COLUMNS.index("Outcome") + 1).value = f"Target {n} Hit"
+                            changed = True
+                            break
 
-            if changed:
-                wb.save(path)
+                    if pos["sl_hit"] or pos["furthest_target"] >= 3:
+                        ws.cell(row=pos["row"], column=COLUMNS.index("MFE Premium") + 1).value = pos.get("max_premium_seen")
+                        ws.cell(row=pos["row"], column=COLUMNS.index("MAE Premium") + 1).value = pos.get("min_premium_seen")
+                        changed = True
+                        del _open_positions[key]
+
+                if changed:
+                    wb.save(path)
         except Exception as e:
             print(f"[ExcelLog] Failed to update outcomes: {e}")
 
