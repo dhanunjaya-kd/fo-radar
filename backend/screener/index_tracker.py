@@ -476,6 +476,48 @@ _last_bias_string = {}
 # no-explicit-day-reset convention as _last_snapshot/_last_direction
 # above.
 _last_commodity_readings = {}  # {base: {'change_pct': float, 'fut': float}}
+# Sep 16 2026: confirmed live via repeated user screenshots -- WinError 5
+# on snapshot logging was repeating every single cycle, unthrottled, for
+# specific instruments (GOLDM/SILVERM/CRUDEOIL). The earlier _FileLock
+# fix addresses cross-PROCESS collisions; it cannot do anything about a
+# file that's simply open in Excel for manual viewing, which is the more
+# likely persistent cause here (a genuine collision between two Python
+# processes would be intermittent and resolve on retry -- this didn't).
+# Same proven pattern as oi_live_dashboard.py's circuit breaker: track
+# PER-INSTRUMENT consecutive failures (not global, since one instrument
+# failing shouldn't silence a different one that's working fine), stop
+# logging after a few in a row, retry quietly in the background.
+_snapshot_consecutive_failures = {}
+_snapshot_cycles_since_disabled = {}
+_SNAPSHOT_FAILURE_THRESHOLD = 3
+_SNAPSHOT_RETRY_EVERY_N_CYCLES = 20
+
+
+def _snapshot_log_should_attempt(name):
+    failures = _snapshot_consecutive_failures.get(name, 0)
+    if failures < _SNAPSHOT_FAILURE_THRESHOLD:
+        return True
+    cycles = _snapshot_cycles_since_disabled.get(name, 0) + 1
+    _snapshot_cycles_since_disabled[name] = cycles
+    if cycles >= _SNAPSHOT_RETRY_EVERY_N_CYCLES:
+        _snapshot_cycles_since_disabled[name] = 0
+        return True
+    return False
+
+
+def _snapshot_log_record_result(name, success, error=None):
+    if success:
+        _snapshot_consecutive_failures[name] = 0
+        return
+    failures = _snapshot_consecutive_failures.get(name, 0) + 1
+    _snapshot_consecutive_failures[name] = failures
+    if failures < _SNAPSHOT_FAILURE_THRESHOLD:
+        print(f"[IndexTracker] Failed to log {name} snapshot: {error}")
+    elif failures == _SNAPSHOT_FAILURE_THRESHOLD:
+        print(f"[IndexTracker] {name} snapshot logging failed {failures} cycles in a row "
+              f"(most likely the file is open in Excel for viewing) -- going quiet for roughly "
+              f"{_SNAPSHOT_RETRY_EVERY_N_CYCLES} cycles rather than repeating this every time; "
+              f"will retry automatically. To fix now: close that file in Excel if it's open.")
 _CROSS_ASSET_BASES = ["CRUDEOIL", "GOLD", "SILVER"]  # Standard contracts only -- the Mini variants (CRUDEOILM/GOLDM/SILVERM) track the same underlying price, so they'd just duplicate this signal
 
 
@@ -1426,15 +1468,17 @@ def snapshot_index(index_name, change_percent=None, vix=None):
         "Structure Vote (V2)": v2_breakdown["effective_votes"]["structure"],
     }
 
-    try:
-        path = _today_path(index_name)
-        wb = _get_workbook(path)
-        ws = wb["Snapshots"]
-        ws.append([row[c] for c in COLUMNS])
-        _log_flip_if_changed(wb, index_name, bias, row.get("Spot"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
-        _atomic_save(wb, path)
-    except Exception as e:
-        print(f"[IndexTracker] Failed to log {index_name} snapshot: {e}")
+    if _snapshot_log_should_attempt(index_name):
+        try:
+            path = _today_path(index_name)
+            wb = _get_workbook(path)
+            ws = wb["Snapshots"]
+            ws.append([row[c] for c in COLUMNS])
+            _log_flip_if_changed(wb, index_name, bias, row.get("Spot"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
+            _atomic_save(wb, path)
+            _snapshot_log_record_result(index_name, success=True)
+        except Exception as e:
+            _snapshot_log_record_result(index_name, success=False, error=e)
 
     return row
 
@@ -1624,15 +1668,17 @@ def snapshot_commodity(name, base):
     with _lock:
         _last_commodity_readings[name] = {"change_pct": row.get("Change %"), "fut": row.get("Fut")}
 
-    try:
-        path = _today_path(name)
-        wb = _get_workbook(path)
-        ws = wb["Snapshots"]
-        ws.append([row[c] for c in COLUMNS])
-        _log_flip_if_changed(wb, name, bias, row.get("Fut"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
-        _atomic_save(wb, path)
-    except Exception as e:
-        print(f"[IndexTracker] Failed to log {name} snapshot: {e}")
+    if _snapshot_log_should_attempt(name):
+        try:
+            path = _today_path(name)
+            wb = _get_workbook(path)
+            ws = wb["Snapshots"]
+            ws.append([row[c] for c in COLUMNS])
+            _log_flip_if_changed(wb, name, bias, row.get("Fut"), confirms, row.get("OI Buildup"), datetime.now().strftime("%Y-%m-%d"), row["Time"], cross_asset=_get_cross_asset_snapshot())
+            _atomic_save(wb, path)
+            _snapshot_log_record_result(name, success=True)
+        except Exception as e:
+            _snapshot_log_record_result(name, success=False, error=e)
 
     return row
 
