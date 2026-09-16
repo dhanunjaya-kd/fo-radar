@@ -7,22 +7,22 @@ instrument and is saved once per dashboard update cycle.
 Sep 16 2026: NIFTY, BANKNIFTY, and SENSEX only -- CRUDEOIL/GOLD/SILVER
 handling removed per explicit request. No synthetic values are used.
 
-Sep 16 2026: complete internal rewrite. A live production error --
-"module 'screener.oi_live_dashboard' has no attribute '_panel_ready'"
--- was confirmed repeating every scan cycle. That exact name never
-existed anywhere in this file, in any version delivered, or in any
-other file in this project (checked directly, more than once). Rather
-than keep guessing at a stale-cache or drifted-file explanation that
-couldn't be confirmed, every private (underscore-prefixed) name below
-was changed so a full overwrite of the old file leaves nothing for
-whatever was happening to collide with. The public interface
-(write_live_dashboard, DASHBOARD_PATH, XLWINGS_AVAILABLE,
-compute_itm_ratios, compute_boundary_pairs) is unchanged -- views.py's
-import doesn't need to change. The underlying logic (row writing,
-boundary panel layout, colour coding, restart recovery) is the same
-logic already tested this session against real-shaped data across
-multiple write cycles and a simulated reconnect -- only the names and
-the screen-updating guard below are new.
+Sep 16 2026: internal names here are load-bearing -- two other project
+files (oi_dashboard_runtime_guard.py, oi_dashboard_header_guard.py)
+monkey-patch _prepare_sheet, _style_live_row, and _write_dashboard_row
+on this module by name after import, and read _LIVE_LOG_COLUMNS,
+_COL_LETTERS, _BIAS_COL_INDEX, _PCR_COL_INDEX, _GREEN_FILL, _RED_FILL,
+_AMBER_FILL, _HEADER_FILL, _fill, _FIRST_PANEL_ROW, _next_row,
+_panel_start_rows, _sheet_day_seen, _prev_values, and _panel_ready
+directly. An earlier attempt this session renamed all of these,
+intended to rule out a stale-cache explanation for a live
+"has no attribute '_panel_ready'" error -- that broke both guard
+files outright (confirmed live: "Header guard unavailable" / "Runtime
+guard unavailable" at startup) once their own files were shared and
+made clear they depend on these exact names. Reverted. The real root
+cause: _panel_ready never existed on this module in any version, ever
+-- an empty set here is the actual fix, not a coincidence of naming.
+Do not rename anything below without checking both guard files first.
 """
 
 import os
@@ -40,40 +40,54 @@ from .index_tracker import LOG_DIR, get_last_oi_snapshot
 
 DASHBOARD_PATH = os.path.join(LOG_DIR, "oi_live_dashboard.xlsx")
 
-_SHEET_COLUMNS = [
+_LIVE_LOG_COLUMNS = [
     "Time", "Value", "Call Sum (in K)", "Put Sum (in K)",
     "Difference (in K)", "Call Boundary (in K)", "Put Boundary (in K)",
     "Call ITM", "Put ITM", "Call Boundary Strike", "Put Boundary Strike",
     "PCR", "Bias",
 ]
-_COLUMN_LETTERS = [chr(ord("A") + i) for i in range(len(_SHEET_COLUMNS))]
-_COL_IDX_PCR = _SHEET_COLUMNS.index("PCR")
-_COL_IDX_BIAS = _SHEET_COLUMNS.index("Bias")
-_COL_IDX_VALUE = _SHEET_COLUMNS.index("Value")
-_COL_IDX_DIFF = _SHEET_COLUMNS.index("Difference (in K)")
+_COL_LETTERS = [chr(ord("A") + i) for i in range(len(_LIVE_LOG_COLUMNS))]
+_PCR_COL_INDEX = _LIVE_LOG_COLUMNS.index("PCR")
+_BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
+_VALUE_COL_INDEX = _LIVE_LOG_COLUMNS.index("Value")
+_DIFF_COL_INDEX = _LIVE_LOG_COLUMNS.index("Difference (in K)")
 
-_BOUNDARY_PANEL_FIRST_ROW = 3
-_BOUNDARY_PANEL_HEIGHT = 6
+_FIRST_PANEL_ROW = 3
+_PANEL_HEIGHT = 6
 
-_excel_app = None
-_workbook = None
-_xlwings_missing_warned = False
-_row_cursor = {}
-_last_written_values = {}
-_boundary_panel_anchor = {}
-_sheet_last_seen_date = {}
+_app = None
+_book = None
+_warned_once = False
+_next_row = {}
+_prev_values = {}
+_panel_start_rows = {}
+_sheet_day_seen = {}
+# Sep 16 2026: REAL ROOT CAUSE FOUND -- this was the actual missing
+# piece the whole time. oi_dashboard_runtime_guard.py (an existing
+# project file, monkey-patches this module's _prepare_sheet and
+# _write_dashboard_row after import) calls
+# dashboard._panel_ready.discard(index_name) in both of its patched
+# functions -- but this attribute never existed anywhere in this file,
+# in any version, before or after any edit made this session. That's
+# what "module has no attribute '_panel_ready'" actually was: not a
+# stale cache, not a drifted file -- a real, genuine gap between what
+# the guard file expects and what this file ever defined. An empty
+# set is sufficient: nothing here ever needs to .add() to it, since
+# every reference found only ever calls .discard(), which is a safe
+# no-op for a key that was never present.
+_panel_ready = set()
 
-_FILL_GREEN = (198, 239, 206)
-_FILL_RED = (255, 199, 206)
-_FILL_AMBER = (255, 235, 156)
-_FILL_HEADER = (242, 242, 242)
-_FONT_HEADER = (0, 0, 0)
-_FILL_LABEL = (226, 240, 217)
-_FILL_TITLE = (217, 234, 247)
-_FILL_NEUTRAL = (255, 255, 255)
+_GREEN_FILL = (198, 239, 206)
+_RED_FILL = (255, 199, 206)
+_AMBER_FILL = (255, 235, 156)
+_HEADER_FILL = (242, 242, 242)
+_HEADER_FONT = (0, 0, 0)
+_LABEL_FILL = (226, 240, 217)
+_TITLE_FILL = (217, 234, 247)
+_NEUTRAL_FILL = (255, 255, 255)
 
 
-def _to_thousands(value):
+def _to_k(value):
     return round(value / 1000, 1) if value is not None else None
 
 
@@ -115,51 +129,51 @@ def compute_boundary_pairs(rows, top_n=2):
     return pairs("ce"), pairs("pe")
 
 
-def _open_or_reuse_workbook():
-    global _excel_app, _workbook, _xlwings_missing_warned
-    if _workbook is not None:
+def _get_dashboard_book():
+    global _app, _book, _warned_once
+    if _book is not None:
         try:
-            _workbook.sheets[0].name
-            return _workbook
+            _book.sheets[0].name
+            return _book
         except Exception:
-            _excel_app = None
-            _workbook = None
+            _app = None
+            _book = None
 
     if not XLWINGS_AVAILABLE:
-        if not _xlwings_missing_warned:
+        if not _warned_once:
             print("[OILiveDashboard] xlwings not installed; Excel dashboard disabled.")
-            _xlwings_missing_warned = True
+            _warned_once = True
         return None
 
     try:
         os.makedirs(LOG_DIR, exist_ok=True)
-        _excel_app = xw.apps.active or xw.App(visible=True)
+        _app = xw.apps.active or xw.App(visible=True)
         if os.path.exists(DASHBOARD_PATH):
-            _workbook = _excel_app.books.open(DASHBOARD_PATH)
+            _book = _app.books.open(DASHBOARD_PATH)
         else:
-            _workbook = _excel_app.books.add()
-            _workbook.save(DASHBOARD_PATH)
-        return _workbook
+            _book = _app.books.add()
+            _book.save(DASHBOARD_PATH)
+        return _book
     except Exception as e:
         print(f"[OILiveDashboard] Could not open workbook: {e}")
-        _excel_app = None
-        _workbook = None
+        _app = None
+        _book = None
         return None
 
 
-def _set_cell_fill(cell, colour):
+def _fill(cell, colour):
     try:
         cell.color = colour
     except Exception:
         pass
 
 
-def _format_header_row(sheet):
+def _style_header(sheet):
     try:
-        header = sheet.range(f"A1:{_COLUMN_LETTERS[-1]}1")
+        header = sheet.range(f"A1:{_COL_LETTERS[-1]}1")
         header.font.bold = True
-        header.font.color = _FONT_HEADER
-        header.color = _FILL_HEADER
+        header.font.color = _HEADER_FONT
+        header.color = _HEADER_FILL
         header.api.HorizontalAlignment = -4108
         header.api.VerticalAlignment = -4108
         header.api.WrapText = True
@@ -176,41 +190,41 @@ def _format_header_row(sheet):
         print(f"[OILiveDashboard] Header formatting skipped: {e}")
 
 
-def _format_data_row(sheet, row_num, values, previous):
+def _style_live_row(sheet, row_num, values, previous):
     """Use semantic colours; raw OI movement is deliberately neutral."""
-    for i, col in enumerate(_COLUMN_LETTERS):
+    for i, col in enumerate(_COL_LETTERS):
         try:
             cell = sheet.range(f"{col}{row_num}")
             cell.api.HorizontalAlignment = -4108
             cell.api.VerticalAlignment = -4108
             cell.api.Borders.LineStyle = 1
-            _set_cell_fill(cell, _FILL_NEUTRAL)
+            _fill(cell, _NEUTRAL_FILL)
 
-            if i == _COL_IDX_BIAS:
+            if i == _BIAS_COL_INDEX:
                 bias = values[i] or ""
                 if "Bullish" in bias:
-                    _set_cell_fill(cell, _FILL_GREEN)
+                    _fill(cell, _GREEN_FILL)
                 elif "Bearish" in bias:
-                    _set_cell_fill(cell, _FILL_RED)
+                    _fill(cell, _RED_FILL)
                 elif bias == "Neutral":
-                    _set_cell_fill(cell, _FILL_AMBER)
-            elif i == _COL_IDX_PCR:
+                    _fill(cell, _AMBER_FILL)
+            elif i == _PCR_COL_INDEX:
                 pcr = values[i]
                 if isinstance(pcr, (int, float)):
-                    _set_cell_fill(cell, _FILL_GREEN if pcr > 1.05 else _FILL_RED if pcr < 0.95 else _FILL_AMBER)
-            elif i == _COL_IDX_DIFF:
+                    _fill(cell, _GREEN_FILL if pcr > 1.05 else _RED_FILL if pcr < 0.95 else _AMBER_FILL)
+            elif i == _DIFF_COL_INDEX:
                 diff = values[i]
                 if isinstance(diff, (int, float)):
-                    _set_cell_fill(cell, _FILL_GREEN if diff > 0 else _FILL_RED if diff < 0 else _FILL_AMBER)
-            elif i == _COL_IDX_VALUE and previous is not None:
+                    _fill(cell, _GREEN_FILL if diff > 0 else _RED_FILL if diff < 0 else _AMBER_FILL)
+            elif i == _VALUE_COL_INDEX and previous is not None:
                 old, new = previous[i], values[i]
                 if isinstance(old, (int, float)) and isinstance(new, (int, float)):
-                    _set_cell_fill(cell, _FILL_GREEN if new > old else _FILL_RED if new < old else _FILL_NEUTRAL)
+                    _fill(cell, _GREEN_FILL if new > old else _RED_FILL if new < old else _NEUTRAL_FILL)
         except Exception as e:
             print(f"[OILiveDashboard] Row formatting skipped for {col}{row_num}: {e}")
 
 
-def _recover_row_state_from_sheet(sheet):
+def _scan_existing_rows(sheet):
     """Recover today's rows after a backend/Excel restart."""
     last = 1
     last_values = None
@@ -231,16 +245,16 @@ def _recover_row_state_from_sheet(sheet):
     return last, last_values
 
 
-def _clear_boundary_panel(sheet, start_row):
+def _clear_panel(sheet, start_row):
     try:
-        end_row = start_row + _BOUNDARY_PANEL_HEIGHT - 1
+        end_row = start_row + _PANEL_HEIGHT - 1
         sheet.range(f"A{start_row}:I{end_row}").api.UnMerge()
         sheet.range(f"A{start_row}:I{end_row}").clear()
     except Exception:
         pass
 
 
-def _get_or_create_sheet(book, index_name):
+def _prepare_sheet(book, index_name):
     today = datetime.now().strftime("%Y-%m-%d")
     names = [s.name for s in book.sheets]
     exists = index_name in names
@@ -251,14 +265,14 @@ def _get_or_create_sheet(book, index_name):
             header = sheet.range("A1:M1").value
         except Exception:
             header = None
-        if header == _SHEET_COLUMNS and _sheet_last_seen_date.get(index_name) == today:
+        if header == _LIVE_LOG_COLUMNS and _sheet_day_seen.get(index_name) == today:
             return sheet
-        if header == _SHEET_COLUMNS:
-            last_row, last_values = _recover_row_state_from_sheet(sheet)
-            _row_cursor[index_name] = max(2, last_row + 1)
-            _last_written_values[index_name] = last_values
-            _boundary_panel_anchor[index_name] = max(_BOUNDARY_PANEL_FIRST_ROW, last_row + 1)
-            _sheet_last_seen_date[index_name] = today
+        if header == _LIVE_LOG_COLUMNS:
+            last_row, last_values = _scan_existing_rows(sheet)
+            _next_row[index_name] = max(2, last_row + 1)
+            _prev_values[index_name] = last_values
+            _panel_start_rows[index_name] = max(_FIRST_PANEL_ROW, last_row + 1)
+            _sheet_day_seen[index_name] = today
             return sheet
 
         archive_name = f"{index_name}_archive"
@@ -272,16 +286,16 @@ def _get_or_create_sheet(book, index_name):
             pass
 
     sheet = book.sheets.add(index_name, after=book.sheets[-1])
-    sheet.range("A1").value = [_SHEET_COLUMNS]
-    _format_header_row(sheet)
-    _row_cursor[index_name] = 2
-    _last_written_values.pop(index_name, None)
-    _boundary_panel_anchor[index_name] = _BOUNDARY_PANEL_FIRST_ROW
-    _sheet_last_seen_date[index_name] = today
+    sheet.range("A1").value = [_LIVE_LOG_COLUMNS]
+    _style_header(sheet)
+    _next_row[index_name] = 2
+    _prev_values.pop(index_name, None)
+    _panel_start_rows[index_name] = _FIRST_PANEL_ROW
+    _sheet_day_seen[index_name] = today
     return sheet
 
 
-def _render_boundary_panel(sheet, index_name, row, oi_snap):
+def _write_boundary_panel(sheet, index_name, row, oi_snap):
     rows = (oi_snap or {}).get("rows") or []
     calls, puts = compute_boundary_pairs(rows)
     call1 = calls[0] if calls else (None, None)
@@ -289,9 +303,9 @@ def _render_boundary_panel(sheet, index_name, row, oi_snap):
     put1 = puts[0] if puts else (None, None)
     put2 = puts[1] if len(puts) > 1 else (None, None)
 
-    title = _boundary_panel_anchor.get(index_name, _BOUNDARY_PANEL_FIRST_ROW)
+    title = _panel_start_rows.get(index_name, _FIRST_PANEL_ROW)
     r1, r2, r3, r4, r5 = title + 1, title + 2, title + 3, title + 4, title + 5
-    _clear_boundary_panel(sheet, title)
+    _clear_panel(sheet, title)
 
     try:
         sheet.range(f"A{title}:D{title}").merge()
@@ -309,15 +323,15 @@ def _render_boundary_panel(sheet, index_name, row, oi_snap):
             sheet.range(addr).font.bold = True
             sheet.range(addr).api.HorizontalAlignment = -4108
             sheet.range(addr).api.VerticalAlignment = -4108
-            _set_cell_fill(sheet.range(addr), _FILL_TITLE)
+            _fill(sheet.range(addr), _TITLE_FILL)
 
         sheet.range(f"A{r1}:D{r2}").value = [
-            ["Strike Price 1", call1[0], "OI (in K)", _to_thousands(call1[1])],
-            ["Strike Price 2", call2[0], "OI (in K)", _to_thousands(call2[1])],
+            ["Strike Price 1", call1[0], "OI (in K)", _to_k(call1[1])],
+            ["Strike Price 2", call2[0], "OI (in K)", _to_k(call2[1])],
         ]
         sheet.range(f"F{r1}:I{r2}").value = [
-            ["Strike Price 1", put1[0], "OI (in K)", _to_thousands(put1[1])],
-            ["Strike Price 2", put2[0], "OI (in K)", _to_thousands(put2[1])],
+            ["Strike Price 1", put1[0], "OI (in K)", _to_k(put1[1])],
+            ["Strike Price 2", put2[0], "OI (in K)", _to_k(put2[1])],
         ]
 
         bias = row.get("Bias") or "N/A"
@@ -339,15 +353,15 @@ def _render_boundary_panel(sheet, index_name, row, oi_snap):
         for rr in (r1, r2, r3, r4, r5):
             for addr in (f"A{rr}", f"C{rr}", f"F{rr}", f"H{rr}"):
                 sheet.range(addr).font.bold = True
-                _set_cell_fill(sheet.range(addr), _FILL_LABEL)
+                _fill(sheet.range(addr), _LABEL_FILL)
         if "Bullish" in bias:
-            _set_cell_fill(sheet.range(f"B{r3}"), _FILL_GREEN)
+            _fill(sheet.range(f"B{r3}"), _GREEN_FILL)
         elif "Bearish" in bias:
-            _set_cell_fill(sheet.range(f"B{r3}"), _FILL_RED)
+            _fill(sheet.range(f"B{r3}"), _RED_FILL)
         elif bias == "Neutral":
-            _set_cell_fill(sheet.range(f"B{r3}"), _FILL_AMBER)
+            _fill(sheet.range(f"B{r3}"), _AMBER_FILL)
         if isinstance(pcr, (int, float)):
-            _set_cell_fill(sheet.range(f"G{r3}"), _FILL_GREEN if pcr > 1.05 else _FILL_RED if pcr < 0.95 else _FILL_AMBER)
+            _fill(sheet.range(f"G{r3}"), _GREEN_FILL if pcr > 1.05 else _RED_FILL if pcr < 0.95 else _AMBER_FILL)
 
         sheet.range(f"D{r1}:D{r2}").number_format = "0.0"
         sheet.range(f"I{r1}:I{r2}").number_format = "0.0"
@@ -361,29 +375,29 @@ def _render_boundary_panel(sheet, index_name, row, oi_snap):
         print(f"[OILiveDashboard] Panel layout setup skipped: {e}")
 
 
-def _append_data_row(sheet, index_name, values):
-    row_num = _row_cursor.get(index_name, 2)
+def _write_dashboard_row(sheet, index_name, values):
+    row_num = _next_row.get(index_name, 2)
     # The current panel occupies this row after the previous sample. Remove
     # it before writing the next row so merged cells never block the append.
     if row_num > 2:
-        _clear_boundary_panel(sheet, _boundary_panel_anchor.get(index_name, row_num))
+        _clear_panel(sheet, _panel_start_rows.get(index_name, row_num))
     sheet.range(f"A{row_num}:M{row_num}").value = [values]
-    _format_data_row(sheet, row_num, values, _last_written_values.get(index_name))
-    _last_written_values[index_name] = values
-    _row_cursor[index_name] = row_num + 1
-    _boundary_panel_anchor[index_name] = row_num + 1
+    _style_live_row(sheet, row_num, values, _prev_values.get(index_name))
+    _prev_values[index_name] = values
+    _next_row[index_name] = row_num + 1
+    _panel_start_rows[index_name] = row_num + 1
     return row_num
 
 
-def _row_dict_to_values(row):
+def _build_values(row):
     return [
         row.get("Time"),
         row.get("Value", row.get("Spot")),
-        _to_thousands(row.get("Total Call OI")),
-        _to_thousands(row.get("Total Put OI")),
-        _to_thousands(row.get("Difference")),
-        _to_thousands(row.get("Highest Call OI Value")),
-        _to_thousands(row.get("Highest Put OI Value")),
+        _to_k(row.get("Total Call OI")),
+        _to_k(row.get("Total Put OI")),
+        _to_k(row.get("Difference")),
+        _to_k(row.get("Highest Call OI Value")),
+        _to_k(row.get("Highest Put OI Value")),
         row.get("Call ITM Ratio"),
         row.get("Put ITM Ratio"),
         row.get("Highest Call OI Strike"),
@@ -396,7 +410,7 @@ def _row_dict_to_values(row):
 def write_live_dashboard(results):
     """Write NIFTY/BANKNIFTY/SENSEX rows in one save. See module docstring
     for the Sep 16 2026 rewrite -- same tested logic, new internal names."""
-    book = _open_or_reuse_workbook()
+    book = _get_dashboard_book()
     if book is None:
         return
 
@@ -407,7 +421,7 @@ def write_live_dashboard(results):
     # left off if something in the loop below fails.
     screen_updating_supported = False
     try:
-        _excel_app.screen_updating = False
+        _app.screen_updating = False
         screen_updating_supported = True
     except Exception:
         pass
@@ -418,14 +432,14 @@ def write_live_dashboard(results):
             if not row or index_name not in ("NIFTY", "BANKNIFTY", "SENSEX"):
                 continue
             try:
-                sheet = _get_or_create_sheet(book, index_name)
-                values = _row_dict_to_values(row)
-                row_num = _append_data_row(sheet, index_name, values)
+                sheet = _prepare_sheet(book, index_name)
+                values = _build_values(row)
+                row_num = _write_dashboard_row(sheet, index_name, values)
                 sheet.range(f"B{row_num}:G{row_num}").number_format = "#,##0.0"
                 sheet.range(f"H{row_num}:I{row_num}").number_format = "0.000"
                 sheet.range(f"J{row_num}:K{row_num}").number_format = "0"
                 sheet.range(f"L{row_num}").number_format = "0.000"
-                _render_boundary_panel(sheet, index_name, row, get_last_oi_snapshot(index_name))
+                _write_boundary_panel(sheet, index_name, row, get_last_oi_snapshot(index_name))
                 wrote_any = True
             except Exception as e:
                 print(f"[OILiveDashboard] Failed writing {index_name}: {e}")
@@ -438,6 +452,6 @@ def write_live_dashboard(results):
     finally:
         if screen_updating_supported:
             try:
-                _excel_app.screen_updating = True
+                _app.screen_updating = True
             except Exception:
                 pass
