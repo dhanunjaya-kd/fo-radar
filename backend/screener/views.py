@@ -41,6 +41,19 @@ except ImportError:
 # ============================================================
 _stock_cache = {}
 _index_cache = {}
+# Sep 16 2026: circuit breaker for the OI live dashboard writer -- an
+# unexplained "module has no attribute '_panel_ready'" error was
+# confirmed live, repeating every ~90s scan cycle and flooding the
+# terminal without ever actually writing data. Root cause not yet
+# found (that exact name appears nowhere in this project's source),
+# so rather than keep retrying and spamming the log every cycle while
+# it's investigated, this stops retrying after a few consecutive
+# failures and reports it ONCE -- the rest of the app (signals,
+# scanning, everything else) was never affected by this; only the
+# dashboard mirror itself was failing.
+_dashboard_consecutive_failures = 0
+_dashboard_disabled_this_session = False
+_DASHBOARD_MAX_CONSECUTIVE_FAILURES = 3
 _index_cache_updated_at = 0.0  # Aug 20 2026: lets _build_all() below reuse whatever
 # _index_snapshot_worker's faster 60s loop already fetched instead of
 # independently re-fetching the same NIFTY/BANKNIFTY/VIX quotes -- see
@@ -3482,11 +3495,22 @@ def _index_snapshot_worker():
                 # individual write inside write_live_dashboard() already has
                 # its own try/except too, this is a second layer, not the
                 # only one.
-                try:
-                    with _FileLock(DASHBOARD_PATH, timeout=15):
-                        write_live_dashboard(index_rows)
-                except Exception as e:
-                    print(f"[OILiveDashboard] Skipped this cycle: {e}")
+                global _dashboard_consecutive_failures, _dashboard_disabled_this_session
+                if not _dashboard_disabled_this_session:
+                    try:
+                        with _FileLock(DASHBOARD_PATH, timeout=15):
+                            write_live_dashboard(index_rows)
+                        _dashboard_consecutive_failures = 0
+                    except Exception as e:
+                        _dashboard_consecutive_failures += 1
+                        if _dashboard_consecutive_failures >= _DASHBOARD_MAX_CONSECUTIVE_FAILURES:
+                            _dashboard_disabled_this_session = True
+                            print(f"[OILiveDashboard] Failed {_dashboard_consecutive_failures} cycles in a row "
+                                  f"({e}) -- disabling for the rest of this session rather than repeating this "
+                                  f"every cycle. Everything else continues normally; restart the server to retry.")
+                        else:
+                            print(f"[OILiveDashboard] Skipped this cycle ({_dashboard_consecutive_failures}/"
+                                  f"{_DASHBOARD_MAX_CONSECUTIVE_FAILURES}): {e}")
 
                 # Sep 11 2026: SENSEX snapshots into Index Tracker/the
                 # Market Banner above (snapshot_all() already looped it

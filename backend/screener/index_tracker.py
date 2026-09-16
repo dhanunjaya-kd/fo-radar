@@ -636,13 +636,29 @@ def _atomic_save(wb, path):
     holds within one filesystem -- a temp file on a different drive
     would silently fall back to copy+delete, losing exactly the
     guarantee this exists to provide.
+
+    Sep 16 2026: REAL BUG FOUND live -- "[WinError 5] Access is
+    denied" on this exact os.replace() call, confirmed for BANKNIFTY.
+    Atomicity was never the problem; the problem is that os.replace()
+    on Windows specifically REFUSES to replace a destination file that
+    is open by another process or thread at that instant (unlike
+    POSIX, where a rename succeeds even over an open file). This is
+    the identical concurrent-access problem already fixed in
+    shadow_logger.py/excel_logger.py this session (most likely two
+    processes from Django's own autoreloader, or a reader elsewhere in
+    this same file, touching the same path at once) -- just showing up
+    here as a rename failure instead of file corruption, because this
+    function already had the safer temp-file pattern. Same fix, same
+    mechanism: pure standard library, no new dependency.
     """
+    from .excel_logger import _FileLock
     directory = os.path.dirname(path)
     fd, tmp_path = tempfile.mkstemp(suffix=".xlsx.tmp", dir=directory)
     os.close(fd)  # openpyxl needs a path to write to, not an open fd -- mkstemp is only used for its atomic unique-name creation
     try:
         wb.save(tmp_path)
-        os.replace(tmp_path, path)
+        with _FileLock(path, timeout=15):
+            os.replace(tmp_path, path)
     except BaseException:
         # BaseException, not Exception -- a real interruption
         # (KeyboardInterrupt, or the process being killed via a signal
