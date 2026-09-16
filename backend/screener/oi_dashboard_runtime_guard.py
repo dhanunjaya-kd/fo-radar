@@ -24,8 +24,22 @@ def install():
     original_style = dashboard._style_live_row
     original_prepare_sheet = dashboard._prepare_sheet
 
+    # Sep 16 2026: extended per explicit, repeated request for exact
+    # visual parity with the desktop app reference -- that app colours
+    # Call Sum, Put Sum, Call Boundary, Put Boundary, and Call/Put ITM
+    # by movement vs the previous row (same treatment Value already
+    # had here), and colours Difference by sign (negative red,
+    # positive green) -- previously not coloured by this function at
+    # all. This directly reverses the "neutral OI movement" choice in
+    # this file's own original docstring above -- worth knowing if
+    # that neutrality was intentional for a reason beyond visual
+    # preference, but the explicit ask has been for exact match,
+    # repeatedly, so implementing that here.
+    _MOVEMENT_COLOURED_COLUMNS = {2, 3, 5, 6, 7, 8}  # Call Sum, Put Sum, Call Boundary, Put Boundary, Call ITM, Put ITM
+    _DIFFERENCE_COLUMN = 4
+
     def style_live_row(sheet, row_num, values, previous):
-        """Style the row without implying direction from raw OI movement."""
+        """Colour every numeric column that the desktop app reference colours."""
         for i, col in enumerate(dashboard._COL_LETTERS):
             try:
                 cell = sheet.range(f"{col}{row_num}")
@@ -50,7 +64,11 @@ def install():
                         else dashboard._AMBER_FILL if pcr is not None
                         else dashboard._HEADER_FILL,
                     )
-                elif i == 1 and previous is not None:
+                elif i == _DIFFERENCE_COLUMN:
+                    diff = values[i]
+                    if isinstance(diff, (int, float)):
+                        dashboard._fill(cell, dashboard._GREEN_FILL if diff > 0 else dashboard._RED_FILL if diff < 0 else dashboard._AMBER_FILL)
+                elif (i == 1 or i in _MOVEMENT_COLOURED_COLUMNS) and previous is not None:
                     old, new = previous[i], values[i]
                     if isinstance(old, (int, float)) and isinstance(new, (int, float)):
                         if new > old:
