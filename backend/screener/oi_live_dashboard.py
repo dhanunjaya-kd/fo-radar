@@ -4,8 +4,8 @@ Uses option-chain snapshots already collected by index_tracker.py. It makes
 no extra Fyers requests. One workbook contains a separate sheet per tracked
 instrument and is saved once per dashboard update cycle.
 
-Standard commodities (CRUDEOIL, GOLD, SILVER) are included when their latest
-in-process option-chain snapshot is available. No synthetic values are used.
+Sep 16 2026: NIFTY, BANKNIFTY, and SENSEX only -- CRUDEOIL/GOLD/SILVER
+handling removed per explicit request. No synthetic values are used.
 """
 
 import os
@@ -32,7 +32,6 @@ _PCR_COL_INDEX = _LIVE_LOG_COLUMNS.index("PCR")
 _BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
 _VALUE_COL_INDEX = _LIVE_LOG_COLUMNS.index("Value")
 _DIFF_COL_INDEX = _LIVE_LOG_COLUMNS.index("Difference (in K)")
-_COMMODITY_NAMES = ("CRUDEOIL", "GOLD", "SILVER")
 
 _FIRST_PANEL_ROW = 3
 _PANEL_HEIGHT = 6
@@ -410,29 +409,27 @@ def _build_values(row):
 
 
 def write_live_dashboard(results):
-    """Write index rows and latest cached standard-commodity rows in one save."""
+    """Write NIFTY/BANKNIFTY/SENSEX rows in one save.
+
+    Sep 16 2026: removed CRUDEOIL/GOLD/SILVER entirely, per explicit
+    request -- this function no longer reads cached commodity snapshots
+    or writes commodity sheets at all. Also fixed a real bug found
+    while making this change: SENSEX was already present in `results`
+    (snapshot_all() in index_tracker.py returns NIFTY/BANKNIFTY/SENSEX
+    together) but the old allowed-names check only listed
+    ("NIFTY", "BANKNIFTY") plus the commodities -- SENSEX was silently
+    dropped here even though it was already being computed upstream.
+    """
     book = _get_dashboard_book()
     if book is None:
         return
 
-    combined = dict(results or {})
-    for name in _COMMODITY_NAMES:
-        if not combined.get(name):
-            cached = get_last_oi_snapshot(name)
-            row = _row_from_snapshot(name, cached)
-            if row is not None:
-                combined[name] = row
-
     wrote_any = False
-    for index_name, row in combined.items():
-        if not row or index_name not in ("NIFTY", "BANKNIFTY") + _COMMODITY_NAMES:
+    for index_name, row in (results or {}).items():
+        if not row or index_name not in ("NIFTY", "BANKNIFTY", "SENSEX"):
             continue
         try:
             sheet = _prepare_sheet(book, index_name)
-            if index_name in _COMMODITY_NAMES and "Total Call OI" not in row:
-                row = _row_from_snapshot(index_name, get_last_oi_snapshot(index_name))
-            if not row:
-                continue
             values = _build_values(row)
             row_num = _write_dashboard_row(sheet, index_name, values)
             sheet.range(f"B{row_num}:G{row_num}").number_format = "#,##0.0"
