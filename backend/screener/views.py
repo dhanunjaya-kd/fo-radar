@@ -41,6 +41,19 @@ except ImportError:
 # ============================================================
 _stock_cache = {}
 _index_cache = {}
+# Sep 16 2026: circuit breaker for the OI live dashboard writer -- an
+# unexplained "module has no attribute '_panel_ready'" error was
+# confirmed live, repeating every ~90s scan cycle and flooding the
+# terminal without ever actually writing data. Root cause not yet
+# found (that exact name appears nowhere in this project's source),
+# so rather than keep retrying and spamming the log every cycle while
+# it's investigated, this stops retrying after a few consecutive
+# failures and reports it ONCE -- the rest of the app (signals,
+# scanning, everything else) was never affected by this; only the
+# dashboard mirror itself was failing.
+_dashboard_consecutive_failures = 0
+_dashboard_disabled_this_session = False
+_DASHBOARD_MAX_CONSECUTIVE_FAILURES = 3
 _index_cache_updated_at = 0.0  # Aug 20 2026: lets _build_all() below reuse whatever
 # _index_snapshot_worker's faster 60s loop already fetched instead of
 # independently re-fetching the same NIFTY/BANKNIFTY/VIX quotes -- see
@@ -183,6 +196,513 @@ def _is_qualified_with_hysteresis(symbol, action, score, state_dict=None, today=
             state['qualified'] = True
 
     return state['qualified']
+
+
+# Sep 12 2026: hysteresis for quality_engine's aggregate verdict, same
+# shape and same evidence-backed reasoning as _is_qualified_with_
+# hysteresis() above for the technical score -- compute_stock_quality_
+# score() gets recomputed fresh every cycle, same "blinks every cycle
+# on a score right at the boundary" risk that function already fixed
+# for the base technical score. Root motivation: a real logged trade
+# hit SL after entering on a signal that had already flickered off/on
+# in the live list before entry -- the technical score's own hysteresis
+# was never the problem there; oi_confirmation (recomputed fresh, no
+# memory) was.
+#
+# Separate dict, separate function from _qualification_state above --
+# different key semantics (bool confirmed/not, not a score threshold),
+# and this one also needs to distinguish a REAL contradiction from
+# ordinary noise, which the technical-score version doesn't need to.
+_quality_confirmation_state = {}  # {(symbol, action): {'date': 'YYYY-MM-DD', 'confirmed': bool}}
+
+
+def _is_quality_confirmed_with_hysteresis(symbol, action, quality_result, state_dict=None, today=None):
+    """
+    Whether (symbol, action) should count as quality_engine-confirmed
+    THIS cycle. Same injectable state_dict/today pattern as
+    _is_qualified_with_hysteresis() above, same reason (pure enough to
+    unit test directly, no dependency on wall-clock time or global
+    state in a test).
+
+    Asymmetric by DESIGN, not by a tuned number:
+      - ENTRY requires this cycle's OWN verdict to be TRADE, no grace
+        on the way in -- same "no grace on entry" shape as the
+        technical score's ENTRY_SCORE_THRESHOLD.
+      - EXIT is immediate ONLY on a real, confirmed contradiction --
+        quality_result['conflict_gate_triggered'] (options structure
+        or market regime actively fighting this direction, not a mere
+        score dip) -- same "excluded entirely, not just penalized"
+        principle the live oi_confirmation check already applies to a
+        fresh CONFLICT reading.
+      - Everything else that drops out of TRADE (a score dip with no
+        active conflict, a thin-data cycle, or quality_result itself
+        being None because _evaluate_and_log_shadow() itself raised)
+        is held through, not exited -- same "don't drop on noise or on
+        a data gap" principle as EXIT_SCORE_THRESHOLD's own gap gives
+        the base score one level up, and the same "a failed fetch
+        isn't new information" reasoning already used everywhere else
+        in this project for a transient failure.
+
+    Mutates state_dict as a side effect -- call exactly once per
+    (symbol, action) per cycle, same call-once contract as the
+    technical-score version.
+    """
+    if state_dict is None:
+        state_dict = _quality_confirmation_state
+    if today is None:
+        today = datetime.now().strftime("%Y-%m-%d")
+
+    key = (symbol, action)
+    state = state_dict.get(key)
+    if state is None or state.get('date') != today:
+        state = {'date': today, 'confirmed': False}
+        state_dict[key] = state
+
+    conflict = bool(quality_result and quality_result.get('conflict_gate_triggered'))
+    verdict = quality_result.get('verdict') if quality_result else None
+
+    if state['confirmed']:
+        if conflict:
+            state['confirmed'] = False
+        # else: hold through a WATCH/IGNORE-from-score dip, a thin-data
+        # cycle, or a computation failure -- see docstring above.
+    else:
+        if verdict == 'TRADE' and not conflict:
+            state['confirmed'] = True
+
+    return state['confirmed']
+
+
+# Sep 12 2026 (later same day): hysteresis for oi_confirmation ITSELF --
+# the actual root-cause field. Adding quality_confirmed's own
+# persistence above did NOT fix the real reported bug (a signal
+# flickering off/on before a real logged loss on ANGELONE 295 PE),
+# because quality_signals' final filter ANDs oi_confirmation=='CONFIRMED'
+# together with quality_confirmed -- oi_confirmation was still being
+# recomputed fresh every cycle from a 1.2x CE/PE-ratio check with no
+# floor, no memory, completely unprotected by either hysteresis
+# function above. A signal could still drop out purely because THIS
+# field read NEUTRAL for one cycle, regardless of what quality_confirmed
+# said. This is the fix for the actual, evidenced problem.
+_oi_confirmation_state = {}  # {(symbol, action): {'date': 'YYYY-MM-DD', 'confirmed': bool}}
+
+
+def _is_oi_confirmed_with_hysteresis(symbol, action, oi_confirmation_reading, state_dict=None, today=None):
+    """
+    Same asymmetric shape as the two hysteresis functions above, applied
+    to the oi_confirmation field itself (CONFIRMED/NEUTRAL/NO_DATA on an
+    appended signal -- CONFLICT never reaches this function at all, see
+    below).
+
+    ENTRY: only from a fresh CONFIRMED reading this cycle, no grace.
+
+    EXIT: this function only ever sees CONFIRMED/NEUTRAL/NO_DATA -- a
+    CONFLICT reading causes an immediate `continue` in the caller BEFORE
+    a signal is even built for this cycle (see the oi_confirmation
+    computation block above), so there's no "reading" to hand this
+    function for that case. The caller explicitly clears this state to
+    False in that CONFLICT branch instead -- a real, confirmed
+    contradiction exits immediately, same principle as the other two
+    hysteresis functions' conflict handling, just enforced at the call
+    site here rather than inside this function, because the CONFLICT
+    candidate is dropped before reaching this point in the loop.
+
+    Everything else (NEUTRAL or NO_DATA this cycle) holds whatever the
+    state already was -- the exact 1.2x-ratio wobble this exists to
+    absorb.
+    """
+    if state_dict is None:
+        state_dict = _oi_confirmation_state
+    if today is None:
+        today = datetime.now().strftime("%Y-%m-%d")
+
+    key = (symbol, action)
+    state = state_dict.get(key)
+    if state is None or state.get('date') != today:
+        state = {'date': today, 'confirmed': False}
+        state_dict[key] = state
+
+    if oi_confirmation_reading == 'CONFIRMED':
+        state['confirmed'] = True
+    # else: NEUTRAL or NO_DATA this cycle -- hold, don't newly enter and
+    # don't drop out either. See docstring above for why CONFLICT is
+    # handled by the caller clearing this state directly instead.
+
+    return state['confirmed']
+
+
+# Sep 12 2026: same off-switch pattern tasks.py already uses for its
+# own disabled duplicate scanner (_DUPLICATE_SCANNER_ENABLED) -- this
+# gate is new and its real effect on list size hasn't been observed
+# live yet (multi_tf_trend/futures_oi are often INSUFFICIENT_DATA for
+# stocks today, so how often TRADE is actually reachable is currently
+# unknown). Default ON since it was explicitly requested, but instantly
+# reversible via env var with no code change if it turns out to
+# strangle the list more than intended -- quality_confirmed/score/
+# verdict/reasons stay attached to every signal either way, so the
+# gate's would-be effect is always visible even while it's toggled off.
+_QUALITY_GATE_ENABLED = os.environ.get("ENABLE_QUALITY_CONFIRMATION_GATE", "true").lower() == "true"
+
+
+# ---------------------------------------------------------------------------
+# Sep 12 2026: SNIPER V2 -- central configuration.
+#
+# IMPORTANT SCOPE NOTE: the forensic audit's Change 1 (restart-proof
+# duplicate guard) and the durable half of cross-date OUTCOME history
+# both belong to excel_logger.py's get_locked_plan() +
+# get_symbol_recurrence_info(), which already implement real, tested
+# (see excel_logger.py's own restart-simulation tests), persisted
+# per-(symbol,action) state. Nothing here duplicates that -- this
+# section adds what excel_logger.py does NOT already provide: a
+# same-day-scoped observation counter, and the classification/shadow/
+# config layer sitting on top of both data sources.
+#
+# All flags default to OFF or observation-only, per explicit
+# instruction: the Sep 5-12 forensic audit found ZERO genuine same-day
+# repeat signals to test a lock against, and the cross-date recurrence
+# gap (50% first-occurrence vs 11% later, n=8/9) is too small to act on
+# yet.
+SNIPER_V2_CONFIG = {
+    "DUPLICATE_GUARD": True,  # excel_logger.py's get_locked_plan()/cooldown -- always on, already proven
+    "SAME_DAY_SYMBOL_LOCK": os.environ.get("ENABLE_SAME_DAY_SYMBOL_LOCK", "false").lower() == "true",
+    "RECURRENCE_TRACKING": os.environ.get("ENABLE_RECURRENCE_TRACKING", "true").lower() == "true",
+    "RECURRENCE_PENALTY": os.environ.get("ENABLE_RECURRENCE_PENALTY", "false").lower() == "true",
+    "SHADOW_MODE": os.environ.get("SNIPER_V2_SHADOW_MODE", "true").lower() == "true",
+    "MARKET_FILTER": False,     # no market-regime data source wired in yet
+    "SECTOR_FILTER": False,     # no sector-regime data source wired in yet
+    "OI_FILTER": False,         # oi_confirmation exists and already gates via _is_oi_confirmed_with_hysteresis -- this flag is for a SEPARATE, not-yet-built recurrence-style OI filter, not a duplicate of the existing one
+    "STRUCTURE_FILTER": False,  # no real BOS/structure classification data source exists
+    "TIME_FILTER": False,       # no time-of-day filter built -- forensic audit's own data had no timestamp column to validate one against
+    "LIQUIDITY_FILTER": False,  # no option liquidity/spread data source wired in yet
+    "REENTRY_MODE": "SAFE",     # "SAFE" = classify as UNKNOWN rather than guess NEW_SETUP/GENUINE_REENTRY without real structure data
+    # Sep 13 2026: ADX (trend strength) currently only ever adds +20 to
+    # score -- a stock can still qualify (RSI+Volume+direction alone =
+    # 60 >= the 50 threshold) with ZERO trend strength, which directly
+    # contradicts ADX's own stated reason for being added here in the
+    # first place ("a stock can look great on RSI/volume/VWAP/MACD and
+    # still be going nowhere" -- see the Aug 31 comment right above the
+    # score computation). Default False: this is a real, defensible
+    # reading of ADX's own established purpose, but NOT validated
+    # against real historical outcomes -- the audited 41-signal sample
+    # has no per-signal ADX recorded, so I cannot show this improves
+    # results, only that it closes a real gap between stated intent and
+    # actual enforcement. Same discipline as every other switch here:
+    # ready, not silently activated.
+    "REQUIRE_ADX_TREND_STRENGTH": os.environ.get("REQUIRE_ADX_TREND_STRENGTH", "false").lower() == "true",
+}
+# Back-compat module-level names some earlier code in this session already
+# reads directly -- same values, single source of truth is the dict above.
+ENABLE_RECURRENCE_TRACKING = SNIPER_V2_CONFIG["RECURRENCE_TRACKING"]
+ENABLE_SAME_DAY_SYMBOL_LOCK = SNIPER_V2_CONFIG["SAME_DAY_SYMBOL_LOCK"]
+ENABLE_RECURRENCE_PENALTY = SNIPER_V2_CONFIG["RECURRENCE_PENALTY"]
+
+# Sep 12 2026: standardized block-reason vocabulary. Defined here as the
+# shared vocabulary for any FUTURE blocking rule to use -- does NOT
+# retrofit the ~15 existing free-text no_trade_log.append() call sites
+# elsewhere in this file (that's a much bigger, separately-risky change,
+# and every one of them already works). Nothing currently blocks using
+# these values, since every filter that would is still disabled above.
+BLOCK_REASON_CODES = (
+    "DUPLICATE_SIGNAL", "SAME_SETUP_RETRIGGER", "SYMBOL_COOLDOWN", "RECURRENT_SYMBOL",
+    "MARKET_CONFLICT", "SECTOR_CONFLICT", "OI_CONFLICT", "WEAK_STRUCTURE", "RANGE_PINNED",
+    "LOW_LIQUIDITY", "LATE_ENTRY", "LOW_SCORE", "UNKNOWN", "OTHER",
+)
+
+# Sep 12 2026: signal state machine -- CANDIDATE/VALIDATED/EMITTED/
+# ACTIVE/RESOLVED already exists, implemented in excel_logger.py, not
+# reimplemented here (per "do not rebuild existing working
+# functionality"): a candidate that reaches signals.append() and gets
+# logged IS "EMITTED"; get_locked_plan() returning a plan IS "ACTIVE";
+# the Outcome column being set to "Target N Hit"/"SL Hit"/"Expired (no
+# SL/Target hit)" IS "RESOLVED" with its specific outcome -- and this
+# whole chain is already proven restart-safe (excel_logger.py's own
+# _ensure_fresh() rebuild, tested against a real simulated restart).
+# "CANCELLED" is the one state with no current equivalent -- nothing in
+# this codebase explicitly cancels an already-emitted signal today.
+
+# {symbol: {'date': 'YYYY-MM-DD', 'signals_fired_today': int,
+#           'first_signal_time': iso_str, 'latest_signal_time': iso_str}}
+# Resets when the date rolls over, same check-and-replace pattern as
+# _qualification_state/_oi_confirmation_state/_quality_confirmation_state
+# above. This is the one piece excel_logger.py doesn't already track
+# (it counts ROWS, not "how many times did a fresh setup fire today"
+# as a same-day-scoped running count).
+_symbol_daily_state = {}
+
+# {symbol: {'occurrences': [{'date':..., 'action':..., 'option_symbol':...}, ...]}}
+# Session-lifetime supplement to excel_logger.get_symbol_recurrence_info()
+# -- catches a symbol firing multiple times TODAY before excel_logger's
+# own once-per-day cache would reflect it (that cache only covers
+# STRICTLY PRIOR days). Wiped on restart, same accepted limitation as
+# every in-memory dict in this file; excel_logger's own persisted
+# history is the durable source of truth for anything more than a day old.
+_symbol_recurrence_history = {}
+
+# ---------------------------------------------------------------------------
+# Sep 13 2026: SNIPER STOCKS filter candidates -- SHADOW MODE ONLY.
+# Historical replay was checked and is genuinely impossible: this
+# sandbox's network egress explicitly blocks every financial data host
+# (confirmed via curl -- x-deny-reason: host_not_allowed on Yahoo
+# Finance and NSE directly), so there is no way to reconstruct real
+# historical OHLCV at past signal timestamps. This evaluates all six
+# candidates against every REAL signal going forward, using data
+# already computed this cycle -- none of it gates or alters the actual
+# BUY/SELL/NEUTRAL decision. The comparison report below only produces
+# a verdict once real accumulated evidence clears an explicit minimum
+# bar; until then it reports exactly how much has been collected.
+
+# {symbol: {'macd': float, 'date': 'YYYY-MM-DD'}} -- cross-CYCLE (not
+# cross-day) comparison is enough for MACD slope: cycles run every
+# ~90s, so two observations of the same symbol in one session already
+# show real direction. Resets on restart, same accepted limitation as
+# every other in-memory tracker in this file -- the first time a
+# symbol is seen after a restart, candidate C reports
+# UNKNOWN_INSUFFICIENT_HISTORY rather than guessing a slope from one
+# reading.
+_macd_cycle_tracker = {}
+
+
+def _evaluate_shadow_candidates(sym, action, price, change_percent, macd, rsi, adx, vol, vol_avg, ema20, ema50, support=None, resistance=None, stock_t3=None, sector_change_pct=None, nifty_change_pct=None):
+    """
+    Returns a dict of nine {candidate: 'PASS'|'REJECT'|'UNKNOWN', candidate+'_reason': str}
+    entries. Every value here is computed from data the live signal
+    already has this cycle -- nothing new fetched, nothing guessed.
+    Never called before the real action/score decision, and its output
+    is never read by anything that gates a signal.
+
+    Sep 13 2026 (revision): added candidates G/H. support/resistance are
+    already computed every cycle (_compute_indicators' own return dict)
+    but were never referenced anywhere in the actual entry/target logic
+    before this -- confirmed by grep across the whole file finding zero
+    other uses. stock_t3 is the STOCK-side (not option-premium) Target 3
+    level already computed a few lines above where this is called.
+    """
+    out = {}
+
+    # A. Today's own price-action direction.
+    if action == "BUY":
+        out["candidate_a"] = "PASS" if change_percent > 0 else "REJECT"
+    else:
+        out["candidate_a"] = "PASS" if change_percent < 0 else "REJECT"
+    out["candidate_a_reason"] = f"change_percent={change_percent:+.2f}%"
+
+    # B. EMA20/EMA50 trend structure -- both already computed, never
+    # used for direction anywhere in the live scoring today.
+    if ema20 is not None and ema50 is not None:
+        if action == "BUY":
+            out["candidate_b"] = "PASS" if (price > ema20 > ema50) else "REJECT"
+        else:
+            out["candidate_b"] = "PASS" if (price < ema20 < ema50) else "REJECT"
+        out["candidate_b_reason"] = f"price={price:.2f}, ema20={ema20:.2f}, ema50={ema50:.2f}"
+    else:
+        out["candidate_b"] = "UNKNOWN"
+        out["candidate_b_reason"] = "ema20/ema50 unavailable this cycle"
+
+    # C. MACD slope -- needs a PRIOR cycle's reading for this exact
+    # symbol; the very first time a symbol is seen in this session,
+    # there is nothing to compare against, so this is UNKNOWN, not
+    # guessed as PASS or REJECT.
+    prev = _macd_cycle_tracker.get(sym)
+    if prev is not None:
+        macd_rising = macd > prev["macd"]
+        if action == "BUY":
+            out["candidate_c"] = "PASS" if macd_rising else "REJECT"
+        else:
+            out["candidate_c"] = "PASS" if not macd_rising else "REJECT"
+        out["candidate_c_reason"] = f"macd={macd:.4f} vs previous_cycle_macd={prev['macd']:.4f}"
+    else:
+        out["candidate_c"] = "UNKNOWN"
+        out["candidate_c_reason"] = "no prior cycle reading for this symbol yet this session"
+    _macd_cycle_tracker[sym] = {"macd": macd, "date": datetime.now().strftime("%Y-%m-%d")}
+
+    # D. Directional RSI -- 50 is RSI's own conventional midpoint
+    # (bullish/bearish split), not an invented threshold.
+    if action == "BUY":
+        out["candidate_d"] = "PASS" if rsi > 50 else "REJECT"
+    else:
+        out["candidate_d"] = "PASS" if rsi < 50 else "REJECT"
+    out["candidate_d_reason"] = f"rsi={rsi:.1f}"
+
+    # E. Direction-aware volume -- high volume AND today's own move
+    # agreeing with the claimed direction, not volume alone.
+    high_vol = vol >= vol_avg * 1.5 if vol_avg else False
+    directional_move = (change_percent > 0) if action == "BUY" else (change_percent < 0)
+    out["candidate_e"] = "PASS" if (high_vol and directional_move) else "REJECT"
+    out["candidate_e_reason"] = f"volume_ratio={(vol/vol_avg):.2f}x, change_percent={change_percent:+.2f}%" if vol_avg else "volume_avg unavailable"
+
+    # F. ADX minimum trend-strength -- same 25 threshold already live
+    # (as REQUIRE_ADX_TREND_STRENGTH, off by default) -- this records
+    # what it WOULD have decided regardless of that flag's state, so
+    # shadow evidence keeps accumulating even while the real flag is off.
+    out["candidate_f"] = "PASS" if adx >= 25 else "REJECT"
+    out["candidate_f_reason"] = f"adx={adx:.1f}"
+
+    # G. Target Room -- is Target 3 realistic given the actual nearest
+    # resistance (BUY) / support (SELL), or does it project straight
+    # through a real structural level with no awareness it's there?
+    if resistance is not None and support is not None and stock_t3 is not None:
+        if action == "BUY":
+            out["candidate_g"] = "PASS" if resistance > stock_t3 else "REJECT"
+        else:
+            out["candidate_g"] = "PASS" if support < stock_t3 else "REJECT"
+        out["candidate_g_reason"] = f"stock_t3={stock_t3:.2f}, support={support:.2f}, resistance={resistance:.2f}"
+    else:
+        out["candidate_g"] = "UNKNOWN"
+        out["candidate_g_reason"] = "support/resistance unavailable this cycle"
+
+    # H. Entry Structure -- is entry genuinely closer to support than
+    # resistance (BUY -- more room up than down to a floor), or closer
+    # to resistance than support (SELL)?
+    if resistance is not None and support is not None and resistance != support:
+        dist_to_support = abs(price - support)
+        dist_to_resistance = abs(resistance - price)
+        if action == "BUY":
+            out["candidate_h"] = "PASS" if dist_to_support < dist_to_resistance else "REJECT"
+        else:
+            out["candidate_h"] = "PASS" if dist_to_resistance < dist_to_support else "REJECT"
+        out["candidate_h_reason"] = f"price={price:.2f}, support={support:.2f}, resistance={resistance:.2f}"
+    else:
+        out["candidate_h"] = "UNKNOWN"
+        out["candidate_h_reason"] = "support/resistance unavailable or identical this cycle"
+
+    # I. Market/Sector Alignment -- reuses quality_engine's own
+    # evaluate_sector_alignment() rather than inventing new logic; that
+    # function is already real, tested, and fed by data already
+    # computed live every cycle (sector_change_map/nifty_change_pct) --
+    # it was just never wired into the core V3 signal or this shadow
+    # framework before now. ALIGNED -> PASS, CONFLICT -> REJECT;
+    # NEUTRAL and INSUFFICIENT_DATA both map to UNKNOWN here (NEUTRAL
+    # is a genuine real state, not a data gap, but it doesn't
+    # constitute either confirmation or rejection).
+    #
+    # Sep 16 2026: REAL BUG FOUND live -- this was `import quality_engine
+    # as qe` (absolute), which fails every single cycle with "No module
+    # named 'quality_engine'" because it's not a top-level module, it's
+    # a submodule of this same Django app package. Every other import
+    # of this exact module elsewhere in this file (4 other call sites)
+    # correctly uses the relative form -- matched here.
+    from . import quality_engine as qe
+    sector_result = qe.evaluate_sector_alignment(action, change_percent, sector_change_pct, nifty_change_pct)
+    if sector_result["state"] == "ALIGNED":
+        out["candidate_i"] = "PASS"
+    elif sector_result["state"] == "CONFLICT":
+        out["candidate_i"] = "REJECT"
+    else:
+        out["candidate_i"] = "UNKNOWN"
+    out["candidate_i_reason"] = f"state={sector_result['state']}, is_leader={sector_result['is_leader']}, stock={change_percent}%, sector={sector_change_pct}%, nifty={nifty_change_pct}%"
+
+    return out
+
+
+def _recurrence_status(prior_signal_count):
+    """
+    Sep 12 2026: NEW / RECURRING / HIGH_FREQUENCY_RECURRING bucketing.
+    The 1-2 / 3+ thresholds are a round, conservative starting point,
+    NOT statistically derived -- the forensic audit's real sample
+    (n=8 first-occurrence, n=9 later) is nowhere near large enough to
+    fit a real threshold from data. This exists so shadow logging can
+    start accumulating evidence on where a real threshold should sit,
+    not because 3 is a proven cutoff.
+    """
+    if not prior_signal_count:
+        return "NEW"
+    return "HIGH_FREQUENCY_RECURRING" if prior_signal_count >= 3 else "RECURRING"
+
+
+def _build_shadow_assessment(recurrence_status):
+    """
+    Sep 12 2026: generic actual/shadow framework (spec section 9) --
+    built for the recurrence rule specifically, since it's the only one
+    with any real evidence behind it so far. The SAME {actual_decision,
+    shadow_decision, shadow_block_reason} shape is meant to be reused
+    for every future filter (market/sector/OI/structure/time/
+    liquidity) once each has real data to evaluate against, not
+    reinvented per filter.
+
+    actual_decision is always 'PASS' -- nothing here blocks anything;
+    RECURRENCE_PENALTY defaults False. shadow_decision reflects what
+    WOULD happen if it were flipped on, purely for logging.
+    """
+    shadow_penalty = 0
+    shadow_decision = "PASS"
+    shadow_block_reason = None
+    if recurrence_status in ("RECURRING", "HIGH_FREQUENCY_RECURRING") and SNIPER_V2_CONFIG["RECURRENCE_TRACKING"]:
+        # Sep 12 2026: provisional penalty size, NOT statistically
+        # derived -- flagged explicitly, same reasoning as
+        # _recurrence_status()'s own threshold above. Exists to let
+        # shadow logging start accumulating evidence on what size
+        # would actually help.
+        shadow_penalty = 20 if recurrence_status == "HIGH_FREQUENCY_RECURRING" else 10
+        if SNIPER_V2_CONFIG["RECURRENCE_PENALTY"]:
+            shadow_decision = "WOULD_BLOCK"
+            shadow_block_reason = "RECURRENT_SYMBOL"
+        else:
+            shadow_decision = "PASS_SHADOW_FLAGGED"
+    return {
+        "actual_decision": "PASS",
+        "shadow_decision": shadow_decision,
+        "shadow_block_reason": shadow_block_reason,
+        "shadow_recurrence_penalty": shadow_penalty,
+    }
+
+
+def _update_symbol_state_and_classify(sym, action, locked, entry, sl, target1, option_symbol):
+    """
+    Sep 12 2026 (revision 2): now delegates the actual classification to
+    excel_logger.classify_signal_event(), which has the real persisted
+    evidence (existing row state, cooldown timing, and real resolved-
+    outcome history) needed to distinguish EXACT_DUPLICATE/
+    SAME_SETUP_RETRIGGER/GENUINE_REENTRY from UNKNOWN -- this function's
+    own in-memory view of a single cycle could never honestly determine
+    those on its own (the explicit gap the previous revision flagged
+    and left unresolved). Still owns the same-day signals_fired_today
+    counter, since that's genuinely this file's own concern (a
+    session-scoped observation), not persisted state.
+
+    Returns (classification, day_state, hist):
+      classification -- one of 'EXACT_DUPLICATE' / 'SAME_SETUP_RETRIGGER'
+        / 'GENUINE_REENTRY' / 'NEW_SETUP' / 'UNKNOWN', or None when
+        excel_logger reports 'ACTIVE' (the same signal is just
+        continuing, not a new candidate event to classify at all).
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    now_iso = datetime.now().isoformat()
+
+    if not SNIPER_V2_CONFIG["RECURRENCE_TRACKING"]:
+        return None, None, None
+
+    day_state = _symbol_daily_state.get(sym)
+    if day_state is None or day_state.get('date') != today:
+        day_state = {'date': today, 'signals_fired_today': 0, 'first_signal_time': now_iso, 'latest_signal_time': now_iso}
+        _symbol_daily_state[sym] = day_state
+    else:
+        day_state['latest_signal_time'] = now_iso
+
+    try:
+        from . import excel_logger
+        classification = excel_logger.classify_signal_event(sym, action, option_symbol)
+    except Exception as e:
+        print(f"[SNIPER V2] classify_signal_event failed for {sym}: {e}")
+        classification = 'UNKNOWN'
+
+    if classification == 'ACTIVE':
+        return None, day_state, _symbol_recurrence_history.get(sym)
+
+    day_state['signals_fired_today'] += 1
+
+    # Session-only supplement -- still populated for the older
+    # symbol_first_seen_this_session/symbol_prior_occurrences_this_session
+    # fields read at the call site; excel_logger's classify_signal_event()
+    # above is the authoritative classification source now, not this.
+    hist = _symbol_recurrence_history.get(sym)
+    if hist is None:
+        hist = {'first_seen_date': today, 'last_seen_date': today, 'occurrences': []}
+        _symbol_recurrence_history[sym] = hist
+    hist['last_seen_date'] = today
+    hist['occurrences'].append({'date': today, 'action': action, 'option_symbol': option_symbol})
+
+    return classification, day_state, hist
+
 _last_fetch = 0
 CACHE_TTL = 60
 
@@ -312,6 +832,12 @@ FYERS_INDEX_SYMBOLS = {
     "NIFTY 50": "NSE:NIFTY50-INDEX",
     "BANKNIFTY": "NSE:NIFTYBANK-INDEX",
     "INDIA VIX": "NSE:INDIAVIX-INDEX",
+    # Sep 11 2026: added for the Market Banner's new SENSEX card. Both
+    # _fetch_index() and _fetch_indices_batched() below already loop
+    # over this dict generically, so no changes needed to either --
+    # only the two call sites that unpack specific keys by name
+    # (_build_all(), _index_snapshot_worker()) need a matching update.
+    "SENSEX": "BSE:SENSEX-INDEX",
 }
 
 
@@ -1137,7 +1663,7 @@ def _update_sector_rankings_cache():
 
 def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
                               v3_decision, v3_score, v3_grade, v3_reason, oi=None, signal_extra=None, option_leg=None,
-                              mtf_data=None, futures_oi_data=None):
+                              mtf_data=None, futures_oi_data=None, skip_logging=False):
     """
     Sep 8 2026: SHADOW MODE glue -- converts this cycle's already-
     computed tech/oi/stock data into quality_engine's function
@@ -1178,6 +1704,19 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
     Wrapped in try/except by BOTH call sites in _build_all() as well as
     internally here -- shadow mode must never be able to break the live
     scan loop, belt-and-braces on purpose.
+
+    skip_logging: Sep 12 2026 addition -- when True, computes and
+    returns (quality_result, reasons) WITHOUT calling shadow_logger.
+    Existing call sites are entirely unaffected (they don't pass this,
+    so it defaults to False and behaves exactly as before). Lets the
+    live SIGNAL path get quality_result BEFORE signals.append() (to
+    gate on it) without computing it twice or double-logging to
+    shadow_logger -- the caller logs separately, once, with these same
+    values, after append.
+
+    Returns (quality_result, reasons) on success, (None, []) if
+    anything in here raised -- the caller must treat None as "don't
+    know," never as a guessed confirmation.
     """
     try:
         from . import quality_engine as qe
@@ -1422,6 +1961,15 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
             quality_result['verdict'] = "WATCH"
             quality_result['grade'] = "B"
 
+        # Sep 12 2026: explicit field for the new live gating function
+        # below (_is_quality_confirmed_with_hysteresis) to check, rather
+        # than string-matching the human-readable reason text built just
+        # below this -- a real, confirmed contradiction (either of the
+        # two conflict caps just applied), not a mere score dip. Both
+        # gates were already computed above; this just names the OR of
+        # the two explicitly instead of leaving it implicit in verdict.
+        quality_result['conflict_gate_triggered'] = bool(regime_conflict or option_conflict)
+
         # Sep 8 2026: spec section 18, "Explainable Signals" -- "The
         # user must be able to understand the signal without opening
         # the source code." Every value used here was already computed
@@ -1488,9 +2036,12 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
             reasons.append(f"Futures OI unavailable ({futures_oi_data.get('reason', 'unknown')})")
 
         from . import shadow_logger
-        shadow_logger.log_shadow_candidate(sym, action, price, v3_decision, v3_score, v3_grade, v3_reason, quality_result, reasons=reasons)
+        if not skip_logging:
+            shadow_logger.log_shadow_candidate(sym, action, price, v3_decision, v3_score, v3_grade, v3_reason, quality_result, reasons=reasons)
+        return quality_result, reasons
     except Exception as e:
         print(f"[ShadowMode] {sym} evaluation failed (v3.0 unaffected): {e}")
+        return None, []
 
 
 def _build_all():
@@ -1513,6 +2064,7 @@ def _build_all():
         nifty = cached_indices.get("nifty50", {'price': 0, 'change': 0, 'change_percent': 0})
         bank = cached_indices.get("banknifty", {'price': 0, 'change': 0, 'change_percent': 0})
         vix = cached_indices.get("india_vix", {'price': 0, 'change': 0, 'change_percent': 0})
+        sensex = cached_indices.get("sensex", {'price': 0, 'change': 0, 'change_percent': 0})
     else:
         # Sep 3 2026: was 3 separate _fetch_index() calls -- see
         # _fetch_indices_batched()'s docstring for why that's a real,
@@ -1521,8 +2073,9 @@ def _build_all():
         nifty = _batched_idx["NIFTY 50"]
         bank = _batched_idx["BANKNIFTY"]
         vix = _batched_idx["INDIA VIX"]
+        sensex = _batched_idx["SENSEX"]
         with _cache_lock:
-            _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix}
+            _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix, "sensex": sensex}
             _index_cache_updated_at = time.time()
     
     # 2. Fetch all stock prices -- Fyers only, no Yahoo involved at all.
@@ -1667,6 +2220,14 @@ def _build_all():
         if vol >= vol_avg * 1.5: score += 15
         if adx >= 25: score += 20  # genuine trend strength, not chop
 
+        # Sep 13 2026: SNIPER_V2_CONFIG["REQUIRE_ADX_TREND_STRENGTH"] --
+        # see its own comment there for why this exists. Defaults False,
+        # so this is a no-op today -- current production behavior is
+        # byte-for-byte unchanged unless explicitly enabled.
+        if SNIPER_V2_CONFIG["REQUIRE_ADX_TREND_STRENGTH"] and adx < 25:
+            no_trade_log.append({"symbol": sym, "reason": f"ADX {adx:.1f} below 25 -- no real trend strength (REQUIRE_ADX_TREND_STRENGTH enabled)"})
+            continue
+
         # Directional confirmation -- this used to be two separate checks
         # ('price > vwap': +15, 'macd > 0': +15) that only ever rewarded
         # the BULLISH combination. A genuinely clean bearish setup
@@ -1680,11 +2241,39 @@ def _build_all():
         if bullish_aligned or bearish_aligned:
             score += 30
 
+        # Sep 13 2026: REAL BUG FOUND -- the previous line here was
+        # `action = "BUY" if bullish_aligned else "SELL"`. That's an
+        # implicit two-branch fallback: whenever NEITHER bullish_aligned
+        # NOR bearish_aligned was true (price/VWAP and MACD disagree --
+        # a genuinely ambiguous/no-trend reading), the `else` silently
+        # forced "SELL" anyway, with zero bearish evidence behind it.
+        # Since the +30 alignment bonus wasn't earned in that case, this
+        # was reachable: RSI-in-range + high volume + ADX>=25 alone
+        # (15+15+20=50) exactly clears ENTRY_SCORE_THRESHOLD, meaning a
+        # stock with no real directional read could still qualify and
+        # get labeled SELL purely by fallthrough, not genuine bearish
+        # alignment.
+        #
+        # Fixed with an explicit three-state classification. NEUTRAL is
+        # rejected here, before `action` is assigned or used by anything
+        # downstream (hysteresis keying, OI-direction check, SNIPER V2
+        # classification, shadow logging, the final signal dict) --
+        # every one of those still only ever sees a real "BUY" or "SELL",
+        # exactly as before, for the two genuine cases. Nothing about
+        # scoring, duplicate protection, recurrence, signal_id, or
+        # logging changes -- this only prevents a candidate with no
+        # real directional evidence from reaching any of that in the
+        # first place.
+        directional_bias = "BULLISH" if bullish_aligned else "BEARISH" if bearish_aligned else "NEUTRAL"
+        if directional_bias == "NEUTRAL":
+            no_trade_log.append({"symbol": sym, "reason": "No clear directional bias -- price-vs-VWAP and MACD sign disagree; rejecting rather than defaulting to SELL"})
+            continue
+
         # Sep 3 2026: action needs to exist BEFORE the gate now -- the
         # hysteresis check below is keyed per (symbol, action), and
         # both bullish_aligned/bearish_aligned are already known at
         # this point, so this is just a reorder, not new logic.
-        action = "BUY" if bullish_aligned else "SELL"
+        action = "BUY" if directional_bias == "BULLISH" else "SELL"
 
         if not _is_qualified_with_hysteresis(sym, action, score):
             no_trade_log.append({"symbol": sym, "reason": f"Technical score {score} below qualification threshold (hysteresis: needs {ENTRY_SCORE_THRESHOLD} to enter, {EXIT_SCORE_THRESHOLD} to exit)"})
@@ -1821,6 +2410,14 @@ def _build_all():
                 # as the confirmed-live-chain requirement -- not just
                 # scored down, not shown as a trade recommendation at all.
                 no_trade_log.append({"symbol": sym, "reason": f"OI conflicts with {action} direction ({buildup or 'no clear buildup'})"})
+                # Sep 12 2026: a real, confirmed contradiction -- drop
+                # any persisted oi_confirmation state for this (symbol,
+                # action) rather than leaving a stale CONFIRMED sitting
+                # there. This candidate is dropped before signals.append()
+                # this cycle regardless, but the NEXT time it reads
+                # CONFIRMED again, it should have to re-earn entry, not
+                # silently resume as if the conflict never happened.
+                _oi_confirmation_state.pop((sym, action), None)
                 # Sep 8 2026: SHADOW MODE ONLY -- oi is available here
                 # (unlike the hysteresis-fail hook above), so the richer
                 # options_confirmation evidence is too. signal_extra
@@ -1862,6 +2459,12 @@ def _build_all():
 
         total_score = max(0, min(100, score + oi_adjustment))
         grade = 'A+' if total_score >= 95 else 'A' if total_score >= 85 else 'B' if total_score >= 75 else 'C' if total_score >= 60 else 'D'
+
+        # Sep 12 2026: the actual root-cause fix -- see
+        # _is_oi_confirmed_with_hysteresis()'s own docstring above.
+        # oi_confirmation itself, not just quality_confirmed, needed
+        # this.
+        oi_confirmed_persisted = _is_oi_confirmed_with_hysteresis(sym, action, oi_confirmation)
 
         # Aug 31 2026: P0-4 from the UI Corrections checklist -- "no
         # hidden formulas, every score has a documented factor
@@ -2013,13 +2616,20 @@ def _build_all():
             entry, strike = locked['entry'], locked['strike'] or strike
             sl = locked['sl']
             t1, t2, t3 = locked['target1'], locked['target2'], locked['target3']
-            # Aug 27 2026: real lot size as the fallback here too (was
-            # int(50000/entry)) -- this branch is a rare defensive case
-            # (an already-locked plan whose stored quantity is somehow
-            # empty), not the primary path, but should stay consistent
-            # with the real fix rather than quietly keep the old
-            # capital-based distortion alive in an edge case.
-            qty = locked['quantity'] or get_lot_size(sym) or 1
+            # Sep 12 2026: was `locked['quantity'] or get_lot_size(sym) or 1`
+            # -- that final `or 1` is the exact same class of bug
+            # index_signal.py's own Sep 10 fix already root-caused and
+            # removed for index calls (an arbitrary quantity standing in
+            # for the real exchange lot size, silently wrong regardless
+            # of which number it happened to be). Genuinely rare -- an
+            # already-locked plan whose stored quantity is somehow empty
+            # AND a fresh lot-size lookup also fails -- but "rare" isn't
+            # "safe to guess a real position size for." Skip instead,
+            # same as every other missing-data path in this function.
+            qty = locked['quantity'] or get_lot_size(sym)
+            if qty is None:
+                no_trade_log.append({"symbol": sym, "reason": f"Locked plan for {sym} {action} has no stored quantity and lot size is unresolvable -- not guessing a position size"})
+                continue
             rr = locked['risk_reward'] or 1.5
             option_symbol = locked['option_symbol']
             # Already-tracked outcome status for this locked plan -- see
@@ -2279,6 +2889,96 @@ def _build_all():
         stock_vs_sector_pct = round(stock['change_percent'] - sector_change_pct, 2) if sector_change_pct is not None else None
         stock_vs_index_pct = round(stock['change_percent'] - nifty_change_pct, 2) if nifty_change_pct is not None else None
 
+        # Sep 13 2026: SNIPER STOCKS filter candidates, shadow-only --
+        # see _evaluate_shadow_candidates()'s own module-level comment
+        # for why historical replay was ruled out and shadow mode was
+        # built instead. Computed here, purely observational -- nothing
+        # below this line reads shadow_candidates to decide anything.
+        shadow_candidates = _evaluate_shadow_candidates(
+            sym, action, price, stock['change_percent'], macd, rsi, adx, vol, vol_avg,
+            tech.get('ema20'), tech.get('ema50'),
+            support=tech.get('support'), resistance=tech.get('resistance'), stock_t3=stock_t3,
+            sector_change_pct=sector_change_pct, nifty_change_pct=nifty_change_pct,
+        )
+
+        # Sep 12 2026: SNIPER V2 observability -- see the module-level
+        # note above _symbol_daily_state for exactly what this can and
+        # cannot honestly claim. Purely additive fields, never gates
+        # this signal -- ENABLE_SAME_DAY_SYMBOL_LOCK and
+        # ENABLE_RECURRENCE_PENALTY both default False and neither is
+        # read anywhere in this function yet; they exist as switches
+        # for a FUTURE change once real evidence supports flipping them,
+        # not wired to anything that blocks a signal today.
+        setup_classification, symbol_day_state, symbol_recurrence = _update_symbol_state_and_classify(
+            sym, action, locked, entry, sl, t1, option_symbol,
+        )
+        # Sep 12 2026: real cross-date history from excel_logger.py's
+        # actual persisted logs -- unlike symbol_recurrence above (this
+        # SESSION's own memory only, wiped on restart), this survives a
+        # restart and knows real prior outcomes, not just "have I seen
+        # this symbol since the process started." Cached once per day
+        # inside excel_logger.py, not re-scanned per symbol per cycle.
+        try:
+            from . import excel_logger
+            symbol_real_history = excel_logger.get_symbol_recurrence_info(sym)
+            # Sep 12 2026: signal_id, threaded onto the live signal dict
+            # itself (previously only returned from get_locked_plan(),
+            # never actually attached to what _build_all() emits). For
+            # a continuing signal, use the real one excel_logger already
+            # assigned when the row was written. For a genuinely fresh
+            # signal, pre-compute the SAME deterministic value here --
+            # excel_logger will independently compute the identical
+            # string when sync_active_signals() actually writes the row
+            # later this cycle, since the formula depends only on data
+            # already resolved at this point (today, sym, action,
+            # option_symbol) -- never two different ids for one signal.
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            signal_id = locked.get("signal_id") if locked else excel_logger.compute_signal_id(today_str, sym, action, option_symbol)
+        except Exception as e:
+            print(f"[SNIPER V2] Recurrence lookup failed for {sym}: {e}")
+            symbol_real_history = None
+
+        # Sep 12 2026: setup_id architecture -- explicitly UNAVAILABLE,
+        # not guessed. Real structure/BOS classification (breakout,
+        # pullback, reversal, range, etc.) doesn't exist anywhere in
+        # this codebase's live data yet; inventing a value from
+        # insufficient data is exactly what was explicitly ruled out.
+        #
+        # IMPORTANT NAMING NOTE: this is deliberately called
+        # structure_setup_id, NOT setup_id -- there's already a
+        # PRE-EXISTING "setup_id" in this file (Sep 1 2026, "create
+        # Signal IDs and Setup IDs", a few hundred lines above --
+        # symbol_action_timestamp, identifying THIS signal occurrence).
+        # That's a genuinely different concept (signal-instance
+        # identity) from what's being built here (which STRUCTURAL
+        # SETUP TYPE this represents, once real structure data exists)
+        # -- reusing the same name would have silently collided with
+        # and been overwritten by the existing dict key. Left completely
+        # untouched; this is an ADDITIONAL, separate field.
+        structure_setup_id, structure_setup_id_status = None, "UNAVAILABLE_NO_STRUCTURE_DATA"
+
+        # Sep 12 2026: real prior_signal_count (excel_logger's actual
+        # persisted history) drives the NEW/RECURRING/HIGH_FREQUENCY_
+        # RECURRING bucket -- more authoritative than session-only
+        # symbol_recurrence above, which can't see anything before a
+        # restart.
+        recurrence_status = _recurrence_status((symbol_real_history or {}).get("prior_signal_count", 0))
+        shadow_assessment = _build_shadow_assessment(recurrence_status)
+
+        # Sep 12 2026: computed HERE, before append, so it can gate this
+        # signal -- previously this same computation only ran AFTER
+        # append, purely as a shadow-mode observer. skip_logging=True
+        # means shadow_logger isn't called yet; the logging call below
+        # (after append) reuses these same values instead of recomputing
+        # them, so nothing here doubles up the work or the log.
+        quality_result, quality_reasons = _evaluate_and_log_shadow(
+            sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+            v3_decision="SIGNAL", v3_score=score, v3_grade=grade, v3_reason=None,
+            oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
+            mtf_data=mtf_data, futures_oi_data=futures_oi_data, skip_logging=True,
+        )
+        quality_confirmed = _is_quality_confirmed_with_hysteresis(sym, action, quality_result)
+
         signals.append({
             "symbol": sym, "name": sym, "price": price,
             "change": stock['change'], "change_percent": stock['change_percent'],
@@ -2286,6 +2986,89 @@ def _build_all():
             "technical_score": score, "oi_adjustment": oi_adjustment, "score_breakdown": score_breakdown,
             "rsi": rsi, "adx": round(adx, 1),
             "oi_confirmation": oi_confirmation, "oi_reason": oi_reason, "pattern": pattern,
+            # Sep 13 2026: raw values for the not-yet-tested SNIPER
+            # STOCKS filter candidates -- see excel_logger.py's own
+            # COLUMNS comment for why these specific forms (ratio/%
+            # rather than raw VWAP/volume). All five already computed
+            # this cycle (tech dict, vol/vol_avg, price/vwap) -- purely
+            # additive logging, not read by any scoring/qualification
+            # code above this point.
+            "macd": round(macd, 4),
+            "vwap_distance_pct": round((price - vwap) / vwap * 100, 3) if vwap else None,
+            "volume_ratio": round(vol / vol_avg, 3) if vol_avg else None,
+            "ema20": tech.get("ema20"),
+            "ema50": tech.get("ema50"),
+            # Sep 13 2026: six shadow candidate PASS/REJECT/UNKNOWN
+            # verdicts + their exact reasons -- see
+            # _evaluate_shadow_candidates()'s own docstring. Purely
+            # observational; none of these were read by anything above
+            # this line that decided the real signal.
+            **shadow_candidates,
+            # Sep 12 2026: the actual root-cause fix, alongside the
+            # quality-gate persistence added earlier today -- see
+            # _is_oi_confirmed_with_hysteresis()'s docstring above.
+            "oi_confirmed_persisted": oi_confirmed_persisted,
+            # Sep 12 2026: SNIPER V2 observability fields -- see
+            # _update_symbol_state_and_classify()'s own docstring for
+            # exactly what these can/cannot claim. None of these gate
+            # this signal; ENABLE_SAME_DAY_SYMBOL_LOCK/
+            # ENABLE_RECURRENCE_PENALTY are both off and unused so far.
+            "setup_classification": setup_classification,
+            "symbol_signals_fired_today": (symbol_day_state or {}).get("signals_fired_today"),
+            "symbol_first_seen_this_session": (symbol_recurrence or {}).get("first_seen_date"),
+            "symbol_prior_occurrences_this_session": len((symbol_recurrence or {}).get("occurrences", [])) - 1 if symbol_recurrence else 0,
+            # Sep 12 2026: real persisted history (excel_logger.py) --
+            # see symbol_real_history's own comment above for why this
+            # is more authoritative than the session-only fields just
+            # above it. None (not 0) when this symbol has no real prior
+            # occurrence in the cached lookback window.
+            "symbol_real_prior_signal_count": (symbol_real_history or {}).get("prior_signal_count"),
+            "symbol_real_prior_win_rate": (symbol_real_history or {}).get("prior_win_rate"),
+            "symbol_real_last_seen_date": (symbol_real_history or {}).get("last_seen_date"),
+            # Sep 12 2026: structure_setup_id -- explicitly unavailable,
+            # see structure_setup_id_status computation above for why
+            # this isn't guessed from insufficient data. NOT the same
+            # key as the pre-existing "setup_id" set later in this same
+            # dict (Sep 1 2026 feature, signal-instance identity) --
+            # deliberately different name, see that computation's own
+            # comment for why reusing "setup_id" here would have
+            # silently collided.
+            "structure_setup_id": structure_setup_id,
+            "structure_setup_id_status": structure_setup_id_status,
+            "signal_id": signal_id,
+            # Sep 12 2026: config/version metadata -- lets a later
+            # review reconstruct which SNIPER V2 config was active when
+            # this specific signal was decided, without cross-referencing
+            # a separate deploy log.
+            "sniper_v2_config_snapshot": {k: v for k, v in SNIPER_V2_CONFIG.items()},
+            # Sep 12 2026: previous-signal fields, sourced from
+            # excel_logger's real persisted history -- None when there
+            # is no real prior occurrence, never a guessed value.
+            "previous_signal_id": (symbol_real_history or {}).get("previous_signal_id"),
+            "previous_signal_status": (symbol_real_history or {}).get("previous_result"),
+            "previous_signal_direction": (symbol_real_history or {}).get("previous_direction"),
+            "days_since_last_signal": (symbol_real_history or {}).get("days_since_last_signal"),
+            # Sep 12 2026: NEW/RECURRING/HIGH_FREQUENCY_RECURRING bucket
+            # and the generic actual/shadow assessment -- see
+            # _recurrence_status()/_build_shadow_assessment()'s own
+            # docstrings for the "not yet statistically derived"
+            # caveat on the specific thresholds/penalty sizes.
+            "recurrence_status": recurrence_status,
+            "actual_decision": shadow_assessment["actual_decision"],
+            "shadow_decision": shadow_assessment["shadow_decision"],
+            "shadow_block_reason": shadow_assessment["shadow_block_reason"],
+            "shadow_recurrence_penalty": shadow_assessment["shadow_recurrence_penalty"],
+            # Sep 12 2026: the new quality-engine confirmation layer --
+            # quality_confirmed is what quality_signals below actually
+            # gates on (when the feature flag is on); score/verdict/
+            # reasons are exposed unconditionally, same "explainable
+            # signals" principle as audit_snapshot below, and stay
+            # visible even if the gate itself is toggled off, so its
+            # would-be effect on the list can be watched before trusting it.
+            "quality_confirmed": quality_confirmed,
+            "quality_score": (quality_result or {}).get("score"),
+            "quality_verdict": (quality_result or {}).get("verdict"),
+            "quality_reasons": quality_reasons,
             "audit_snapshot": audit_snapshot,
             "sector": stock["sector"], "signal_type": "SNIPER",
             "action": action, "entry": entry, "quantity": qty,
@@ -2326,18 +3109,31 @@ def _build_all():
             **signal_extra,
         })
 
-        # Sep 8 2026: SHADOW MODE ONLY -- same as the hysteresis-fail
-        # hook above, but for a candidate that made it all the way to a
-        # real v3.0 signal, so the richer OI-informed evidence (oi,
-        # signal_extra) is available too. Still purely an observer --
-        # signals.append() above is v3.0's real, final decision; nothing
-        # here can alter it.
-        _evaluate_and_log_shadow(
-            sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
-            v3_decision="SIGNAL", v3_score=score, v3_grade=grade, v3_reason=None,
-            oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
-            mtf_data=mtf_data, futures_oi_data=futures_oi_data,
-        )
+        # Sep 12 2026: quality_result was already computed above (before
+        # append, to gate this signal) -- this just logs it, rather than
+        # recomputing the whole evaluation a second time the way this
+        # call site used to. Same shadow_logger call, same arguments,
+        # same log content as before this change. Guarded the same way
+        # _evaluate_and_log_shadow's own docstring requires (shadow
+        # logging must never be able to break the live scan loop) --
+        # that protection used to come from this call living INSIDE that
+        # function's own try/except; now that it's out here at the call
+        # site instead, it needs its own. Skips entirely when
+        # quality_result is None, matching the OLD behavior exactly: a
+        # failed computation never produced a shadow log entry before
+        # either (the log call sat after the point an exception would
+        # have already jumped past it).
+        if quality_result is not None:
+            try:
+                from . import shadow_logger
+                shadow_logger.log_shadow_candidate(
+                    sym, action, price, "SIGNAL", score, grade, None, quality_result, reasons=quality_reasons,
+                    setup_classification=setup_classification,
+                    symbol_signals_fired_today=(symbol_day_state or {}).get("signals_fired_today"),
+                    symbol_prior_occurrences=(len(symbol_recurrence.get("occurrences", [])) - 1) if symbol_recurrence else 0,
+                )
+            except Exception as e:
+                print(f"[ShadowMode] {sym} shadow log write failed (v3.0 unaffected): {e}")
     
     signals.sort(key=lambda x: int(x['confidence'].replace('%', '')), reverse=True)
 
@@ -2352,7 +3148,8 @@ def _build_all():
     quality_signals = [
         s for s in signals
         if int(s['confidence'].replace('%', '')) >= 85
-        and s.get('oi_confirmation') == 'CONFIRMED'
+        and s.get('oi_confirmed_persisted')
+        and (not _QUALITY_GATE_ENABLED or s.get('quality_confirmed'))
     ][:15]
 
     with _cache_lock:
@@ -2645,6 +3442,8 @@ def _index_snapshot_worker():
     from .market_hours import is_market_hours
     from .index_tracker import snapshot_all, snapshot_all_commodities, is_mcx_hours, get_last_oi_snapshot
     from . import index_signal
+    from .oi_live_dashboard import write_live_dashboard, DASHBOARD_PATH
+    from .excel_logger import _FileLock
     last_closed_log = 0
     while True:
         try:
@@ -2656,18 +3455,72 @@ def _index_snapshot_worker():
                 nifty = _batched_idx["NIFTY 50"]
                 bank = _batched_idx["BANKNIFTY"]
                 vix = _batched_idx["INDIA VIX"]
+                sensex = _batched_idx["SENSEX"]
                 global _index_cache, _index_cache_updated_at
                 with _cache_lock:
-                    _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix}
+                    _index_cache = {"nifty50": nifty, "banknifty": bank, "india_vix": vix, "sensex": sensex}
                     _index_cache_updated_at = time.time()
                 index_rows = snapshot_all(
                     change_percents={
                         "NIFTY": nifty.get("change_percent"),
                         "BANKNIFTY": bank.get("change_percent"),
+                        "SENSEX": sensex.get("change_percent"),
                     },
                     vix=vix.get("price"),
                 )
 
+                # Sep 16 2026: live Excel mirror of the same option-chain
+                # snapshot just produced above -- no second OI calculation,
+                # no extra Fyers request, index_rows IS the same dict
+                # write_live_dashboard() expects (confirmed: snapshot_index()'s
+                # own row already has every key _build_values() reads --
+                # Time/Spot/PCR/Bias/Total Call OI/Total Put OI/Highest
+                # Call OI Strike+Value/Highest Put OI Strike+Value).
+                # oi_live_dashboard.py already had every piece of this
+                # (xlwings visible-Excel control, reconnect-on-close,
+                # boundary panels, colour coding) -- it was simply never
+                # called anywhere in this file until now.
+                #
+                # Locked the same way shadow_logger.py/excel_logger.py's
+                # writes were locked earlier this session: xlwings drives a
+                # live Excel COM instance, and if this scan cycle is ever
+                # running in two processes at once (the same Django
+                # autoreloader risk already flagged), each process's own
+                # _next_row counter has no way to know about the other's --
+                # they could both decide "row 5 is next" and overwrite each
+                # other. try/except here is separate from (and outside) the
+                # lock so a genuine Excel-side failure -- the file open in
+                # another program, xlwings not installed, Excel crashed --
+                # can never take down the scan cycle itself; every
+                # individual write inside write_live_dashboard() already has
+                # its own try/except too, this is a second layer, not the
+                # only one.
+                global _dashboard_consecutive_failures, _dashboard_disabled_this_session
+                if not _dashboard_disabled_this_session:
+                    try:
+                        with _FileLock(DASHBOARD_PATH, timeout=15):
+                            write_live_dashboard(index_rows)
+                        _dashboard_consecutive_failures = 0
+                    except Exception as e:
+                        _dashboard_consecutive_failures += 1
+                        if _dashboard_consecutive_failures >= _DASHBOARD_MAX_CONSECUTIVE_FAILURES:
+                            _dashboard_disabled_this_session = True
+                            print(f"[OILiveDashboard] Failed {_dashboard_consecutive_failures} cycles in a row "
+                                  f"({e}) -- disabling for the rest of this session rather than repeating this "
+                                  f"every cycle. Everything else continues normally; restart the server to retry.")
+                        else:
+                            print(f"[OILiveDashboard] Skipped this cycle ({_dashboard_consecutive_failures}/"
+                                  f"{_DASHBOARD_MAX_CONSECUTIVE_FAILURES}): {e}")
+
+                # Sep 11 2026: SENSEX snapshots into Index Tracker/the
+                # Market Banner above (snapshot_all() already looped it
+                # in via INDEX_SYMBOLS), but deliberately does NOT run
+                # through the loop below -- that generates live
+                # tradeable option calls, Shadow Mode entries, and
+                # Bias-vs-OI-Signal agreement logging, none of which
+                # were asked for here and each of which is its own real
+                # scope (SENSEX's ATR/strike-selection math hasn't been
+                # built or tested). NIFTY/BANKNIFTY only, same as before.
                 for name, fyers_symbol in (("NIFTY", "NSE:NIFTY50-INDEX"), ("BANKNIFTY", "NSE:NIFTYBANK-INDEX")):
                     row = (index_rows or {}).get(name)
                     oi = get_last_oi_snapshot(name)
@@ -2903,6 +3756,7 @@ class MarketSummaryOldView(APIView):
             nifty = _index_cache.get("nifty50")
             bank = _index_cache.get("banknifty")
             vix = _index_cache.get("india_vix")
+            sensex = _index_cache.get("sensex")
             pcr = _index_cache.get("pcr", {"value": None, "sentiment": "N/A"})
             warming = len(_stock_cache) == 0
             breadth = _compute_breadth(list(_stock_cache.values()))
@@ -2929,6 +3783,7 @@ class MarketSummaryOldView(APIView):
             "nifty50": nifty or {"price": 0, "change": 0, "change_percent": 0},
             "banknifty": bank or {"price": 0, "change": 0, "change_percent": 0},
             "india_vix": vix or {"value": 0, "change": 0, "change_percent": 0},
+            "sensex": sensex or {"price": 0, "change": 0, "change_percent": 0},
             "pcr": pcr,
             "breadth": breadth,
             "sectors": sectors,
@@ -3123,6 +3978,24 @@ class IndexAgreementLogView(APIView):
             "episodes": rows, "count": len(rows),
             "agreement_summary": {"AGREE": agree, "DISAGREE": disagree, "NEUTRAL_BIAS": neutral},
         })
+
+
+class NextTradingSessionView(APIView):
+    """
+    Sep 12 2026: holiday-aware "when does trading next resume", for the
+    header's Market Status display -- see get_next_trading_session()'s
+    own docstring in market_hours.py for the real 2026 holiday
+    calendars this is built on and their sourcing/limitations.
+
+    Deliberately does NOT touch is_market_hours() or anything the live
+    scanner's own on/off gate depends on -- this is purely informational,
+    same principle as every other read-only status endpoint in this file.
+
+    GET /api/next-trading-session/<NSE|BSE|MCX>/"""
+    def get(self, request, market):
+        from .market_hours import get_next_trading_session
+        session = get_next_trading_session(market)
+        return Response({"market": market.upper(), "next_session": session})
 
 
 class DataHealthView(APIView):
@@ -3435,6 +4308,39 @@ class SignalExcelExportByDateView(APIView):
         return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
 
 
+def _instrument_expiry_info(name):
+    """
+    Sep 12 2026: real, per-instrument nearest-expiry date and whether
+    that's TODAY -- for a banner's "EXPIRY TODAY" line. Reads
+    get_last_oi_snapshot(name), the same already-populated, in-memory
+    cache oi_live_dashboard.py already reads from -- get_option_
+    analytics()'s own already-computed expiry_date (real expiryData
+    from Fyers' option chain response), added when that chain was
+    fetched this cycle. Nothing new fetched here.
+
+    Deliberately does NOT touch index_tracker.py's Excel-facing
+    Snapshots row/COLUMNS -- this is an additional field on the API
+    response only, so the Excel workbook's own layout is unaffected.
+
+    Each instrument's own real fetched expiry, never one hardcoded
+    weekday for everything -- NIFTY/BANKNIFTY/SENSEX each get whatever
+    Fyers' own expiryData reports for THAT chain (confirmed different:
+    SENSEX's own weekly cycle isn't NIFTY/BANKNIFTY's), and CRUDEOIL/
+    GOLD/SILVER each get their own MCX contract's real expiry.
+
+    Returns {"expiry_date": iso_date_str_or_None, "is_expiry_today": bool}.
+    is_expiry_today is only True when a REAL expiry_date was found AND
+    it matches today's real date -- a missing snapshot or missing
+    expiry_date both read as False, same "unknown is never fabricated
+    into a positive" rule as everywhere else in this project.
+    """
+    from .index_tracker import get_last_oi_snapshot
+    snap = get_last_oi_snapshot(name)
+    expiry_date = (snap or {}).get("expiry_date")
+    is_today = bool(expiry_date and expiry_date == datetime.now().date().isoformat())
+    return {"expiry_date": expiry_date, "is_expiry_today": is_today}
+
+
 class IndexTrackerView(APIView):
     """Intraday OI snapshot history for one index/commodity, most recent
     first -- today's by default, or a specific past date via ?date=.
@@ -3446,7 +4352,11 @@ class IndexTrackerView(APIView):
             return Response({"error": f"index_name must be one of {TRACKABLE_NAMES}"}, status=400)
         date_str = request.GET.get("date")
         rows = get_snapshots_for_date(name, date_str) if date_str else get_today_snapshots(name)
-        return Response(clean_json({"index": name, "date": date_str, "snapshots": rows}))
+        # Sep 12 2026: real per-instrument expiry, for the banner's
+        # PRICE/INDICATIVE PRICE + EXPIRY TODAY line -- see
+        # _instrument_expiry_info()'s own docstring above.
+        expiry_info = _instrument_expiry_info(name)
+        return Response(clean_json({"index": name, "date": date_str, "snapshots": rows, **expiry_info}))
 
 
 class TrendMomentumView(APIView):
@@ -3462,8 +4372,20 @@ class TrendMomentumView(APIView):
         name = index_name.upper()
         if name not in INDEX_SYMBOLS:
             return Response({"error": f"index_name must be one of {list(INDEX_SYMBOLS)}"}, status=400)
+        # Sep 11 2026: was a binary ternary ("nifty50" if NIFTY else
+        # "banknifty") that silently mapped anything else -- SENSEX
+        # included, once it joined INDEX_SYMBOLS -- to BANKNIFTY's
+        # cached price. get_trend_momentum_card() itself is already
+        # name-generic (goes through _fetch_daily_history() -> Fyers
+        # history API, nothing NSE/BSE-specific), so this endpoint now
+        # works correctly for SENSEX too if something calls it -- this
+        # fix is only about not mislabeling the live spot, not a claim
+        # that SENSEX is wired into the Dashboard's Trend & Momentum
+        # UI (it isn't, wasn't asked for, and Dashboard.jsx wasn't
+        # part of this change).
+        _CACHE_KEY = {"NIFTY": "nifty50", "BANKNIFTY": "banknifty", "SENSEX": "sensex"}
         with _cache_lock:
-            live_snapshot = _index_cache.get("nifty50" if name == "NIFTY" else "banknifty")
+            live_snapshot = _index_cache.get(_CACHE_KEY.get(name))
         current_spot = (live_snapshot or {}).get("price")
         card = get_trend_momentum_card(name, current_spot=current_spot)
         if card is None:
@@ -3852,6 +4774,17 @@ class OptionAnalyticsView(APIView):
     symbol to NSE:{sym}-EQ, which is wrong for commodities -- their option
     chain's underlying is the rolling front-month FUTURES contract, not an
     NSE equity symbol (confirmed via check_crude_oil_options.py).
+
+    Sep 12 2026: expiry selection now actually wired through -- see the
+    `expiry` query param below. Previously selectedExpiry existed only in
+    the frontend's own React state and was never sent to this view at
+    all, so clicking any of the three expiry buttons re-fetched the exact
+    same default (nearest) expiry every time. Fyers' own option-chain
+    API's `timestamp` parameter is (per Fyers' community support posts)
+    actually "which expiry to fetch", not a point-in-time snapshot -- it
+    expects the real `expiry` value from that same chain's own
+    expiryData list, not an arbitrary date string, so a genuine expiry
+    switch needs a real value from Fyers first, never a guessed one.
     """
     def get(self, request, symbol):
         sym = symbol.upper().replace(".NS", "")
@@ -3886,8 +4819,48 @@ class OptionAnalyticsView(APIView):
         else:
             fyers_symbol = f"NSE:{sym}-EQ"
 
+        # Sep 12 2026: 'current' (the UI's default, always-existing
+        # behavior) needs no extra call -- timestamp="" is already
+        # Fyers' own "nearest expiry" default, exactly what this view
+        # always did before this fix. 'next'/'monthly' need one
+        # lightweight probe first (strikecount=1 -- only expiryData is
+        # needed here, not real strike rows) to discover the REAL
+        # expiries Fyers is currently listing for this symbol, since
+        # there's no way to know a valid one without asking directly.
+        expiry_choice = (request.GET.get("expiry") or "current").lower()
+        if expiry_choice not in ("current", "next", "monthly"):
+            return Response({"symbol": sym, "live": False, "error": f"Unknown expiry choice '{expiry_choice}'."})
+
+        timestamp = ""
+        if expiry_choice != "current":
+            from .fyers_client import get_option_chain
+            try:
+                probe = get_option_chain(fyers_symbol, strikecount=1)
+            except Exception as e:
+                return Response({"symbol": sym, "live": False, "error": f"Could not resolve available expiries: {e}"})
+            expiry_list = ((probe or {}).get("data", {}) or {}).get("expiryData", []) if probe else []
+            if not expiry_list:
+                return Response({"symbol": sym, "live": False, "error": "No expiry data available for this symbol right now."})
+            # 'next' = the second listed expiry if one exists, else
+            # falls back to the nearest (same as 'current') rather than
+            # erroring on a symbol that only has one expiry listed.
+            # 'monthly' = the FURTHEST expiry Fyers is currently
+            # listing -- a positional best-effort reading of Fyers' own
+            # real, live list (this symbol may not have a distinct
+            # monthly contract separate from its weeklies), not a
+            # verified "this IS the monthly contract" guarantee.
+            # resolvedExpiryDate in the response below always reflects
+            # whichever real expiry actually got used, so this is
+            # verifiable against the live account either way.
+            target = expiry_list[1] if expiry_choice == "next" and len(expiry_list) > 1 else (
+                expiry_list[-1] if expiry_choice == "monthly" else expiry_list[0]
+            )
+            timestamp = target.get("expiry") or ""
+            if not timestamp:
+                return Response({"symbol": sym, "live": False, "error": "Could not resolve a real expiry identifier for this choice."})
+
         try:
-            oi = get_option_analytics(fyers_symbol, strikecount=10)
+            oi = get_option_analytics(fyers_symbol, strikecount=10, timestamp=timestamp)
         except Exception as e:
             return Response({"symbol": sym, "live": False, "error": str(e)})
         if not oi:
@@ -3910,6 +4883,8 @@ class OptionAnalyticsView(APIView):
             "totalCeOi": oi["ce_oi"], "totalPeOi": oi["pe_oi"],
             "ceOiChg": oi["ce_oi_chg"], "peOiChg": oi["pe_oi_chg"],
             "ceData": ce_data, "peData": pe_data,
+            "expiryChoice": expiry_choice,
+            "resolvedExpiryDate": oi.get("expiry_date"),
         }))
 
 
