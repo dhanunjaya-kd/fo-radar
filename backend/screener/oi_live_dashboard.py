@@ -38,7 +38,22 @@ except ImportError:
 
 from .index_tracker import LOG_DIR, get_last_oi_snapshot
 
-DASHBOARD_PATH = os.path.join(LOG_DIR, "oi_live_dashboard.xlsx")
+def get_dashboard_path():
+    """
+    Sep 16 2026: per explicit request -- a new file every day, in the
+    same per-day folder structure index_tracker.py already uses for
+    its own snapshot files (LOG_DIR/<date>/index_tracker_<name>_
+    <date>.xlsx), matched here exactly rather than inventing a
+    different convention: LOG_DIR/<date>/oi_live_dashboard_<date>.xlsx.
+    A function, not a fixed constant, so every caller always gets
+    TODAY's real path -- the old fixed DASHBOARD_PATH would have kept
+    pointing at whatever day the process started on if it stayed
+    running across midnight.
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    day_dir = os.path.join(LOG_DIR, today)
+    os.makedirs(day_dir, exist_ok=True)
+    return os.path.join(day_dir, f"oi_live_dashboard_{today}.xlsx")
 
 _LIVE_LOG_COLUMNS = [
     "Time", "Value", "Call Sum (in K)", "Put Sum (in K)",
@@ -144,8 +159,19 @@ def compute_boundary_pairs(rows, top_n=2):
 
 def _get_dashboard_book():
     global _app, _book, _warned_once
+    today_path = get_dashboard_path()
+    today_filename = os.path.basename(today_path)
     if _book is not None:
         try:
+            if _book.name != today_filename:
+                # Sep 16 2026: day has rolled over since _book was
+                # opened (the process kept running across midnight) --
+                # the old reuse check here only verified the book
+                # object hadn't crashed, never whether today's date
+                # had actually changed. Force a fresh open of today's
+                # real file below instead of continuing to write into
+                # yesterday's.
+                raise RuntimeError("date rolled over")
             _book.sheets[0].name
             return _book
         except Exception:
@@ -159,8 +185,6 @@ def _get_dashboard_book():
         return None
 
     try:
-        os.makedirs(LOG_DIR, exist_ok=True)
-        dashboard_filename = os.path.basename(DASHBOARD_PATH)
         # Sep 16 2026 (revision): the previous fix only checked
         # xw.apps.active's books -- but "active" means whichever Excel
         # window has OS-level focus at that instant, which is a
@@ -169,7 +193,7 @@ def _get_dashboard_book():
         # shipped: the user is looking at the PowerShell terminal, not
         # Excel, when this runs, so xw.apps.active is either None or a
         # different, unrelated Excel window -- not necessarily the one
-        # with oi_live_dashboard.xlsx open. Search every running Excel
+        # with today's dashboard file open. Search every running Excel
         # instance (xw.apps, the full collection), not just the active
         # one, so the file is found regardless of which window has
         # focus.
@@ -178,7 +202,7 @@ def _get_dashboard_book():
         try:
             for running_app in xw.apps:
                 for existing_book in running_app.books:
-                    if existing_book.name == dashboard_filename:
+                    if existing_book.name == today_filename:
                         already_open_app = running_app
                         already_open_book = existing_book
                         break
@@ -192,11 +216,11 @@ def _get_dashboard_book():
             _book = already_open_book
         else:
             _app = xw.apps.active or xw.App(visible=True)
-            if os.path.exists(DASHBOARD_PATH):
-                _book = _app.books.open(DASHBOARD_PATH)
+            if os.path.exists(today_path):
+                _book = _app.books.open(today_path)
             else:
                 _book = _app.books.add()
-                _book.save(DASHBOARD_PATH)
+                _book.save(today_path)
         return _book
     except Exception as e:
         print(f"[OILiveDashboard] Could not open workbook: {e}")

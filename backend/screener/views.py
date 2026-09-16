@@ -3442,7 +3442,7 @@ def _index_snapshot_worker():
     from .market_hours import is_market_hours
     from .index_tracker import snapshot_all, snapshot_all_commodities, is_mcx_hours, get_last_oi_snapshot
     from . import index_signal
-    from .oi_live_dashboard import write_live_dashboard, DASHBOARD_PATH
+    from .oi_live_dashboard import write_live_dashboard, get_dashboard_path
     from .excel_logger import _FileLock
     last_closed_log = 0
     while True:
@@ -3498,7 +3498,7 @@ def _index_snapshot_worker():
                 global _dashboard_consecutive_failures, _dashboard_disabled_this_session
                 if not _dashboard_disabled_this_session:
                     try:
-                        with _FileLock(DASHBOARD_PATH, timeout=15):
+                        with _FileLock(get_dashboard_path(), timeout=15):
                             write_live_dashboard(index_rows)
                         _dashboard_consecutive_failures = 0
                     except Exception as e:
