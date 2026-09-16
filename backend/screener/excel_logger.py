@@ -205,6 +205,16 @@ COLUMNS = [
     "Candidate D (Directional RSI)", "Candidate D Reason",
     "Candidate E (Direction-Aware Volume)", "Candidate E Reason",
     "Candidate F (ADX Gate)", "Candidate F Reason",
+    # Sep 13 2026: candidates G/H -- support/resistance-based "proper
+    # setup" checks, using data already computed every cycle
+    # (_compute_indicators) but never referenced anywhere in the real
+    # entry/target logic before this.
+    "Candidate G (Target Room)", "Candidate G Reason",
+    "Candidate H (Entry Structure)", "Candidate H Reason",
+    # Sep 14 2026: candidate I -- market/sector alignment, reusing
+    # quality_engine.evaluate_sector_alignment() (already real, tested
+    # code), fed by data already computed live every cycle.
+    "Candidate I (Market/Sector Alignment)", "Candidate I Reason",
 ]
 
 _lock = threading.Lock()
@@ -375,6 +385,9 @@ def _write_new_row(ws, signal):
         signal.get("candidate_d"), signal.get("candidate_d_reason"),
         signal.get("candidate_e"), signal.get("candidate_e_reason"),
         signal.get("candidate_f"), signal.get("candidate_f_reason"),
+        signal.get("candidate_g"), signal.get("candidate_g_reason"),
+        signal.get("candidate_h"), signal.get("candidate_h_reason"),
+        signal.get("candidate_i"), signal.get("candidate_i_reason"),
     ]
 
     key = (signal.get("symbol"), signal.get("action"))
@@ -785,6 +798,8 @@ _CANDIDATE_COLUMNS = {
     "A": "Candidate A (Price Action)", "B": "Candidate B (EMA Trend)",
     "C": "Candidate C (MACD Slope)", "D": "Candidate D (Directional RSI)",
     "E": "Candidate E (Direction-Aware Volume)", "F": "Candidate F (ADX Gate)",
+    "G": "Candidate G (Target Room)", "H": "Candidate H (Entry Structure)",
+    "I": "Candidate I (Market/Sector Alignment)",
 }
 
 
