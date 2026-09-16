@@ -3429,6 +3429,8 @@ def _index_snapshot_worker():
     from .market_hours import is_market_hours
     from .index_tracker import snapshot_all, snapshot_all_commodities, is_mcx_hours, get_last_oi_snapshot
     from . import index_signal
+    from .oi_live_dashboard import write_live_dashboard, DASHBOARD_PATH
+    from .excel_logger import _FileLock
     last_closed_log = 0
     while True:
         try:
@@ -3453,6 +3455,38 @@ def _index_snapshot_worker():
                     },
                     vix=vix.get("price"),
                 )
+
+                # Sep 16 2026: live Excel mirror of the same option-chain
+                # snapshot just produced above -- no second OI calculation,
+                # no extra Fyers request, index_rows IS the same dict
+                # write_live_dashboard() expects (confirmed: snapshot_index()'s
+                # own row already has every key _build_values() reads --
+                # Time/Spot/PCR/Bias/Total Call OI/Total Put OI/Highest
+                # Call OI Strike+Value/Highest Put OI Strike+Value).
+                # oi_live_dashboard.py already had every piece of this
+                # (xlwings visible-Excel control, reconnect-on-close,
+                # boundary panels, colour coding) -- it was simply never
+                # called anywhere in this file until now.
+                #
+                # Locked the same way shadow_logger.py/excel_logger.py's
+                # writes were locked earlier this session: xlwings drives a
+                # live Excel COM instance, and if this scan cycle is ever
+                # running in two processes at once (the same Django
+                # autoreloader risk already flagged), each process's own
+                # _next_row counter has no way to know about the other's --
+                # they could both decide "row 5 is next" and overwrite each
+                # other. try/except here is separate from (and outside) the
+                # lock so a genuine Excel-side failure -- the file open in
+                # another program, xlwings not installed, Excel crashed --
+                # can never take down the scan cycle itself; every
+                # individual write inside write_live_dashboard() already has
+                # its own try/except too, this is a second layer, not the
+                # only one.
+                try:
+                    with _FileLock(DASHBOARD_PATH, timeout=15):
+                        write_live_dashboard(index_rows)
+                except Exception as e:
+                    print(f"[OILiveDashboard] Skipped this cycle: {e}")
 
                 # Sep 11 2026: SENSEX snapshots into Index Tracker/the
                 # Market Banner above (snapshot_all() already looped it

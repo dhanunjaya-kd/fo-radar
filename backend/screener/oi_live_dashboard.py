@@ -4,9 +4,8 @@ Uses option-chain snapshots already collected by index_tracker.py. It makes
 no extra Fyers requests. One workbook contains a separate sheet per tracked
 instrument and is saved once per dashboard update cycle.
 
-SENSEX and standard commodities (CRUDEOIL, GOLD, SILVER) are included when
-their latest in-process option-chain snapshot is available. No synthetic
-values are used.
+Standard commodities (CRUDEOIL, GOLD, SILVER) are included when their latest
+in-process option-chain snapshot is available. No synthetic values are used.
 """
 
 import os
@@ -34,18 +33,6 @@ _BIAS_COL_INDEX = _LIVE_LOG_COLUMNS.index("Bias")
 _VALUE_COL_INDEX = _LIVE_LOG_COLUMNS.index("Value")
 _DIFF_COL_INDEX = _LIVE_LOG_COLUMNS.index("Difference (in K)")
 _COMMODITY_NAMES = ("CRUDEOIL", "GOLD", "SILVER")
-# Sep 12 2026: SENSEX joined Index Tracker's INDEX_SYMBOLS earlier today
-# (snapshot_all() already loops it in generically, alongside NIFTY/
-# BANKNIFTY, via the same snapshot_index() that writes into the shared
-# _last_oi_snapshot cache get_last_oi_snapshot() reads from below) --
-# same situation the commodities were already built to handle via that
-# exact cache-fallback mechanism. Kept as its own tuple rather than
-# merged into _COMMODITY_NAMES -- SENSEX is an index, not a commodity,
-# and keeping the name honest lets the two be extended independently
-# if their treatment ever needs to diverge, even though both get
-# identical handling here for now.
-_SENSEX_NAME = ("SENSEX",)
-_AUTO_FILL_NAMES = _SENSEX_NAME + _COMMODITY_NAMES
 
 _FIRST_PANEL_ROW = 3
 _PANEL_HEIGHT = 6
@@ -423,13 +410,13 @@ def _build_values(row):
 
 
 def write_live_dashboard(results):
-    """Write index rows and latest cached standard-commodity/SENSEX rows in one save."""
+    """Write index rows and latest cached standard-commodity rows in one save."""
     book = _get_dashboard_book()
     if book is None:
         return
 
     combined = dict(results or {})
-    for name in _AUTO_FILL_NAMES:
+    for name in _COMMODITY_NAMES:
         if not combined.get(name):
             cached = get_last_oi_snapshot(name)
             row = _row_from_snapshot(name, cached)
@@ -438,11 +425,11 @@ def write_live_dashboard(results):
 
     wrote_any = False
     for index_name, row in combined.items():
-        if not row or index_name not in ("NIFTY", "BANKNIFTY") + _AUTO_FILL_NAMES:
+        if not row or index_name not in ("NIFTY", "BANKNIFTY") + _COMMODITY_NAMES:
             continue
         try:
             sheet = _prepare_sheet(book, index_name)
-            if index_name in _AUTO_FILL_NAMES and "Total Call OI" not in row:
+            if index_name in _COMMODITY_NAMES and "Total Call OI" not in row:
                 row = _row_from_snapshot(index_name, get_last_oi_snapshot(index_name))
             if not row:
                 continue
