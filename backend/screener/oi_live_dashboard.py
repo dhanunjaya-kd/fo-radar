@@ -296,6 +296,25 @@ def _prepare_sheet(book, index_name):
 
 
 def _write_boundary_panel(sheet, index_name, row, oi_snap):
+    """
+    Sep 16 2026: moved to a FIXED location (columns P-X, row 2) that
+    never changes cycle to cycle -- confirmed live via screenshots
+    that the previous design (panel re-inserted into the data table's
+    own next row, then relocated down each cycle -- oi_dashboard_
+    runtime_guard.py's own write_dashboard_row does exactly this,
+    reusing the panel's old row space for the next data row) produced
+    a messy, interleaved sheet: the boundary panel kept reappearing in
+    the middle of what should have been a continuously growing table.
+    The desktop app (the original reference for this whole feature)
+    never does this -- its table scrolls continuously and the panel
+    sits fixed below it. This is the closest Excel-native equivalent:
+    a permanent panel off to the side, always visible, always current,
+    while columns A-M grow downward uninterrupted. Confirmed neither
+    guard file references this function, so this is safe to change on
+    its own -- the guard's own "reuse the panel's row space" logic in
+    write_dashboard_row still runs, but now against cells nothing ever
+    visually occupied, which is harmless.
+    """
     rows = (oi_snap or {}).get("rows") or []
     calls, puts = compute_boundary_pairs(rows)
     call1 = calls[0] if calls else (None, None)
@@ -303,33 +322,38 @@ def _write_boundary_panel(sheet, index_name, row, oi_snap):
     put1 = puts[0] if puts else (None, None)
     put2 = puts[1] if len(puts) > 1 else (None, None)
 
-    title = _panel_start_rows.get(index_name, _FIRST_PANEL_ROW)
+    title = 2  # fixed -- never derived from _panel_start_rows anymore
     r1, r2, r3, r4, r5 = title + 1, title + 2, title + 3, title + 4, title + 5
-    _clear_panel(sheet, title)
+    # Columns P,Q,R,S / U,V,W,X mirror the original A,B,C,D / F,G,H,I
+    # layout exactly, just shifted right; T is the visual gap column
+    # (mirroring E in the original).
+    L, R = "P", "U"  # left-panel and right-panel starting columns
 
     try:
-        sheet.range(f"A{title}:D{title}").merge()
-        sheet.range(f"F{title}:I{title}").merge()
-        sheet.range(f"B{r3}:D{r3}").merge()
-        sheet.range(f"B{r4}:D{r4}").merge()
-        sheet.range(f"B{r5}:D{r5}").merge()
-        sheet.range(f"G{r3}:I{r3}").merge()
-        sheet.range(f"G{r4}:I{r4}").merge()
-        sheet.range(f"G{r5}:I{r5}").merge()
+        sheet.range(f"{L}{title}:{chr(ord(L)+3)}{title}").merge()
+        sheet.range(f"{R}{title}:{chr(ord(R)+3)}{title}").merge()
+        sheet.range(f"{chr(ord(L)+1)}{r3}:{chr(ord(L)+3)}{r3}").merge()
+        sheet.range(f"{chr(ord(L)+1)}{r4}:{chr(ord(L)+3)}{r4}").merge()
+        sheet.range(f"{chr(ord(L)+1)}{r5}:{chr(ord(L)+3)}{r5}").merge()
+        sheet.range(f"{chr(ord(R)+1)}{r3}:{chr(ord(R)+3)}{r3}").merge()
+        sheet.range(f"{chr(ord(R)+1)}{r4}:{chr(ord(R)+3)}{r4}").merge()
+        sheet.range(f"{chr(ord(R)+1)}{r5}:{chr(ord(R)+3)}{r5}").merge()
 
-        sheet.range(f"A{title}").value = "Open Interest Upper Boundary"
-        sheet.range(f"F{title}").value = "Open Interest Lower Boundary"
-        for addr in (f"A{title}", f"F{title}"):
+        sheet.range(f"{L}{title}").value = "Open Interest Upper Boundary"
+        sheet.range(f"{R}{title}").value = "Open Interest Lower Boundary"
+        for addr in (f"{L}{title}", f"{R}{title}"):
             sheet.range(addr).font.bold = True
             sheet.range(addr).api.HorizontalAlignment = -4108
             sheet.range(addr).api.VerticalAlignment = -4108
             _fill(sheet.range(addr), _TITLE_FILL)
 
-        sheet.range(f"A{r1}:D{r2}").value = [
+        Lb, Lc, Ld = chr(ord(L)+1), chr(ord(L)+2), chr(ord(L)+3)
+        Rb, Rc, Rd = chr(ord(R)+1), chr(ord(R)+2), chr(ord(R)+3)
+        sheet.range(f"{L}{r1}:{Ld}{r2}").value = [
             ["Strike Price 1", call1[0], "OI (in K)", _to_k(call1[1])],
             ["Strike Price 2", call2[0], "OI (in K)", _to_k(call2[1])],
         ]
-        sheet.range(f"F{r1}:I{r2}").value = [
+        sheet.range(f"{R}{r1}:{Rd}{r2}").value = [
             ["Strike Price 1", put1[0], "OI (in K)", _to_k(put1[1])],
             ["Strike Price 2", put2[0], "OI (in K)", _to_k(put2[1])],
         ]
@@ -337,38 +361,38 @@ def _write_boundary_panel(sheet, index_name, row, oi_snap):
         bias = row.get("Bias") or "N/A"
         pcr = row.get("PCR")
         spot = row.get("Spot") or row.get("Value")
-        sheet.range(f"A{r3}").value = "Open Interest"
-        sheet.range(f"B{r3}").value = bias
-        sheet.range(f"A{r4}").value = "Call Exits"
-        sheet.range(f"B{r4}").value = "No"
-        sheet.range(f"A{r5}").value = "Call ITM"
-        sheet.range(f"B{r5}").value = "Yes" if spot is not None and call1[0] is not None and call1[0] < spot else "No"
-        sheet.range(f"F{r3}").value = "PCR"
-        sheet.range(f"G{r3}").value = pcr
-        sheet.range(f"F{r4}").value = "Put Exits"
-        sheet.range(f"G{r4}").value = "No"
-        sheet.range(f"F{r5}").value = "Put ITM"
-        sheet.range(f"G{r5}").value = "Yes" if spot is not None and put1[0] is not None and put1[0] > spot else "No"
+        sheet.range(f"{L}{r3}").value = "Open Interest"
+        sheet.range(f"{Lb}{r3}").value = bias
+        sheet.range(f"{L}{r4}").value = "Call Exits"
+        sheet.range(f"{Lb}{r4}").value = "No"
+        sheet.range(f"{L}{r5}").value = "Call ITM"
+        sheet.range(f"{Lb}{r5}").value = "Yes" if spot is not None and call1[0] is not None and call1[0] < spot else "No"
+        sheet.range(f"{R}{r3}").value = "PCR"
+        sheet.range(f"{Rb}{r3}").value = pcr
+        sheet.range(f"{R}{r4}").value = "Put Exits"
+        sheet.range(f"{Rb}{r4}").value = "No"
+        sheet.range(f"{R}{r5}").value = "Put ITM"
+        sheet.range(f"{Rb}{r5}").value = "Yes" if spot is not None and put1[0] is not None and put1[0] > spot else "No"
 
         for rr in (r1, r2, r3, r4, r5):
-            for addr in (f"A{rr}", f"C{rr}", f"F{rr}", f"H{rr}"):
+            for addr in (f"{L}{rr}", f"{Lc}{rr}", f"{R}{rr}", f"{Rc}{rr}"):
                 sheet.range(addr).font.bold = True
                 _fill(sheet.range(addr), _LABEL_FILL)
         if "Bullish" in bias:
-            _fill(sheet.range(f"B{r3}"), _GREEN_FILL)
+            _fill(sheet.range(f"{Lb}{r3}"), _GREEN_FILL)
         elif "Bearish" in bias:
-            _fill(sheet.range(f"B{r3}"), _RED_FILL)
+            _fill(sheet.range(f"{Lb}{r3}"), _RED_FILL)
         elif bias == "Neutral":
-            _fill(sheet.range(f"B{r3}"), _AMBER_FILL)
+            _fill(sheet.range(f"{Lb}{r3}"), _AMBER_FILL)
         if isinstance(pcr, (int, float)):
-            _fill(sheet.range(f"G{r3}"), _GREEN_FILL if pcr > 1.05 else _RED_FILL if pcr < 0.95 else _AMBER_FILL)
+            _fill(sheet.range(f"{Rb}{r3}"), _GREEN_FILL if pcr > 1.05 else _RED_FILL if pcr < 0.95 else _AMBER_FILL)
 
-        sheet.range(f"D{r1}:D{r2}").number_format = "0.0"
-        sheet.range(f"I{r1}:I{r2}").number_format = "0.0"
-        sheet.range(f"G{r3}").number_format = "0.000"
-        sheet.range(f"A{title}:I{r5}").api.Borders.LineStyle = 1
-        sheet.range(f"A{title}:I{r5}").api.VerticalAlignment = -4108
-        sheet.range(f"A{title}:I{r5}").api.WrapText = True
+        sheet.range(f"{Ld}{r1}:{Ld}{r2}").number_format = "0.0"
+        sheet.range(f"{Rd}{r1}:{Rd}{r2}").number_format = "0.0"
+        sheet.range(f"{Rb}{r3}").number_format = "0.000"
+        sheet.range(f"{L}{title}:{Rd}{r5}").api.Borders.LineStyle = 1
+        sheet.range(f"{L}{title}:{Rd}{r5}").api.VerticalAlignment = -4108
+        sheet.range(f"{L}{title}:{Rd}{r5}").api.WrapText = True
         for rr in range(title, r5 + 1):
             sheet.range(f"{rr}:{rr}").row_height = 24
     except Exception as e:
