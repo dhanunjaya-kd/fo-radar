@@ -148,7 +148,29 @@ def _get_dashboard_book():
     try:
         os.makedirs(LOG_DIR, exist_ok=True)
         _app = xw.apps.active or xw.App(visible=True)
-        if os.path.exists(DASHBOARD_PATH):
+        dashboard_filename = os.path.basename(DASHBOARD_PATH)
+        # Sep 16 2026: REAL BUG FOUND live -- "Could not open workbook:
+        # ... Open method of Workbooks class failed" confirmed in
+        # production. Root cause: calling .open() on a path that's
+        # ALREADY open in this same Excel instance (confirmed via the
+        # user's own screenshot showing the file open) can fail this way
+        # -- Excel doesn't always like being asked to re-open what it
+        # already has open, especially right after another process died
+        # mid-write (the stale-lock recovery immediately before this in
+        # the same log). Check for an already-open match first; only
+        # call .open() when nothing matching is already there.
+        already_open = None
+        try:
+            for existing_book in _app.books:
+                if existing_book.name == dashboard_filename:
+                    already_open = existing_book
+                    break
+        except Exception:
+            pass
+
+        if already_open is not None:
+            _book = already_open
+        elif os.path.exists(DASHBOARD_PATH):
             _book = _app.books.open(DASHBOARD_PATH)
         else:
             _book = _app.books.add()
@@ -186,6 +208,18 @@ def _style_header(sheet):
         for col, width in widths.items():
             sheet.range(f"{col}:{col}").column_width = width
         header.api.Borders.LineStyle = 1
+        # Sep 16 2026: hide Call/Put Boundary Strike, PCR, Bias from the
+        # visible main table -- the desktop app's own reference screenshot
+        # has exactly 9 columns (Time through Put ITM), never these 4.
+        # Can't remove them from the underlying data (both guard files
+        # depend on _BIAS_COL_INDEX/_PCR_COL_INDEX pointing at real
+        # positions in the row's values for their own row-coloring), so
+        # hidden instead -- data and the panel below still use them, the
+        # scrolling table just doesn't show them anymore.
+        try:
+            sheet.range("J:M").api.EntireColumn.Hidden = True
+        except Exception as e:
+            print(f"[OILiveDashboard] Column hiding skipped: {e}")
     except Exception as e:
         print(f"[OILiveDashboard] Header formatting skipped: {e}")
 
