@@ -41,6 +41,7 @@ check).
 """
 import os
 import threading
+import zipfile
 from datetime import datetime, timedelta
 
 try:
@@ -96,9 +97,52 @@ def _get_workbook(path):
     "Reasons" today, would otherwise silently misalign existing rows
     under the wrong headers instead of failing loudly or migrating
     cleanly).
+
+    Sep 16 2026: REAL BUG FOUND live -- confirmed in production logs
+    showing "[ShadowLog] Failed to log (...): File is not a zip file"/
+    "Bad magic number for central directory" repeating for many
+    different symbols across an entire session. Root cause: an
+    interrupted write (a killed/crashed process, or -- most likely
+    given this project's own Django autoreloader spawning a watcher +
+    child process pattern -- two processes writing this same path at
+    once with no cross-process lock) leaves a truncated, unreadable
+    .xlsz file on disk. load_workbook(path) had no exception handling
+    at all here, so this failed identically on every single retry, all
+    day, for every symbol -- it never had a chance to recover.
+
+    index_tracker.py already has the right pattern for a corrupted
+    file (catch zipfile.BadZipFile specifically, narrower than the
+    general except below, since a transient error like a momentary
+    Windows file lock genuinely might succeed next attempt and
+    shouldn't be treated the same way) -- reused here rather than
+    invented fresh. Different recovery than that read-only historical
+    case, though: today's shadow log is being ACTIVELY WRITTEN TO, so
+    "give up for the rest of the session" would break shadow-mode
+    logging entirely for the whole day. Instead: archive the
+    unreadable file aside (rename, since a corrupted file can't be
+    read and re-saved, only relocated) and start a fresh, valid
+    workbook so logging can keep working for the rest of today.
     """
     if os.path.exists(path):
-        wb = load_workbook(path)
+        try:
+            wb = load_workbook(path)
+        except zipfile.BadZipFile as e:
+            archive_path = path.replace(".xlsx", f"_corrupted_{datetime.now().strftime('%H%M%S')}.xlsx")
+            try:
+                os.rename(path, archive_path)
+                print(f"[ShadowLog] {os.path.basename(path)} is corrupted ({e}) -- moved aside to "
+                      f"{os.path.basename(archive_path)}, starting fresh so logging can continue today.")
+            except OSError as rename_err:
+                print(f"[ShadowLog] {os.path.basename(path)} is corrupted ({e}) and could not be moved aside "
+                      f"({rename_err}) -- starting fresh anyway; the corrupted file will be overwritten.")
+            wb = Workbook()
+            ws = wb.active
+            ws.title = "Shadow"
+            ws.append(COLUMNS)
+            for cell in ws[1]:
+                cell.font = Font(bold=True, color="FFFFFF")
+                cell.fill = PatternFill(start_color="1F2937", end_color="1F2937", fill_type="solid")
+            return wb
         ws = wb["Shadow"]
         existing_header = [c.value for c in ws[1]]
         if existing_header != COLUMNS:
