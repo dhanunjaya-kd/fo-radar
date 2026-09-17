@@ -1,6 +1,6 @@
- ## F&O Radar — Full Stack
+## F&O Radar — Full Stack
 
-Full-stack NSE F&O options scanner: WARRENER-style dark UI, live signal scoring, day-wise SL/Target outcome tracking, a day-wise Bias-accuracy backtest for NIFTY/BANKNIFTY, paper trading, PnL tracking, and 1–3 day price predictions.
+Full-stack NSE F&O options scanner: WARRENER-style dark UI, live signal scoring, day-wise SL/Target outcome tracking, a day-wise Bias-accuracy backtest for NIFTY/BANKNIFTY, a live Excel OI dashboard mirror, paper trading, PnL tracking, and 1–3 day price predictions.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ Full-stack NSE F&O options scanner: WARRENER-style dark UI, live signal scoring,
 fo-sniper-fullstack/
 ├── backend/          Django + Channels + Celery + PostgreSQL
 │   ├── fno_sniper/   Core Django config
-│   ├── screener/     Scoring engine, signal logging, Index Tracker, Bias backtest
+│   ├── screener/     Scoring engine, signal logging, Index Tracker, Bias backtest, live OI Excel dashboard
 │   ├── options/      Option chain analytics
 │   ├── fyers_api/    Fyers v3 API integration
 │   ├── news/         NewsAPI + sentiment
@@ -84,17 +84,32 @@ GET  /api/stock-detail/<symbol>/                   → Individual stock detail
 GET  /api/fyers-status/                            → Fyers auth status
 GET  /api/news/                                    → News feed
 ```
-A separate, parallel set (`/api/screener/`, `/api/options/`, `/api/trading/`, `/api/news/` via `include()`) is also registered in `urls.py`. Those aren't what the frontend calls — treat the list above as the source of truth for how the app actually works.
+A separate, parallel set (`/api/screener/`, `/api/options/`, `/api/trading/`, `/api/news/` via `include()`) is also registered in `urls.py`. Those aren't what the frontend calls — treat the list above as the source of truth for how the app actually works. One specific note on `/api/news/`: `screener`'s own `NewsView` is registered ahead of the separate `news` app's `include()` at the identical path, so it's `screener`'s view that actually serves this endpoint — the dedicated `news` app's own list view is unreachable dead code as a result (only its `/fetch/` sub-path is genuinely reachable, since that path doesn't collide).
+
+## Live OI Excel Dashboard
+A real-time NIFTY/BANKNIFTY/SENSEX option-chain mirror, driven by `xlwings` against a genuinely visible, live Excel window — not a static export. Runs inside the same background scan cycle as the rest of the scanner (`screener/oi_live_dashboard.py`, wired into `screener/views.py`'s worker).
+```
+signal_logs/<date>/oi_live_dashboard_<date>.xlsx
+```
+- A fresh file every trading day, in that day's own log folder — nothing accumulates across days in one growing file.
+- Per-symbol sheets (NIFTY, BANKNIFTY, SENSEX), each a continuously-appending table (Time, Value, Call/Put Sum, Difference, Call/Put Boundary, Call/Put ITM) with a fixed boundary panel off to the side — showing the latest Call/Put Boundary strikes, Bias, and PCR — that never interrupts the growing table.
+- Colour-coded by real movement (green/red on genuine up/down vs. the previous row), not a static palette.
+- Requires `xlwings` and a real Excel install (Windows) — silently disabled with a one-time log line if either isn't available, never a fake/empty dashboard.
+
+## Shadow Candidate Testing (A–J)
+Ten pass/reject filters run silently alongside every live signal, purely observational — none of them gate a real trade. Each is a hypothesis about a possible future improvement to the live Sniper logic (a faster trend check, a liquidity gate, re-validating an existing scoring component against fresh data, etc.), logged to its own Excel columns per signal. A candidate is only ever considered for promotion to a real, live gate once it clears an explicit evidence bar — 30+ resolved signals, 10+ real wins *and* 10+ real losses in its PASS subset, and a proven 1+ percentage point improvement in win rate over the baseline — checked automatically, never eyeballed. As of today, none have cleared that bar.
 
 ## Features
 - ✅ WARRENER-style dark green UI
-- ✅ 180 NSE F&O stocks
+- ✅ 208 NSE F&O stocks
 - ✅ Score/Grade/Signal engine
 - ✅ 1-day & 3-day price predictions
 - ✅ Paper trading mode
 - ✅ PnL tracker
 - ✅ Day-wise SL/Target outcome tracking, per-day Excel logs
 - ✅ Day-wise NIFTY/BANKNIFTY Bias-accuracy backtest, downloadable from Index Tracker
+- ✅ Live OI Excel dashboard (NIFTY/BANKNIFTY/SENSEX, xlwings-driven, per-day file) — see section above
+- ✅ Shadow candidate testing framework (A–J) — see section above
 - ✅ News sentiment analysis
 - ✅ Telegram alerts
 - ✅ Fyers v3 API (SHA256 auth)
