@@ -224,8 +224,17 @@ def _is_quality_confirmed_with_hysteresis(symbol, action, quality_result, state_
     unit test directly, no dependency on wall-clock time or global
     state in a test).
 
+    Sep 17 2026: per the Zero-Signal Forensic Audit and explicit,
+    scoped approval -- entry bar changed from requiring THIS cycle's
+    verdict to be TRADE (score>=80) to requiring score>=70 (TRADE OR
+    WATCH tier -- both are real, already-defined verdicts from the
+    same quality_engine.py grading, this isn't a new threshold being
+    invented). Everything else below is unchanged: the scoring
+    formula, weights, and every hard gate this function's OWN
+    docstring already documented are exactly as they were.
+
     Asymmetric by DESIGN, not by a tuned number:
-      - ENTRY requires this cycle's OWN verdict to be TRADE, no grace
+      - ENTRY requires this cycle's OWN score to be >= 70, no grace
         on the way in -- same "no grace on entry" shape as the
         technical score's ENTRY_SCORE_THRESHOLD.
       - EXIT is immediate ONLY on a real, confirmed contradiction --
@@ -234,7 +243,7 @@ def _is_quality_confirmed_with_hysteresis(symbol, action, quality_result, state_
         score dip) -- same "excluded entirely, not just penalized"
         principle the live oi_confirmation check already applies to a
         fresh CONFLICT reading.
-      - Everything else that drops out of TRADE (a score dip with no
+      - Everything else that drops out (a score dip below 70 with no
         active conflict, a thin-data cycle, or quality_result itself
         being None because _evaluate_and_log_shadow() itself raised)
         is held through, not exited -- same "don't drop on noise or on
@@ -259,15 +268,15 @@ def _is_quality_confirmed_with_hysteresis(symbol, action, quality_result, state_
         state_dict[key] = state
 
     conflict = bool(quality_result and quality_result.get('conflict_gate_triggered'))
-    verdict = quality_result.get('verdict') if quality_result else None
+    score = quality_result.get('score') if quality_result else None
 
     if state['confirmed']:
         if conflict:
             state['confirmed'] = False
-        # else: hold through a WATCH/IGNORE-from-score dip, a thin-data
-        # cycle, or a computation failure -- see docstring above.
+        # else: hold through a score dip below 70, a thin-data cycle,
+        # or a computation failure -- see docstring above.
     else:
-        if verdict == 'TRADE' and not conflict:
+        if score is not None and score >= 70 and not conflict:
             state['confirmed'] = True
 
     return state['confirmed']
@@ -3178,11 +3187,29 @@ def _build_all():
     # Fyers option chain backing it), this cuts noise from both ends:
     # weaker technical setups are excluded, AND setups that technically
     # qualify but have no confirmed tradeable option are gone entirely.
+    #
+    # Sep 17 2026: per the Zero-Signal Forensic Audit and explicit,
+    # scoped approval -- two conditions removed from this specific
+    # filter, nothing upstream touched:
+    #   - confidence>=85 removed: confidence IS total_score (see
+    #     signals.append() above, "confidence": f"{total_score}%"),
+    #     so this was the same technical-score gate checked a second
+    #     time under a different name. The real technical floor,
+    #     ENTRY_SCORE_THRESHOLD=50, already gated everything in
+    #     `signals` before this line ever runs -- removing this does
+    #     not lower that floor, it removes a duplicate of it.
+    #   - oi_confirmed_persisted removed: this required OI to be
+    #     specifically CONFIRMED. OI CONFLICT was never gated by this
+    #     variable -- it's an outright `continue` far upstream (see
+    #     the OI-buildup block above), so NEUTRAL and CONFIRMED both
+    #     already reached this point on equal footing; only the
+    #     requirement that it be CONFIRMED specifically is removed.
+    # quality_confirmed's own bar was separately changed inside
+    # _is_quality_confirmed_with_hysteresis() itself (score>=70,
+    # TRADE or WATCH) -- not touched again here.
     quality_signals = [
         s for s in signals
-        if int(s['confidence'].replace('%', '')) >= 85
-        and s.get('oi_confirmed_persisted')
-        and (not _QUALITY_GATE_ENABLED or s.get('quality_confirmed'))
+        if (not _QUALITY_GATE_ENABLED or s.get('quality_confirmed'))
     ][:15]
 
     with _cache_lock:
