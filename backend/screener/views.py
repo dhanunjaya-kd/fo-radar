@@ -398,6 +398,27 @@ SNIPER_V2_CONFIG = {
     # actual enforcement. Same discipline as every other switch here:
     # ready, not silently activated.
     "REQUIRE_ADX_TREND_STRENGTH": os.environ.get("REQUIRE_ADX_TREND_STRENGTH", "false").lower() == "true",
+    # Sep 17 2026 (Zero-Signal Forensic Audit, continued): the OI
+    # CONFLICT hard-exclude below used to trigger off a SINGLE narrow
+    # measure -- options_analytics.analyze_option_chain()'s chain-wide
+    # CE/PE OI-change ratio (1.2x cutoff, no price reference, no
+    # futures OI at all). That's exactly the "rigid single-pattern
+    # gate" risk this audit's Phase 4/8 asked about. futures_oi_data
+    # is already fetched every cycle for shortlisted candidates
+    # (previously shadow-mode only) and there's already a real, tested
+    # 4-quadrant classifier for it (quality_engine.
+    # evaluate_futures_oi_structure(), reused verbatim here, not
+    # reimplemented). Default True: before excluding a candidate
+    # entirely on the options-chain reading alone, also check whether
+    # futures OI independently agrees it's a genuine conflict. Only a
+    # CORROBORATED conflict (both agree) still excludes; an
+    # uncorroborated one (futures OI unavailable, neutral, or itself
+    # supportive) is scored down instead of killed outright. NOT
+    # validated against real historical outcomes yet -- same
+    # "heuristic, not proven" labeling REQUIRE_ADX_TREND_STRENGTH
+    # above already uses. Flip to "false" via env var to restore the
+    # original any-conflict-excludes behavior with no code change.
+    "OI_CONFLICT_REQUIRES_FUTURES_CORROBORATION": os.environ.get("OI_CONFLICT_REQUIRES_FUTURES_CORROBORATION", "true").lower() == "true",
 }
 # Back-compat module-level names some earlier code in this session already
 # reads directly -- same values, single source of truth is the dict above.
@@ -2450,30 +2471,66 @@ def _build_all():
                 # the chart looks. Excluded entirely now, same principle
                 # as the confirmed-live-chain requirement -- not just
                 # scored down, not shown as a trade recommendation at all.
-                no_trade_log.append({"symbol": sym, "reason": f"OI conflicts with {action} direction ({buildup or 'no clear buildup'})"})
-                # Sep 12 2026: a real, confirmed contradiction -- drop
-                # any persisted oi_confirmation state for this (symbol,
-                # action) rather than leaving a stale CONFIRMED sitting
-                # there. This candidate is dropped before signals.append()
-                # this cycle regardless, but the NEXT time it reads
-                # CONFIRMED again, it should have to re-earn entry, not
-                # silently resume as if the conflict never happened.
-                _oi_confirmation_state.pop((sym, action), None)
-                # Sep 8 2026: SHADOW MODE ONLY -- oi is available here
-                # (unlike the hysteresis-fail hook above), so the richer
-                # options_confirmation evidence is too. signal_extra
-                # itself isn't built yet at this exact point in the v3.0
-                # flow, so ce_oi_chg/pe_oi_chg/pcr are read directly off
-                # oi (options_analytics.analyze_option_chain()'s own
-                # confirmed return keys) instead.
-                _evaluate_and_log_shadow(
-                    sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
-                    v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
-                    v3_reason=f"OI conflicts with {action} direction",
-                    oi=oi, signal_extra={"ce_oi_chg": oi.get("ce_oi_chg"), "pe_oi_chg": oi.get("pe_oi_chg"), "pcr": oi.get("pcr")},
-                    mtf_data=mtf_data, futures_oi_data=futures_oi_data,
-                )
-                continue
+                #
+                # Sep 17 2026 (Zero-Signal Forensic Audit, continued):
+                # "bearish_oi"/"bullish_oi" above are a SINGLE narrow
+                # measure (chain-wide CE/PE OI-change ratio, no price
+                # reference, no futures OI). Before treating that alone
+                # as grounds to exclude entirely, check whether futures
+                # OI -- already fetched above, already has a real 4-
+                # quadrant classifier in quality_engine.py -- agrees.
+                # See OI_CONFLICT_REQUIRES_FUTURES_CORROBORATION's own
+                # comment (SNIPER_V2_CONFIG above) for the full
+                # reasoning and how to revert this with no code change.
+                futures_structure_state = None
+                if SNIPER_V2_CONFIG["OI_CONFLICT_REQUIRES_FUTURES_CORROBORATION"] and futures_oi_data and futures_oi_data.get("status") == "AVAILABLE":
+                    from .quality_engine import evaluate_futures_oi_structure
+                    futures_structure_state = evaluate_futures_oi_structure(
+                        action, stock.get('change_percent'), futures_oi_data.get('oi_chg_pct')
+                    )['state']
+                    corroborated = futures_structure_state == 'CONFLICT'
+                else:
+                    # Flag off, or futures OI unavailable this cycle --
+                    # can't corroborate either way, so fall back to the
+                    # original behavior: the options-chain reading alone
+                    # decides.
+                    corroborated = True
+
+                if corroborated:
+                    no_trade_log.append({"symbol": sym, "reason": f"OI conflicts with {action} direction ({buildup or 'no clear buildup'})" + (f" -- futures OI agrees ({futures_structure_state})" if futures_structure_state else "")})
+                    # Sep 12 2026: a real, confirmed contradiction -- drop
+                    # any persisted oi_confirmation state for this (symbol,
+                    # action) rather than leaving a stale CONFIRMED sitting
+                    # there. This candidate is dropped before signals.append()
+                    # this cycle regardless, but the NEXT time it reads
+                    # CONFIRMED again, it should have to re-earn entry, not
+                    # silently resume as if the conflict never happened.
+                    _oi_confirmation_state.pop((sym, action), None)
+                    # Sep 8 2026: SHADOW MODE ONLY -- oi is available here
+                    # (unlike the hysteresis-fail hook above), so the richer
+                    # options_confirmation evidence is too. signal_extra
+                    # itself isn't built yet at this exact point in the v3.0
+                    # flow, so ce_oi_chg/pe_oi_chg/pcr are read directly off
+                    # oi (options_analytics.analyze_option_chain()'s own
+                    # confirmed return keys) instead.
+                    _evaluate_and_log_shadow(
+                        sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                        v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
+                        v3_reason=f"OI conflicts with {action} direction",
+                        oi=oi, signal_extra={"ce_oi_chg": oi.get("ce_oi_chg"), "pe_oi_chg": oi.get("pe_oi_chg"), "pcr": oi.get("pcr")},
+                        mtf_data=mtf_data, futures_oi_data=futures_oi_data,
+                    )
+                    continue
+                else:
+                    # Options chain alone leans against this direction,
+                    # but futures OI does NOT corroborate (it read the
+                    # opposite quadrant, or NEUTRAL/INSUFFICIENT_DATA) --
+                    # score it down instead of killing it outright. Falls
+                    # through to the PCR/max-pain logic below exactly
+                    # like a genuine NEUTRAL reading would; -10 is a
+                    # heuristic penalty, not statistically derived.
+                    oi_confirmation, oi_adjustment = "NEUTRAL", -10
+                    oi_reason = f"Options chain leans against {action} ({buildup or 'unclear'}), but futures OI does not corroborate ({futures_structure_state or 'unavailable'}) -- scored down, not excluded"
             else:
                 oi_confirmation, oi_adjustment = "NEUTRAL", 0
                 oi_reason = "OI shows no clear directional lean"
