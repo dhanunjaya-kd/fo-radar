@@ -274,6 +274,14 @@ COLUMNS = [
     # quality_engine.evaluate_sector_alignment() (already real, tested
     # code), fed by data already computed live every cycle.
     "Candidate I (Market/Sector Alignment)", "Candidate I Reason",
+    # Sep 16 2026: candidate J -- different purpose from A-I above.
+    # Re-validates the EXISTING live +20 OI CONFIRMED score bonus
+    # against fresh, ongoing data, rather than proposing a new filter.
+    # See _evaluate_shadow_candidates()'s own candidate J comment for
+    # why: the only evidence questioning that bonus so far is an
+    # unknown-age finding in this project's own
+    # check_oi_confirmation_score_bias.py.
+    "Candidate J (OI Confirmation Re-Validation)", "Candidate J Reason",
 ]
 
 _lock = threading.Lock()
@@ -481,6 +489,7 @@ def _write_new_row(ws, signal):
         signal.get("candidate_g"), signal.get("candidate_g_reason"),
         signal.get("candidate_h"), signal.get("candidate_h_reason"),
         signal.get("candidate_i"), signal.get("candidate_i_reason"),
+        signal.get("candidate_j"), signal.get("candidate_j_reason"),
     ]
 
     key = (signal.get("symbol"), signal.get("action"))
@@ -896,6 +905,7 @@ _CANDIDATE_COLUMNS = {
     "E": "Candidate E (Direction-Aware Volume)", "F": "Candidate F (ADX Gate)",
     "G": "Candidate G (Target Room)", "H": "Candidate H (Entry Structure)",
     "I": "Candidate I (Market/Sector Alignment)",
+    "J": "Candidate J (OI Confirmation Re-Validation)",
 }
 
 
@@ -904,8 +914,11 @@ def generate_shadow_comparison_report(lookback_days=90):
     Reads every resolved signal (real "Target N Hit" or "SL Hit"
     Outcome -- never "Expired" or blank, same exact-match discipline as
     get_symbol_recurrence_info()) across up to `lookback_days` of real
-    daily logs, and for each of the six shadow candidates, compares the
-    PASS subset's win rate against the overall baseline.
+    daily logs, and for each shadow candidate in _CANDIDATE_COLUMNS
+    (generic over however many exist -- this loop was already generic
+    before Sep 16 2026's candidate J addition, this docstring just
+    hadn't been updated since candidates G/H/I were added), compares
+    the PASS subset's win rate against the overall baseline.
 
     Returns, per candidate, either:
       {'status': 'INSUFFICIENT_EVIDENCE', 'collected': {...}, 'required': {...}}

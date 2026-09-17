@@ -462,7 +462,7 @@ _symbol_recurrence_history = {}
 _macd_cycle_tracker = {}
 
 
-def _evaluate_shadow_candidates(sym, action, price, change_percent, macd, rsi, adx, vol, vol_avg, ema20, ema50, support=None, resistance=None, stock_t3=None, sector_change_pct=None, nifty_change_pct=None):
+def _evaluate_shadow_candidates(sym, action, price, change_percent, macd, rsi, adx, vol, vol_avg, ema20, ema50, support=None, resistance=None, stock_t3=None, sector_change_pct=None, nifty_change_pct=None, oi_confirmation=None):
     """
     Returns a dict of nine {candidate: 'PASS'|'REJECT'|'UNKNOWN', candidate+'_reason': str}
     entries. Every value here is computed from data the live signal
@@ -590,6 +590,38 @@ def _evaluate_shadow_candidates(sym, action, price, change_percent, macd, rsi, a
     else:
         out["candidate_i"] = "UNKNOWN"
     out["candidate_i_reason"] = f"state={sector_result['state']}, is_leader={sector_result['is_leader']}, stock={change_percent}%, sector={sector_change_pct}%, nifty={nifty_change_pct}%"
+
+    # J. Fresh OI Confirmation re-validation -- Sep 16 2026, added per
+    # explicit request for real, evidence-based improvement ideas,
+    # found during a full forensic pass of this repository.
+    #
+    # DIFFERENT PURPOSE from candidates A-I above: those all propose
+    # NEW filters this project doesn't have yet. This one instead
+    # RE-TESTS an EXISTING, ALREADY-LIVE scoring component -- the +20
+    # OI CONFIRMED bonus in _build_all()'s own scoring block -- against
+    # fresh, ongoing data, because the only evidence questioning it is
+    # old: this project's own screener/check_oi_confirmation_score_bias.py
+    # already found CONFIRMED's median base score equals NEUTRAL's
+    # exactly, and NEUTRAL-labeled trades outperformed CONFIRMED
+    # trades roughly 8x in real per-trade P&L -- but that finding has
+    # an unknown date and unknown sample recency. Rather than touch
+    # the live +20 bonus on stale evidence (exactly what this whole
+    # project's own shadow-mode discipline exists to prevent), this
+    # feeds the SAME real signal stream through the SAME
+    # generate_shadow_comparison_report() evidence-bar machinery
+    # already proven for candidates A-I, so a decision here will be
+    # based on current data, not a historical snapshot of unknown age.
+    #
+    # PASS = this signal's OI was CONFIRMED (the live bonus fired).
+    # REJECT = OI was NEUTRAL (no bonus). UNKNOWN = no live option
+    # chain was available this cycle (NO_DATA) -- never guessed.
+    if oi_confirmation == "CONFIRMED":
+        out["candidate_j"] = "PASS"
+    elif oi_confirmation == "NEUTRAL":
+        out["candidate_j"] = "REJECT"
+    else:
+        out["candidate_j"] = "UNKNOWN"
+    out["candidate_j_reason"] = f"oi_confirmation={oi_confirmation} (re-validating the existing live +20 score bonus against fresh data, not proposing a new filter)"
 
     return out
 
@@ -2899,6 +2931,7 @@ def _build_all():
             tech.get('ema20'), tech.get('ema50'),
             support=tech.get('support'), resistance=tech.get('resistance'), stock_t3=stock_t3,
             sector_change_pct=sector_change_pct, nifty_change_pct=nifty_change_pct,
+            oi_confirmation=oi_confirmation,
         )
 
         # Sep 12 2026: SNIPER V2 observability -- see the module-level
