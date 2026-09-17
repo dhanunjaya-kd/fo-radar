@@ -2206,8 +2206,42 @@ def _build_all():
     # else: this cycle's fetch failed -- _index_cache["pcr"] deliberately
     # left untouched, holding whatever the last successful cycle wrote.
     
-    # 4. Build signals from top movers
-    movers = sorted(results.values(), key=lambda x: abs(x.get('change_percent', 0)), reverse=True)[:30]
+    # 4. Build signals -- Sep 17 2026 (Zero-Signal Forensic Audit,
+    # continued): this used to be `sorted(...)[:30]` -- only the day's
+    # 30 biggest movers BY ALREADY-REALIZED |%change| ever reached
+    # _calc_tech/scoring/OI at all. Real snapshot data (a 208-stock
+    # F&O watchlist from a broad-based session) showed the top-30
+    # cutoff's effective boundary was 2.31% that day -- 84 stocks
+    # still moving >=1% and 10 stocks moving >=2% never got evaluated,
+    # purely because ~30 OTHER stocks happened to be moving even more
+    # that same cycle. That's the literal opposite of early detection:
+    # a stock had to already be one of the day's biggest movers before
+    # this pipeline would even look at its RSI/MACD/ADX/VWAP.
+    #
+    # Real cost check before removing this, not a guess: _fetch_all_
+    # stocks(FNO_STOCKS) two lines above ALREADY fetches quotes for
+    # the full 208-stock universe every cycle, truncation or not -- no
+    # new quote traffic either way. _calc_tech's own history fetch
+    # (_cached_history_df) is cached once per symbol per DAY (Aug 14
+    # fix, see its own docstring) -- so scanning all 208 instead of 30
+    # costs ZERO extra Fyers calls after the first cycle of the day;
+    # only that first cycle pays a real, one-time cost of ~178 more
+    # History-API calls to warm the cache for the newly-included
+    # symbols. The expensive calls (option chain, futures OI) are
+    # UNCHANGED -- still only fetched for symbols that already cleared
+    # the technical+directional gates further down, exactly as before;
+    # this change only widens who gets a chance to reach that point.
+    #
+    # SIGNAL_CANDIDATE_POOL_SIZE (0 = full universe, the new default)
+    # exists as a safety valve given this project's real, repeated
+    # Fyers 429 history (Aug 20/Sep 3/Sep 4 incidents) -- if the first-
+    # cycle history-warming burst causes trouble, set it back to a
+    # number (e.g. 50) with no code change rather than reverting this
+    # entirely.
+    _candidate_pool_size = int(os.environ.get("SIGNAL_CANDIDATE_POOL_SIZE", "0"))
+    movers = sorted(results.values(), key=lambda x: abs(x.get('change_percent', 0)), reverse=True)
+    if _candidate_pool_size > 0:
+        movers = movers[:_candidate_pool_size]
     signals = []
     techs = {}
     # Aug 31 2026: P0-7 -- one VIX read for the whole cycle, reused by
