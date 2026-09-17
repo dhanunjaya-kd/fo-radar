@@ -38,6 +38,14 @@ class ScreenerConfig(AppConfig):
         except Exception as exc:
             print(f"[OILiveDashboard] Visual guard unavailable: {exc}")
 
+        # Final deterministic repair layer: fixes display-only values, cell
+        # fills, and legacy workbooks where rows were left below the UB/LB panel.
+        try:
+            from .oi_dashboard_final_guard import install
+            install()
+        except Exception as exc:
+            print(f"[OILiveDashboard] Final dashboard guard unavailable: {exc}")
+
         # Preserve the last good live signal list when a whole Fyers quote
         # cycle fails. A genuine successful scan that finds zero signals is
         # still allowed to publish zero.
