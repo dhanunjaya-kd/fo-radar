@@ -3374,7 +3374,35 @@ def _background_worker():
         try:
             if is_market_hours():
                 _build_all()
-                print(f"[{datetime.now()}] Background refresh complete. Stocks: {len(_stock_cache)}, Signals: {len(_signal_cache)}")
+                # Sep 17 2026 (Zero-Signal Forensic Audit, continued):
+                # pure observability -- no gate, threshold, or behavior
+                # touched here. _no_trade_cache already holds every
+                # rejection this cycle with a real reason string (every
+                # one of these no_trade_log.append() call sites already
+                # existed before today); this just buckets them by
+                # which gate produced them so "which gate is rejecting
+                # everyone" is visible right in this same console line,
+                # every cycle, without a separate API call.
+                _reason_buckets = [
+                    ("neutral_bias", "No clear directional bias"),
+                    ("score_below_50", "below qualification threshold"),
+                    ("oi_conflict", "OI conflicts with"),
+                    ("no_option_chain", "No confirmed live option chain"),
+                    ("spread_too_wide", "Spread too wide"),
+                    ("no_sane_sl", "No sane SL"),
+                    ("no_lot_size", "No confirmed live lot size"),
+                    ("no_quantity", "no stored quantity"),
+                    ("no_tech_data", "No technical data available"),
+                    ("invalid_price", "Invalid or missing price"),
+                    ("insufficient_history", "Insufficient history"),
+                    ("adx_below_25", "below 25"),
+                ]
+                _tally = {}
+                for _entry in _no_trade_cache:
+                    _reason = _entry.get("reason", "")
+                    _key = next((k for k, needle in _reason_buckets if needle in _reason), "other")
+                    _tally[_key] = _tally.get(_key, 0) + 1
+                print(f"[{datetime.now()}] Background refresh complete. Stocks: {len(_stock_cache)}, Signals: {len(_signal_cache)}, Rejected: {len(_no_trade_cache)} -- {_tally}")
                 time.sleep(90)
             else:
                 # Checking is_market_hours() itself costs nothing -- it's
