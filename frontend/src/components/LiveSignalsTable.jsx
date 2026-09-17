@@ -72,6 +72,11 @@ function formatSignalAge(timestamp) {
 function fmtPrice(v) { return v != null ? `₹${v.toFixed(2)}` : '—'; }
 function fmtNum(v, digits = 1) { return v != null ? v.toFixed(digits) : '—'; }
 
+function previewValue(value, formatter) {
+  if (value == null || value === '') return '—';
+  return formatter ? formatter(value) : String(value);
+}
+
 function DetailDrawer({ signal, onClose }) {
   const [rangeData, setRangeData] = useState(null);
   const [fyersOpened, setFyersOpened] = useState(false);
@@ -197,8 +202,87 @@ export default function LiveSignalsTable({ signals = [], onSignalClick }) {
   const [selected, setSelected] = useState(null);
   const visibleSignals = useMemo(() => signals || [], [signals]);
   if (!visibleSignals.length) return <div className="text-sm text-slate-500 py-8 text-center">No active signals</div>;
+
   return <>
-    <div className="space-y-2">{visibleSignals.map((signal, i) => <button key={`${signal.symbol}-${signal.timestamp || i}`} onClick={() => { setSelected(signal); onSignalClick?.(signal); }} className="w-full text-left rounded-lg border border-slate-800 bg-slate-900/50 hover:bg-slate-800/60 p-3 transition-colors"><div className="flex items-center justify-between gap-3"><div><div className="text-sm font-semibold text-white">{signal.symbol}</div><div className="text-[11px] text-slate-500">{formatOptionContractLabel(signal)}</div></div><div className="text-right"><span className={`text-[10px] font-bold px-2 py-0.5 rounded ${GRADE_STYLES[signal.grade] || 'text-slate-400 bg-slate-700/30'}`}>{signal.grade || '—'}</span><div className="text-xs text-slate-400 mt-1">{statusBucket(signal.outcome_status)}</div></div></div></button>)}</div>
+    <div className="space-y-2">
+      {visibleSignals.map((signal, i) => {
+        const isBuy = signal.action === 'BUY';
+        const actionTone = isBuy
+          ? {
+              glow: 'from-emerald-400/10 via-emerald-500/5 to-transparent',
+              line: 'bg-emerald-400/20',
+              metric: 'text-emerald-300',
+            }
+          : {
+              glow: 'from-rose-400/10 via-rose-500/5 to-transparent',
+              line: 'bg-rose-400/20',
+              metric: 'text-rose-300',
+            };
+
+        return (
+          <button
+            key={`${signal.symbol}-${signal.timestamp || i}`}
+            onClick={() => { setSelected(signal); onSignalClick?.(signal); }}
+            className="group relative w-full overflow-hidden text-left rounded-xl border border-slate-800 bg-slate-900/55 hover:bg-slate-800/70 hover:border-amber-400/40 hover:-translate-y-0.5 hover:shadow-[0_16px_40px_rgba(0,0,0,0.28)] p-3 transition-all duration-200"
+          >
+            {/* Hover background layer inspired by the reference scanner UI.
+                It stays behind the foreground card content and is purely visual. */}
+            <div className={`absolute inset-0 bg-gradient-to-br ${actionTone.glow} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+            <div className="pointer-events-none absolute -right-14 -top-16 h-36 w-36 rounded-full border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="pointer-events-none absolute right-6 top-3 text-[34px] font-black tracking-tighter text-white/[0.025] opacity-0 group-hover:opacity-100 transition-opacity duration-300 select-none">
+              {signal.grade || '—'}
+            </div>
+            <div className="pointer-events-none absolute inset-x-3 bottom-2 grid grid-cols-4 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              {[
+                ['RSI', previewValue(signal.rsi, value => Number(value).toFixed(0))],
+                ['ADX', previewValue(signal.adx, value => Number(value).toFixed(0))],
+                ['OI', signal.oi_confirmation || '—'],
+                ['Q', signal.quality_verdict || (signal.quality_score != null ? String(signal.quality_score) : '—')],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-md border border-white/5 bg-black/20 px-2 py-1.5 backdrop-blur-[2px]">
+                  <div className="text-[8px] uppercase tracking-widest text-slate-500">{label}</div>
+                  <div className={`mt-0.5 truncate text-[10px] font-semibold ${actionTone.metric}`}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="relative z-10 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-white">{signal.symbol}</div>
+                <div className="text-[11px] text-slate-500">{formatOptionContractLabel(signal)}</div>
+                {(signal.pattern || signal.quality_verdict) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {signal.pattern && signal.pattern !== 'None' && (
+                      <span className="text-[9px] rounded-full border border-slate-700/80 bg-slate-800/70 px-2 py-0.5 text-slate-400">
+                        {signal.pattern}
+                      </span>
+                    )}
+                    {signal.quality_verdict && (
+                      <span className={`text-[9px] rounded-full border px-2 py-0.5 ${signal.quality_verdict === 'TRADE'
+                        ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20'
+                        : signal.quality_verdict === 'WATCH'
+                          ? 'text-amber-300 bg-amber-500/10 border-amber-500/20'
+                          : 'text-rose-300 bg-rose-500/10 border-rose-500/20'
+                      }`}>
+                        Quality {signal.quality_verdict}{signal.quality_score != null ? ` · ${signal.quality_score}` : ''}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="shrink-0 text-right">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${GRADE_STYLES[signal.grade] || 'text-slate-400 bg-slate-700/30'}`}>{signal.grade || '—'}</span>
+                <div className="text-xs text-slate-400 mt-1">{statusBucket(signal.outcome_status)}</div>
+                <div className="text-[10px] text-slate-600 mt-1">{signal.confidence != null ? `${signal.confidence} confidence` : 'Open details'}</div>
+              </div>
+            </div>
+
+            <div className={`pointer-events-none absolute left-0 top-0 bottom-0 w-px ${actionTone.line} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+          </button>
+        );
+      })}
+    </div>
     {selected && <DetailDrawer signal={selected} onClose={() => setSelected(null)} />}
   </>;
 }
