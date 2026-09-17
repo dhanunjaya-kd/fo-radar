@@ -29,6 +29,15 @@ class ScreenerConfig(AppConfig):
         except Exception as exc:
             print(f"[OILiveDashboard] Runtime guard unavailable: {exc}")
 
+        # Match the live OI workbook to the compact desktop reference layout.
+        # Presentation only: no market-data, OI, scanner, or signal logic is
+        # changed by this guard.
+        try:
+            from .oi_dashboard_visual_guard import install
+            install()
+        except Exception as exc:
+            print(f"[OILiveDashboard] Visual guard unavailable: {exc}")
+
         # Preserve the last good live signal list when a whole Fyers quote
         # cycle fails. A genuine successful scan that finds zero signals is
         # still allowed to publish zero.
