@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import threading
 from datetime import datetime, timedelta
@@ -163,6 +164,44 @@ _cache_lock = threading.Lock()
 _qualification_state = {}  # {(symbol, action): {'date': 'YYYY-MM-DD', 'qualified': bool}}
 ENTRY_SCORE_THRESHOLD = 50
 EXIT_SCORE_THRESHOLD = 35
+
+
+# Sep 18 2026: REAL ROOT CAUSE FOUND for a live, confirmed bug -- the
+# Fyers rate-limit circuit breaker (fyers_client.py) was tripping
+# constantly, skipping the large majority of real calls every cycle.
+# fyers_client.py's own request governor (_REQUEST_MIN_INTERVAL=0.32s,
+# a threading.Lock()-protected pace limit) already exists specifically
+# to stay under Fyers' rate limit -- but a threading.Lock() only
+# synchronizes threads WITHIN one process. Django's own runserver
+# autoreloader (the default, used throughout this whole project's
+# development) launches a PARENT "watcher" process that imports this
+# entire module (and everything below, including the three
+# threading.Thread(...).start() calls a few hundred/thousand lines
+# down) to validate the app, THEN spawns a separate CHILD process that
+# actually serves requests -- and neither process was ever checked to
+# see which one this is. Both were independently starting the same
+# background scan loop, each with its own separate, unshared
+# _rate_limit_state and _request_lock (plain module-level Python
+# objects, not shared across OS processes) -- meaning two independent
+# scanners, each self-throttling to ~3 req/s, but TOGETHER hitting
+# Fyers at up to ~6+ req/s combined, which explains the repeated 429s
+# far better than "the limit itself is too strict." This does not
+# touch the circuit breaker's own logic or thresholds at all -- it
+# stops the actual double-execution that was overloading it.
+#
+# Correctly handles every real deployment shape, not just the common
+# case: RUN_MAIN is set to 'true' ONLY in runserver's child process,
+# never in its parent/watcher -- but RUN_MAIN is *also* absent in a
+# production ASGI/WSGI server (uvicorn/gunicorn, per this project's
+# own README) and in `runserver --noreload`, where there is no
+# separate watcher process at all and starting is exactly correct.
+# Only the genuine watcher-vs-child ambiguity (plain `runserver`,
+# autoreload enabled, which is the default) needs resolving here.
+_IS_RELOADER_WATCHER_PROCESS = (
+    "runserver" in sys.argv
+    and "--noreload" not in sys.argv
+    and os.environ.get("RUN_MAIN") != "true"
+)
 
 
 def _is_qualified_with_hysteresis(symbol, action, score, state_dict=None, today=None):
@@ -3470,7 +3509,8 @@ def _background_worker():
             time.sleep(90)
 
 _worker_thread = threading.Thread(target=_background_worker, daemon=True)
-_worker_thread.start()
+if not _IS_RELOADER_WATCHER_PROCESS:
+    _worker_thread.start()
 
 
 def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call, price_change_pct=None, fut_oi_chg_pct=None, atm_strike=None):
@@ -3831,7 +3871,8 @@ def _index_snapshot_worker():
             time.sleep(60)
 
 _index_snapshot_thread = threading.Thread(target=_index_snapshot_worker, daemon=True)
-_index_snapshot_thread.start()
+if not _IS_RELOADER_WATCHER_PROCESS:
+    _index_snapshot_thread.start()
 
 
 def _news_alert_worker():
@@ -3912,7 +3953,8 @@ def _daily_backtest_worker():
             time.sleep(60)
 
 _daily_backtest_thread = threading.Thread(target=_daily_backtest_worker, daemon=True)
-_daily_backtest_thread.start()
+if not _IS_RELOADER_WATCHER_PROCESS:
+    _daily_backtest_thread.start()
 
 
 _eod_scan_lock = threading.Lock()

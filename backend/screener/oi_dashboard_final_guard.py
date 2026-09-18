@@ -170,17 +170,29 @@ def install():
         return base_write(enriched)
 
     # ---------- Deterministic row writer ----------
+    # Sep 18 2026: REAL BUG FOUND live -- confirmed repeating,
+    # permanent "[OILiveDashboard] Final UB/LB render failed" COM
+    # exceptions. Root cause traced to this function's own design: it
+    # reused d._panel_start_rows as a MOVING target (the boundary panel
+    # sat wherever the next data row would go, got unmerged/cleared,
+    # then rebuilt one row further down, every single cycle). Every
+    # cycle repeats a merge-then-unmerge-then-remerge sequence at a
+    # constantly shifting cell range -- exactly the kind of repeated,
+    # position-shifting COM operation most likely to intermittently
+    # fail against a live, visible Excel window (the user can have it
+    # selected, mid-scroll, or otherwise momentarily busy when this
+    # runs). Switched to a FIXED panel location (columns P-X, row 2)
+    # that never moves again -- this was already proven, tested, and
+    # delivered as a fix for the exact same class of problem earlier
+    # this project's history; this guard had reintroduced the older,
+    # moving-panel design independently. write_dashboard_row no longer
+    # touches or clears any panel-position bookkeeping at all.
     def write_dashboard_row(sheet, index_name, values):
         row_num = d._next_row.get(index_name, 2)
-        panel = d._panel_start_rows.get(index_name)
-        if row_num > 2 and panel == row_num:
-            _unmerge_clear(sheet, f"A{panel}:I{panel+5}")
-            d._panel_ready.discard(index_name)
         sheet.range(f"A{row_num}:M{row_num}").value = [values]
         style_live_row(sheet, row_num, values, d._prev_values.get(index_name))
         d._prev_values[index_name] = values
         d._next_row[index_name] = row_num + 1
-        d._panel_start_rows[index_name] = row_num + 1
         return row_num
 
     # ---------- Clean UB/LB panel ----------
@@ -199,39 +211,71 @@ def install():
         calls, puts = d.compute_boundary_pairs(rows)
         c1 = calls[0] if calls else (None,None); c2 = calls[1] if len(calls)>1 else (None,None)
         p1 = puts[0] if puts else (None,None); p2 = puts[1] if len(puts)>1 else (None,None)
-        title = d._panel_start_rows.get(index_name, d._FIRST_PANEL_ROW)
+        title = 2  # fixed -- never derived from a moving row counter anymore
+        L, R = "P", "U"  # mirrors the original A/F split, shifted right so it never touches the data table
+        Lb, Lc, Ld = "Q", "R", "S"
+        Rb, Rc, Rd = "V", "W", "X"
         r1,r2,r3,r4,r5 = title+1,title+2,title+3,title+4,title+5
-        _unmerge_clear(sheet, f"A{title}:I{r5}")
+
+        # Sep 18 2026: split into labeled stages instead of one blanket
+        # try/except -- the previous single catch-all made every real
+        # failure indistinguishable ("Final UB/LB render failed" told
+        # us nothing about which of ~15 operations inside actually
+        # broke). If this still fails somewhere, the log will now say
+        # exactly which stage, so a real fix can target it directly
+        # instead of guessing again.
         try:
-            sheet.range(f"A{title}:D{title}").merge(); sheet.range(f"F{title}:I{title}").merge()
+            _unmerge_clear(sheet, f"{L}{title}:{Rd}{r5}")
+        except Exception as exc:
+            print(f"[OILiveDashboard] UB/LB clear stage failed for {index_name}: {exc}")
+            return
+
+        try:
+            sheet.range(f"{L}{title}:{Ld}{title}").merge(); sheet.range(f"{R}{title}:{Rd}{title}").merge()
             for rr in (r3,r4,r5):
-                sheet.range(f"B{rr}:D{rr}").merge(); sheet.range(f"G{rr}:I{rr}").merge()
-            sheet.range(f"A{title}").value="Open Interest Upper Boundary"; sheet.range(f"F{title}").value="Open Interest Lower Boundary"
-            sheet.range(f"A{r1}:D{r2}").value=[["Strike Price 1",c1[0],"OI (in K)",d._to_k(c1[1])],["Strike Price 2",c2[0],"OI (in K)",d._to_k(c2[1])]]
-            sheet.range(f"F{r1}:I{r2}").value=[["Strike Price 1",p1[0],"OI (in K)",d._to_k(p1[1])],["Strike Price 2",p2[0],"OI (in K)",d._to_k(p2[1])]]
+                sheet.range(f"{Lb}{rr}:{Ld}{rr}").merge(); sheet.range(f"{Rb}{rr}:{Rd}{rr}").merge()
+        except Exception as exc:
+            print(f"[OILiveDashboard] UB/LB merge stage failed for {index_name}: {exc}")
+            return
+
+        try:
+            sheet.range(f"{L}{title}").value="Open Interest Upper Boundary"; sheet.range(f"{R}{title}").value="Open Interest Lower Boundary"
+            sheet.range(f"{L}{r1}:{Ld}{r2}").value=[["Strike Price 1",c1[0],"OI (in K)",d._to_k(c1[1])],["Strike Price 2",c2[0],"OI (in K)",d._to_k(c2[1])]]
+            sheet.range(f"{R}{r1}:{Rd}{r2}").value=[["Strike Price 1",p1[0],"OI (in K)",d._to_k(p1[1])],["Strike Price 2",p2[0],"OI (in K)",d._to_k(p2[1])]]
             bias=row.get("Bias") or "N/A"; pcr=row.get("PCR"); spot=row.get("Spot") if row.get("Spot") is not None else row.get("Value")
             call_itm="Yes" if spot is not None and c1[0] is not None and c1[0] < spot else "No"
             put_itm="Yes" if spot is not None and p1[0] is not None and p1[0] > spot else "No"
-            vals=[(f"A{r3}","Open Interest"),(f"B{r3}",bias),(f"A{r4}","Call Exits"),(f"B{r4}","No"),(f"A{r5}","Call ITM"),(f"B{r5}",call_itm),(f"F{r3}","PCR"),(f"G{r3}",pcr),(f"F{r4}","Put Exits"),(f"G{r4}","No"),(f"F{r5}","Put ITM"),(f"G{r5}",put_itm)]
+            vals=[(f"{L}{r3}","Open Interest"),(f"{Lb}{r3}",bias),(f"{L}{r4}","Call Exits"),(f"{Lb}{r4}","No"),(f"{L}{r5}","Call ITM"),(f"{Lb}{r5}",call_itm),
+                  (f"{R}{r3}","PCR"),(f"{Rb}{r3}",pcr),(f"{R}{r4}","Put Exits"),(f"{Rb}{r4}","No"),(f"{R}{r5}","Put ITM"),(f"{Rb}{r5}",put_itm)]
             for addr,val in vals: sheet.range(addr).value=val
-            for addr in (f"A{title}:D{title}",f"F{title}:I{title}"):
+        except Exception as exc:
+            print(f"[OILiveDashboard] UB/LB value-write stage failed for {index_name}: {exc}")
+            return
+
+        try:
+            for addr in (f"{L}{title}:{Ld}{title}",f"{R}{title}:{Rd}{title}"):
                 cell=sheet.range(addr); cell.font.bold=True; cell.api.HorizontalAlignment=-4108; cell.api.VerticalAlignment=-4108; cell.api.WrapText=True; d._fill(cell,d._TITLE_FILL)
             for rr in (r1,r2,r3,r4,r5):
-                for col in ("A","C","F","H"):
+                for col in (L,Lc,R,Rc):
                     cell=sheet.range(f"{col}{rr}"); cell.font.bold=True; cell.api.HorizontalAlignment=-4108; cell.api.VerticalAlignment=-4108; d._fill(cell,d._HEADER_FILL)
-                for col in ("B","D","G","I"):
+                for col in (Lb,Ld,Rb,Rd):
                     cell=sheet.range(f"{col}{rr}"); cell.api.HorizontalAlignment=-4108; cell.api.VerticalAlignment=-4108; d._fill(cell,d._NEUTRAL_FILL)
             oi_fill=d._GREEN_FILL if "Bullish" in bias else d._RED_FILL if "Bearish" in bias else d._AMBER_FILL
-            d._fill(sheet.range(f"B{r3}:D{r3}"),oi_fill)
+            d._fill(sheet.range(f"{Lb}{r3}:{Ld}{r3}"),oi_fill)
             if isinstance(pcr,(int,float)):
-                d._fill(sheet.range(f"G{r3}:I{r3}"), d._GREEN_FILL if pcr>1.05 else d._RED_FILL if pcr<0.95 else d._AMBER_FILL)
-            fill_status(sheet,f"B{r4}:D{r4}","No",True); fill_status(sheet,f"G{r4}:I{r4}","No",True)
-            fill_status(sheet,f"B{r5}:D{r5}",call_itm,True); fill_status(sheet,f"G{r5}:I{r5}",put_itm,True)
-            panel=sheet.range(f"A{title}:I{r5}"); panel.api.Borders.LineStyle=1; panel.api.HorizontalAlignment=-4108; panel.api.VerticalAlignment=-4108; panel.api.WrapText=True
+                d._fill(sheet.range(f"{Rb}{r3}:{Rd}{r3}"), d._GREEN_FILL if pcr>1.05 else d._RED_FILL if pcr<0.95 else d._AMBER_FILL)
+            fill_status(sheet,f"{Lb}{r4}:{Ld}{r4}","No",True); fill_status(sheet,f"{Rb}{r4}:{Rd}{r4}","No",True)
+            fill_status(sheet,f"{Lb}{r5}:{Ld}{r5}",call_itm,True); fill_status(sheet,f"{Rb}{r5}:{Rd}{r5}",put_itm,True)
+        except Exception as exc:
+            print(f"[OILiveDashboard] UB/LB fill/colour stage failed for {index_name}: {exc}")
+            return
+
+        try:
+            panel=sheet.range(f"{L}{title}:{Rd}{r5}"); panel.api.Borders.LineStyle=1; panel.api.HorizontalAlignment=-4108; panel.api.VerticalAlignment=-4108; panel.api.WrapText=True
             sheet.range(f"{title}:{title}").row_height=29
             for rr in range(r1,r5+1): sheet.range(f"{rr}:{rr}").row_height=24
         except Exception as exc:
-            print(f"[OILiveDashboard] Final UB/LB render failed: {exc}")
+            print(f"[OILiveDashboard] UB/LB border/row-height stage failed for {index_name}: {exc}")
 
     d._style_header=style_header; d._style_live_row=style_live_row; d._prepare_sheet=prepare_sheet
     d._write_dashboard_row=write_dashboard_row; d._write_boundary_panel=write_boundary_panel; d.write_live_dashboard=write_live_dashboard
