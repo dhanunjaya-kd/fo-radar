@@ -1274,19 +1274,49 @@ def _compute_indicators(close, high, low, volume):
     returns = close.pct_change().dropna()
     hist_vol = float(returns.std() * np.sqrt(252) * 100) if len(returns) else 20.0
 
+    # EMA200 -- Sep 18 2026 addition, for the market-breadth dashboard's
+    # "% of names above 200 EMA" tile. Same EWM as ema20/ema50 above,
+    # just a longer span -- EWM's own reason for using it there
+    # (no leading NaNs from a rolling window) applies identically here.
+    ema200 = float(close.ewm(span=200, adjust=False).mean().iloc[-1]) if len(close) >= 200 else None
+
+    # MACD signal line + histogram -- Sep 18 2026 addition. `macd`
+    # above is only the MACD LINE (ema12-ema26); the breadth
+    # dashboard's "names sitting on their MACD signal line" tile needs
+    # the standard 9-period EMA of that line (the signal line itself),
+    # not the line alone -- these are two different, real numbers,
+    # and conflating them would misreport this specific metric.
+    macd_line_series = ema12 - ema26
+    macd_signal = float(macd_line_series.ewm(span=9, adjust=False).mean().iloc[-1])
+    macd_histogram = float(macd - macd_signal)
+
+    # Bollinger Band width (20, 2 std) as % of price -- Sep 18 2026
+    # addition, for the "ranges are widening" volatility breadth tile.
+    # Standard definition: (upper - lower) / middle * 100, where
+    # middle is the 20-day SMA and upper/lower are +/-2 standard
+    # deviations from it.
+    bb_sma20 = close.rolling(window=20).mean()
+    bb_std20 = close.rolling(window=20).std()
+    bb_width_series = (4 * bb_std20 / bb_sma20) * 100
+    bb_width_pct = float(bb_width_series.iloc[-1])
+
     out = {
         'rsi': rsi, 'vwap': vwap, 'macd': macd, 'atr': atr, 'adx': adx,
         'plus_di': plus_di_final, 'minus_di': minus_di_final,
-        'ema20': ema20, 'ema50': ema50,
+        'ema20': ema20, 'ema50': ema50, 'ema200': ema200,
+        'macd_signal': macd_signal, 'macd_histogram': macd_histogram,
+        'bb_width_pct': bb_width_pct,
         'volume_avg': vol_avg, 'resistance': resistance, 'support': support,
         'hist_vol': hist_vol,
     }
-    # Guard the whole batch: if anything came out NaN (thin/gappy history),
-    # treat this stock as unscoreable this cycle rather than let a NaN
-    # leak into scoring/quantity math downstream.
-    if any(isinstance(v, float) and math.isnan(v) for v in out.values()):
+    # ema200 is legitimately None for a stock with under 200 days of
+    # history (a recent listing) -- that's real missing data, not a
+    # computation error, so it's excluded from the NaN-guard below
+    # (which exists to catch genuine calculation failures) and left as
+    # None for the caller to handle explicitly rather than fabricate.
+    if any(isinstance(v, float) and math.isnan(v) for k, v in out.items() if k != 'ema200'):
         return None
-    return {k: round(v, 2) for k, v in out.items()}
+    return {k: (round(v, 2) if isinstance(v, (int, float)) else v) for k, v in out.items()}
 
 
 def _compute_participation_quality(high, low, close, volume, vol_avg):
@@ -3513,6 +3543,68 @@ if not _IS_RELOADER_WATCHER_PROCESS:
     _worker_thread.start()
 
 
+# Sep 18 2026: new cache + worker for the market-breadth dashboard.
+# _calc_tech() (RSI/MACD/EMA/Bollinger/etc.) has only ever run for
+# _build_all()'s top ~30 movers each cycle -- genuine breadth stats
+# ("52% of names above 200 EMA", "average RSI sits at 50") need every
+# one of the 208 F&O stocks, not a ~30-stock subset, or the dashboard
+# would be reporting a number and quietly meaning something narrower
+# than what it says.
+#
+# Real cost, stated plainly rather than assumed away: the FIRST pass
+# each day costs roughly 178 additional Fyers history calls (208 minus
+# the ~30 _build_all() already covers) -- at the existing ~3 req/s
+# governor in fyers_client.py, that's under a minute, once. Every pass
+# after that is cheap: _cached_history_df() already caches each
+# symbol's history for the rest of the trading day, and this worker
+# reuses _stock_cache's own already-fetched live quotes as _calc_tech's
+# live_quote (the same free-reuse pattern _build_all() itself already
+# uses) -- so no new Fyers calls at all on repeat passes, just pandas
+# math over already-cached data.
+_breadth_tech_cache = {}
+_breadth_cache_lock = threading.Lock()
+
+
+def _breadth_indicators_worker():
+    from .market_hours import is_market_hours
+    last_closed_log = 0
+    while True:
+        try:
+            if is_market_hours():
+                with _cache_lock:
+                    symbols_and_quotes = list(_stock_cache.items())
+                computed = {}
+                for sym, quote in symbols_and_quotes:
+                    tech = _calc_tech(sym, live_quote=quote)
+                    if tech:
+                        computed[sym] = tech
+                    # A symbol that fails this pass (thin history, a
+                    # transient Fyers hiccup) simply isn't updated this
+                    # cycle -- its previous entry, if any, is left in
+                    # place rather than being deleted, same "hold
+                    # through a data gap, don't punish a symbol for a
+                    # cycle's own failure" principle used everywhere
+                    # else in this file for a transient miss.
+                with _breadth_cache_lock:
+                    _breadth_tech_cache.update(computed)
+                print(f"[{datetime.now()}] Breadth indicators refreshed: {len(computed)}/{len(symbols_and_quotes)} stocks.")
+                time.sleep(180)
+            else:
+                now = time.time()
+                if now - last_closed_log >= 300:
+                    print(f"[{datetime.now()}] Breadth worker: market closed -- waiting.")
+                    last_closed_log = now
+                time.sleep(20)
+        except Exception as e:
+            print(f"[{datetime.now()}] Breadth worker error: {e}")
+            time.sleep(90)
+
+
+_breadth_worker_thread = threading.Thread(target=_breadth_indicators_worker, daemon=True)
+if not _IS_RELOADER_WATCHER_PROCESS:
+    _breadth_worker_thread.start()
+
+
 def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call, price_change_pct=None, fut_oi_chg_pct=None, atm_strike=None):
     """
     Sep 8 2026: SHADOW MODE ONLY -- index counterpart to
@@ -4618,6 +4710,173 @@ def _instrument_expiry_info(name):
     expiry_date = (snap or {}).get("expiry_date")
     is_today = bool(expiry_date and expiry_date == datetime.now().date().isoformat())
     return {"expiry_date": expiry_date, "is_expiry_today": is_today}
+
+
+class MarketBreadthView(APIView):
+    """
+    Sep 18 2026: real market-breadth aggregation for the Dashboard
+    rebuild, over _breadth_tech_cache (all 208 F&O stocks, populated by
+    _breadth_indicators_worker -- see that worker's own comment for why
+    this had to be a new, separate, full-universe cache rather than
+    reusing _build_all()'s top-~30-movers-only _tech_cache computation).
+
+    Every count below states the denominator it was computed over
+    (count_with_data) rather than assuming full 208-stock coverage --
+    a stock missing from this tile's math (thin history, a transient
+    Fyers miss this cycle) is excluded from both numerator and
+    denominator, never silently treated as a zero or an average. Same
+    "an input that did not load stays absent, not a fabricated
+    neutral" principle the reference dashboard itself states in its
+    own disclaimer line.
+
+    Definitions used, stated plainly since none of these are the only
+    possible choice:
+    - advancing/declining/flat: change_percent > 0 / < 0 / == 0.
+    - trend_participation: price > ema200, ONLY over stocks with a
+      real ema200 (>=200 days of history) -- genuinely a partial
+      universe, reported as such via count_with_data.
+    - market_momentum: mean RSI(14) across stocks with valid RSI;
+      classified oversold <40, mid-range 40-60, overbought >60 --
+      standard RSI convention, not this project's invention.
+    - volume_activity: elevated = volume >= 2x the 20-day average
+      volume (matches "2X VOL" in the reference literally); up/down
+      split is which of those elevated-volume stocks are also up vs
+      down today.
+    - ema50_breadth / vwap_breadth: price > ema50 / price > vwap.
+    - sector_breadth: per SECTORS mapping (already existed, used
+      elsewhere in this file), count of advancing vs declining names.
+
+    Deliberately NOT included: 52-week high/low breadth. That needs
+    roughly a year of daily history per symbol; _calc_tech's own history
+    fetch is 100 days today. Rather than fake this tile from data that
+    doesn't exist, it's left out of this response entirely -- flagged
+    here, not silently omitted, in has_52w_data: false so the frontend
+    can show its own honest "not yet available" state instead of a
+    default emerging as a fake number.
+    GET /api/market-breadth/
+    """
+    def get(self, request):
+        with _cache_lock:
+            quotes = dict(_stock_cache)
+        with _breadth_cache_lock:
+            techs = dict(_breadth_tech_cache)
+
+        advancing = declining = flat = 0
+        bucket_edges = [-5, -2, 0, 2, 5]
+        bucket_labels = ["<=-5%", "(-5,-2]", "(-2,0)", "[0,2)", "[2,5)", ">=5%"]
+        buckets = {label: 0 for label in bucket_labels}
+
+        def bucket_for(pct):
+            if pct <= bucket_edges[0]: return bucket_labels[0]
+            if pct <= bucket_edges[1]: return bucket_labels[1]
+            if pct < bucket_edges[2]: return bucket_labels[2]
+            if pct < bucket_edges[3]: return bucket_labels[3]
+            if pct < bucket_edges[4]: return bucket_labels[4]
+            return bucket_labels[5]
+
+        ema200_above = ema200_total = 0
+        rsi_values = []
+        elevated_up = elevated_down = elevated_total = 0
+        ema50_above = ema50_total = 0
+        vwap_above = vwap_total = 0
+        sector_breadth = {}
+
+        for sym, q in quotes.items():
+            pct = q.get('change_percent')
+            price = q.get('price')
+            if pct is not None:
+                if pct > 0: advancing += 1
+                elif pct < 0: declining += 1
+                else: flat += 1
+                buckets[bucket_for(pct)] += 1
+
+                sector = q.get('sector', 'Unknown')
+                sb = sector_breadth.setdefault(sector, {'up': 0, 'down': 0, 'total': 0})
+                sb['total'] += 1
+                if pct > 0: sb['up'] += 1
+                elif pct < 0: sb['down'] += 1
+
+            tech = techs.get(sym)
+            if not tech or price is None:
+                continue
+
+            if tech.get('ema200') is not None:
+                ema200_total += 1
+                if price > tech['ema200']: ema200_above += 1
+
+            if tech.get('rsi') is not None:
+                rsi_values.append(tech['rsi'])
+
+            vol_avg = tech.get('volume_avg')
+            volume = q.get('volume')
+            if vol_avg and volume is not None:
+                elevated_total += 1
+                if volume >= 2 * vol_avg:
+                    if pct is not None and pct > 0: elevated_up += 1
+                    elif pct is not None and pct < 0: elevated_down += 1
+
+            if tech.get('ema50') is not None:
+                ema50_total += 1
+                if price > tech['ema50']: ema50_above += 1
+
+            if tech.get('vwap') is not None:
+                vwap_total += 1
+                if price > tech['vwap']: vwap_above += 1
+
+        total_directional = advancing + declining
+        ratio = round(advancing / declining, 2) if declining else None
+        mean_rsi = round(sum(rsi_values) / len(rsi_values), 1) if rsi_values else None
+        momentum_class = (
+            None if mean_rsi is None else
+            'oversold' if mean_rsi < 40 else
+            'overbought' if mean_rsi > 60 else
+            'mid-range'
+        )
+
+        elevated_count = 0
+        for sym, q in quotes.items():
+            tech = techs.get(sym)
+            if not tech: continue
+            vol_avg = tech.get('volume_avg')
+            volume = q.get('volume')
+            if vol_avg and volume is not None and volume >= 2 * vol_avg:
+                elevated_count += 1
+
+        return Response({
+            "universe_size": len(quotes),
+            "advance_decline": {
+                "advancing": advancing, "declining": declining, "flat": flat,
+                "ratio": ratio, "net": advancing - declining,
+                "buckets": [{"label": l, "count": buckets[l]} for l in bucket_labels],
+                "count_with_data": total_directional + flat,
+            },
+            "trend_participation": {
+                "pct_above_ema200": round(100 * ema200_above / ema200_total, 1) if ema200_total else None,
+                "above_count": ema200_above, "count_with_data": ema200_total,
+                "partial_universe": ema200_total < len(quotes),
+            },
+            "market_momentum": {
+                "mean_rsi": mean_rsi, "classification": momentum_class,
+                "count_with_data": len(rsi_values),
+            },
+            "volume_activity": {
+                "pct_elevated": round(100 * elevated_count / elevated_total, 1) if elevated_total else None,
+                "elevated_up": elevated_up, "elevated_down": elevated_down,
+                "elevated_count": elevated_count, "count_with_data": elevated_total,
+            },
+            "ema50_breadth": {
+                "pct_above": round(100 * ema50_above / ema50_total, 1) if ema50_total else None,
+                "above_count": ema50_above, "below_count": ema50_total - ema50_above,
+                "count_with_data": ema50_total,
+            },
+            "vwap_breadth": {
+                "pct_above": round(100 * vwap_above / vwap_total, 1) if vwap_total else None,
+                "above_count": vwap_above, "below_count": vwap_total - vwap_above,
+                "count_with_data": vwap_total,
+            },
+            "sector_breadth": sector_breadth,
+            "has_52w_data": False,
+        })
 
 
 class IndexTrackerView(APIView):
