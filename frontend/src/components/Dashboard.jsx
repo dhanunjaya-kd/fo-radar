@@ -1,5 +1,6 @@
 import TopLiveSignals from './TopLiveSignals';
 import MarketPulse from './MarketPulse';
+import IndexCard from './IndexCard';
 import TodaysMovers from './TodaysMovers';
 import MarketSentimentGauge from './MarketSentimentGauge';
 import SectorStrength from './SectorStrength';
@@ -51,6 +52,18 @@ export default function Dashboard({ onNavigate }) {
   return (
     <div className="space-y-4">
       <DataHealthStrip />
+      {/* Sep 18 2026: 4 index cards (sparkline + 18-day range + real
+          regime badge), sitting above Market Pulse per the reference
+          layout -- kept separate from the existing TrendMomentumCard
+          grid below, which shows genuinely different detail
+          (RSI/SMA/ATR/pivot levels) this new card intentionally
+          keeps compact. Neither replaces the other. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <IndexCard indexName="NIFTY" displayName="NIFTY 50" />
+        <IndexCard indexName="BANKNIFTY" displayName="BANK NIFTY" />
+        <IndexCard indexName="SENSEX" displayName="SENSEX" />
+        <IndexCard indexName="VIX" displayName="INDIA VIX" />
+      </div>
       <MarketPulse />
       {/* Sep 2 2026: moved here from Index Tracker per direct request --
           "market direction" is the first thing this file's own header
