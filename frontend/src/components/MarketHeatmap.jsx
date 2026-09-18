@@ -129,19 +129,19 @@ function StockHoverCard({ stock, x, y, containerWidth }) {
   );
 }
 
-function StockDrilldown({ sector, onBack }) {
+function SectorStocksPanel({ sector, onClose }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [hoveredStock, setHoveredStock] = useState(null);
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
-  const [containerWidth, setContainerWidth] = useState(800);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(null);
     setData(null);
+    setHoveredStock(null);
 
     fetch(`${API_BASE}/api/sector-stocks/${encodeURIComponent(sector)}/`)
       .then(r => {
@@ -155,149 +155,137 @@ function StockDrilldown({ sector, onBack }) {
     return () => { cancelled = true; };
   }, [sector]);
 
-  if (loading) {
-    return (
-      <div className="py-10 text-center text-slate-500 text-sm">
-        Fetching live OI for {sector} stocks — this can take a few seconds…
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-between">
-          <button onClick={onBack} className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-300 hover:text-white">
-            ← All Sectors
-          </button>
-          <span className="text-sm text-rose-400">⚠ {error}</span>
-        </div>
-      </div>
-    );
-  }
-
-  const stocks = data?.stocks || [];
-  if (stocks.length === 0) {
-    return (
-      <div className="p-6 text-center">
-        <button onClick={onBack} className="mb-4 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-300 hover:text-white">
-          ← All Sectors
-        </button>
-        <div className="text-sm text-slate-500">No F&O stocks found in this sector.</div>
-      </div>
-    );
-  }
-
-  const WIDTH = 800;
-  const HEIGHT = 360;
-  const items = stocks.map(s => ({
-    ...s,
-    name: s.symbol,
-    value: 1,
-    changePercent: Number(s.change_percent) || 0,
-  }));
-  const maxAbsChange = Math.max(0.1, ...items.map(i => Math.abs(i.changePercent)));
-  const layout = treemapLayout(items, 0, 0, WIDTH, HEIGHT);
+  const handleHover = (stock, e) => {
+    const rect = e.currentTarget.closest('.sector-stock-panel').getBoundingClientRect();
+    setHoveredStock(stock);
+    setHoverPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
 
   return (
-    <div className="relative">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/40">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-300 hover:text-white hover:border-slate-600"
-          >
-            ← All Sectors
-          </button>
-          <div>
-            <h3 className="text-sm font-bold text-white">{sector}</h3>
-            <p className="text-[10px] text-slate-500">{stocks.length} F&amp;O stocks</p>
-          </div>
+    <div className="sector-stock-panel relative border-t border-slate-700/50">
+      <div className="flex items-center justify-between px-4 py-3 bg-slate-900/30">
+        <div>
+          <h3 className="text-sm font-bold text-white">{sector} — stocks</h3>
+          <p className="text-[10px] text-slate-500 mt-0.5">
+            {data?.stocks?.length || 0} F&amp;O stocks • Hover a stock for details
+          </p>
         </div>
-        <div className="text-[10px] text-slate-500">Hover a stock for Price • Chg% • OI Buildup • PCR</div>
+        <button
+          onClick={onClose}
+          className="rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-1.5 text-xs text-slate-300 hover:text-white"
+        >
+          Hide
+        </button>
       </div>
 
-      {!data?.authenticated && (
-        <div className="mx-3 mt-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-          ⚠ Not authenticated with Fyers right now — showing price/change only, OI buildup and PCR unavailable.
+      {loading && (
+        <div className="py-8 text-center text-slate-500 text-sm">
+          Fetching live OI for {sector} stocks — this can take a few seconds…
         </div>
       )}
 
-      <div
-        className="relative p-3"
-        onMouseLeave={() => setHoveredStock(null)}
-      >
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" style={{ maxHeight: 380 }}>
-          {layout.map(tile => {
-            const fontSize = Math.min(18, Math.max(9, Math.min(tile.width, tile.height) / 7));
-            const showPct = tile.width > 42 && tile.height > 30;
-            return (
-              <g
-                key={tile.symbol}
-                className="cursor-default"
-                onMouseEnter={e => {
-                  setHoveredStock(tile);
-                  const host = e.currentTarget.ownerSVGElement.parentElement;
-                  const rect = host.getBoundingClientRect();
-                  setContainerWidth(rect.width);
-                  setHoverPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-                }}
-                onMouseMove={e => {
-                  const host = e.currentTarget.ownerSVGElement.parentElement;
-                  const rect = host.getBoundingClientRect();
-                  setContainerWidth(rect.width);
-                  setHoverPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-                }}
-              >
-                <rect
-                  x={tile.x}
-                  y={tile.y}
-                  width={tile.width}
-                  height={tile.height}
-                  fill={colorForChange(tile.changePercent, maxAbsChange)}
-                  stroke="#0f172a"
-                  strokeWidth="2"
-                  rx="2"
-                />
-                {tile.width > 28 && tile.height > 18 && (
-                  <text
-                    x={tile.x + tile.width / 2}
-                    y={tile.y + tile.height / 2 - (showPct ? 8 : 0)}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="#fff"
-                    fontSize={fontSize}
-                    fontWeight="700"
-                    style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.35)', strokeWidth: 1.5 }}
-                  >
-                    {tile.symbol || tile.name}
-                  </text>
-                )}
-                {showPct && (
-                  <text
-                    x={tile.x + tile.width / 2}
-                    y={tile.y + tile.height / 2 + 10}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill="#fff"
-                    fontSize={Math.max(8, fontSize * 0.68)}
-                    opacity="0.9"
-                  >
-                    {fmtPct(tile.changePercent)}
-                  </text>
-                )}
-              </g>
-            );
-          })}
-        </svg>
+      {error && !loading && (
+        <div className="px-4 py-6 text-center text-rose-400 text-sm">⚠ {error}</div>
+      )}
 
-        <StockHoverCard
-          stock={hoveredStock}
-          x={hoverPos.x}
-          y={hoverPos.y}
-          containerWidth={containerWidth}
-        />
-      </div>
+      {!loading && !error && data && (
+        <>
+          {!data.authenticated && (
+            <div className="mx-4 mt-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+              ⚠ Fyers OI data is unavailable right now — price/change are still shown.
+            </div>
+          )}
+
+          {data.stocks.length === 0 ? (
+            <div className="py-8 text-center text-slate-500 text-sm">
+              No F&amp;O stocks found in this sector.
+            </div>
+          ) : (
+            <div className="relative overflow-x-auto px-4 pb-4 pt-2">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-slate-500 border-b border-slate-700/60">
+                    <th className="text-left px-3 py-2 font-medium">Symbol</th>
+                    <th className="text-right px-3 py-2 font-medium">Price</th>
+                    <th className="text-right px-3 py-2 font-medium">Chg%</th>
+                    <th className="text-left px-3 py-2 font-medium">OI Buildup</th>
+                    <th className="text-right px-3 py-2 font-medium">PCR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.stocks.map(stock => (
+                    <tr
+                      key={stock.symbol}
+                      className="border-b border-slate-800/60 hover:bg-slate-800/50 cursor-default"
+                      onMouseEnter={e => handleHover(stock, e)}
+                      onMouseMove={e => handleHover(stock, e)}
+                      onMouseLeave={() => setHoveredStock(null)}
+                    >
+                      <td className="px-3 py-2.5 text-white font-semibold whitespace-nowrap">{stock.symbol}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-300 tabular-nums">{fmtPrice(stock.price)}</td>
+                      <td className={`px-3 py-2.5 text-right tabular-nums font-medium ${(stock.change_percent || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {fmtPct(stock.change_percent)}
+                      </td>
+                      <td className={`px-3 py-2.5 whitespace-nowrap ${buildupStyle(stock.oi_buildup)}`}>
+                        {stock.oi_buildup || '—'}
+                      </td>
+                      <td className="px-3 py-2.5 text-right text-slate-300 tabular-nums">
+                        {stock.pcr != null ? Number(stock.pcr).toFixed(2) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {hoveredStock && (
+                <div
+                  className="absolute z-30 pointer-events-none rounded-xl bg-slate-950/98 border border-slate-700 shadow-2xl px-4 py-3"
+                  style={{
+                    left: `${Math.min(Math.max(hoverPos.x + 14, 8), Math.max(8, 1000 - 390))}px`,
+                    top: `${Math.max(hoverPos.y - 10, 8)}px`,
+                    width: '390px'
+                  }}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="h-9 w-9 shrink-0 rounded-lg bg-slate-100 flex items-center justify-center text-slate-900 font-black text-xs">
+                      {hoveredStock.symbol?.slice(0, 2) || '•'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-bold text-white">{hoveredStock.symbol}</div>
+                      <div className="text-xs text-slate-400">{hoveredStock.symbol}</div>
+                      <div className="text-[11px] text-slate-500">{sector}</div>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-4 gap-2 border-t border-slate-800 pt-3">
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wide text-slate-500">Price</div>
+                      <div className="text-xs font-semibold text-white">{fmtPrice(hoveredStock.price)}</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wide text-slate-500">Changed</div>
+                      <div className={`text-xs font-semibold ${(hoveredStock.change_percent || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {fmtPct(hoveredStock.change_percent)}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wide text-slate-500">OI Buildup</div>
+                      <div className={`text-[10px] font-semibold leading-tight ${buildupStyle(hoveredStock.oi_buildup)}`}>
+                        {hoveredStock.oi_buildup || '—'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wide text-slate-500">PCR</div>
+                      <div className="text-xs font-semibold text-slate-200">
+                        {hoveredStock.pcr != null ? Number(hoveredStock.pcr).toFixed(2) : '—'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -359,64 +347,63 @@ export default function MarketHeatmap() {
         </p>
       </div>
 
-      {!selectedSector && (
-        <div className="p-3">
-          <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" style={{ maxHeight: 340 }}>
-            {layout.map((tile) => {
-              const fontSize = Math.min(16, Math.max(9, Math.min(tile.width, tile.height) / 8));
-              const showDetail = tile.width > 60 && tile.height > 36;
-              return (
-                <g
-                  key={tile.name}
-                  onClick={() => setSelectedSector(tile.name)}
-                  className="cursor-pointer transition-opacity hover:opacity-80"
-                >
-                  <rect
-                    x={tile.x}
-                    y={tile.y}
-                    width={tile.width}
-                    height={tile.height}
-                    fill={colorForChange(tile.changePercent, maxAbsChange)}
-                    stroke="#0f172a"
-                    strokeWidth="2"
-                  />
-                  {tile.width > 30 && tile.height > 20 && (
-                    <text
-                      x={tile.x + tile.width / 2}
-                      y={tile.y + tile.height / 2 - (showDetail ? 6 : 0)}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill="#fff"
-                      fontSize={fontSize}
-                      fontWeight="700"
-                    >
-                      {tile.name}
-                    </text>
-                  )}
-                  {showDetail && (
-                    <text
-                      x={tile.x + tile.width / 2}
-                      y={tile.y + tile.height / 2 + 12}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fill="#fff"
-                      fontSize={Math.max(9, fontSize * 0.7)}
-                      opacity="0.9"
-                    >
-                      {tile.changePercent >= 0 ? '+' : ''}{tile.changePercent.toFixed(2)}%
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-          </svg>
-        </div>
-      )}
+      <div className="p-3">
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" style={{ maxHeight: 340 }}>
+          {layout.map((tile) => {
+            const fontSize = Math.min(16, Math.max(9, Math.min(tile.width, tile.height) / 8));
+            const showDetail = tile.width > 60 && tile.height > 36;
+            return (
+              <g
+                key={tile.name}
+                onClick={() => setSelectedSector(selectedSector === tile.name ? null : tile.name)}
+                className="cursor-pointer transition-opacity hover:opacity-80"
+              >
+                <rect
+                  x={tile.x}
+                  y={tile.y}
+                  width={tile.width}
+                  height={tile.height}
+                  fill={colorForChange(tile.changePercent, maxAbsChange)}
+                  stroke="#0f172a"
+                  strokeWidth="2"
+                />
+                {tile.width > 30 && tile.height > 20 && (
+                  <text
+                    x={tile.x + tile.width / 2}
+                    y={tile.y + tile.height / 2 - (showDetail ? 6 : 0)}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill="#fff"
+                    fontSize={fontSize}
+                    fontWeight="700"
+                    style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.35)', strokeWidth: 1.5 }}
+                  >
+                    {tile.name}
+                  </text>
+                )}
+                {showDetail && (
+                  <text
+                    x={tile.x + tile.width / 2}
+                    y={tile.y + tile.height / 2 + 12}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fill="#fff"
+                    fontSize={Math.max(9, fontSize * 0.7)}
+                    opacity="0.9"
+                  >
+                    {tile.changePercent >= 0 ? '+' : ''}{tile.changePercent.toFixed(2)}%
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
 
       {selectedSector && (
-        <StockDrilldown
+        <SectorStocksPanel
           sector={selectedSector}
-          onBack={() => setSelectedSector(null)}
+          onClose={() => setSelectedSector(null)}
         />
       )}
     </div>
