@@ -262,14 +262,15 @@ function StockDrilldown({ sector, onBack }) {
                 {tile.width > 28 && tile.height > 18 && (
                   <text
                     x={tile.x + tile.width / 2}
-                    y={tile.y + tile.height / 2 - (showPct ? 7 : 0)}
+                    y={tile.y + tile.height / 2 - (showPct ? 8 : 0)}
                     textAnchor="middle"
                     dominantBaseline="middle"
                     fill="#fff"
                     fontSize={fontSize}
                     fontWeight="700"
+                    style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.35)', strokeWidth: 1.5 }}
                   >
-                    {tile.symbol}
+                    {tile.symbol || tile.name}
                   </text>
                 )}
                 {showPct && (
