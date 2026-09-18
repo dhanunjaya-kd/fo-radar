@@ -62,6 +62,7 @@
    dashboard cards use a class not in this file at all, this won't
    fully fix it; see chat for what's still needed. */
 .light .bg-slate-950 { background-color: #ffffff !important; }
+.light .bg-slate-950\/60 { background-color: rgba(241, 245, 249, 0.85) !important; }
 .light .bg-slate-900 { background-color: #ffffff !important; }
 .light .bg-slate-900\/50 { background-color: #f8fafc !important; }
 .light .bg-slate-800 { background-color: #f1f5f9 !important; }
@@ -78,8 +79,11 @@
 .light .border-slate-800 { border-color: #e2e8f0 !important; }
 .light .border-slate-800\/40 { border-color: rgba(226, 232, 240, 0.6) !important; }
 .light .border-slate-800\/60 { border-color: rgba(226, 232, 240, 0.7) !important; }
+.light .border-slate-800\/50 { border-color: rgba(226, 232, 240, 0.6) !important; }
 .light .border-slate-700 { border-color: #cbd5e1 !important; }
 .light .border-slate-700\/50 { border-color: rgba(203, 213, 225, 0.6) !important; }
+.light .border-slate-700\/60 { border-color: rgba(203, 213, 225, 0.7) !important; }
+.light .border-slate-900 { border-color: #ffffff !important; }
 .light .border-slate-500 { border-color: #94a3b8 !important; }
 .light .border-blue-400 { border-color: #60a5fa !important; }
 
@@ -233,6 +237,7 @@
 .light .bg-emerald-500\/20 { background-color: rgba(16, 185, 129, 0.18) !important; }
 .light .bg-rose-500\/10 { background-color: rgba(244, 63, 94, 0.12) !important; }
 .light .bg-rose-500\/15 { background-color: rgba(244, 63, 94, 0.15) !important; }
+.light .bg-rose-500\/30 { background-color: rgba(244, 63, 94, 0.3) !important; }
 .light .bg-indigo-500\/10 { background-color: rgba(99, 102, 241, 0.12) !important; }
 
 /* Translucent borders on those same badges. */
@@ -240,6 +245,7 @@
 .light .border-amber-500\/25 { border-color: rgba(180, 83, 9, 0.35) !important; }
 .light .border-emerald-500 { border-color: #059669 !important; }
 .light .border-emerald-500\/25 { border-color: rgba(5, 150, 105, 0.35) !important; }
+.light .border-emerald-500\/30 { border-color: rgba(5, 150, 105, 0.4) !important; }
 .light .border-indigo-500\/20 { border-color: rgba(67, 56, 202, 0.3) !important; }
 .light .border-indigo-500\/25 { border-color: rgba(67, 56, 202, 0.35) !important; }
 .light .border-rose-500\/25 { border-color: rgba(225, 29, 72, 0.35) !important; }

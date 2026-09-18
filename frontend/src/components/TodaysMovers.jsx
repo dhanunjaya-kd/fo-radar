@@ -63,7 +63,7 @@ export default function TodaysMovers() {
                 <tr key={m.symbol} className="border-b border-slate-800/50">
                   <td className="py-1.5 pr-3 font-medium text-white">{m.symbol}</td>
                   <td className="py-1.5 pr-3 text-right text-slate-300">{m.price.toFixed(2)}</td>
-                  <td className={`py-1.5 pr-3 text-right font-medium ${m.change_percent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <td className={`py-1.5 pr-3 text-right font-medium ${m.change_percent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {m.change_percent >= 0 ? '+' : ''}{m.change_percent.toFixed(2)}%
                   </td>
                   <td className="py-1.5 pr-3 text-right text-slate-400">

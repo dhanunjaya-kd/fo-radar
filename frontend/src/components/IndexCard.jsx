@@ -49,7 +49,7 @@ function RangeBar({ low, high, current }) {
   );
 }
 
-const REGIME_COLORS = { Bullish: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25', Bearish: 'text-red-400 bg-red-500/10 border-red-500/25', Range: 'text-slate-400 bg-slate-500/10 border-slate-500/25' };
+const REGIME_COLORS = { Bullish: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25', Bearish: 'text-rose-400 bg-rose-500/10 border-rose-500/25', Range: 'text-slate-400 bg-slate-500/10 border-slate-500/25' };
 const VIX_BANDS = ['Calm', 'Normal', 'Elevated', 'High'];
 const VIX_COLORS = ['#34d399', '#fbbf24', '#fb923c', '#ef4444'];
 
@@ -119,7 +119,7 @@ export default function IndexCard({ indexName, displayName }) {
         </span>
       </div>
       {data.change_percent != null && (
-        <div className={`text-xs font-medium mb-2 ${positive ? 'text-emerald-400' : 'text-red-400'}`}>
+        <div className={`text-xs font-medium mb-2 ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
           {positive ? '↗' : '↘'} {positive ? '+' : ''}{data.change_percent.toFixed(2)}%
         </div>
       )}

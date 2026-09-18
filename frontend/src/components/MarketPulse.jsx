@@ -92,10 +92,10 @@ function SplitTile({ title, universe, leftLabel, leftValue, leftSub, rightLabel,
             </div>
             <div className="text-right">
               <div className="text-[10px] text-slate-500">{rightLabel}</div>
-              <div className="text-red-400 font-semibold">{rightValue} <span className="text-slate-500">{rightSub}</span></div>
+              <div className="text-rose-400 font-semibold">{rightValue} <span className="text-slate-500">{rightSub}</span></div>
             </div>
           </div>
-          <div className="w-full h-1.5 bg-red-500/30 rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-rose-500/30 rounded-full overflow-hidden">
             <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.max(0, Math.min(100, leftPct || 0))}%` }} />
           </div>
         </>
@@ -182,7 +182,7 @@ export default function MarketPulse() {
         </div>
         {mood.sniper_summary && (
           <div className="mt-3 bg-slate-800/50 border border-slate-700/50 rounded-lg p-3 text-sm">
-            <span className={`font-semibold ${mood.sniper_summary.tilt === 'bullish' ? 'text-emerald-400' : mood.sniper_summary.tilt === 'bearish' ? 'text-red-400' : 'text-slate-400'}`}>
+            <span className={`font-semibold ${mood.sniper_summary.tilt === 'bullish' ? 'text-emerald-400' : mood.sniper_summary.tilt === 'bearish' ? 'text-rose-400' : 'text-slate-400'}`}>
               Sniper AI · {mood.sniper_summary.tilt}:
             </span>{' '}
             <span className="text-slate-300">{mood.sniper_summary.text}</span>
