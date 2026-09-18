@@ -80,10 +80,10 @@ function fmtPcr(n) {
   return Number(n).toFixed(2);
 }
 
-function StockHoverCard({ stock, x, y }) {
+function StockHoverCard({ stock, x, y, containerWidth }) {
   if (!stock) return null;
   const cardWidth = 390;
-  const left = Math.min(Math.max(x + 14, 8), 800 - cardWidth - 8);
+  const left = Math.min(Math.max(x + 14, 8), Math.max(8, containerWidth - cardWidth - 8));
   const top = Math.max(y - 12, 8);
 
   return (
@@ -131,6 +131,7 @@ function StockHoverCard({ stock, x, y }) {
 function StockTreemap({ stocks, sector, onBack }) {
   const [hoveredStock, setHoveredStock] = useState(null);
   const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
+  const [containerWidth, setContainerWidth] = useState(800);
 
   const WIDTH = 800;
   const HEIGHT = 360;
@@ -172,10 +173,12 @@ function StockTreemap({ stocks, sector, onBack }) {
                 className="cursor-pointer transition-opacity hover:opacity-90"
                 onMouseEnter={() => setHoveredStock(tile)}
                 onMouseMove={(e) => {
-                  const rect = e.currentTarget.ownerSVGElement.getBoundingClientRect();
+                  const host = e.currentTarget.ownerSVGElement.parentElement;
+                  const rect = host.getBoundingClientRect();
+                  setContainerWidth(rect.width);
                   setHoverPos({
-                    x: ((e.clientX - rect.left) / rect.width) * WIDTH,
-                    y: ((e.clientY - rect.top) / rect.height) * HEIGHT,
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
                   });
                 }}
               >
@@ -208,7 +211,7 @@ function StockTreemap({ stocks, sector, onBack }) {
             );
           })}
         </svg>
-        <StockHoverCard stock={hoveredStock} x={hoverPos.x} y={hoverPos.y} />
+        <StockHoverCard stock={hoveredStock} x={hoverPos.x} y={hoverPos.y} containerWidth={containerWidth} />
       </div>
     </div>
   );
