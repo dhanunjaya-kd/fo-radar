@@ -226,7 +226,7 @@ export default function MarketBanner() {
     let mounted = true;
     const fetchCrude = async () => {
       try {
-        const json = await fetchLatestSnapshotRow('CRUDEOIL');
+        const json = await fetchCommodityQuote('CRUDEOIL');
         const snapshots = json.snapshots || [];
         if (mounted) {
           setCrudeRow(snapshots[0] || null);
@@ -252,7 +252,7 @@ export default function MarketBanner() {
     let mounted = true;
     const fetchGold = async () => {
       try {
-        const json = await fetchLatestSnapshotRow('GOLD');
+        const json = await fetchCommodityQuote('GOLD');
         const snapshots = json.snapshots || [];
         if (mounted) {
           setGoldRow(snapshots[0] || null);
@@ -272,7 +272,7 @@ export default function MarketBanner() {
     let mounted = true;
     const fetchSilver = async () => {
       try {
-        const json = await fetchLatestSnapshotRow('SILVER');
+        const json = await fetchCommodityQuote('SILVER');
         const snapshots = json.snapshots || [];
         if (mounted) {
           setSilverRow(snapshots[0] || null);
@@ -363,6 +363,20 @@ export default function MarketBanner() {
   // Expiry fields are kept from TODAY's own response, never borrowed
   // from the fallback date -- "is today expiry" must reflect today,
   // not whichever day the price happens to be sourced from.
+  // Sep 18 2026: switched from fetchLatestSnapshotRow (Index Tracker's
+  // persisted Excel pipeline -- the actual source of the heavy MCX
+  // Depth/Option chain polling) to CommodityQuoteView, a plain live
+  // quote with no option chain and no market depth. No fallback-to-
+  // past-date logic needed here anymore -- that existed because a
+  // persisted snapshot file can legitimately be empty today; a live
+  // quote request either returns today's real price or it doesn't,
+  // there's no "yesterday's file" concept for it.
+  async function fetchCommodityQuote(name) {
+    const res = await fetch(`${API_BASE}/api/commodity-quote/${name}/`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
   async function fetchLatestSnapshotRow(name) {
     const todayRes = await fetch(`${API_BASE}/api/index-tracker/${name}/`);
     if (!todayRes.ok) throw new Error('HTTP ' + todayRes.status);

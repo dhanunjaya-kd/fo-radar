@@ -3849,7 +3849,21 @@ def _index_snapshot_worker():
                     check_agreement_outcomes(get_quotes)
                 except Exception as e:
                     print(f"[IndexAgreementLog] Failed to check outcomes: {e}")
-            snapshot_all_commodities()
+            # Sep 18 2026: commented out, not deleted -- per explicit
+            # request to remove the Commodities tab entirely while
+            # keeping the banner's three cards. This call was the
+            # actual source of the large majority of MCX Depth/Option
+            # chain calls confirmed in this project's own logs (all 6
+            # commodity bases -- CRUDEOIL, CRUDEOILM, GOLD, GOLDM,
+            # SILVER, SILVERM -- each getting a full get_option_
+            # analytics() + get_market_depth() pair every cycle). The
+            # banner now reads CommodityQuoteView instead (a single,
+            # much lighter get_quotes() call, only for the 3 bases it
+            # actually displays), so this heavier pipeline is no longer
+            # needed by anything. Re-enable if the Commodities tab (or
+            # anything else needing full commodity OI/option data)
+            # comes back.
+            # snapshot_all_commodities()
             mcx_open = is_mcx_hours()
             if nse_open or mcx_open:
                 time.sleep(60)
@@ -4811,6 +4825,77 @@ class IndexSignalView(APIView):
         from . import index_signal
         calls = [c for c in (index_signal.get_locked_call("NIFTY"), index_signal.get_locked_call("BANKNIFTY")) if c]
         return Response(clean_json({"calls": calls, "count": len(calls)}))
+
+
+class CommodityQuoteView(APIView):
+    """
+    Sep 18 2026: lightweight replacement for MarketBanner.jsx's three
+    commodity cards (Crude/Gold/Silver), per explicit request to keep
+    the banner while removing the Commodities tab's actual API cost.
+
+    Deliberately does NOT reuse snapshot_commodity() or the Index
+    Tracker Excel pipeline that powered the banner before -- that
+    pipeline's own real cost is get_option_analytics() + get_market_
+    depth() per symbol, every scan cycle, for all 6 commodity bases,
+    which is what generated the large majority of MCX Depth/Option
+    chain calls confirmed in this project's own logs. This view does
+    exactly one get_quotes() call per request, no option chain, no
+    market depth, no Excel write -- confirmed via the same fyers_
+    client.py pattern the main 208-stock universe already uses to read
+    change% (v.get('chp', ...)), so nothing new is being invented here.
+
+    Also deliberately uses the PLAIN front-month resolvers
+    (_front_month_commodity_symbol, _front_month_bullion_symbol), not
+    the options-aware variants CommodityCurrentSymbolView above uses --
+    those call get_option_analytics() internally specifically to
+    validate a real options chain exists, which is real cost this view
+    exists to avoid. A quote doesn't need that validation.
+
+    Honest trade-off, not silently dropped: is_expiry_today (shown as
+    a badge on the old banner cards) relied on get_last_oi_snapshot(),
+    which only gets populated by the option-chain call this view
+    deliberately skips -- so it is NOT included here. Returns is_
+    expiry_today: False always, rather than faking a real-looking
+    value from data this view never fetches.
+
+    Same response shape the banner already expects (snapshots: [...],
+    is_expiry_today), so the frontend's rendering logic needed no
+    changes -- only the fetch target did.
+    GET /api/commodity-quote/<CRUDEOIL|GOLD|SILVER>/
+    """
+    def get(self, request, name):
+        from .index_tracker import (
+            COMMODITY_BASES, _NEAR_MONTHLY_BASES,
+            _front_month_commodity_symbol, _front_month_bullion_symbol,
+        )
+        from .fyers_client import get_quotes
+        base_name = name.upper()
+        if base_name not in COMMODITY_BASES:
+            return Response({"error": f"name must be one of {list(COMMODITY_BASES)}"}, status=400)
+        base = COMMODITY_BASES[base_name]
+        try:
+            symbol = (
+                _front_month_commodity_symbol(base) if base in _NEAR_MONTHLY_BASES
+                else _front_month_bullion_symbol(base)
+            )
+        except Exception as e:
+            print(f"[CommodityQuoteView] {base_name} symbol resolve failed: {e}")
+            symbol = None
+        if not symbol:
+            return Response({"snapshots": [], "is_expiry_today": False})
+        try:
+            resp = get_quotes([symbol])
+            if not resp or resp.get("s") != "ok" or not resp.get("d"):
+                return Response({"snapshots": [], "is_expiry_today": False})
+            v = (resp["d"][0] or {}).get("v") or {}
+            price = v.get("lp")
+            if price is None:
+                return Response({"snapshots": [], "is_expiry_today": False})
+            row = {"Fut": price, "Change %": round(v.get("chp", 0) or 0, 2)}
+            return Response({"snapshots": [row], "is_expiry_today": False})
+        except Exception as e:
+            print(f"[CommodityQuoteView] {base_name} quote fetch failed: {e}")
+            return Response({"snapshots": [], "is_expiry_today": False})
 
 
 class CommodityCurrentSymbolView(APIView):
