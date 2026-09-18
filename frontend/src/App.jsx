@@ -19,6 +19,7 @@ import SettingsPanel from './components/SettingsPanel';
 import StrategyBacktest from './components/StrategyBacktest';
 import CASRadar from './components/CASRadar';
 import Sidebar from './components/Sidebar';
+import MarqueeTicker from './components/MarqueeTicker';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -118,6 +119,7 @@ function AppShell() {
         )}
       />
       <div className="flex-1 min-w-0">
+        <MarqueeTicker />
         <div className="px-4 pt-4 pb-3 flex items-center gap-4 flex-wrap">
           <MarketStatusHeader />
           <div className="flex items-center gap-1.5 ml-auto"><ThemeToggle /><button onClick={enableAlerts} disabled={alertsEnabled} title={alertsEnabled ? 'Alerts on' : 'Enable alerts'} aria-label={alertsEnabled ? 'Alerts on' : 'Enable alerts'} className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${alertsEnabled ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25 cursor-default' : 'text-amber-400 bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20'}`}>{alertsEnabled ? <IconBell size={16} /> : <IconBellOff size={16} />}</button><button onClick={toggleFullscreen} title="Toggle fullscreen" aria-label="Toggle fullscreen" className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-700/50 bg-slate-900/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"><IconMaximize size={16} /></button><button onClick={disconnectFyers} disabled={disconnecting} title="Disconnect Fyers" aria-label="Disconnect Fyers" className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-colors ${disconnecting ? 'text-slate-500 bg-slate-800 border-slate-700 cursor-wait' : 'text-rose-400 bg-rose-500/10 border-rose-500/25 hover:bg-rose-500/20'}`}><IconLogOut size={16} /></button></div>
