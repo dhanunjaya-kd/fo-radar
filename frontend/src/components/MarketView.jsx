@@ -374,7 +374,6 @@ export default function MarketView() {
           direct request -- was taking a full-width row of its own.
           The component file itself is untouched, just no longer
           imported/rendered here. */}
-      <MarketHeatmap />
       <TabInfoBanner>
         Clean market view — same live data as Index Tracker, just the core columns only, thinned to a
         ~30-minute cadence (Index Tracker still shows every snapshot at full density). Arrows show the
