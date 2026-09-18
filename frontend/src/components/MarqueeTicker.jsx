@@ -29,11 +29,25 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
  * Filtered to real gap movers (|gap%| >= GAP_THRESHOLD), not all 208
  * stocks -- matches the reference's own apparent behavior (every
  * visible entry has a notable gap badge, not a wall of ~0% noise).
- * Assumption stated plainly since the reference didn't specify an
- * exact cutoff: 1% has been chosen as a reasonable starting point,
- * easy to change.
+ *
+ * Sep 18 2026: FIXED a real bug found live -- the ticker was
+ * rendering nothing at all on an ordinary trading day. Root cause
+ * verified directly, not guessed: confirmed there is no market-hours
+ * gate anywhere in this chain (FoStockListOldView reads _stock_cache
+ * unconditionally, and _stock_cache itself is only ever initialized
+ * to {} once at module load -- never cleared on market close, so it
+ * holds real data even after hours). The actual cause was this
+ * threshold itself: 1.0% was too strict for a normal day's actual
+ * gap distribution across 207 stocks, so the filter legitimately
+ * matched zero -- not broken, just tuned wrong, with no fallback for
+ * that case. Lowered to 0.3% (most trading days have real movement at
+ * this scale), and backstopped with a genuine fallback below: if
+ * *even that* still matches nothing, the ticker shows top movers by
+ * plain change% instead of going empty -- an empty scrolling strip is
+ * worse than one showing smaller moves, since it looks broken either
+ * way to someone watching the screen.
  */
-const GAP_THRESHOLD = 1.0;
+const GAP_THRESHOLD = 0.3;
 const MAX_TICKER_ITEMS = 30;
 
 const MarqueeTicker = () => {
@@ -50,7 +64,7 @@ const MarqueeTicker = () => {
         const json = await res.json();
         const stocks = json.stocks || [];
 
-        const withGap = stocks
+        const scored = stocks
           .map(s => {
             const price = s.price;
             const open = s.open;
@@ -61,9 +75,23 @@ const MarqueeTicker = () => {
             const gapPct = ((open - prevClose) / prevClose) * 100;
             return { symbol: s.symbol, price, changePct, gapPct };
           })
-          .filter(s => s && Math.abs(s.gapPct) >= GAP_THRESHOLD)
+          .filter(Boolean);
+
+        let withGap = scored
+          .filter(s => Math.abs(s.gapPct) >= GAP_THRESHOLD)
           .sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct))
           .slice(0, MAX_TICKER_ITEMS);
+
+        // Fallback: even 0.3% can legitimately match nothing on a very
+        // flat day. Rather than render nothing, fall back to the
+        // biggest plain movers by change% -- still real, still live,
+        // just not framed as a "gap" specifically.
+        if (withGap.length === 0) {
+          withGap = scored
+            .slice()
+            .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
+            .slice(0, MAX_TICKER_ITEMS);
+        }
 
         if (!cancelled) setItems(withGap);
       } catch (err) {
@@ -106,21 +134,32 @@ const MarqueeTicker = () => {
             <span className="ticker-signal sniper">Signals {signalCount}</span>
           </span>
         )}
-        {displayItems.map((item, i) => (
-          <span key={`${item.symbol}-${i}`} className="ticker-item">
-            <span className={`ticker-signal ${item.gapPct >= 0 ? 'hold' : 'watchlist'}`}>
-              {item.gapPct >= 0 ? 'GAP UP' : 'GAP DOWN'}
+        {displayItems.map((item, i) => {
+          const isRealGap = Math.abs(item.gapPct) >= GAP_THRESHOLD;
+          return (
+            <span key={`${item.symbol}-${i}`} className="ticker-item">
+              {isRealGap ? (
+                <span className={`ticker-signal ${item.gapPct >= 0 ? 'hold' : 'watchlist'}`}>
+                  {item.gapPct >= 0 ? 'GAP UP' : 'GAP DOWN'}
+                </span>
+              ) : (
+                <span className={`ticker-signal ${item.changePct >= 0 ? 'hold' : 'watchlist'}`}>
+                  {item.changePct >= 0 ? 'UP' : 'DOWN'}
+                </span>
+              )}
+              <span className="ticker-symbol">{item.symbol}</span>
+              <span className="ticker-price">{item.price.toFixed(2)}</span>
+              <span className={`ticker-change ${item.changePct >= 0 ? 'up' : 'down'}`}>
+                {item.changePct >= 0 ? '+' : ''}{item.changePct.toFixed(2)}%
+              </span>
+              {isRealGap && (
+                <span className={`ticker-gap ${item.gapPct >= 0 ? 'up' : 'down'}`}>
+                  {item.gapPct >= 0 ? '+' : ''}{item.gapPct.toFixed(1)}% gap
+                </span>
+              )}
             </span>
-            <span className="ticker-symbol">{item.symbol}</span>
-            <span className="ticker-price">{item.price.toFixed(2)}</span>
-            <span className={`ticker-change ${item.changePct >= 0 ? 'up' : 'down'}`}>
-              {item.changePct >= 0 ? '+' : ''}{item.changePct.toFixed(2)}%
-            </span>
-            <span className={`ticker-gap ${item.gapPct >= 0 ? 'up' : 'down'}`}>
-              {item.gapPct >= 0 ? '+' : ''}{item.gapPct.toFixed(1)}% gap
-            </span>
-          </span>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
