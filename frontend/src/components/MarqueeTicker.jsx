@@ -1,31 +1,123 @@
 import { useState, useEffect } from 'react';
 import './MarqueeTicker.css';
 
+const API_BASE = import.meta.env.VITE_API_URL || '';
+
+/**
+ * Sep 18 2026: complete rewrite. The previous version was never wired
+ * into App.jsx (confirmed: zero imports anywhere in the app) and had
+ * two real bugs that would have surfaced the moment anyone tried to
+ * use it -- a hardcoded http://127.0.0.1:8000 URL (breaks on any real
+ * deployment, inconsistent with every other component's API_BASE
+ * pattern) and JSX class names (.marquee-container/.marquee-content)
+ * that didn't match what MarqueeTicker.css actually defines
+ * (.marquee-wrapper/.marquee-track) -- so even running locally, none
+ * of the scroll animation or styling would have applied.
+ *
+ * Data source: /api/stocks/fo-list/ (FoStockListOldView) -- reused
+ * as-is, no backend change needed. It already reads the same live,
+ * already-populated _stock_cache the Sniper engine itself uses, so
+ * this costs zero new Fyers calls -- purely a new reader of data
+ * that's already flowing every scan cycle.
+ *
+ * Gap% is NOT a stored field anywhere in the backend -- computed here
+ * from fields _stock_cache already has (open, price, change_percent):
+ * prevClose = price / (1 + change_percent/100), gap% = (open -
+ * prevClose) / prevClose * 100. Standard definition (today's open vs
+ * yesterday's close), not invented.
+ *
+ * Filtered to real gap movers (|gap%| >= GAP_THRESHOLD), not all 208
+ * stocks -- matches the reference's own apparent behavior (every
+ * visible entry has a notable gap badge, not a wall of ~0% noise).
+ * Assumption stated plainly since the reference didn't specify an
+ * exact cutoff: 1% has been chosen as a reasonable starting point,
+ * easy to change.
+ */
+const GAP_THRESHOLD = 1.0;
+const MAX_TICKER_ITEMS = 30;
+
 const MarqueeTicker = () => {
-  const [stocks, setStocks] = useState([]);
+  const [items, setItems] = useState([]);
+  const [signalCount, setSignalCount] = useState(null);
 
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/api/stocks/fo-list/')
-      .then(r => r.json())
-      .then(data => {
-        if (data.stocks) setStocks(data.stocks);
-      })
-      .catch(err => console.error('Ticker fetch error:', err));
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/stocks/fo-list/`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        const stocks = json.stocks || [];
+
+        const withGap = stocks
+          .map(s => {
+            const price = s.price;
+            const open = s.open;
+            const changePct = s.change_percent;
+            if (price == null || open == null || changePct == null) return null;
+            const prevClose = price / (1 + changePct / 100);
+            if (!prevClose) return null;
+            const gapPct = ((open - prevClose) / prevClose) * 100;
+            return { symbol: s.symbol, price, changePct, gapPct };
+          })
+          .filter(s => s && Math.abs(s.gapPct) >= GAP_THRESHOLD)
+          .sort((a, b) => Math.abs(b.gapPct) - Math.abs(a.gapPct))
+          .slice(0, MAX_TICKER_ITEMS);
+
+        if (!cancelled) setItems(withGap);
+      } catch (err) {
+        console.error('Ticker fetch error:', err);
+      }
+    };
+
+    const loadSignalCount = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/sniper-only/`);
+        if (!res.ok) return;
+        const json = await res.json();
+        const list = Array.isArray(json) ? json : (json.signals || []);
+        if (!cancelled) setSignalCount(list.length);
+      } catch {
+        // Signal count is decorative on this strip -- a failed fetch
+        // just means the badge doesn't render, not an error state.
+      }
+    };
+
+    load();
+    loadSignalCount();
+    const interval = setInterval(() => { load(); loadSignalCount(); }, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  const displayStocks = [...stocks, ...stocks];
+  if (items.length === 0) return null;
+
+  // Doubled for a seamless loop, same technique the CSS's own
+  // scroll-left keyframe (translateX(-33.333%) across a tripled
+  // track) already assumed -- tripled here, not just doubled, to
+  // match that exact math rather than guessing a different multiple.
+  const displayItems = [...items, ...items, ...items];
 
   return (
-    <div className="marquee-container">
-      <div className="marquee-content">
-        {displayStocks.map((stock, i) => (
-          <span key={`${stock.symbol}-${i}`} className="ticker-item">
-            <span className="ticker-symbol">{stock.symbol}</span>
-            <span className="ticker-price">₹{stock.price?.toFixed(2)}</span>
-            <span className={`ticker-change ${(stock.change || 0) >= 0 ? 'up' : 'down'}`}>
-              {(stock.change || 0) >= 0 ? '▲' : '▼'}
-              {Math.abs(stock.change || 0).toFixed(2)} 
-              ({(stock.change_percent || 0).toFixed(2)}%)
+    <div className="marquee-wrapper">
+      <div className="marquee-track">
+        {signalCount !== null && (
+          <span className="ticker-item">
+            <span className="ticker-signal sniper">Signals {signalCount}</span>
+          </span>
+        )}
+        {displayItems.map((item, i) => (
+          <span key={`${item.symbol}-${i}`} className="ticker-item">
+            <span className={`ticker-signal ${item.gapPct >= 0 ? 'hold' : 'watchlist'}`}>
+              {item.gapPct >= 0 ? 'GAP UP' : 'GAP DOWN'}
+            </span>
+            <span className="ticker-symbol">{item.symbol}</span>
+            <span className="ticker-price">{item.price.toFixed(2)}</span>
+            <span className={`ticker-change ${item.changePct >= 0 ? 'up' : 'down'}`}>
+              {item.changePct >= 0 ? '+' : ''}{item.changePct.toFixed(2)}%
+            </span>
+            <span className={`ticker-gap ${item.gapPct >= 0 ? 'up' : 'down'}`}>
+              {item.gapPct >= 0 ? '+' : ''}{item.gapPct.toFixed(1)}% gap
             </span>
           </span>
         ))}

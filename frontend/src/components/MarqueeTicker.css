@@ -39,6 +39,12 @@
 .ticker-price { color: #cbd5e1; }
 .ticker-change.up { color: #10b981; }
 .ticker-change.down { color: #ef4444; }
+.ticker-gap {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.ticker-gap.up { color: #10b981; }
+.ticker-gap.down { color: #ef4444; }
 .ticker-signal {
   padding: 2px 8px;
   border-radius: 4px;
