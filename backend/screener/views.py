@@ -5112,6 +5112,35 @@ class IndexTrackerView(APIView):
         return Response(clean_json({"index": name, "date": date_str, "snapshots": rows, **expiry_info}))
 
 
+class IndexCardView(APIView):
+    """
+    Sep 18 2026: real data for one Dashboard index card (NIFTY,
+    BANKNIFTY, SENSEX, or INDIA VIX) -- sparkline, 18-day range, and a
+    regime badge. See get_index_card_data()'s own docstring in
+    index_tracker.py for what backs each of those per index and why
+    VIX is handled differently there (no options chain of its own).
+    GET /api/index-card/<NIFTY|BANKNIFTY|SENSEX|VIX>/
+    """
+    def get(self, request, index_name):
+        from .index_tracker import get_index_card_data
+        name = index_name.upper()
+        name_map = {"VIX": "INDIA VIX", "INDIAVIX": "INDIA VIX"}
+        name = name_map.get(name, name)
+        if name not in ("NIFTY", "BANKNIFTY", "SENSEX", "INDIA VIX"):
+            return Response({"error": "index_name must be one of NIFTY, BANKNIFTY, SENSEX, VIX"}, status=400)
+
+        cache_key = {"NIFTY": "nifty50", "BANKNIFTY": "banknifty", "SENSEX": "sensex", "INDIA VIX": "india_vix"}[name]
+        with _cache_lock:
+            live_snapshot = _index_cache.get(cache_key)
+        current_price = (live_snapshot or {}).get("price")
+        current_change_pct = (live_snapshot or {}).get("change_percent")
+
+        card = get_index_card_data(name, current_price=current_price, current_change_pct=current_change_pct)
+        if card is None:
+            return Response({"error": "Not enough real daily history yet to compute this -- try again shortly."}, status=503)
+        return Response(clean_json(card))
+
+
 class TrendMomentumView(APIView):
     """
     Sep 2 2026: pure price-action "Trend & Momentum" card (RSI/SMA/ATR/

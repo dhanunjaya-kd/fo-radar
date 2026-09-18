@@ -2049,19 +2049,31 @@ def classify_volatility_environment(annualized_vol_pct):
     return "High (Stressed)"
 
 
-def _fetch_daily_history(index_name, days_back=60):
+def _fetch_daily_history(index_name, days_back=60, fyers_symbol_override=None):
     """Cached per index per calendar day -- same caching principle as
     _front_month_bullion_symbol above (this data doesn't change
     intraday, no reason to re-fetch every ~60s snapshot cycle).
     Returns a list of {'date','open','high','low','close'} dicts,
-    oldest first, or [] if the fetch fails or Fyers has nothing."""
+    oldest first, or [] if the fetch fails or Fyers has nothing.
+
+    Sep 18 2026: fyers_symbol_override added so this can also serve
+    INDIA VIX (real symbol NSE:INDIAVIX-INDEX, already used elsewhere
+    in views.py's own batched index quote fetch) for the Dashboard
+    rebuild's index cards, WITHOUT adding it to INDEX_SYMBOLS itself
+    -- that dict backs options-chain-related logic elsewhere in this
+    file that assumes every entry has a real options chain, which VIX
+    genuinely doesn't have (it's derived from NIFTY options, not a
+    tradable underlying with its own chain). Every existing caller
+    that doesn't pass this stays on the exact same INDEX_SYMBOLS
+    lookup as before.
+    """
     today_str = datetime.now().strftime("%Y-%m-%d")
     cached = _daily_history_cache.get(index_name)
     if cached and cached["date"] == today_str:
         return cached["candles"]
 
     from .fyers_client import get_history
-    fyers_symbol = INDEX_SYMBOLS.get(index_name)
+    fyers_symbol = fyers_symbol_override or INDEX_SYMBOLS.get(index_name)
     if not fyers_symbol:
         return []
 
@@ -2225,4 +2237,100 @@ def get_trend_momentum_card(index_name, current_spot=None):
         "volatility_environment": vol_environment,
         "market_regime": compute_market_regime(technical_bias, vol_environment),
         "sample_size": len(candles),
+    }
+
+
+# Sep 18 2026: real India VIX absolute-level bands, for the Dashboard
+# rebuild's VIX index card. Deliberately NOT classify_volatility_
+# environment() above -- that classifies annualized_vol_pct (a
+# RETURNS-based statistic computed FROM an index's own daily closes),
+# a genuinely different measurement from VIX's own directly-quoted
+# level. These specific thresholds (<15 Calm, 15-20 Normal, 20-25
+# Elevated, >25 High) are widely cited India VIX convention (multiple
+# broker/exchange commentary uses this exact banding), not fitted to
+# this project's own data -- same "reasonable, standard, not
+# validated for this strategy" status every other non-strategy
+# threshold in this file already carries.
+def classify_india_vix_level(vix_value):
+    if vix_value is None:
+        return None
+    if vix_value < 15:
+        return "Calm"
+    if vix_value < 20:
+        return "Normal"
+    if vix_value < 25:
+        return "Elevated"
+    return "High"
+
+
+def get_index_card_data(index_name, current_price=None, current_change_pct=None, fyers_symbol_override=None):
+    """
+    Sep 18 2026: real data for one Dashboard index card -- sparkline
+    (recent daily closes) and 18-day range (real low/high over the
+    last 18 real trading days), sourced from the exact same _fetch_
+    daily_history() candles get_trend_momentum_card() already uses
+    (no second fetch, no new Fyers calls beyond what that caching
+    layer already does once per day).
+
+    For NIFTY/BANKNIFTY/SENSEX: reuses get_trend_momentum_card()'s own
+    real technical_bias for the card's regime badge (mapped to a
+    plain Bullish/Bearish/Range label here, not re-derived) -- this
+    project's own genuine classification, not a guess at a different
+    product's internal logic. Returns None for the whole card if that
+    function itself returns None (not enough real history yet) --
+    same "never guess" contract it already has.
+
+    For INDIA VIX specifically: it has no options chain of its own
+    (derived from NIFTY options, not an independently tradable
+    underlying), so get_trend_momentum_card()'s technical_bias/RSI
+    machinery doesn't apply to it the same way. Its card instead uses
+    classify_india_vix_level() directly against its own live value --
+    a real, different, and correctly-scoped classification for a
+    genuinely different kind of index.
+    """
+    if index_name == "INDIA VIX":
+        candles = _fetch_daily_history(index_name, fyers_symbol_override=fyers_symbol_override or "NSE:INDIAVIX-INDEX")
+        if len(candles) < 2:
+            return None
+        closes = [c["close"] for c in candles]
+        recent = closes[-18:] if len(closes) >= 18 else closes
+        spot = current_price if current_price is not None else closes[-1]
+        return {
+            "index_name": index_name,
+            "price": spot,
+            "change_percent": current_change_pct,
+            "sparkline": recent,
+            "range_18d_low": min(recent),
+            "range_18d_high": max(recent),
+            "regime_label": classify_india_vix_level(spot),
+            "regime_kind": "vix_level",
+            "sample_size": len(candles),
+        }
+
+    card = get_trend_momentum_card(index_name, current_spot=current_price)
+    if card is None:
+        return None
+    candles = _fetch_daily_history(index_name)
+    closes = [c["close"] for c in candles]
+    recent = closes[-18:] if len(closes) >= 18 else closes
+
+    bias = card.get("technical_bias") or ""
+    if bias.startswith("Bullish"):
+        regime_label = "Bullish"
+    elif bias.startswith("Bearish"):
+        regime_label = "Bearish"
+    else:
+        regime_label = "Range"
+
+    return {
+        "index_name": index_name,
+        "price": card["closing_price"],
+        "change_percent": current_change_pct,
+        "sparkline": recent,
+        "range_18d_low": min(recent) if recent else None,
+        "range_18d_high": max(recent) if recent else None,
+        "regime_label": regime_label,
+        "regime_kind": "technical_bias",
+        "technical_bias_detail": card.get("technical_bias"),
+        "sample_size": card.get("sample_size"),
     }
