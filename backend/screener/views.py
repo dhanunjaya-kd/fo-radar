@@ -2264,7 +2264,7 @@ def _build_all():
     # cycles at market open instead of in one Fyers-limit-tripping
     # burst.
     _candidate_pool_size = int(os.environ.get("SIGNAL_CANDIDATE_POOL_SIZE", "0"))
-    _history_warmup_batch_size = int(os.environ.get("HISTORY_WARMUP_BATCH_SIZE", "40"))
+    _history_warmup_batch_size = int(os.environ.get("HISTORY_WARMUP_BATCH_SIZE", "10"))
     movers = sorted(results.values(), key=lambda x: abs(x.get('change_percent', 0)), reverse=True)
     if _candidate_pool_size > 0:
         movers = movers[:_candidate_pool_size]
@@ -2272,7 +2272,20 @@ def _build_all():
     _warm_symbols = {sym for sym, _c in _history_cache.items() if _c.get('date') == _today_str}
     _warm = [s for s in movers if s.get('symbol') in _warm_symbols]
     _cold = [s for s in movers if s.get('symbol') not in _warm_symbols]
-    movers = _warm + _cold[:_history_warmup_batch_size]
+    # Sep 18 2026, same day, second pass -- live evidence (this
+    # morning's own console) showed 40 was STILL enough to retrip the
+    # breaker: it opens after just 2 consecutive 429s, and the shared
+    # 0.32s inter-call governor (fyers_client.py) apparently isn't
+    # enough headroom for the History endpoint specifically once other
+    # traffic (quotes/option-chain/index/MCX calls) shares the same
+    # window. Two changes, not one, since size alone didn't hold:
+    # default batch cut 40->10, AND skip ALL new cold symbols this
+    # cycle if the breaker is already open when this runs, so a fresh
+    # batch never fires right as a previous trip is still cooling down
+    # (before, cold symbols were attempted regardless of breaker state).
+    from .fyers_client import _rate_limited_now
+    _cold_batch = [] if _rate_limited_now() else _cold[:_history_warmup_batch_size]
+    movers = _warm + _cold_batch
     signals = []
     techs = {}
     # Aug 31 2026: P0-7 -- one VIX read for the whole cycle, reused by
