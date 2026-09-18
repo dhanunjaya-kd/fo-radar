@@ -1,4 +1,5 @@
 import TopLiveSignals from './TopLiveSignals';
+import MarketPulse from './MarketPulse';
 import MarketSentimentGauge from './MarketSentimentGauge';
 import SectorStrength from './SectorStrength';
 import OIDistribution from './OIDistribution';
@@ -49,6 +50,7 @@ export default function Dashboard({ onNavigate }) {
   return (
     <div className="space-y-4">
       <DataHealthStrip />
+      <MarketPulse />
       {/* Sep 2 2026: moved here from Index Tracker per direct request --
           "market direction" is the first thing this file's own header
           comment says the dashboard should answer. Reuses the exact
