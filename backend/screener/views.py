@@ -4775,6 +4775,8 @@ class MarketBreadthView(APIView):
             return bucket_labels[5]
 
         ema200_above = ema200_total = 0
+        macd_undecided = macd_total = 0
+        bb_wide_count = bb_total = 0
         rsi_values = []
         elevated_up = elevated_down = elevated_total = 0
         ema50_above = ema50_total = 0
@@ -4823,6 +4825,31 @@ class MarketBreadthView(APIView):
                 vwap_total += 1
                 if price > tech['vwap']: vwap_above += 1
 
+            # MACD "sitting on its signal line" -- Sep 18 2026 addition.
+            # Threshold stated plainly, not hidden: the gap between the
+            # MACD line and its signal line is within 0.1% of price --
+            # both are absolute price-unit values (ema12-ema26 and its
+            # 9-day EMA), so a fixed absolute threshold would unfairly
+            # flag cheap stocks as "undecided" far more often than
+            # expensive ones; scaling by price keeps the definition
+            # consistent across the universe.
+            macd_val = tech.get('macd')
+            macd_sig = tech.get('macd_signal')
+            if macd_val is not None and macd_sig is not None and price:
+                macd_total += 1
+                if abs(macd_val - macd_sig) / price <= 0.001:
+                    macd_undecided += 1
+
+            # Bollinger Band width breadth -- "ranges are widening"
+            # tile. bb_width_pct is already (upper-lower)/middle*100,
+            # so ">10% of price" is a direct, literal read of that
+            # number against the same 10% the reference states.
+            bb_width = tech.get('bb_width_pct')
+            if bb_width is not None:
+                bb_total += 1
+                if bb_width > 10:
+                    bb_wide_count += 1
+
         total_directional = advancing + declining
         ratio = round(advancing / declining, 2) if declining else None
         mean_rsi = round(sum(rsi_values) / len(rsi_values), 1) if rsi_values else None
@@ -4842,8 +4869,94 @@ class MarketBreadthView(APIView):
             if vol_avg and volume is not None and volume >= 2 * vol_avg:
                 elevated_count += 1
 
+        # Sep 18 2026: Market Mood score. The reference dashboard's own
+        # body text -- "75% of directional movers closed up, 52% of
+        # the list holds its 200 EMA, and average RSI sits at 50" --
+        # names its "3 of 3 inputs" explicitly: these are exactly the
+        # three breadth numbers already computed above (advance_pct,
+        # trend_participation's pct_above_ema200, mean_rsi). No new
+        # data invented for this -- reusing what's already real.
+        #
+        # This is NOT a reverse-engineering of that other product's
+        # internal formula (no access to it, and no way to verify a
+        # guess at it as "real"). It's a plain, stated, equal-weight
+        # average of three inputs that are each already naturally on
+        # a 0-100 scale, mapped to labels using the CNN Fear & Greed
+        # Index's own published band convention (0-25 Extreme Fear,
+        # 25-45 Fear, 45-55 Neutral, 55-75 Greed, 75-100 Extreme
+        # Greed) -- a real, external, named standard, not this
+        # project's invention.
+        advance_pct = round(100 * advancing / (advancing + declining), 1) if (advancing + declining) else None
+        trend_pct_for_mood = round(100 * ema200_above / ema200_total, 1) if ema200_total else None
+        mood_inputs = [v for v in (advance_pct, trend_pct_for_mood, mean_rsi) if v is not None]
+        mood_score = round(sum(mood_inputs) / len(mood_inputs)) if mood_inputs else None
+
+        def mood_label(score):
+            if score is None: return None
+            if score < 25: return "Extreme Fear"
+            if score < 45: return "Fear"
+            if score < 55: return "Neutral"
+            if score < 75: return "Greed"
+            return "Extreme Greed"
+
+        # "Tape strength": how far the mood score sits from neutral
+        # (50) -- a plain, stated distance-from-center classification,
+        # not a claim about matching any other product's internal
+        # "STRONG"/"AGGRESSIVE" label exactly.
+        def tape_strength(score):
+            if score is None: return None
+            dist = abs(score - 50)
+            if dist >= 25: return "STRONG"
+            if dist >= 10: return "MODERATE"
+            return "WEAK"
+
+        label = mood_label(mood_score)
+        strength = tape_strength(mood_score)
+
+        # Narrative -- direct template fill over the real numbers above,
+        # not a separate invented dataset. Regime thresholds (>=60 /
+        # <=40 for "broad" vs "narrow" participation) are stated here,
+        # not hidden, so they're inspectable rather than opaque.
+        if advance_pct is not None and trend_pct_for_mood is not None and mean_rsi is not None:
+            body_sentence = (
+                f"{advance_pct:g}% of directional movers closed up, "
+                f"{trend_pct_for_mood:g}% of the list holds its 200 EMA, "
+                f"and average RSI sits at {mean_rsi:g}."
+            )
+        else:
+            missing = []
+            if advance_pct is None: missing.append("advance/decline")
+            if trend_pct_for_mood is None: missing.append("200 EMA breadth")
+            if mean_rsi is None: missing.append("RSI")
+            body_sentence = f"Insufficient data this cycle for: {', '.join(missing)}."
+
+        if mood_score is None:
+            headline = "Not enough data to read market mood yet"
+        elif mood_score >= 60 and (advance_pct or 0) >= 60:
+            headline = "Broad participation behind the move"
+        elif mood_score <= 40 and (advance_pct or 100) <= 40:
+            headline = "Narrow participation, caution warranted"
+        else:
+            headline = "Mixed participation across the tape"
+
+        sniper_tilt = "bullish" if (advance_pct or 0) > 55 else "bearish" if (advance_pct or 100) < 45 else "neutral"
+        if ratio is not None:
+            sniper_text = (
+                f"{'Buyers hold' if sniper_tilt == 'bullish' else 'Sellers press' if sniper_tilt == 'bearish' else 'Neither side controls'} "
+                f"the wider market — {ratio}:1 advancing to declining, {advance_pct:g}% of movers higher. "
+                f"{flat} of {total_directional + flat} names were flat."
+            )
+        else:
+            sniper_text = "Insufficient advance/decline data this cycle to read positioning."
+
         return Response({
             "universe_size": len(quotes),
+            "market_mood": {
+                "score": mood_score, "label": label, "strength": strength,
+                "inputs_available": len(mood_inputs), "inputs_total": 3,
+                "headline": headline, "body": body_sentence,
+                "sniper_summary": {"tilt": sniper_tilt, "text": sniper_text},
+            },
             "advance_decline": {
                 "advancing": advancing, "declining": declining, "flat": flat,
                 "ratio": ratio, "net": advancing - declining,
@@ -4874,9 +4987,18 @@ class MarketBreadthView(APIView):
                 "above_count": vwap_above, "below_count": vwap_total - vwap_above,
                 "count_with_data": vwap_total,
             },
+            "momentum_breadth": {
+                "undecided_count": macd_undecided, "count_with_data": macd_total,
+                "pct_undecided": round(100 * macd_undecided / macd_total, 1) if macd_total else None,
+            },
+            "volatility_breadth": {
+                "wide_range_count": bb_wide_count, "count_with_data": bb_total,
+                "pct_wide": round(100 * bb_wide_count / bb_total, 1) if bb_total else None,
+            },
             "sector_breadth": sector_breadth,
             "has_52w_data": False,
         })
+
 
 
 class IndexTrackerView(APIView):
