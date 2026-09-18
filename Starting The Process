@@ -1,13 +1,21 @@
 ## Complete Daily Startup Commands
 
+## Every time I make changes on GitHub
+
+cd C:\Users\FixAdmin\Downloads\fo-sniper-fullstack
+git status
+git fetch origin
+git pull --rebase origin main
+
 ## GITHUB PULL 
 
 python auto_sync.py
 
+
 ## if we forgot to sync the Github this is the process to sync everything upto date 
 
 git add -A
-git commit -m "Aug 20 upgrades"
+git commit -m "Sep 16 upgrades"
 git push
 
 ## Terminal 1 — Django Backend (Keep Running)
@@ -37,8 +45,9 @@ venv\Scripts\activate
 python -m screener.backtest_signal_pnl
 
 ## EXCEL VALUES FILLING
-
-python manage.py backfill_signal_outcomes --start 2026-08-01 --end 2026-08-23
+cd backend
+venv\Scripts\activate
+python manage.py backfill_signal_outcomes --start 2026-09-01 --end 2026-09-11
 
 ## Backtest Postional Index
 
@@ -91,6 +100,11 @@ python find_futures_symbol.py
 cd C:\Users\FixAdmin\Downloads\fo-sniper-fullstack\backend
 venv\Scripts\activate
 python -m screener.backtest_index_bias
+
+
+cd backend 
+venv\Scripts\activate
+python -m screener.index_bias_forensics
 
 
 ## GIT
@@ -150,3 +164,4 @@ That's the whole cycle: open a terminal there, run that one command, close with 
 | Tab persistence | ✅ Page reload stays on the same tab now |
 | Mobile/narrow-screen | ✅ Checked and fixed across all 4 tabs |
 | Icons | ✅ Emoji → consistent SVG icon set, all tabs |
+
