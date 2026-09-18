@@ -2238,10 +2238,41 @@ def _build_all():
     # cycle history-warming burst causes trouble, set it back to a
     # number (e.g. 50) with no code change rather than reverting this
     # entirely.
+    #
+    # Sep 18 2026 (Zero-Signal Forensic Audit, continued): that burst
+    # happened -- seen live in this morning's console at market open.
+    # The "costs zero extra Fyers calls after the first cycle" claim
+    # from yesterday was right about the STEADY STATE, but wrong about
+    # the TRANSITION: with the top-30 cap gone, the first cycle of the
+    # day now wants a fresh _cached_history_df() fetch for all ~207
+    # symbols AT ONCE (none cached yet), not 30 -- that simultaneous
+    # burst is what tripped Fyers' own per-minute limit and opened the
+    # circuit breaker, which then also blocked quotes/option-chain/
+    # index calls for the whole cycle, not just the history warm-up.
+    # Real, not guessed: this morning's own log line sequence --
+    # Rejected: ... 'no_tech_data': 131 / 130 / 125 / 115 -- across
+    # consecutive cycles shows it self-healing (fewer symbols cold each
+    # time), but slowly, and re-tripping repeatedly along the way.
+    #
+    # Fix: cap how many NEWLY-cold symbols get warmed in any one cycle
+    # (HISTORY_WARMUP_BATCH_SIZE, default 40) instead of capping the
+    # candidate pool itself. Already-warm symbols (cached today) are
+    # NEVER limited -- every symbol that already has today's history
+    # gets evaluated every cycle, same as before this fix. Only the
+    # still-cold remainder is throttled, so the full 208-stock universe
+    # goal from yesterday is unchanged; it now arrives over several
+    # cycles at market open instead of in one Fyers-limit-tripping
+    # burst.
     _candidate_pool_size = int(os.environ.get("SIGNAL_CANDIDATE_POOL_SIZE", "0"))
+    _history_warmup_batch_size = int(os.environ.get("HISTORY_WARMUP_BATCH_SIZE", "40"))
     movers = sorted(results.values(), key=lambda x: abs(x.get('change_percent', 0)), reverse=True)
     if _candidate_pool_size > 0:
         movers = movers[:_candidate_pool_size]
+    _today_str = datetime.now().strftime("%Y-%m-%d")
+    _warm_symbols = {sym for sym, _c in _history_cache.items() if _c.get('date') == _today_str}
+    _warm = [s for s in movers if s.get('symbol') in _warm_symbols]
+    _cold = [s for s in movers if s.get('symbol') not in _warm_symbols]
+    movers = _warm + _cold[:_history_warmup_batch_size]
     signals = []
     techs = {}
     # Aug 31 2026: P0-7 -- one VIX read for the whole cycle, reused by
