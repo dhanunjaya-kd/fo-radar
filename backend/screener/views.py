@@ -37,6 +37,12 @@ try:
 except ImportError:
     estimate_option_premium = lambda spot, strike, days, iv, opt_type, risk_free_rate=0.07: None
 
+try:
+    from .nifty500_universe import NIFTY_500_STOCKS, NIFTY_500_SECTOR_FALLBACK
+except ImportError:
+    NIFTY_500_STOCKS = []
+    NIFTY_500_SECTOR_FALLBACK = {}
+
 # ============================================================
 # CACHES
 # ============================================================
@@ -3551,17 +3557,29 @@ if not _IS_RELOADER_WATCHER_PROCESS:
 # would be reporting a number and quietly meaning something narrower
 # than what it says.
 #
-# Real cost, stated plainly rather than assumed away: the FIRST pass
-# each day costs roughly 178 additional Fyers history calls (208 minus
-# the ~30 _build_all() already covers) -- at the existing ~3 req/s
-# governor in fyers_client.py, that's under a minute, once. Every pass
-# after that is cheap: _cached_history_df() already caches each
-# symbol's history for the rest of the trading day, and this worker
-# reuses _stock_cache's own already-fetched live quotes as _calc_tech's
-# live_quote (the same free-reuse pattern _build_all() itself already
-# uses) -- so no new Fyers calls at all on repeat passes, just pandas
-# math over already-cached data.
+# Sep 19 2026 UPDATE: widened from FNO_STOCKS (208) to NIFTY_500_STOCKS
+# (500) at his explicit request, to genuinely match a reference
+# dashboard's "of 500 stocks" denominator rather than a narrower
+# same-labelled number. This is why _breadth_quote_cache below is a
+# NEW, separate cache fetched independently -- it deliberately does
+# NOT reuse _stock_cache anymore (that stays FNO_STOCKS-only, still
+# exactly what the live signal engine reads, completely untouched by
+# this change).
+#
+# Real cost, stated plainly rather than assumed away: quotes are
+# batched up to 50 symbols/call (_fetch_all_stocks's own docstring) --
+# 500 stocks is ~10 calls per 180s cycle, on top of _build_all()'s own
+# ~5 calls/90s for the 208 FNO names. History is the same free-reuse
+# story as before: _cached_history_df() caches each symbol's history
+# once per day, so only the FIRST pass after each restart pays for the
+# ~292 additional symbols' history fetch (existing HISTORY_WARMUP_
+# BATCH_SIZE staggering, built during the Sep 17 audit, already covers
+# exactly this "many new symbols need history at once" case). Nothing
+# here calls get_option_chain -- the actual driver of every past rate-
+# limit incident (Aug 20/Sep 3/Sep 4) -- so this doesn't reintroduce
+# that risk.
 _breadth_tech_cache = {}
+_breadth_quote_cache = {}
 _breadth_cache_lock = threading.Lock()
 
 
@@ -3571,8 +3589,16 @@ def _breadth_indicators_worker():
     while True:
         try:
             if is_market_hours():
-                with _cache_lock:
-                    symbols_and_quotes = list(_stock_cache.items())
+                quotes = _fetch_all_stocks(NIFTY_500_STOCKS)
+                if quotes:
+                    with _breadth_cache_lock:
+                        _breadth_quote_cache.update(quotes)
+                # else: this cycle's fetch got nothing (not authenticated,
+                # transient failure) -- same "leave the last known good
+                # data in place" principle _build_all() itself already
+                # uses for _stock_cache, not a reason to blank this cache.
+                with _breadth_cache_lock:
+                    symbols_and_quotes = list(_breadth_quote_cache.items())
                 computed = {}
                 for sym, quote in symbols_and_quotes:
                     tech = _calc_tech(sym, live_quote=quote)
@@ -3587,7 +3613,7 @@ def _breadth_indicators_worker():
                     # else in this file for a transient miss.
                 with _breadth_cache_lock:
                     _breadth_tech_cache.update(computed)
-                print(f"[{datetime.now()}] Breadth indicators refreshed: {len(computed)}/{len(symbols_and_quotes)} stocks.")
+                print(f"[{datetime.now()}] Breadth indicators refreshed: {len(computed)}/{len(symbols_and_quotes)} stocks (quotes cache: {len(_breadth_quote_cache)}).")
                 time.sleep(180)
             else:
                 now = time.time()
@@ -4167,6 +4193,7 @@ class MarketSummaryOldView(APIView):
 
 class FoStockListOldView(APIView):
     def get(self, request):
+        from .market_hours import is_market_hours
         with _cache_lock:
             stocks = list(_stock_cache.values())
         
@@ -4177,7 +4204,11 @@ class FoStockListOldView(APIView):
                     if math.isnan(value) or math.isinf(value):
                         stock[key] = None
         
-        return Response({"stocks": stocks, "count": len(stocks)})
+        # Sep 19 2026: market_open flag added so a consumer (the
+        # ticker) can tell "closed right now, this IS the honest
+        # state" apart from "open but a transient empty cycle" --
+        # doesn't change stocks/count themselves, purely additive.
+        return Response({"stocks": stocks, "count": len(stocks), "market_open": is_market_hours()})
 
 
 class MarketDataView(APIView):
@@ -4215,6 +4246,35 @@ class SniperOnlyView(APIView):
         return Response({"signals": signals, "count": len(signals)})
 
 
+_fundamentals_data_cache = None
+_fundamentals_cache_lock = threading.Lock()
+
+
+def _get_market_cap_cr(symbol):
+    """
+    Sep 19 2026: for the Market Heatmap's sector view -- market cap
+    isn't tracked anywhere in the live scan pipeline (price/change/
+    volume only), but IS already sitting in fundamentals_data.json
+    (fundamentals/runner.py's own separate background pass, 2,466 NSE
+    stocks). Reads that file once per process (1.5MB, doesn't change
+    intraday) rather than per request. Returns None, never a guess,
+    for a symbol that file hasn't covered yet.
+    """
+    global _fundamentals_data_cache
+    with _fundamentals_cache_lock:
+        if _fundamentals_data_cache is None:
+            import json
+            from fundamentals.ranking import DATA_FILE
+            try:
+                with open(DATA_FILE) as f:
+                    _fundamentals_data_cache = json.load(f)
+            except Exception as e:
+                print(f"[SectorStocks] fundamentals_data.json load failed: {e}")
+                _fundamentals_data_cache = {}
+        entry = _fundamentals_data_cache.get(f"NSE:{symbol}-EQ") or {}
+    return (entry.get("fundamentals") or {}).get("market_cap_cr")
+
+
 class SectorStocksView(APIView):
     """
     Aug 30 2026: powers the Market Heatmap's sector click-through.
@@ -4233,8 +4293,21 @@ class SectorStocksView(APIView):
     Never fabricates: not authenticated, or an individual fetch
     fails, that stock's oi_buildup/pcr come back None -- frontend
     shows '--', same rule as everywhere else in this codebase.
+
+    Sep 19 2026: ?fast=1 added for the heatmap's HOVER preview
+    (instant, on every tile a mouse passes over -- a real, different
+    usage pattern from a deliberate click). Skips the per-stock
+    option-chain loop entirely in that mode: price/change/market cap
+    are already free (cache + local fundamentals_data.json), but OI
+    buildup/PCR genuinely cost a live Fyers call each, and firing
+    those on every hover -- not just each click -- is exactly the
+    request volume that's tripped the rate limiter before (Aug 20/
+    Sep 3/Sep 4). oi_buildup/pcr simply come back None in fast mode,
+    same "not fetched this pass" meaning as an auth failure already
+    has -- not a new, different kind of blank.
     """
     def get(self, request, sector):
+        fast = request.GET.get('fast') in ('1', 'true', 'True')
         with _cache_lock:
             stock_list = [s for s in _stock_cache.values() if s.get('sector') == sector]
 
@@ -4243,7 +4316,7 @@ class SectorStocksView(APIView):
         for s in stock_list:
             sym = s.get('symbol')
             oi_buildup, pcr = None, None
-            if authed:
+            if authed and not fast:
                 try:
                     oi = get_option_analytics(f"NSE:{sym}-EQ", strikecount=10)
                     if oi:
@@ -4257,10 +4330,11 @@ class SectorStocksView(APIView):
                 "change_percent": s.get('change_percent'),
                 "oi_buildup": oi_buildup,
                 "pcr": pcr,
+                "market_cap_cr": _get_market_cap_cr(sym),
             })
 
         results.sort(key=lambda r: r.get('change_percent') or 0, reverse=True)
-        return Response({"sector": sector, "stocks": results, "authenticated": authed})
+        return Response({"sector": sector, "stocks": results, "authenticated": authed, "fast": fast})
 
 
 class NoTradeLogView(APIView):
@@ -4849,9 +4923,15 @@ class MarketBreadthView(APIView):
     GET /api/market-breadth/
     """
     def get(self, request):
-        with _cache_lock:
-            quotes = dict(_stock_cache)
+        from .market_hours import is_market_hours
+        # Sep 19 2026: was _stock_cache (208 FNO names) -- now
+        # _breadth_quote_cache (500, NIFTY_500_STOCKS) so this tile's
+        # own "of N stocks" denominator is genuinely ~500, not a
+        # narrower number quietly reusing the signal engine's own
+        # smaller universe. _stock_cache itself is untouched and still
+        # exactly what the live signal engine reads.
         with _breadth_cache_lock:
+            quotes = dict(_breadth_quote_cache)
             techs = dict(_breadth_tech_cache)
 
         advancing = declining = flat = 0
@@ -4885,7 +4965,17 @@ class MarketBreadthView(APIView):
                 else: flat += 1
                 buckets[bucket_for(pct)] += 1
 
-                sector = q.get('sector', 'Unknown')
+                # Sep 19 2026: q['sector'] itself still comes from
+                # views.py's own SECTORS dict (set once, in
+                # _fetch_all_quotes_fyers, for every symbol regardless
+                # of which cache it lands in) -- that dict only ever
+                # covered the 208 FNO names, so it'd read 'Unknown' for
+                # every one of the ~292 new NIFTY 500-only names here.
+                # NIFTY_500_SECTOR_FALLBACK (nifty500_universe.py)
+                # fills exactly that gap, for exactly those symbols --
+                # SECTORS keeps final say for any symbol it already
+                # covers, nothing here overrides an existing entry.
+                sector = SECTORS.get(sym) or NIFTY_500_SECTOR_FALLBACK.get(sym, 'Unknown')
                 sb = sector_breadth.setdefault(sector, {'up': 0, 'down': 0, 'total': 0})
                 sb['total'] += 1
                 if pct > 0: sb['up'] += 1
@@ -5044,6 +5134,7 @@ class MarketBreadthView(APIView):
 
         return Response({
             "universe_size": len(quotes),
+            "market_open": is_market_hours(),
             "market_mood": {
                 "score": mood_score, "label": label, "strength": strength,
                 "inputs_available": len(mood_inputs), "inputs_total": 3,

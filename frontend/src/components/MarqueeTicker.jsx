@@ -53,6 +53,7 @@ const MAX_TICKER_ITEMS = 30;
 const MarqueeTicker = () => {
   const [items, setItems] = useState([]);
   const [signalCount, setSignalCount] = useState(null);
+  const [marketOpen, setMarketOpen] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +64,7 @@ const MarqueeTicker = () => {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const json = await res.json();
         const stocks = json.stocks || [];
+        if (!cancelled) setMarketOpen(json.market_open ?? null);
 
         const scored = stocks
           .map(s => {
@@ -118,7 +120,27 @@ const MarqueeTicker = () => {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    // Sep 19 2026: was a silent `return null` regardless of why --
+    // indistinguishable from a real bug. When the backend's own
+    // is_market_hours() says the market is genuinely closed, that IS
+    // the honest reading (in-memory quote cache has nothing to show,
+    // by design, until next open) -- say so instead of just vanishing.
+    // Still returns null for the rare during-hours-and-truly-empty
+    // case (both the gap filter and the plain-movers fallback found
+    // nothing) -- that's a real, if unlikely, "nothing to report"
+    // state, not a closed-market one.
+    if (marketOpen === false) {
+      return (
+        <div className="marquee-wrapper">
+          <div className="ticker-item" style={{ padding: '6px 16px', opacity: 0.6 }}>
+            Market closed — ticker resumes at next session
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
 
   // Doubled for a seamless loop, same technique the CSS's own
   // scroll-left keyframe (translateX(-33.333%) across a tripled

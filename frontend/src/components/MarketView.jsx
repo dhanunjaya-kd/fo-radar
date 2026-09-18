@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import MarketHeatmap from './MarketHeatmap';
 import TabInfoBanner from './TabInfoBanner';
 
 // Relative on purpose -- see the same note in IndexTracker.jsx/SignalList.jsx.
@@ -363,18 +362,18 @@ function MarketViewSection({ indexName }) {
 export default function MarketView() {
   return (
     <div className="space-y-4">
-      {/* Aug 28 2026: new section, from the Module 4 (Market View)
-          redesign reference -- MarketHeatmap has its own backend
-          endpoint (see its own file). MarketSummary moved to the
-          global MarketBanner (Aug 29 2026) -- whether the market's
-          open matters on every tab, not just here. Everything below
-          this (the indigo note + both NIFTY/BANKNIFTY tables) is
-          unchanged.
+      {/* Sep 19 2026: Market Heatmap moved to the new persistent
+          HeatmapRail (App.jsx) -- visible on every tab now, not just
+          here, per direct request. No longer rendered inline in this
+          tab at all.
+          Aug 28 2026: MarketSummary moved to the global MarketBanner
+          (Aug 29 2026) -- whether the market's open matters on every
+          tab, not just here. Everything below this (the indigo note
+          + both NIFTY/BANKNIFTY tables) is unchanged.
           Aug 30 2026: IndicesPerformance removed from this tab per
           direct request -- was taking a full-width row of its own.
           The component file itself is untouched, just no longer
           imported/rendered here. */}
-      <MarketHeatmap />
       <TabInfoBanner>
         Clean market view — same live data as Index Tracker, just the core columns only, thinned to a
         ~30-minute cadence (Index Tracker still shows every snapshot at full density). Arrows show the

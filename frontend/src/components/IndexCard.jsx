@@ -13,22 +13,76 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
  * already uses for its own arc.
  */
 
-function Sparkline({ values, positive }) {
+function formatSparklineDate(dateStr) {
+  // dateStr is "YYYY-MM-DD" from the backend's own real candle date
+  // (index_tracker.py's _fetch_daily_history), not estimated from
+  // position in the array.
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(d);
+}
+
+function Sparkline({ values, dates, positive }) {
+  const [hoverIdx, setHoverIdx] = useState(null);
   if (!values || values.length < 2) return <div className="h-16" />;
   const w = 280, h = 64, pad = 2;
   const min = Math.min(...values), max = Math.max(...values);
   const range = max - min || 1;
-  const points = values.map((v, i) => {
-    const x = pad + (i / (values.length - 1)) * (w - pad * 2);
-    const y = pad + (1 - (v - min) / range) * (h - pad * 2);
-    return `${x},${y}`;
-  });
+  const coords = values.map((v, i) => ({
+    x: pad + (i / (values.length - 1)) * (w - pad * 2),
+    y: pad + (1 - (v - min) / range) * (h - pad * 2),
+  }));
+  const points = coords.map(c => `${c.x},${c.y}`);
   const color = positive ? '#34d399' : '#ef4444';
   const fillPoints = `${pad},${h} ${points.join(' ')} ${w - pad},${h}`;
+
+  // Sep 19 2026: hover-to-see-price-and-date, matching the reference
+  // dashboard's own chart-hover behavior. Nearest point by x-distance
+  // (not exact pixel match) so the whole chart width is "live", not
+  // just the exact pixel of each of the 18 data points.
+  const handleMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = ((e.clientX - rect.left) / rect.width) * w;
+    let nearest = 0, bestDist = Infinity;
+    coords.forEach((c, i) => {
+      const dist = Math.abs(c.x - relX);
+      if (dist < bestDist) { bestDist = dist; nearest = i; }
+    });
+    setHoverIdx(nearest);
+  };
+
+  const hover = hoverIdx != null ? { ...coords[hoverIdx], value: values[hoverIdx], date: dates && dates[hoverIdx] } : null;
+  // Keep the label inside the chart's own width regardless of which
+  // point is hovered -- anchor left/middle/right depending on
+  // position instead of always centering, which would clip near
+  // either edge.
+  const labelAnchor = hover ? (hover.x < 50 ? 'start' : hover.x > w - 50 ? 'end' : 'middle') : 'middle';
+  const labelX = hover ? (labelAnchor === 'start' ? 0 : labelAnchor === 'end' ? w : hover.x) : 0;
+
   return (
-    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+    <svg
+      width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"
+      onMouseMove={handleMove}
+      onMouseLeave={() => setHoverIdx(null)}
+      style={{ cursor: hover ? 'crosshair' : 'default' }}
+    >
       <polygon points={fillPoints} fill={color} opacity="0.12" />
       <polyline points={points.join(' ')} fill="none" stroke={color} strokeWidth="1.5" />
+      {hover && (
+        <>
+          <line x1={hover.x} y1={0} x2={hover.x} y2={h} stroke="#94a3b8" strokeWidth="1" strokeDasharray="2,2" opacity="0.6" />
+          <circle cx={hover.x} cy={hover.y} r="2.5" fill="#fff" stroke={color} strokeWidth="1.5" />
+          <text
+            x={labelX} y={hover.y > h / 2 ? 10 : h - 6}
+            textAnchor={labelAnchor} fontSize="9" fontWeight="700" fill="#fff"
+            style={{ paintOrder: 'stroke', stroke: '#0f172a', strokeWidth: 3 }}
+          >
+            {hover.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            {hover.date ? ` · ${formatSparklineDate(hover.date)}` : ''}
+          </text>
+        </>
+      )}
     </svg>
   );
 }
@@ -123,7 +177,7 @@ export default function IndexCard({ indexName, displayName }) {
           {positive ? '↗' : '↘'} {positive ? '+' : ''}{data.change_percent.toFixed(2)}%
         </div>
       )}
-      <Sparkline values={data.sparkline} positive={positive} />
+      <Sparkline values={data.sparkline} dates={data.sparkline_dates} positive={positive} />
       {isVix ? (
         <VixGauge label={data.regime_label} />
       ) : (

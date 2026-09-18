@@ -61,6 +61,15 @@ function fmtPct(n) {
   if (n === null || n === undefined || isNaN(n)) return '—';
   return `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
 }
+function fmtMarketCap(crores) {
+  if (crores === null || crores === undefined || isNaN(crores)) return '—';
+  // crores -> lakh crore (T-style) above 1L cr, else plain crore --
+  // matches how large-cap market cap is conventionally read in INR
+  // (e.g. "17.81L Cr" for Reliance's ~17.8 lakh crore), not a raw
+  // crore figure that's hard to parse at a glance for the big names.
+  if (crores >= 100000) return `₹${(crores / 100000).toFixed(2)}L Cr`;
+  return `₹${crores.toLocaleString('en-IN', { maximumFractionDigits: 0 })} Cr`;
+}
 function buildupStyle(buildup) {
   if (!buildup) return 'text-slate-500';
   if (buildup.includes('PE writing')) return 'text-emerald-400';
@@ -128,6 +137,7 @@ function SectorDrawer({ sector, onClose }) {
                     <th className="text-left px-2 py-2 font-medium">Symbol</th>
                     <th className="text-right px-2 py-2 font-medium">Price</th>
                     <th className="text-right px-2 py-2 font-medium">Chg%</th>
+                    <th className="text-right px-2 py-2 font-medium">Mkt Cap</th>
                     <th className="text-left px-2 py-2 font-medium">OI Buildup</th>
                     <th className="text-right px-2 py-2 font-medium">PCR</th>
                   </tr>
@@ -140,6 +150,7 @@ function SectorDrawer({ sector, onClose }) {
                       <td className={`px-2 py-2 text-right tabular-nums ${(s.change_percent || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {fmtPct(s.change_percent)}
                       </td>
+                      <td className="px-2 py-2 text-right text-slate-400 tabular-nums whitespace-nowrap">{fmtMarketCap(s.market_cap_cr)}</td>
                       <td className={`px-2 py-2 whitespace-nowrap ${buildupStyle(s.oi_buildup)}`}>{s.oi_buildup || '—'}</td>
                       <td className="px-2 py-2 text-right text-slate-300 tabular-nums">{s.pcr != null ? s.pcr.toFixed(2) : '—'}</td>
                     </tr>
@@ -154,10 +165,86 @@ function SectorDrawer({ sector, onClose }) {
   );
 }
 
-export default function MarketHeatmap() {
+// Sep 19 2026: hover preview -- price + market cap only, fetched via
+// ?fast=1 (see SectorStocksView's own docstring for why: that's zero
+// Fyers calls, just cache + a local JSON lookup, safe to fire on
+// every tile a mouse passes over). OI Buildup/PCR are deliberately
+// NOT in this preview -- those stay behind the real click-through
+// above, which is the one place a live per-stock option-chain fetch
+// is meant to happen. 150ms debounce is purely for UX (avoid a
+// flash of "Loading…" when a cursor just passes through), not a
+// rate-limit precaution -- this path doesn't touch Fyers at all.
+function SectorHoverPreview({ sector }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const timer = setTimeout(() => {
+      fetch(`${API_BASE}/api/sector-stocks/${encodeURIComponent(sector)}/?fast=1`)
+        .then(r => r.ok ? r.json() : null)
+        .then(json => { if (!cancelled && json) setData(json); })
+        .catch(() => {})
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }, 150);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [sector]);
+
+  return (
+    <div className="w-64 max-h-72 overflow-y-auto rounded-lg bg-slate-900 border border-slate-700 shadow-xl p-2.5 pointer-events-none">
+      <div className="text-[11px] font-bold text-white px-1 pb-1.5 mb-1 border-b border-slate-800">{sector} — stocks</div>
+      {loading && !data && <div className="text-[11px] text-slate-500 px-1 py-2">Loading…</div>}
+      {data && data.stocks.length === 0 && <div className="text-[11px] text-slate-500 px-1 py-2">No F&O stocks in this sector.</div>}
+      {data && data.stocks.slice(0, 12).map(s => (
+        <div key={s.symbol} className="flex items-center justify-between px-1 py-0.5 text-[11px]">
+          <span className="text-white font-medium">{s.symbol}</span>
+          <span className="text-slate-300 tabular-nums">{fmtPrice(s.price)}</span>
+          <span className="text-slate-500 tabular-nums w-16 text-right">{fmtMarketCap(s.market_cap_cr)}</span>
+        </div>
+      ))}
+      {data && data.stocks.length > 12 && (
+        <div className="text-[10px] text-slate-600 px-1 pt-1">+{data.stocks.length - 12} more — click for full list</div>
+      )}
+    </div>
+  );
+}
+
+// Sep 19 2026: for the rail's narrow width, a sector with only 1-2
+// F&O stocks gets a treemap tile too small to even show its own
+// name (verified directly -- at 260x640, 18 of 35 real sectors came
+// back under the label-legibility threshold, not a guess). Grouped
+// into one "Other" tile instead of a wall of unlabeled slivers.
+// "Other" itself isn't click/hover-interactive (it's several
+// sectors at once, not the one-sector shape SectorStocksView
+// expects) -- it still shows its combined change% color and stock
+// count, just not a stock list.
+const SMALL_SECTOR_THRESHOLD = 3;
+
+function groupSmallSectors(items) {
+  const big = [];
+  let otherValue = 0, otherChangeSum = 0, otherMembers = [];
+  for (const item of items) {
+    if (item.value >= SMALL_SECTOR_THRESHOLD) {
+      big.push(item);
+    } else {
+      otherValue += item.value;
+      otherChangeSum += item.changePercent * item.value;
+      otherMembers.push(item.name);
+    }
+  }
+  if (otherValue > 0) {
+    big.push({ name: 'Other', value: otherValue, changePercent: otherChangeSum / otherValue, isOther: true, members: otherMembers });
+  }
+  return big.sort((a, b) => b.value - a.value);
+}
+
+export default function MarketHeatmap({ width = 260, height = 640 }) {
   const [sectors, setSectors] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedSector, setSelectedSector] = useState(null);
+  const [hoveredSector, setHoveredSector] = useState(null);
+  const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     let mounted = true;
@@ -179,7 +266,7 @@ export default function MarketHeatmap() {
   }, []);
 
   if (loading) {
-    return <div className="h-72 rounded-xl bg-slate-800/30 animate-pulse border border-slate-700/30" />;
+    return <div className="rounded-xl bg-slate-800/30 animate-pulse border border-slate-700/30" style={{ height }} />;
   }
   if (!sectors || sectors.length === 0) {
     return (
@@ -189,16 +276,17 @@ export default function MarketHeatmap() {
     );
   }
 
-  const WIDTH = 800, HEIGHT = 320;
+  const WIDTH = width, HEIGHT = height;
   // Sized by real stock count per sector (how many of your F&O stocks
   // fall in that sector) -- NOT market cap, since that's not
   // available here. A sector with more listed F&O stocks gets a
   // bigger tile; this is an honest, real basis for size, just a
   // different one than the mockup's imagined market-cap weighting.
-  const items = sectors
+  const rawItems = sectors
     .filter(s => s.stock_count > 0)
     .map(s => ({ name: s.sector, value: s.stock_count, changePercent: s.change_percent, stockCount: s.stock_count }))
     .sort((a, b) => b.value - a.value);
+  const items = groupSmallSectors(rawItems);
   const maxAbsChange = Math.max(0.1, ...items.map(i => Math.abs(i.changePercent)));
   const layout = treemapLayout(items, 0, 0, WIDTH, HEIGHT);
 
@@ -206,21 +294,33 @@ export default function MarketHeatmap() {
     <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-700/40">
         <h3 className="text-sm font-bold text-white">Market Heatmap</h3>
-        <p className="text-[10px] text-slate-500 mt-0.5">Tile size = number of F&O stocks in that sector, color = today's average change% — click a sector to see its stocks</p>
+        <p className="text-[10px] text-slate-500 mt-0.5">Size = F&O stocks in sector, color = change% — hover for price, click for full OI/PCR</p>
       </div>
-      <div className="p-3">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" style={{ maxHeight: 340 }}>
+      <div className="p-3 relative">
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" style={{ maxHeight: HEIGHT + 20 }}>
           {layout.map((tile) => {
-            const fontSize = Math.min(16, Math.max(9, Math.min(tile.width, tile.height) / 8));
-            const showDetail = tile.width > 60 && tile.height > 36;
+            const fontSize = Math.min(16, Math.max(8, Math.min(tile.width, tile.height) / 8));
+            const showDetail = tile.width > 45 && tile.height > 30;
+            const showName = tile.width > 24 && tile.height > 16;
             return (
-              <g key={tile.name} onClick={() => setSelectedSector(tile.name)} className="cursor-pointer transition-opacity hover:opacity-80">
+              <g
+                key={tile.name}
+                onClick={() => !tile.isOther && setSelectedSector(tile.name)}
+                onMouseEnter={(e) => {
+                  if (tile.isOther) return;
+                  const rect = e.currentTarget.closest('svg').getBoundingClientRect();
+                  setHoveredSector(tile.name);
+                  setHoverPos({ x: (tile.x / WIDTH) * rect.width, y: (tile.y / HEIGHT) * rect.height });
+                }}
+                onMouseLeave={() => setHoveredSector(h => (h === tile.name ? null : h))}
+                className={`transition-opacity hover:opacity-80 ${tile.isOther ? '' : 'cursor-pointer'}`}
+              >
                 <rect
                   x={tile.x} y={tile.y} width={tile.width} height={tile.height}
                   fill={colorForChange(tile.changePercent, maxAbsChange)}
                   stroke="#0f172a" strokeWidth="2"
                 />
-                {tile.width > 30 && tile.height > 20 && (
+                {showName && (
                   <text x={tile.x + tile.width / 2} y={tile.y + tile.height / 2 - (showDetail ? 6 : 0)}
                     textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize={fontSize} fontWeight="700">
                     {tile.name}
@@ -236,6 +336,11 @@ export default function MarketHeatmap() {
             );
           })}
         </svg>
+        {hoveredSector && (
+          <div className="absolute z-40" style={{ left: Math.min(hoverPos.x, WIDTH - 260), top: hoverPos.y }}>
+            <SectorHoverPreview sector={hoveredSector} />
+          </div>
+        )}
       </div>
       {selectedSector && (
         <SectorDrawer sector={selectedSector} onClose={() => setSelectedSector(null)} />

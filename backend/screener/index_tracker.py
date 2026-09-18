@@ -2272,6 +2272,13 @@ def get_index_card_data(index_name, current_price=None, current_change_pct=None,
     (no second fetch, no new Fyers calls beyond what that caching
     layer already does once per day).
 
+    Sep 19 2026: sparkline_dates added, same length/order as
+    sparkline (each candle's own real "date" field from
+    _fetch_daily_history, not estimated from position) -- lets the
+    frontend show "price · date" on hover over a specific point,
+    rather than only the bare value with no way to say which day it
+    was.
+
     For NIFTY/BANKNIFTY/SENSEX: reuses get_trend_momentum_card()'s own
     real technical_bias for the card's regime badge (mapped to a
     plain Bullish/Bearish/Range label here, not re-derived) -- this
@@ -2294,12 +2301,14 @@ def get_index_card_data(index_name, current_price=None, current_change_pct=None,
             return None
         closes = [c["close"] for c in candles]
         recent = closes[-18:] if len(closes) >= 18 else closes
+        recent_candles = candles[-18:] if len(candles) >= 18 else candles
         spot = current_price if current_price is not None else closes[-1]
         return {
             "index_name": index_name,
             "price": spot,
             "change_percent": current_change_pct,
             "sparkline": recent,
+            "sparkline_dates": [c["date"] for c in recent_candles],
             "range_18d_low": min(recent),
             "range_18d_high": max(recent),
             "regime_label": classify_india_vix_level(spot),
@@ -2313,6 +2322,7 @@ def get_index_card_data(index_name, current_price=None, current_change_pct=None,
     candles = _fetch_daily_history(index_name)
     closes = [c["close"] for c in candles]
     recent = closes[-18:] if len(closes) >= 18 else closes
+    recent_candles = candles[-18:] if len(candles) >= 18 else candles
 
     bias = card.get("technical_bias") or ""
     if bias.startswith("Bullish"):
@@ -2327,6 +2337,7 @@ def get_index_card_data(index_name, current_price=None, current_change_pct=None,
         "price": card["closing_price"],
         "change_percent": current_change_pct,
         "sparkline": recent,
+        "sparkline_dates": [c["date"] for c in recent_candles],
         "range_18d_low": min(recent) if recent else None,
         "range_18d_high": max(recent) if recent else None,
         "regime_label": regime_label,

@@ -19,6 +19,7 @@ import SettingsPanel from './components/SettingsPanel';
 import StrategyBacktest from './components/StrategyBacktest';
 import CASRadar from './components/CASRadar';
 import Sidebar from './components/Sidebar';
+import HeatmapRail from './components/HeatmapRail';
 import MarqueeTicker from './components/MarqueeTicker';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -139,6 +140,7 @@ function AppShell() {
           {activeTab === 'strategy' && <StrategyBacktest />}
         </div>
       </div>
+      <HeatmapRail />
     </div>
   );
 }

@@ -158,8 +158,28 @@ export default function MarketPulse() {
     ? 'Not enough sector data yet this cycle.'
     : `${movingSectors.length / sectors.length >= 0.5 ? 'Strength is broad, not rotational' : 'Strength looks rotational, not broad'} — ${topSectors.map(([name, v]) => `${name} (${v.up}/${v.total} up)`).join(', ')}.`;
 
+  // Sep 19 2026: an honest "why is this empty" line -- market_open
+  // comes straight from the backend's own is_market_hours(), the same
+  // gate that decides whether _breadth_quote_cache gets refreshed at
+  // all. Outside those hours (or right after a restart, before the
+  // first cycle since open completes) the cache is genuinely empty by
+  // design, not broken -- says so plainly instead of leaving every
+  // tile's own "not enough data" text to look like a bug on its own.
+  const closedWithNoData = data.market_open === false && (ad.count_with_data || 0) === 0;
+  const closedWithStaleData = data.market_open === false && (ad.count_with_data || 0) > 0;
+
   return (
     <div className="space-y-4">
+      {closedWithNoData && (
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 text-xs text-slate-400">
+          Market closed — no live session data yet. This panel refreshes automatically once trading resumes.
+        </div>
+      )}
+      {closedWithStaleData && (
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 text-xs text-slate-400">
+          Market closed — figures below are from the last live session, not real-time.
+        </div>
+      )}
       {/* Market Pulse headline card */}
       <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
