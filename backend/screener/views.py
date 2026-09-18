@@ -4712,6 +4712,99 @@ def _instrument_expiry_info(name):
     return {"expiry_date": expiry_date, "is_expiry_today": is_today}
 
 
+class TodaysMoversView(APIView):
+    """
+    Sep 18 2026: real "unusual activity" ranking over the full 208-
+    stock universe, for the Dashboard rebuild's Today's Movers
+    section. The reference's own description -- "ranked by price,
+    relative volume and traded value... a stock can lead these lists
+    while finishing flat" -- rules out a single blended score with
+    hidden weights (that would silently hide which of the three made a
+    stock notable) and rules out picking just one metric (a flat stock
+    on huge volume genuinely IS notable and would be missed by ranking
+    on price move alone).
+
+    Design used, stated plainly since it's this project's own choice,
+    not a copy of an unseen internal formula:
+    - price_move: abs(change_percent) -- how far today's price moved,
+      either direction.
+    - relative_volume: today's volume / 20-day average volume (from
+      _breadth_tech_cache's volume_avg, the same field volume_activity
+      already uses) -- how unusually busy the stock is versus its own
+      normal pace, not just an absolute volume number that would
+      always favor the same handful of high-float names.
+    - traded_value: price * volume -- a real proxy for rupee turnover
+      (this project doesn't have exact traded-value from Fyers, so
+      this is priceXvolume, which is genuinely what "turnover" means,
+      not a stand-in for something else).
+
+    Each of the three is percentile-ranked (0-100) against the rest of
+    today's universe rather than compared on raw units (a ₹50 stock
+    and a ₹5000 stock can't be compared on raw traded value fairly),
+    and a stock's overall rank is the MAX of its three percentiles --
+    so a stock unusual on any single dimension surfaces, matching the
+    reference's own "can lead while finishing flat" example, and each
+    returned stock states which dimension(s) actually drove its
+    inclusion rather than a single opaque number.
+    GET /api/todays-movers/?limit=20
+    """
+    def get(self, request):
+        try:
+            limit = max(1, min(50, int(request.query_params.get('limit', 20))))
+        except (TypeError, ValueError):
+            limit = 20
+
+        with _cache_lock:
+            quotes = dict(_stock_cache)
+        with _breadth_cache_lock:
+            techs = dict(_breadth_tech_cache)
+
+        rows = []
+        for sym, q in quotes.items():
+            price = q.get('price')
+            volume = q.get('volume')
+            pct = q.get('change_percent')
+            tech = techs.get(sym)
+            vol_avg = tech.get('volume_avg') if tech else None
+            if price is None or volume is None or pct is None:
+                continue
+            rel_vol = (volume / vol_avg) if vol_avg else None
+            traded_value = price * volume
+            rows.append({
+                "symbol": sym, "price": price, "change_percent": pct,
+                "volume": volume, "relative_volume": round(rel_vol, 2) if rel_vol else None,
+                "traded_value": traded_value,
+            })
+
+        if not rows:
+            return Response({"movers": [], "universe_size": 0})
+
+        def percentile_rank(values, value):
+            if value is None: return 0
+            sorted_vals = sorted(v for v in values if v is not None)
+            if not sorted_vals: return 0
+            below = sum(1 for v in sorted_vals if v < value)
+            return round(100 * below / len(sorted_vals), 1)
+
+        price_moves = [abs(r["change_percent"]) for r in rows]
+        rel_vols = [r["relative_volume"] for r in rows]
+        traded_vals = [r["traded_value"] for r in rows]
+
+        for r in rows:
+            r["price_move_pctile"] = percentile_rank(price_moves, abs(r["change_percent"]))
+            r["relative_volume_pctile"] = percentile_rank(rel_vols, r["relative_volume"])
+            r["traded_value_pctile"] = percentile_rank(traded_vals, r["traded_value"])
+            r["activity_score"] = max(r["price_move_pctile"], r["relative_volume_pctile"], r["traded_value_pctile"])
+            reasons = []
+            if r["price_move_pctile"] >= 90: reasons.append("price move")
+            if r["relative_volume_pctile"] >= 90: reasons.append("relative volume")
+            if r["traded_value_pctile"] >= 90: reasons.append("traded value")
+            r["why"] = reasons or ["general activity"]
+
+        rows.sort(key=lambda r: r["activity_score"], reverse=True)
+        return Response({"movers": rows[:limit], "universe_size": len(rows)})
+
+
 class MarketBreadthView(APIView):
     """
     Sep 18 2026: real market-breadth aggregation for the Dashboard
