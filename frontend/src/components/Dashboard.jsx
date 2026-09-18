@@ -1,5 +1,6 @@
 import TopLiveSignals from './TopLiveSignals';
 import MarketPulse from './MarketPulse';
+import TodaysMovers from './TodaysMovers';
 import MarketSentimentGauge from './MarketSentimentGauge';
 import SectorStrength from './SectorStrength';
 import OIDistribution from './OIDistribution';
@@ -79,6 +80,7 @@ export default function Dashboard({ onNavigate }) {
           not a duplicate. */}
       <OIDistribution />
       <SectorStrength onNavigate={onNavigate} />
+      <TodaysMovers />
     </div>
   );
 }

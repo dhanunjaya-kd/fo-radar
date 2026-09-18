@@ -75,6 +75,35 @@ function ProgressTile({ title, icon, value, valueLabel, subLabel, pct, barColor,
   );
 }
 
+function SplitTile({ title, universe, leftLabel, leftValue, leftSub, rightLabel, rightValue, rightSub, leftPct, unavailable }) {
+  return (
+    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+      <div className="text-[11px] font-semibold text-slate-400 tracking-wide mb-2">
+        {title}{universe ? ` · ${universe} STOCKS` : ''}
+      </div>
+      {unavailable ? (
+        <div className="text-[11px] text-slate-500 italic">Not yet available — needs a year of price history this project doesn't fetch yet.</div>
+      ) : (
+        <>
+          <div className="flex justify-between text-xs mb-1">
+            <div>
+              <div className="text-[10px] text-slate-500">{leftLabel}</div>
+              <div className="text-emerald-400 font-semibold">{leftValue} <span className="text-slate-500">{leftSub}</span></div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] text-slate-500">{rightLabel}</div>
+              <div className="text-red-400 font-semibold">{rightValue} <span className="text-slate-500">{rightSub}</span></div>
+            </div>
+          </div>
+          <div className="w-full h-1.5 bg-red-500/30 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.max(0, Math.min(100, leftPct || 0))}%` }} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function MarketPulse() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
@@ -219,6 +248,32 @@ export default function MarketPulse() {
 
       <div className="text-[11px] text-slate-500">
         Conditions, not recommendations. Every tile states what was measured and over how many stocks; an input that did not load shows "—" rather than a neutral default.
+      </div>
+
+      {/* Bottom stat tiles -- reuses data already in this same
+          response, no second fetch needed. 52-week is deliberately
+          shown as "not yet available" (has_52w_data is always false
+          today -- that needs ~252 days of history, this project only
+          fetches 100) rather than a fabricated number. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <SplitTile title="TODAY" universe={ad.count_with_data}
+          leftLabel="ADVANCING" leftValue={ad.count_with_data ? `${Math.round(100*ad.advancing/ad.count_with_data)}%` : '—'} leftSub={`(${ad.advancing})`}
+          rightLabel="DECLINING" rightValue={ad.count_with_data ? `${Math.round(100*ad.declining/ad.count_with_data)}%` : '—'} rightSub={`(${ad.declining})`}
+          leftPct={ad.count_with_data ? 100*ad.advancing/ad.count_with_data : 0} />
+        <SplitTile title="52W" universe={null} unavailable
+          leftLabel="NEAR HIGH" rightLabel="NEAR LOW" />
+        <SplitTile title="EMA50" universe={e50.count_with_data}
+          leftLabel="ABOVE" leftValue={e50.pct_above != null ? `${e50.pct_above}%` : '—'} leftSub={`(${e50.above_count})`}
+          rightLabel="BELOW" rightValue={e50.count_with_data ? `${(100-e50.pct_above).toFixed(1)}%` : '—'} rightSub={`(${e50.below_count})`}
+          leftPct={e50.pct_above || 0} />
+        <SplitTile title="VWAP" universe={data.vwap_breadth.count_with_data}
+          leftLabel="ABOVE" leftValue={data.vwap_breadth.pct_above != null ? `${data.vwap_breadth.pct_above}%` : '—'} leftSub={`(${data.vwap_breadth.above_count})`}
+          rightLabel="BELOW" rightValue={data.vwap_breadth.count_with_data ? `${(100-data.vwap_breadth.pct_above).toFixed(1)}%` : '—'} rightSub={`(${data.vwap_breadth.below_count})`}
+          leftPct={data.vwap_breadth.pct_above || 0} />
+        <SplitTile title="VOLUME" universe={va.count_with_data}
+          leftLabel="UP VOL" leftValue={va.count_with_data ? `${(100*va.elevated_up/va.count_with_data).toFixed(1)}%` : '—'} leftSub={`(${va.elevated_up})`}
+          rightLabel="DOWN VOL" rightValue={va.count_with_data ? `${(100*va.elevated_down/va.count_with_data).toFixed(1)}%` : '—'} rightSub={`(${va.elevated_down})`}
+          leftPct={va.count_with_data ? 100*va.elevated_up/va.count_with_data : 0} />
       </div>
     </div>
   );
