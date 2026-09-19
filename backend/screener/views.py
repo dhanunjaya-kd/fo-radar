@@ -1763,6 +1763,106 @@ def _technical_quality_score(tech, price, volume=None):
     return {"score": score, "grade": grade, "direction": direction}
 
 
+def _generate_explain(quote, tech, sparkline, direction):
+    """
+    Sep 19 2026: real, rule-based checklist + trigger/stop/target for
+    the Scanner card's expandable "Explain" panel -- every line here
+    is a direct comparison of two real numbers already on hand for
+    this card (today's quote, _breadth_tech_cache's indicators, the
+    18-day sparkline), never a separate model or an invented
+    narrative. Stop/target reuse the EXACT SAME ATR-multiplier formula
+    _build_all()'s own live signal engine already uses for real F&O
+    trades (stock_sl = price -/+ atr*0.4) rather than a new formula
+    invented for this view -- "2R Target" here is literally that
+    engine's own T2 level (0.8*ATR = 2x the 0.4*ATR stop distance),
+    same number, same meaning, just labeled the way a discretionary
+    trader would read it. Returns None if price/ATR aren't both
+    available -- no partial or guessed setup ever goes out.
+    Direction-aware (BUY-shaped checks/levels for a bullish read,
+    mirrored for bearish) using the SAME direction this card's own
+    score/grade already computed -- not a second, possibly
+    disagreeing judgment call.
+    """
+    price = quote.get('price')
+    high, low = quote.get('high'), quote.get('low')
+    volume = quote.get('volume')
+    if price is None or not tech:
+        return None
+    atr = tech.get('atr')
+    vol_avg = tech.get('volume_avg')
+    ema50 = tech.get('ema50')
+    if atr is None or atr <= 0:
+        return None
+    bullish = direction != "BEARISH"  # treat NEUTRAL like the score's own default lean, same as elsewhere in this file
+
+    checks = []
+    if high and low and high > low:
+        if bullish:
+            pct_off_high = (high - price) / high * 100 if high else None
+            if pct_off_high is not None:
+                if pct_off_high <= 0.5:
+                    checks.append({"ok": True, "text": "Closed right at the day's high — no selling into the close"})
+                elif pct_off_high <= 2:
+                    checks.append({"ok": None, "text": f"{pct_off_high:.1f}% off the day's high — strong, not right at the top"})
+                else:
+                    checks.append({"ok": False, "text": f"{pct_off_high:.1f}% off the day's high — gave back gains into the close"})
+        else:
+            pct_off_low = (price - low) / low * 100 if low else None
+            if pct_off_low is not None:
+                if pct_off_low <= 0.5:
+                    checks.append({"ok": True, "text": "Closed right at the day's low — no buying into the close"})
+                elif pct_off_low <= 2:
+                    checks.append({"ok": None, "text": f"{pct_off_low:.1f}% off the day's low — weak, not right at the bottom"})
+                else:
+                    checks.append({"ok": False, "text": f"{pct_off_low:.1f}% off the day's low — bought back up into the close"})
+
+    if volume is not None and vol_avg:
+        ratio = volume / vol_avg
+        if ratio >= 1.5:
+            checks.append({"ok": True, "text": f"{ratio:.1f}x average volume — real backing behind the move"})
+        elif ratio >= 0.8:
+            checks.append({"ok": None, "text": f"{ratio:.1f}x average volume — close to normal turnover"})
+        else:
+            checks.append({"ok": False, "text": f"{ratio:.1f}x average volume — below-average participation"})
+
+    if high and low:
+        range_ratio = (high - low) / atr
+        checks.append({"ok": range_ratio >= 1.0, "text": f"Day's range {range_ratio:.1f}x its ATR"})
+
+    if ema50:
+        above = price > ema50
+        matches_direction = above if bullish else not above
+        checks.append({"ok": matches_direction, "text": f"{'Above' if above else 'Below'} its 50 EMA{'' if matches_direction else ' — counter-trend'}"})
+
+    recent_high = max(sparkline) if sparkline else None
+    recent_low = min(sparkline) if sparkline else None
+    if bullish and recent_high and price < recent_high:
+        pct_under = (recent_high - price) / recent_high * 100
+        checks.append({"ok": None, "text": f"{pct_under:.1f}% under its 18-day high — hasn't broken out yet"})
+    elif not bullish and recent_low and price > recent_low:
+        pct_over = (price - recent_low) / recent_low * 100
+        checks.append({"ok": None, "text": f"{pct_over:.1f}% above its 18-day low — hasn't broken down yet"})
+
+    if bullish:
+        stop = round(price - atr * 0.4, 2)
+        target = round(price + atr * 0.8, 2)
+        trigger = round(recent_high, 2) if recent_high else None
+    else:
+        stop = round(price + atr * 0.4, 2)
+        target = round(price - atr * 0.8, 2)
+        trigger = round(recent_low, 2) if recent_low else None
+    risk_pct = round(abs(price - stop) / price * 100, 1) if price else None
+
+    return {
+        "checks": checks,
+        "trigger": trigger,
+        "trigger_label": "18-day high" if bullish else "18-day low",
+        "stop": stop,
+        "risk_pct": risk_pct,
+        "target": target,
+    }
+
+
 # ============================================================
 # BACKGROUND WORKER
 # ============================================================
@@ -4803,6 +4903,7 @@ class ScannerView(APIView):
                 print(f"[Scanner] {sym} sparkline/pattern lookup failed: {e}")
 
             high_52w, low_52w = _get_cached_52w_range(sym)
+            explain = _generate_explain(quote, tech, sparkline, quality["direction"] if quality else "NEUTRAL")
             results.append({
                 "symbol": sym,
                 "company_name": _get_company_name(sym),
@@ -4821,6 +4922,7 @@ class ScannerView(APIView):
                 "score": quality["score"] if quality else None,
                 "grade": quality["grade"] if quality else None,
                 "direction": quality["direction"] if quality else None,
+                "explain": explain,
                 "sector": SECTORS.get(sym) or NIFTY_500_SECTOR_FALLBACK.get(sym, 'Unknown'),
                 "market_cap_cr": _get_market_cap_cr(sym),
             })

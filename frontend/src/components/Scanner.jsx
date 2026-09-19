@@ -79,8 +79,52 @@ function fmt52w(high) {
   return `₹${high.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 }
 
+// Sep 19 2026: ✓/✗/• checklist + trigger/stop/target, built entirely
+// from stock.explain -- every line is a real number the backend
+// already computed (see _generate_explain's own docstring: same ATR
+// stop/target formula the live signal engine uses for real trades,
+// not a separate model). This component only renders what it's given;
+// no client-side guessing.
+function ExplainPanel({ explain }) {
+  if (!explain) return null;
+  return (
+    <div className="mt-2 pt-2 border-t border-slate-800 space-y-2">
+      <div className="space-y-1">
+        {explain.checks.map((c, i) => (
+          <div key={i} className="flex items-start gap-1.5 text-[11px]">
+            <span className={c.ok === true ? 'text-emerald-400' : c.ok === false ? 'text-rose-400' : 'text-slate-500'}>
+              {c.ok === true ? '✓' : c.ok === false ? '✗' : '·'}
+            </span>
+            <span className="text-slate-300">{c.text}</span>
+          </div>
+        ))}
+      </div>
+      {(explain.trigger != null || explain.stop != null || explain.target != null) && (
+        <div className="grid grid-cols-3 gap-2 text-center text-[10px] pt-1">
+          <div className="rounded-lg bg-slate-800/60 py-1.5">
+            <div className="text-slate-500 uppercase">Trigger</div>
+            <div className="text-white font-semibold">{explain.trigger != null ? `₹${explain.trigger}` : '—'}</div>
+            <div className="text-slate-600">{explain.trigger_label}</div>
+          </div>
+          <div className="rounded-lg bg-slate-800/60 py-1.5">
+            <div className="text-slate-500 uppercase">Stop</div>
+            <div className="text-rose-400 font-semibold">{explain.stop != null ? `₹${explain.stop}` : '—'}</div>
+            <div className="text-slate-600">{explain.risk_pct != null ? `${explain.risk_pct}% risk` : ''}</div>
+          </div>
+          <div className="rounded-lg bg-slate-800/60 py-1.5">
+            <div className="text-slate-500 uppercase">2R Target</div>
+            <div className="text-emerald-400 font-semibold">{explain.target != null ? `₹${explain.target}` : '—'}</div>
+            <div className="text-slate-600">from this close</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StockCard({ stock }) {
   const positive = (stock.change_percent || 0) >= 0;
+  const [showExplain, setShowExplain] = useState(false);
   return (
     <div className="group relative rounded-xl bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800 p-4 hover:border-slate-600 hover:shadow-lg hover:shadow-black/20 transition-all duration-200">
       <div className="flex items-start justify-between mb-2">
@@ -150,6 +194,19 @@ function StockCard({ stock }) {
           ))}
         </div>
       )}
+
+      {stock.explain && (
+        <>
+          <button
+            onClick={() => setShowExplain(v => !v)}
+            className="mt-2 text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
+          >
+            {showExplain ? 'Hide analysis' : 'Show analysis'}
+            <span className={`transition-transform ${showExplain ? 'rotate-180' : ''}`}>▾</span>
+          </button>
+          {showExplain && <ExplainPanel explain={stock.explain} />}
+        </>
+      )}
     </div>
   );
 }
@@ -161,6 +218,7 @@ export default function Scanner() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedPattern, setSelectedPattern] = useState(null);
   const dropdownRef = useRef(null);
 
   // Sep 19 2026: was a single fetch, full skeleton on every load --
@@ -180,6 +238,7 @@ export default function Scanner() {
     let cancelled = false;
     let retries = 0;
     const MAX_RETRIES = 6;
+    setSelectedPattern(null);  // patterns differ per universe -- a filter picked for one shouldn't silently carry into another
 
     const load = (isRetry) => {
       if (isRetry) setRefreshing(true); else { setLoading(true); setError(null); }
@@ -215,6 +274,20 @@ export default function Scanner() {
   }, []);
 
   const current = UNIVERSES.find(u => u.key === universe);
+
+  // Sep 19 2026: pattern filter chips -- counts computed from the
+  // stocks already loaded in this response (every card's own
+  // stock.patterns array, same data the tags on each card already
+  // show), not a second backend call. Clicking a chip filters the
+  // grid client-side; clicking the same chip again clears it.
+  const patternCounts = {};
+  (data?.stocks || []).forEach(s => (s.patterns || []).forEach(p => {
+    patternCounts[p] = (patternCounts[p] || 0) + 1;
+  }));
+  const sortedPatterns = Object.entries(patternCounts).sort((a, b) => b[1] - a[1]);
+  const visibleStocks = data
+    ? (selectedPattern ? data.stocks.filter(s => (s.patterns || []).includes(selectedPattern)) : data.stocks)
+    : [];
 
   return (
     <div className="space-y-4">
@@ -275,11 +348,40 @@ export default function Scanner() {
               </span>
             )}
           </div>
-          {data.stocks.length === 0 ? (
-            <div className="text-center text-slate-500 text-sm py-12">No data yet for this universe — give it a few seconds and refresh; this fetches on demand, it doesn't need the market to be open.</div>
+
+          {sortedPatterns.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-slate-500 flex items-center gap-1">⏚ PATTERNS</span>
+              {sortedPatterns.map(([p, count]) => (
+                <button
+                  key={p}
+                  onClick={() => setSelectedPattern(sp => (sp === p ? null : p))}
+                  className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+                    selectedPattern === p
+                      ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
+                      : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:border-slate-500'
+                  }`}
+                >
+                  {p} <span className="opacity-60">{count}</span>
+                </button>
+              ))}
+              {selectedPattern && (
+                <button onClick={() => setSelectedPattern(null)} className="text-[11px] text-slate-500 hover:text-slate-300 underline">
+                  Clear
+                </button>
+              )}
+            </div>
+          )}
+
+          {visibleStocks.length === 0 ? (
+            <div className="text-center text-slate-500 text-sm py-12">
+              {selectedPattern
+                ? `No stocks currently tagged "${selectedPattern}" in this universe.`
+                : "No data yet for this universe — give it a few seconds and refresh; this fetches on demand, it doesn't need the market to be open."}
+            </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {data.stocks.map(s => <StockCard key={s.symbol} stock={s} />)}
+              {visibleStocks.map(s => <StockCard key={s.symbol} stock={s} />)}
             </div>
           )}
         </>
