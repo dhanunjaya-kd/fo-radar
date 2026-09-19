@@ -20,7 +20,21 @@
    light mode until that file is available and this list gets
    extended. Given how consistently this app reuses the same small
    slate/emerald/rose/amber/indigo palette across every table built
-   tonight, coverage should already be high. */
+   tonight, coverage should already be high.
+
+   Sep 19 2026 UPDATE: re-audited against all 58 .jsx files in the
+   repo this time (a real grep across every file, not a guess at
+   which ones might use new classes) -- the 7-file limitation above is
+   now out of date; coverage extends to every solid color class
+   actually used anywhere in the app as of this pass. 22 additional
+   classes were found used ONLY with an opacity suffix (e.g.
+   `from-emerald-400/10`) and correctly left out, per this file's own
+   stated "skip translucent" rule above -- not missed, deliberately
+   scoped out same as always. Two bare gradient classes (Sidebar.jsx's
+   logo: from-blue-500/to-blue-700) were also found but deliberately
+   left unmapped: that's a small, self-contained brand-mark gradient,
+   not a background needing contrast correction, and reads fine
+   unchanged in either theme. */
 
 /* ---- Sep 7 2026: MarketSentimentGauge.jsx real bug -- its needle,
    center dot, and score number were hardcoded to #e2e8f0/#f1f5f9
@@ -33,14 +47,38 @@
    Defaults here match the ORIGINAL hardcoded hex exactly (zero
    change to dark mode); .light gets real dark, readable values.
    Requires MarketSentimentGauge.jsx's 3 hex attributes to reference
-   these vars instead (delivered alongside this file). */
+   these vars instead (delivered alongside this file).
+
+   Sep 19 2026: same real bug class, two more instances found this
+   pass (both in components built THIS session, so naturally outside
+   the original 7-file audit):
+   - MarketPulse.jsx's MoodGauge track ring was stroke="#1e293b" (a
+     dark navy) -- correct against a dark card, but a dark ring is a
+     strange, muddy-looking track on a light card (the reference this
+     whole panel was built from uses a light gray track there, not a
+     dark one). --mood-gauge-track fixes this the same CSS-variable
+     way.
+   - IndexCard.jsx's new hover tooltip (today's session) draws its
+     "price · date" label as fill="#fff" with a dark stroke halo
+     (paintOrder: stroke) for legibility over the sparkline line --
+     correct on a dark card, but on a light card the white FILL
+     nearly vanishes into the light background, leaving what reads as
+     a hollow, outline-only label. --sparkline-label-fill/-halo swap
+     the halo/fill roles in light mode (dark fill, light halo) so the
+     same technique keeps working on either background. */
 :root {
   --gauge-needle: #e2e8f0;
   --gauge-score-text: #f1f5f9;
+  --mood-gauge-track: #1e293b;
+  --sparkline-label-fill: #fff;
+  --sparkline-label-halo: #0f172a;
 }
 .light {
   --gauge-needle: #334155;
   --gauge-score-text: #0f172a;
+  --mood-gauge-track: #e2e8f0;
+  --sparkline-label-fill: #0f172a;
+  --sparkline-label-halo: #ffffff;
 }
 
 /* ---- Backgrounds (near-black -> near-white) ---- */
@@ -279,3 +317,82 @@
 .light .text-amber-500 { color: #b45309 !important; }
 .light .text-lime-400 { color: #4d7c0f !important; }
 .light .text-sky-400 { color: #0369a1 !important; }
+
+/* ---- Sep 19 2026: 28 solid color classes confirmed used somewhere
+   in the app (real grep across all 58 .jsx files, not a guess) but
+   missing from the audit above -- mostly components built or grown
+   since Aug 21/Sep 7 (this session's own Market Pulse/Heatmap/Index
+   Card work included). Same darken-for-white-bg / lighten-toward-
+   white conventions as the rest of this file, extended to the new
+   color families and shades found: text colors deepen toward their
+   ~600-700 shade for contrast, solid backgrounds/borders/rings stay
+   closer to their original hue (they're accents on a colored
+   surface, not full-bleed backgrounds needing a contrast flip),
+   slate-600 reuses the same base already established for its own
+   translucent variants elsewhere in this file (#94a3b8) rather than
+   inventing a new value for consistency. */
+
+/* Text -- deepened for contrast on white, following the same
+   pattern as every other accent text color above. */
+.light .text-amber-300 { color: #b45309 !important; }
+.light .text-cyan-400 { color: #0e7490 !important; }
+.light .text-emerald-300 { color: #059669 !important; }
+.light .text-emerald-500 { color: #059669 !important; }
+.light .text-fuchsia-300 { color: #a21caf !important; }
+.light .text-green-400 { color: #15803d !important; }
+.light .text-purple-300 { color: #7e22ce !important; }
+.light .text-rose-300 { color: #e11d48 !important; }
+.light .text-sky-300 { color: #0369a1 !important; }
+.light .text-slate-100 { color: #0f172a !important; }
+.light .text-teal-400 { color: #0f766e !important; }
+
+/* Solid backgrounds -- accent fills (badges, dots, buttons), kept
+   close to their real hue since they sit on their own colored
+   surface, not the page background. */
+.light .bg-amber-500 { background-color: #f59e0b !important; }
+.light .bg-blue-400 { background-color: #3b82f6 !important; }
+.light .bg-blue-600 { background-color: #2563eb !important; }
+.light .bg-green-500 { background-color: #16a34a !important; }
+.light .bg-purple-500 { background-color: #9333ea !important; }
+.light .bg-slate-600 { background-color: #94a3b8 !important; }
+/* bg-white: only found used for a marker DOT sitting on a colored
+   bar/track (Analytics.jsx, IndexCard.jsx's RangeBar), paired with
+   border-slate-900 -- which this file already maps to #ffffff above.
+   Left unmapped, a white dot would land inside a white border on a
+   light card and vanish entirely (confirmed: that's exactly what
+   IndexCard.jsx's 18-day range marker would do). Flipped dark here so
+   dot+border stay two distinct, visible colors in both themes. */
+.light .bg-white { background-color: #1e293b !important; }
+
+/* Borders */
+.light .border-blue-500 { border-color: #1d4ed8 !important; }
+.light .border-emerald-400 { border-color: #059669 !important; }
+.light .border-slate-600 { border-color: #94a3b8 !important; }
+
+/* Rings (focus/selection outline color) */
+.light .ring-amber-500 { --tw-ring-color: #b45309 !important; }
+.light .ring-emerald-400 { --tw-ring-color: #059669 !important; }
+.light .ring-emerald-500 { --tw-ring-color: #059669 !important; }
+.light .ring-lime-500 { --tw-ring-color: #4d7c0f !important; }
+.light .ring-rose-500 { --tw-ring-color: #e11d48 !important; }
+
+/* Input placeholder text -- same values already used for the
+   matching text-slate-500/600 classes above, for consistency. */
+.light .placeholder-slate-500::placeholder { color: #64748b !important; }
+.light .placeholder-slate-600::placeholder { color: #64748b !important; }
+
+/* Gradient stop -- Analytics.jsx's bullish/bearish gauge bar uses
+   this as its NEUTRAL midpoint (from-emerald-500/40 via-slate-600
+   to-rose-500/40); needs a real value or the middle of that bar
+   stays dark-toned against light flanks. Verified against Tailwind's
+   OWN real compiled output for this exact class (ran the actual
+   Tailwind v3.3 CLI rather than guessing the internal variable name
+   -- there's no separate reusable "via color" variable; Tailwind
+   bakes the raw color straight into --tw-gradient-stops, which is
+   what this mirrors exactly, just with the light-mode hex swapped
+   in). Same base as this file's existing translucent slate-600
+   rules for consistency. */
+.light .via-slate-600 {
+  --tw-gradient-to: rgb(148 163 184 / 0) var(--tw-gradient-to-position) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), #94a3b8 var(--tw-gradient-via-position), var(--tw-gradient-to) !important;
+}

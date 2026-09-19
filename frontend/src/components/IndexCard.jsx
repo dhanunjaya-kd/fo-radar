@@ -75,8 +75,8 @@ function Sparkline({ values, dates, positive }) {
           <circle cx={hover.x} cy={hover.y} r="2.5" fill="#fff" stroke={color} strokeWidth="1.5" />
           <text
             x={labelX} y={hover.y > h / 2 ? 10 : h - 6}
-            textAnchor={labelAnchor} fontSize="9" fontWeight="700" fill="#fff"
-            style={{ paintOrder: 'stroke', stroke: '#0f172a', strokeWidth: 3 }}
+            textAnchor={labelAnchor} fontSize="9" fontWeight="700"
+            style={{ fill: 'var(--sparkline-label-fill)', paintOrder: 'stroke', stroke: 'var(--sparkline-label-halo)', strokeWidth: 3 }}
           >
             {hover.value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             {hover.date ? ` · ${formatSparklineDate(hover.date)}` : ''}

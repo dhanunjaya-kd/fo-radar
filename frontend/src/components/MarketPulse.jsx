@@ -24,7 +24,7 @@ function MoodGauge({ score, label }) {
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#1e293b" strokeWidth={stroke} />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" style={{ stroke: 'var(--mood-gauge-track)' }} strokeWidth={stroke} />
         {score != null && (
           <circle
             cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}

@@ -19,7 +19,7 @@ import SettingsPanel from './components/SettingsPanel';
 import StrategyBacktest from './components/StrategyBacktest';
 import CASRadar from './components/CASRadar';
 import Sidebar from './components/Sidebar';
-import HeatmapRail from './components/HeatmapRail';
+import MarketHeatmap from './components/MarketHeatmap';
 import MarqueeTicker from './components/MarqueeTicker';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -70,6 +70,7 @@ function AppShell() {
     { id: 'index', label: 'Index Monitor', count: null },
     { id: 'cas', label: 'CAS Radar', count: null },
     { id: 'market', label: 'Market Overview', count: null },
+    { id: 'heatmap', label: 'Market Heatmap', count: null },
     { id: 'nextday', label: "Next-Day Watchlist", count: null },
     { id: 'backtest', label: 'Daily Backtest', count: null },
     { id: 'shadow', label: 'Simulation', count: null },
@@ -77,7 +78,7 @@ function AppShell() {
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
-  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'nextday', 'backtest', 'shadow', 'settings'];
+  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'heatmap', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   useEffect(() => {
@@ -134,13 +135,13 @@ function AppShell() {
           {activeTab === 'index' && <IndexTracker />}
           {activeTab === 'cas' && <CASRadar />}
           {activeTab === 'market' && <MarketView />}
+          {activeTab === 'heatmap' && <MarketHeatmap />}
           {activeTab === 'nextday' && <NextDayWatchlist />}
           {activeTab === 'backtest' && <DailyBacktestTab />}
           {activeTab === 'shadow' && <ShadowSignals />}
           {activeTab === 'strategy' && <StrategyBacktest />}
         </div>
       </div>
-      <HeatmapRail />
     </div>
   );
 }

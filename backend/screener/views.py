@@ -3447,6 +3447,7 @@ def _build_all():
                         sl=s.get("sl"),
                         target=s.get("target1"),
                         grade=s.get("grade", "A"),
+                        strike=s.get("strike"),
                     )
             except Exception as e:
                 print(f"[Telegram] Failed to send new-signal alert: {e}")
@@ -4305,7 +4306,37 @@ class SectorStocksView(APIView):
     Sep 3/Sep 4). oi_buildup/pcr simply come back None in fast mode,
     same "not fetched this pass" meaning as an auth failure already
     has -- not a new, different kind of blank.
+
+    Sep 19 2026, SAME DAY: real bug found live -- clicking any sector
+    OTHER than the one clicked first (Finance, in the report) came
+    back as an outright HTTP 503, not just slow. Root cause, traced
+    through fyers_client.py rather than guessed: EVERY Fyers call in
+    this whole app -- this view's own per-stock loop below, both
+    background workers, every other endpoint -- goes through ONE
+    shared, process-wide _request_lock in _call(), fully serialized,
+    minimum 0.32s apart, each individual call allowed up to 15s
+    before _call() itself gives up. This view's loop never had its
+    OWN ceiling on top of that -- for a sector with N stocks, worst
+    case was N calls each waiting their turn behind whatever else
+    (a background quote cycle, another sector click) happened to be
+    using that same lock at that moment, with no cap on how long the
+    whole request could end up taking. First sector clicked, right
+    after a fresh page load with nothing else competing for the lock,
+    would look fine; a later click queued behind real background
+    activity could take long enough to hit a proxy/browser-side
+    timeout -- exactly the "only the first one I clicked worked"
+    pattern reported, and exactly the kind of failure this project's
+    OWN prior incidents (Aug 20/Sep 3/Sep 4) already came from.
+    _SECTOR_OI_DEADLINE_SECONDS below bounds this view's own total
+    time regardless of what else the shared lock is doing: once the
+    deadline passes, remaining stocks in the sector simply don't get
+    an OI fetch this pass (oi_buildup/pcr come back None for those,
+    same honest "didn't get to it" meaning used everywhere else) and
+    the response goes out with whatever was actually fetched, instead
+    of continuing to block toward an unbounded worst case.
     """
+    _SECTOR_OI_DEADLINE_SECONDS = 10.0
+
     def get(self, request, sector):
         fast = request.GET.get('fast') in ('1', 'true', 'True')
         with _cache_lock:
@@ -4313,17 +4344,22 @@ class SectorStocksView(APIView):
 
         authed = is_authenticated()
         results = []
+        deadline = time.monotonic() + self._SECTOR_OI_DEADLINE_SECONDS
+        deadline_hit = False
         for s in stock_list:
             sym = s.get('symbol')
             oi_buildup, pcr = None, None
             if authed and not fast:
-                try:
-                    oi = get_option_analytics(f"NSE:{sym}-EQ", strikecount=10)
-                    if oi:
-                        oi_buildup = oi.get('oi_buildup')
-                        pcr = oi.get('pcr')
-                except Exception as e:
-                    print(f"[SectorStocks] {sym} OI fetch failed: {e}")
+                if time.monotonic() >= deadline:
+                    deadline_hit = True
+                else:
+                    try:
+                        oi = get_option_analytics(f"NSE:{sym}-EQ", strikecount=10)
+                        if oi:
+                            oi_buildup = oi.get('oi_buildup')
+                            pcr = oi.get('pcr')
+                    except Exception as e:
+                        print(f"[SectorStocks] {sym} OI fetch failed: {e}")
             results.append({
                 "symbol": sym,
                 "price": s.get('price'),
@@ -4334,7 +4370,7 @@ class SectorStocksView(APIView):
             })
 
         results.sort(key=lambda r: r.get('change_percent') or 0, reverse=True)
-        return Response({"sector": sector, "stocks": results, "authenticated": authed, "fast": fast})
+        return Response({"sector": sector, "stocks": results, "authenticated": authed, "fast": fast, "oi_deadline_hit": deadline_hit})
 
 
 class NoTradeLogView(APIView):

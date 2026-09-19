@@ -131,6 +131,11 @@ function SectorDrawer({ sector, onClose }) {
                   ⚠ Not authenticated with Fyers right now — showing price/change only, OI buildup unavailable.
                 </div>
               )}
+              {data.authenticated && data.oi_deadline_hit && (
+                <div className="mb-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                  ⚠ This ran long — OI buildup/PCR only made it through part of the list this pass. Try again in a moment for the rest.
+                </div>
+              )}
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-slate-500 border-b border-slate-800">
@@ -210,15 +215,21 @@ function SectorHoverPreview({ sector }) {
   );
 }
 
-// Sep 19 2026: for the rail's narrow width, a sector with only 1-2
-// F&O stocks gets a treemap tile too small to even show its own
-// name (verified directly -- at 260x640, 18 of 35 real sectors came
-// back under the label-legibility threshold, not a guess). Grouped
-// into one "Other" tile instead of a wall of unlabeled slivers.
-// "Other" itself isn't click/hover-interactive (it's several
-// sectors at once, not the one-sector shape SectorStocksView
-// expects) -- it still shows its combined change% color and stock
-// count, just not a stock list.
+// Sep 19 2026: a sector with only 1-2 F&O stocks can get a treemap
+// tile too small to show its own name at a NARROW width (verified
+// directly: at a 260px rail, 18 of 35 real sectors fell under the
+// label-legibility threshold) but that's not true at this
+// component's real usage now -- a full page, not a rail (checked:
+// 900x420 gives all 35 sectors a legible tile, zero grouping needed).
+// Kept as a real fallback rather than deleted outright: if this ever
+// renders somewhere narrow again, small sectors group into one
+// "Other" tile instead of a wall of unlabeled slivers -- checked
+// against that render's OWN actual tile sizes first, so it only
+// kicks in when genuinely needed, not as a fixed always-on rule.
+// "Other" itself isn't click/hover-interactive (it's several sectors
+// at once, not the one-sector shape SectorStocksView expects) -- it
+// still shows its combined change% color and stock count, just not a
+// stock list.
 const SMALL_SECTOR_THRESHOLD = 3;
 
 function groupSmallSectors(items) {
@@ -239,7 +250,11 @@ function groupSmallSectors(items) {
   return big.sort((a, b) => b.value - a.value);
 }
 
-export default function MarketHeatmap({ width = 260, height = 640 }) {
+function layoutFits(items, width, height) {
+  return treemapLayout(items, 0, 0, width, height).every(t => t.width > 24 && t.height > 16);
+}
+
+export default function MarketHeatmap({ width = 900, height = 420 }) {
   const [sectors, setSectors] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedSector, setSelectedSector] = useState(null);
@@ -286,7 +301,7 @@ export default function MarketHeatmap({ width = 260, height = 640 }) {
     .filter(s => s.stock_count > 0)
     .map(s => ({ name: s.sector, value: s.stock_count, changePercent: s.change_percent, stockCount: s.stock_count }))
     .sort((a, b) => b.value - a.value);
-  const items = groupSmallSectors(rawItems);
+  const items = layoutFits(rawItems, WIDTH, HEIGHT) ? rawItems : groupSmallSectors(rawItems);
   const maxAbsChange = Math.max(0.1, ...items.map(i => Math.abs(i.changePercent)));
   const layout = treemapLayout(items, 0, 0, WIDTH, HEIGHT);
 
