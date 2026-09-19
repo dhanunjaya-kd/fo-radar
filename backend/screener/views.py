@@ -43,6 +43,11 @@ except ImportError:
     NIFTY_500_STOCKS = []
     NIFTY_500_SECTOR_FALLBACK = {}
 
+try:
+    from .scanner_universes import NIFTY_50_STOCKS, NIFTY_100_STOCKS, NIFTY_200_STOCKS, ALL_NSE_STOCKS
+except ImportError:
+    NIFTY_50_STOCKS = NIFTY_100_STOCKS = NIFTY_200_STOCKS = ALL_NSE_STOCKS = []
+
 # ============================================================
 # CACHES
 # ============================================================
@@ -1659,6 +1664,52 @@ def _calc_tech(symbol, live_quote=None):
     except Exception as e:
         print(f"Tech calc error {symbol}: {e}")
         return None
+
+
+# Sep 19 2026: pure-technical quality score for the new Scanner tab --
+# extracted from _build_all()'s own live scoring block (the
+# `score = 0 / rsi / vol / adx / bullish_aligned or bearish_aligned`
+# sequence), NOT reimplemented from scratch. Deliberately excludes
+# that block's own oi_adjustment stage: this needs to score ANY
+# stock, F&O-eligible or not, and oi_adjustment only exists for names
+# with a live option chain. A stock with a live oi_adjustment there
+# can reach A+ (>=95); without it, the ceiling here is 80 (15+15+20+30)
+# -- an honest reflection of what's actually knowable for a non-F&O
+# name, not a bug or a different formula. Same A+/A/B/C/D cutoffs as
+# the live engine (kept identical on purpose, so a grade means the
+# same thing whether it's showing up here or in a live signal).
+# `volume` is the quote's own field (stock.get('volume', 0) in the
+# live engine) -- NOT part of _calc_tech's own return dict (that only
+# has volume_avg), so it's its own parameter here rather than
+# something silently read off `tech` and always coming back None.
+# Returns (score, grade, direction) -- direction is "BULLISH"/
+# "BEARISH"/"NEUTRAL" using the exact same price-vs-VWAP + MACD-sign
+# agreement check the live engine uses, not a separate judgment call.
+def _technical_quality_score(tech, price, volume=None):
+    if not tech or price is None:
+        return None
+    rsi, adx = tech.get('rsi'), tech.get('adx')
+    vol_avg = tech.get('volume_avg')
+    vwap, macd = tech.get('vwap'), tech.get('macd')
+    if rsi is None or adx is None or vwap is None or macd is None:
+        return None
+
+    score = 0
+    if 40 <= rsi <= 65:
+        score += 15
+    if volume is not None and vol_avg and volume >= vol_avg * 1.5:
+        score += 15
+    if adx >= 25:
+        score += 20
+
+    bullish_aligned = price > vwap and macd > 0
+    bearish_aligned = price < vwap and macd < 0
+    if bullish_aligned or bearish_aligned:
+        score += 30
+    direction = "BULLISH" if bullish_aligned else "BEARISH" if bearish_aligned else "NEUTRAL"
+
+    grade = 'A+' if score >= 95 else 'A' if score >= 85 else 'B' if score >= 75 else 'C' if score >= 60 else 'D'
+    return {"score": score, "grade": grade, "direction": direction}
 
 
 # ============================================================
@@ -4371,6 +4422,108 @@ class SectorStocksView(APIView):
 
         results.sort(key=lambda r: r.get('change_percent') or 0, reverse=True)
         return Response({"sector": sector, "stocks": results, "authenticated": authed, "fast": fast, "oi_deadline_hit": deadline_hit})
+
+
+class ScannerView(APIView):
+    """
+    Sep 19 2026: new Scanner tab -- universe dropdown (Nifty 50/100/
+    200/500, F&O, All Stocks) that actually switches which stocks are
+    shown, per direct request/reference. See scanner_universes.py's
+    own docstring for exactly how each tier is built and its real
+    limitations (Nifty 50/100/200 are a market-cap-rank approximation,
+    not official NSE membership; a few real large-caps are excluded
+    from those three tiers on a known local data gap -- not silently
+    misplaced).
+
+    Deliberately reuses ALREADY-CACHED data end to end -- zero new
+    Fyers calls from this view:
+      - price/change/volume: _breadth_quote_cache (Market Pulse's own
+        500-stock cache) for anything in Nifty 500, falling back to
+        _stock_cache (the 208 F&O names) for the few FNO_STOCKS not
+        also in the Nifty 500 snapshot.
+      - RSI/MACD/ADX/VWAP: _breadth_tech_cache, same source.
+      - score/grade: _technical_quality_score() (this file, added
+        alongside this view) -- the live signal engine's OWN pure-
+        technical formula, extracted rather than reimplemented, so a
+        grade means the same thing here as it does in a live signal.
+      - sparkline: _cached_history_df()'s own in-memory cache (no
+        second fetch -- the exact same cache _calc_tech already reads).
+      - company name / market cap: fundamentals_data.json, via the
+        same _get_market_cap_cr() the sector drawer already uses.
+
+    Honest about coverage rather than pretending everything's live:
+    only names already in _breadth_quote_cache/_stock_cache get a
+    real card. Nifty 50/100/200/500 and F&O are all fully inside that
+    ~500-name window, so those tiers should show real data for
+    everything. "All Stocks" (2,466) is NOT -- most of it is outside
+    what's actually live-fetched anywhere in this project right now.
+    `covered` in the response says exactly how many of the selected
+    universe's stocks got a real card this call; the response never
+    fabricates a price for the rest.
+    """
+    UNIVERSE_MAP = {
+        'nifty50': NIFTY_50_STOCKS,
+        'nifty100': NIFTY_100_STOCKS,
+        'nifty200': NIFTY_200_STOCKS,
+        'nifty500': NIFTY_500_STOCKS,
+        'fno': FNO_STOCKS,
+        'all': ALL_NSE_STOCKS,
+    }
+
+    def get(self, request):
+        universe_key = request.GET.get('universe', 'nifty500')
+        symbols = self.UNIVERSE_MAP.get(universe_key, NIFTY_500_STOCKS)
+
+        with _breadth_cache_lock:
+            breadth_quotes = dict(_breadth_quote_cache)
+            breadth_techs = dict(_breadth_tech_cache)
+        with _cache_lock:
+            fno_quotes = dict(_stock_cache)
+
+        results = []
+        for sym in symbols:
+            quote = breadth_quotes.get(sym) or fno_quotes.get(sym)
+            if not quote:
+                continue  # not in any live cache yet this session -- left out, not faked
+            tech = breadth_techs.get(sym)
+            price = quote.get('price')
+            quality = _technical_quality_score(tech, price, quote.get('volume')) if tech else None
+
+            sparkline = None
+            try:
+                hist = _cached_history_df(sym)
+                if hist is not None and len(hist):
+                    closes = hist['Close'].tolist()
+                    sparkline = [round(c, 2) for c in closes[-18:]]
+            except Exception as e:
+                print(f"[Scanner] {sym} sparkline lookup failed: {e}")
+
+            results.append({
+                "symbol": sym,
+                "price": price,
+                "change_percent": quote.get('change_percent'),
+                "volume": quote.get('volume'),
+                "sparkline": sparkline,
+                "rsi": tech.get('rsi') if tech else None,
+                "macd_bias": (
+                    "Bull" if tech and tech.get('macd') is not None and tech['macd'] > 0
+                    else "Bear" if tech and tech.get('macd') is not None
+                    else None
+                ),
+                "score": quality["score"] if quality else None,
+                "grade": quality["grade"] if quality else None,
+                "direction": quality["direction"] if quality else None,
+                "sector": SECTORS.get(sym) or NIFTY_500_SECTOR_FALLBACK.get(sym, 'Unknown'),
+                "market_cap_cr": _get_market_cap_cr(sym),
+            })
+
+        results.sort(key=lambda r: (r.get('score') is None, -(r.get('score') or 0)))
+        return Response({
+            "universe": universe_key,
+            "universe_size": len(symbols),
+            "covered": len(results),
+            "stocks": results,
+        })
 
 
 class NoTradeLogView(APIView):
