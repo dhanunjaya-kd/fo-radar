@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ChartModal from './ChartModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -122,7 +123,7 @@ function ExplainPanel({ explain }) {
   );
 }
 
-function StockCard({ stock }) {
+function StockCard({ stock, onOpenChart }) {
   const positive = (stock.change_percent || 0) >= 0;
   const [showExplain, setShowExplain] = useState(false);
   return (
@@ -148,20 +149,19 @@ function StockCard({ stock }) {
         {positive ? '↗' : '↘'} {fmtPct(stock.change_percent)}
       </div>
 
-      {/* Sep 19 2026: hover-reveal "View Chart" overlay, matching the
-          reference's own card interaction -- purely presentational
-          here (no chart page exists to link to yet), so it's styled
-          as a label, not a button, to avoid looking clickable when it
-          isn't. Swap the <div> for a real link/button once a chart
-          route exists to send it to. */}
-      <div className="relative my-2">
+      {/* Sep 19 2026: was a "Chart view coming soon" placeholder --
+          ChartModal already exists (Watchlist.jsx/TopLiveSignals.jsx
+          both use it against the same real /api/candles/ endpoint),
+          just hadn't been wired in here yet. Same trigger pattern
+          those two already use. */}
+      <button onClick={() => onOpenChart(stock.symbol)} className="relative my-2 w-full block cursor-pointer">
         <MiniSparkline values={stock.sparkline} positive={positive} />
         {stock.sparkline && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/40 rounded-lg">
-            <span className="text-[11px] font-medium text-slate-200 bg-slate-800/90 border border-slate-600 rounded-full px-3 py-1">Chart view coming soon</span>
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-slate-950/40 rounded-lg">
+            <span className="text-[11px] font-medium text-slate-200 bg-slate-800/90 border border-slate-600 rounded-full px-3 py-1">View Chart</span>
           </div>
         )}
-      </div>
+      </button>
 
       <div className="grid grid-cols-4 gap-2 text-center text-[11px] pt-2 border-t border-slate-800">
         <div>
@@ -219,6 +219,8 @@ export default function Scanner() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [selectedPattern, setSelectedPattern] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [chartSymbol, setChartSymbol] = useState(null);
   const dropdownRef = useRef(null);
 
   // Sep 19 2026: was a single fetch, full skeleton on every load --
@@ -239,6 +241,7 @@ export default function Scanner() {
     let retries = 0;
     const MAX_RETRIES = 6;
     setSelectedPattern(null);  // patterns differ per universe -- a filter picked for one shouldn't silently carry into another
+    setSearchQuery('');
 
     const load = (isRetry) => {
       if (isRetry) setRefreshing(true); else { setLoading(true); setError(null); }
@@ -286,18 +289,19 @@ export default function Scanner() {
   }));
   const sortedPatterns = Object.entries(patternCounts).sort((a, b) => b[1] - a[1]);
   const visibleStocks = data
-    ? (selectedPattern ? data.stocks.filter(s => (s.patterns || []).includes(selectedPattern)) : data.stocks)
+    ? data.stocks
+        .filter(s => !selectedPattern || (s.patterns || []).includes(selectedPattern))
+        .filter(s => {
+          if (!searchQuery.trim()) return true;
+          const q = searchQuery.trim().toLowerCase();
+          return s.symbol.toLowerCase().includes(q) || (s.company_name || '').toLowerCase().includes(q);
+        })
     : [];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-white">Scanner</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Technical quality score (RSI + volume + trend strength + VWAP/MACD alignment) — same signals the live signal engine watches, scored continuously for ranking, no options data required.
-          </p>
-        </div>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h2 className="text-lg font-bold text-white">Scanner</h2>
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setDropdownOpen(o => !o)}
@@ -325,8 +329,19 @@ export default function Scanner() {
         </div>
       </div>
 
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">🔍</span>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          placeholder="Search symbols, company names…"
+          className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-slate-500 transition-colors"
+        />
+      </div>
+
       {loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-48 rounded-xl bg-slate-800/30 animate-pulse border border-slate-700/30" />
           ))}
@@ -375,17 +390,21 @@ export default function Scanner() {
 
           {visibleStocks.length === 0 ? (
             <div className="text-center text-slate-500 text-sm py-12">
-              {selectedPattern
-                ? `No stocks currently tagged "${selectedPattern}" in this universe.`
-                : "No data yet for this universe — give it a few seconds and refresh; this fetches on demand, it doesn't need the market to be open."}
+              {searchQuery.trim()
+                ? `No match for "${searchQuery}" in this universe${selectedPattern ? ` with the "${selectedPattern}" tag` : ''}.`
+                : selectedPattern
+                  ? `No stocks currently tagged "${selectedPattern}" in this universe.`
+                  : "No data yet for this universe — give it a few seconds and refresh; this fetches on demand, it doesn't need the market to be open."}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {visibleStocks.map(s => <StockCard key={s.symbol} stock={s} />)}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {visibleStocks.map(s => <StockCard key={s.symbol} stock={s} onOpenChart={setChartSymbol} />)}
             </div>
           )}
         </>
       )}
+
+      {chartSymbol && <ChartModal symbol={chartSymbol} onClose={() => setChartSymbol(null)} />}
     </div>
   );
 }

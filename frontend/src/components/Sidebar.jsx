@@ -36,6 +36,18 @@ const TAB_ICONS = {
   strategy: IconBeaker,
 };
 
+// Sep 19 2026: grouped into labeled sections, matching the reference
+// sidebar's own structure (SYSTEM/ANALYSIS/INTELLIGENCE/TOOLS) --
+// same idea, OUR actual tabs, not a copy of its specific items. Any
+// tab id not listed in a section (a future addition to App.jsx's
+// tabs array this file hasn't been updated for yet) still renders,
+// just falls into the final unlabeled group rather than disappearing.
+const NAV_SECTIONS = [
+  { label: 'SYSTEM', tabIds: ['dashboard', 'scanner'] },
+  { label: 'ANALYSIS', tabIds: ['signals', 'oi', 'index', 'cas', 'market', 'heatmap'] },
+  { label: 'PLANNING', tabIds: ['nextday', 'backtest', 'shadow'] },
+];
+
 /**
  * Sep 18 2026: collapsible left sidebar, replacing the horizontal tab
  * bar -- same tabs array/onSelect contract App.jsx already had for
@@ -74,27 +86,47 @@ export default function Sidebar({ tabs, activeTab, onSelect, brand }) {
       </button>
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-1">
-        {tabs.map(tab => {
-          const Icon = TAB_ICONS[tab.id] || IconGrid;
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onSelect(tab.id)}
-              title={collapsed ? tab.label : undefined}
-              className={`w-full flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'} ${active ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
-            >
-              <Icon size={18} />
-              {!collapsed && <span className="flex-1 text-left truncate">{tab.label}</span>}
-              {!collapsed && tab.count !== null && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'}`}>{tab.count}</span>
+        {(() => {
+          const grouped = new Set();
+          const renderTab = (tab) => {
+            const Icon = TAB_ICONS[tab.id] || IconGrid;
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onSelect(tab.id)}
+                title={collapsed ? tab.label : undefined}
+                className={`w-full flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'} ${active ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+              >
+                <Icon size={18} />
+                {!collapsed && <span className="flex-1 text-left truncate">{tab.label}</span>}
+                {!collapsed && tab.count !== null && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'}`}>{tab.count}</span>
+                )}
+                {collapsed && tab.count !== null && tab.count > 0 && (
+                  <span className="absolute translate-x-2.5 -translate-y-2.5 w-2 h-2 rounded-full bg-blue-500" />
+                )}
+              </button>
+            );
+          };
+
+          const sections = NAV_SECTIONS.map(section => {
+            const sectionTabs = section.tabIds.map(id => tabs.find(t => t.id === id)).filter(Boolean);
+            sectionTabs.forEach(t => grouped.add(t.id));
+            return { label: section.label, tabs: sectionTabs };
+          });
+          const leftover = tabs.filter(t => !grouped.has(t.id));
+          if (leftover.length) sections.push({ label: null, tabs: leftover });
+
+          return sections.map(section => section.tabs.length > 0 && (
+            <div key={section.label || 'ungrouped'} className="pt-2 first:pt-0">
+              {!collapsed && section.label && (
+                <div className="px-3 pb-1.5 text-[10px] font-semibold tracking-wider text-slate-600">{section.label}</div>
               )}
-              {collapsed && tab.count !== null && tab.count > 0 && (
-                <span className="absolute translate-x-2.5 -translate-y-2.5 w-2 h-2 rounded-full bg-blue-500" />
-              )}
-            </button>
-          );
-        })}
+              <div className="space-y-1">{section.tabs.map(renderTab)}</div>
+            </div>
+          ));
+        })()}
       </nav>
     </div>
   );
