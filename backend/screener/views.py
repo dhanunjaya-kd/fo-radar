@@ -3638,6 +3638,33 @@ _breadth_cache_lock = threading.Lock()
 def _breadth_indicators_worker():
     from .market_hours import is_market_hours
     last_closed_log = 0
+    # Sep 19 2026: real explanation for "why does the reference load
+    # fast with MORE data than ours" -- that tool almost certainly
+    # never fetches live on a page load at all; it reads from a store
+    # some background process keeps continuously warm. This worker
+    # WAS that background process, but only during is_market_hours()
+    # -- outside those hours (evenings, weekends) _breadth_quote_cache/
+    # _breadth_tech_cache just sat there, empty until the NEXT trading
+    # session, so the Scanner's own on-demand fetch (added same day)
+    # was starting from a genuinely cold cache and paying the full,
+    # governed, one-call-at-a-time cost for however many symbols it
+    # could fit in its 20s budget -- correctly bounded, so it didn't
+    # hang or 503, but visibly slow and mostly empty on a first look,
+    # exactly what was reported.
+    # OFF_HOURS_WARMUP_BATCH_SIZE below fixes the real cause instead
+    # of just making the symptom time out faster: outside market
+    # hours, this worker now still runs, just gently -- a small batch
+    # per cycle, paced generously (there's no freshness to chase when
+    # nothing's moving), until the day's cache is fully warm, then it
+    # naturally has nothing left to do each cycle. Same governed
+    # _call() pacing as always; nothing here bypasses or speeds past
+    # that. A batch this size, once, isn't the kind of volume that's
+    # tripped the rate limiter before (that was always about DAILY
+    # burst volume on restart, not a steady trickle) -- but genuinely
+    # new territory (first time this project has fetched anything
+    # outside market hours on purpose), so watch the first real run
+    # rather than assuming this reasoning alone is enough.
+    OFF_HOURS_WARMUP_BATCH_SIZE = 30
     while True:
         try:
             if is_market_hours():
@@ -3670,9 +3697,28 @@ def _breadth_indicators_worker():
             else:
                 now = time.time()
                 if now - last_closed_log >= 300:
-                    print(f"[{datetime.now()}] Breadth worker: market closed -- waiting.")
+                    print(f"[{datetime.now()}] Breadth worker: market closed -- gentle off-hours warmup only.")
                     last_closed_log = now
-                time.sleep(20)
+
+                with _breadth_cache_lock:
+                    missing = [s for s in NIFTY_500_STOCKS if s not in _breadth_tech_cache]
+                if missing and is_authenticated():
+                    batch = missing[:OFF_HOURS_WARMUP_BATCH_SIZE]
+                    quotes = _fetch_all_stocks(batch)
+                    if quotes:
+                        with _breadth_cache_lock:
+                            _breadth_quote_cache.update(quotes)
+                        computed = {}
+                        for sym, quote in quotes.items():
+                            tech = _calc_tech(sym, live_quote=quote)
+                            if tech:
+                                computed[sym] = tech
+                        with _breadth_cache_lock:
+                            _breadth_tech_cache.update(computed)
+                        print(f"[{datetime.now()}] Off-hours warmup: +{len(computed)} ({len(missing) - len(computed)} still missing).")
+                    time.sleep(30)
+                else:
+                    time.sleep(20)
         except Exception as e:
             print(f"[{datetime.now()}] Breadth worker error: {e}")
             time.sleep(90)

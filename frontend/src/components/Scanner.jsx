@@ -113,18 +113,50 @@ export default function Scanner() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const dropdownRef = useRef(null);
 
+  // Sep 19 2026: was a single fetch, full skeleton on every load --
+  // fine once the backend's own cache is warm, but on a cold cache
+  // (evenings/weekends, before the off-hours warmup has had time to
+  // run) the first response can legitimately come back with most of
+  // the universe still uncovered. Silently expecting the user to hit
+  // refresh themselves read as "broken," not "still loading." Now:
+  // first load shows the real skeleton; if the response comes back
+  // incomplete, it keeps whatever loaded so far ON SCREEN and quietly
+  // retries in the background (no skeleton flash) until covered
+  // catches up to universe_size or 6 retries are used -- roughly two
+  // minutes of ceiling, long enough for a cold cache's early batches
+  // to land without polling forever if something's genuinely stuck
+  // (not authenticated, say).
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetch(`${API_BASE}/api/scanner/?universe=${universe}`)
-      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(json => { if (!cancelled) setData(json); })
-      .catch(e => { if (!cancelled) setError(e.message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    let retries = 0;
+    const MAX_RETRIES = 6;
+
+    const load = (isRetry) => {
+      if (isRetry) setRefreshing(true); else { setLoading(true); setError(null); }
+      fetch(`${API_BASE}/api/scanner/?universe=${universe}`)
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(json => {
+          if (cancelled) return;
+          setData(json);
+          setLoading(false);
+          setRefreshing(false);
+          if (json.covered < json.universe_size && retries < MAX_RETRIES) {
+            retries += 1;
+            setTimeout(() => { if (!cancelled) load(true); }, 4000);
+          }
+        })
+        .catch(e => {
+          if (cancelled) return;
+          setError(e.message);
+          setLoading(false);
+          setRefreshing(false);
+        });
+    };
+    load(false);
     return () => { cancelled = true; };
   }, [universe]);
 
@@ -188,12 +220,17 @@ export default function Scanner() {
         <>
           <div className="text-xs text-slate-500">
             {data.covered} of {data.universe_size} stocks have live data right now
-            {data.covered < data.universe_size && (
-              <span className="text-amber-400"> — the rest aren't in this session's live cache yet{universe === 'all' ? ' (All Stocks is far bigger than what this app fetches live today)' : ''}.</span>
+            {refreshing && <span className="text-sky-400"> — fetching more in the background…</span>}
+            {!refreshing && data.covered < data.universe_size && (
+              <span className="text-amber-400">
+                {' '}— {universe === 'all'
+                  ? "the rest aren't covered by this app's local data at all."
+                  : "the rest didn't have a cached quote yet — this fills in over the next couple of minutes on a cold cache (first load of the day), no need to keep refreshing manually."}
+              </span>
             )}
           </div>
           {data.stocks.length === 0 ? (
-            <div className="text-center text-slate-500 text-sm py-12">No live data yet for this universe — try again once the market's open or after the next scan cycle.</div>
+            <div className="text-center text-slate-500 text-sm py-12">No data yet for this universe — give it a few seconds and refresh; this fetches on demand, it doesn't need the market to be open.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {data.stocks.map(s => <StockCard key={s.symbol} stock={s} />)}
