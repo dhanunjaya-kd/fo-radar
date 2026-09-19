@@ -16,6 +16,7 @@ from screener.views import (
     DailyBacktestRangeReportView, SectorStocksView, NoTradeLogView, ShadowSignalsView, ShadowPerformanceView, IndexAgreementLogView,
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
     EODScanTriggerView, OptionHistoryView, CandleChartView, NextTradingSessionView,
+    ScannerView,
 )
 from screener.next_day_watchlist_history import (
     NextDayWatchlistDatesView, NextDayWatchlistHistoryView, NextDayWatchlistExportView,
@@ -76,6 +77,7 @@ urlpatterns = [
     path('api/52-week-range/<str:symbol>/', FiftyTwoWeekRangeView.as_view(), name='fifty_two_week_range'),
     path('api/broader-indices/', BroaderIndicesView.as_view(), name='broader_indices'),
     path('api/sector-stocks/<str:sector>/', SectorStocksView.as_view(), name='sector_stocks'),
+    path('api/scanner/', ScannerView.as_view(), name='scanner'),
     path('api/no-trade-log/', NoTradeLogView.as_view(), name='no_trade_log'),
     path('api/shadow-signals/', ShadowSignalsView.as_view(), name='shadow_signals'),
     path('api/shadow-performance/', ShadowPerformanceView.as_view(), name='shadow_performance'),
