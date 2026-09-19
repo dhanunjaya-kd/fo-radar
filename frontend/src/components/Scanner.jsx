@@ -61,6 +61,19 @@ function gradeColor(grade) {
   return 'text-rose-400 border-rose-500/40';
 }
 
+// Sep 19 2026: colored by what each pattern actually signals, not a
+// generic palette -- bullish reversal/continuation shapes green,
+// bearish ones rose, genuinely indecisive ones (a plain Doji, Spinning
+// Top, Long-Legged Doji) amber, matching how a trader would actually
+// read them rather than an arbitrary color rotation.
+const BULLISH_PATTERNS = new Set(['Hammer', 'Inverted Hammer', 'Bullish Engulfing', 'Morning Star', 'Dragonfly Doji', 'Bull Marubozu']);
+const BEARISH_PATTERNS = new Set(['Hanging Man', 'Shooting Star', 'Bearish Engulfing', 'Dark Cloud Cover', 'Gravestone Doji', 'Bear Marubozu']);
+function patternStyle(pattern) {
+  if (BULLISH_PATTERNS.has(pattern)) return 'text-emerald-400 border-emerald-500/40 bg-emerald-500/10';
+  if (BEARISH_PATTERNS.has(pattern)) return 'text-rose-400 border-rose-500/40 bg-rose-500/10';
+  return 'text-amber-400 border-amber-500/40 bg-amber-500/10';
+}
+
 function StockCard({ stock }) {
   const positive = (stock.change_percent || 0) >= 0;
   return (
@@ -104,6 +117,17 @@ function StockCard({ stock }) {
           </div>
         </div>
       </div>
+
+      {stock.patterns && stock.patterns.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 pt-2 mt-2 border-t border-slate-800">
+          {stock.patterns.map(p => (
+            <span key={p} className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border ${patternStyle(p)}`}>
+              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+              {p}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -176,7 +200,7 @@ export default function Scanner() {
         <div>
           <h2 className="text-lg font-bold text-white">Scanner</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Technical quality score (RSI + volume + trend strength + VWAP/MACD alignment) — same formula the live signal engine uses, no options data required.
+            Technical quality score (RSI + volume + trend strength + VWAP/MACD alignment) — same signals the live signal engine watches, scored continuously for ranking, no options data required.
           </p>
         </div>
         <div className="relative" ref={dropdownRef}>

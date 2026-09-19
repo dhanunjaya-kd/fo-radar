@@ -48,6 +48,11 @@ try:
 except ImportError:
     NIFTY_50_STOCKS = NIFTY_100_STOCKS = NIFTY_200_STOCKS = ALL_NSE_STOCKS = []
 
+try:
+    from .candlestick_patterns import detect_patterns
+except ImportError:
+    detect_patterns = lambda df: []
+
 # ============================================================
 # CACHES
 # ============================================================
@@ -1686,6 +1691,33 @@ def _calc_tech(symbol, live_quote=None):
 # "BEARISH"/"NEUTRAL" using the exact same price-vs-VWAP + MACD-sign
 # agreement check the live engine uses, not a separate judgment call.
 def _technical_quality_score(tech, price, volume=None):
+    """
+    Sep 19 2026: NOTE -- this diverged from the exact formula in
+    _build_all()'s live scoring block (see that block's own
+    Sep 19-morning comment for why it USED to be extracted verbatim).
+    Real problem found live, not a style preference: that formula is
+    four wide binary thresholds (RSI 40-65, volume>=1.5x, ADX>=25,
+    aligned-or-not), which is FINE as a single pass/fail entry gate
+    but produces only a handful of distinct achievable totals when
+    used to RANK a few hundred stocks against each other -- a scan of
+    the F&O universe came back with a wall of identical "80 B" cards,
+    correctly computed per-stock, not hardcoded, but indistinguishable
+    at a glance from having been -- exactly the complaint raised, and
+    a fair one: a ranking view where most of the list ties is not
+    "genuine info," whatever the code underneath is actually doing.
+    The live engine's own entry-gate formula is UNCHANGED (still
+    exactly what it was, still what real trades key off) -- this is a
+    separate function, for a separate job (differentiate/rank a big
+    list for browsing), not a shared implementation anymore. Each
+    factor now gives smooth, partial credit instead of all-or-nothing,
+    using the SAME four inputs and the SAME rough point budget (15/15/
+    20/30, still 80 max without an options-derived boost, same
+    honest reasoning as before for why non-F&O names can't reach A/A+
+    through this path) -- reaching the full 80 now needs genuinely
+    strong readings on all four at once, not just clearing a low bar
+    on each, so ties at the ceiling should be rare rather than the
+    common case an ordinary bullish tape produces.
+    """
     if not tech or price is None:
         return None
     rsi, adx = tech.get('rsi'), tech.get('adx')
@@ -1694,20 +1726,39 @@ def _technical_quality_score(tech, price, volume=None):
     if rsi is None or adx is None or vwap is None or macd is None:
         return None
 
-    score = 0
-    if 40 <= rsi <= 65:
-        score += 15
-    if volume is not None and vol_avg and volume >= vol_avg * 1.5:
-        score += 15
-    if adx >= 25:
-        score += 20
+    # RSI: full credit at 50 (textbook "healthy, neither overbought
+    # nor oversold" center), tapering linearly to zero at the extremes
+    # (RSI 0 or 100). Smooth replacement for the old flat 40-65 band.
+    rsi_score = 15 * max(0.0, 1 - abs(rsi - 50) / 50)
 
+    # Volume: 0 at average volume, full credit at 2x+ average --
+    # continuous version of the old "at least 1.5x or nothing" cliff.
+    vol_ratio = (volume / vol_avg) if (volume is not None and vol_avg) else 0
+    vol_score = 15 * min(1.0, max(0.0, vol_ratio) / 2.0)
+
+    # ADX: 0 at ADX=0, full credit at ADX=40+ (a genuinely strong
+    # trend) -- rewards HOW strong the trend is, not just whether it
+    # crossed 25.
+    adx_score = 20 * min(1.0, max(0.0, adx) / 40.0)
+
+    # Alignment: still a real gate, not smoothed away -- price-vs-VWAP
+    # and MACD sign still have to agree, or this contributes nothing
+    # (an "ambiguous direction" stock shouldn't score well on
+    # conviction it doesn't have). Once aligned, scales the bonus by
+    # HOW FAR price has already moved from VWAP as a %, a scale-free
+    # proxy for conviction that works the same for a Rs 50 stock and
+    # a Rs 5,000 one -- 15 base points for agreement + up to 15 more,
+    # full bonus at 3%+ from VWAP.
     bullish_aligned = price > vwap and macd > 0
     bearish_aligned = price < vwap and macd < 0
     if bullish_aligned or bearish_aligned:
-        score += 30
+        pct_from_vwap = abs(price - vwap) / vwap * 100 if vwap else 0
+        align_score = 15 + 15 * min(1.0, pct_from_vwap / 3.0)
+    else:
+        align_score = 0
     direction = "BULLISH" if bullish_aligned else "BEARISH" if bearish_aligned else "NEUTRAL"
 
+    score = round(rsi_score + vol_score + adx_score + align_score)
     grade = 'A+' if score >= 95 else 'A' if score >= 85 else 'B' if score >= 75 else 'C' if score >= 60 else 'D'
     return {"score": score, "grade": grade, "direction": direction}
 
@@ -4488,10 +4539,13 @@ class ScannerView(APIView):
         _stock_cache (the 208 F&O names) for the few FNO_STOCKS not
         also in the Nifty 500 snapshot.
       - RSI/MACD/ADX/VWAP: _breadth_tech_cache, same source.
-      - score/grade: _technical_quality_score() (this file, added
-        alongside this view) -- the live signal engine's OWN pure-
-        technical formula, extracted rather than reimplemented, so a
-        grade means the same thing here as it does in a live signal.
+      - score/grade: _technical_quality_score() (this file) -- built
+        from the same four factors the live signal engine's entry
+        gate uses, but its OWN continuous scoring, not that formula
+        verbatim anymore (see that function's own Sep 19 comment for
+        why -- the live engine's binary thresholds are right for a
+        pass/fail gate, wrong for ranking a few hundred stocks, which
+        was producing rows of visually-identical scores).
       - sparkline: _cached_history_df()'s own in-memory cache (no
         second fetch -- the exact same cache _calc_tech already reads).
       - company name / market cap: fundamentals_data.json, via the
@@ -4582,14 +4636,43 @@ class ScannerView(APIView):
             price = quote.get('price')
             quality = _technical_quality_score(tech, price, quote.get('volume')) if tech else None
 
+            # Sep 19 2026: REAL BUG FOUND LIVE -- this used to call
+            # _cached_history_df(sym) directly here. That function's
+            # OWN job is "fetch if not cached" (see its docstring), so
+            # for any symbol the on-demand fetch above didn't get to
+            # before its 20s deadline, this loop was silently
+            # triggering a FRESH, completely unbounded history fetch
+            # right here -- for every such symbol, one at a time,
+            # still inside the same request. On a cold Nifty 100 that
+            # meant the page could sit "loading" far longer than the
+            # 20s budget was ever supposed to allow, which is exactly
+            # what got reported as lag. Fixed by reading _history_cache
+            # DIRECTLY (module-level dict _cached_history_df itself
+            # writes to) instead of calling that function -- if
+            # today's entry isn't already there, this symbol just
+            # doesn't get a sparkline/patterns THIS pass (None/[],
+            # same "didn't get to it yet" honesty as everywhere else
+            # in this file) rather than the request going out and
+            # fetching it right now regardless of budget.
             sparkline = None
+            patterns = []
             try:
-                hist = _cached_history_df(sym)
-                if hist is not None and len(hist):
-                    closes = hist['Close'].tolist()
-                    sparkline = [round(c, 2) for c in closes[-18:]]
+                today_str = datetime.now().strftime("%Y-%m-%d")
+                cached_hist = _history_cache.get(sym)
+                if cached_hist and cached_hist.get('date') == today_str:
+                    hist = cached_hist['df']
+                    if hist is not None and len(hist):
+                        closes = hist['Close'].tolist()
+                        sparkline = [round(c, 2) for c in closes[-18:]]
+                        # Reads off the last COMPLETE candle (this
+                        # DataFrame deliberately excludes today's
+                        # still-forming one -- see _cached_history_df's
+                        # own docstring), same convention real
+                        # candlestick analysis uses: a pattern isn't
+                        # called until the candle it's on has closed.
+                        patterns = detect_patterns(hist)
             except Exception as e:
-                print(f"[Scanner] {sym} sparkline lookup failed: {e}")
+                print(f"[Scanner] {sym} sparkline/pattern lookup failed: {e}")
 
             results.append({
                 "symbol": sym,
@@ -4597,6 +4680,7 @@ class ScannerView(APIView):
                 "change_percent": quote.get('change_percent'),
                 "volume": quote.get('volume'),
                 "sparkline": sparkline,
+                "patterns": patterns,
                 "rsi": tech.get('rsi') if tech else None,
                 "macd_bias": (
                     "Bull" if tech and tech.get('macd') is not None and tech['macd'] > 0
