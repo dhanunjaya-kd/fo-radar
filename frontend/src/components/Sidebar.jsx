@@ -96,9 +96,9 @@ export default function Sidebar({ tabs, activeTab, onSelect, brand }) {
                 key={tab.id}
                 onClick={() => onSelect(tab.id)}
                 title={collapsed ? tab.label : undefined}
-                className={`w-full flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'} ${active ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+                className={`w-full flex items-center gap-2.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${collapsed ? 'justify-center px-0 py-2.5' : 'px-3 py-2.5'} ${active ? 'bg-slate-700 text-white shadow-lg' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
               >
-                <Icon size={18} />
+                <Icon size={16} />
                 {!collapsed && <span className="flex-1 text-left truncate">{tab.label}</span>}
                 {!collapsed && tab.count !== null && (
                   <span className={`text-xs px-1.5 py-0.5 rounded-full ${active ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'}`}>{tab.count}</span>
