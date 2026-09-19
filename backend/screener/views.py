@@ -6617,6 +6617,99 @@ class CandleChartView(APIView):
         if not fyers_symbol:
             return Response({"error": f"Could not resolve a Fyers symbol for {sym} right now."}, status=503)
 
+        # Sep 19 2026: intraday support added -- 15/30-minute candles,
+        # 1-day/5-day windows, direct request. get_history() itself
+        # already took any Fyers resolution string (never resolution-
+        # limited, only ever CALLED with "D" so far) -- this is new
+        # wiring, not new capability.
+        # Deliberately its OWN branch, not squeezed into the D/W path
+        # above: that path's two-call scheme (a 366-day-safe visible
+        # fetch + a separate ~350-day EMA200 warmup buffer) was sized
+        # and confirmed against a real Fyers rejection specifically
+        # for daily-scale ranges. A 1-5 day intraday request is
+        # trivially inside whatever Fyers' real intraday limit is (an
+        # order of magnitude under even a conservative guess), so
+        # there's nothing to split here -- one direct fetch, no buffer
+        # call (a 200-period EMA warmup on 15/30-min bars would need
+        # many MORE days of history than the visible window itself
+        # asks for, which isn't what "show me today" is supposed to
+        # mean -- EMA200 simply stays null for most of an intraday
+        # chart rather than silently fetching a much bigger window
+        # than requested to fill it in).
+        if interval in ("15", "30"):
+            INTRADAY_RANGE_DAYS = {"1D": 1, "5D": 5}
+            visible_days = INTRADAY_RANGE_DAYS.get(range_param, 1)
+            end_date = datetime.now().date()
+            # +5 calendar days of padding so a 1/5 *trading*-day window
+            # doesn't come up short across a weekend or a holiday --
+            # trimmed back down to the real request below, not
+            # returned as-is.
+            start_date = end_date - timedelta(days=visible_days + 5)
+            try:
+                resp = get_history(fyers_symbol, resolution=interval,
+                                    range_from=str(start_date), range_to=str(end_date))
+            except Exception as e:
+                print(f"[CandleChart] {fyers_symbol} intraday fetch failed: {e}")
+                return Response({"error": f"History fetch failed: {e}"}, status=502)
+
+            if not resp or resp.get("s") != "ok" or not resp.get("candles"):
+                print(f"[CandleChart] {fyers_symbol} intraday history not ok, raw Fyers response: {resp}")
+                return Response({
+                    "error": "No real intraday data available for this symbol right now.",
+                    "symbol": sym,
+                }, status=503)
+
+            raw = sorted(resp["candles"], key=lambda c: c[0])
+            df = pd.DataFrame(
+                [c[:6] for c in raw if len(c) >= 6],
+                columns=["time", "open", "high", "low", "close", "volume"],
+            )
+            if df.empty:
+                return Response({"error": "No usable candles returned.", "symbol": sym}, status=503)
+            df["time"] = pd.to_datetime(df["time"], unit="s")
+
+            # Real trading-DAY trim, not a blunt calendar-time cutoff:
+            # keep candles from the most recent `visible_days` distinct
+            # trading sessions actually present in the response, so
+            # "1D" means exactly the latest session's candles, not
+            # "whatever's within the last 24 wall-clock hours" (which
+            # would show half of today plus half of yesterday
+            # depending on what time this is called).
+            trading_days = sorted(df["time"].dt.date.unique())[-visible_days:]
+            df = df[df["time"].dt.date.isin(trading_days)]
+
+            for period in (10, 20, 50, 200):
+                df[f"ema{period}"] = df["close"].ewm(span=period, adjust=False).mean()
+            delta = df["close"].diff()
+            gain = delta.clip(lower=0)
+            loss = -delta.clip(upper=0)
+            avg_gain = gain.ewm(alpha=1 / 14, adjust=False).mean()
+            avg_loss = loss.ewm(alpha=1 / 14, adjust=False).mean()
+            rs = avg_gain / avg_loss.replace(0, np.nan)
+            rsi = 100 - (100 / (1 + rs))
+            rsi = rsi.where(avg_loss != 0, 100.0)
+            rsi = rsi.where(~((avg_gain == 0) & (avg_loss == 0)), 50.0)
+            df["rsi14"] = rsi
+            df.loc[df.index[:14], "rsi14"] = np.nan
+
+            candles = [
+                {
+                    "time": int(row.time.timestamp()),
+                    "open": float(row.open), "high": float(row.high),
+                    "low": float(row.low), "close": float(row.close),
+                    "volume": int(row.volume),
+                    "ema10": float(row.ema10), "ema20": float(row.ema20),
+                    "ema50": float(row.ema50), "ema200": float(row.ema200),
+                    "rsi14": float(row.rsi14),
+                }
+                for row in df.itertuples()
+            ]
+            return Response(clean_json({
+                "symbol": sym, "fyers_symbol": fyers_symbol,
+                "interval": interval, "range": range_param,
+                "candles": candles,
+            }))
+
         RANGE_DAYS = {"3M": 90, "6M": 182, "12M": 365}
         visible_days = RANGE_DAYS.get(range_param, 182)
 
