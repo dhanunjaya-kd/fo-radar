@@ -42,12 +42,15 @@ function fmtDate(epochSeconds) {
   return new Date(epochSeconds * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 }
 
-function ChartTooltip({ active, payload }) {
+function ChartTooltip({ active, payload, isIntraday }) {
   if (!active || !payload || !payload.length) return null;
   const d = payload[0].payload;
+  const when = isIntraday
+    ? new Date(d.time * 1000).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
+    : fmtDate(d.time);
   return (
     <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs space-y-0.5">
-      <div className="text-slate-400">{fmtDate(d.time)}</div>
+      <div className="text-slate-400">{when}</div>
       <div className="text-white whitespace-nowrap">
         O {d.open?.toFixed(2)} H {d.high?.toFixed(2)} L {d.low?.toFixed(2)} C {d.close?.toFixed(2)}
       </div>
@@ -63,6 +66,20 @@ export default function ChartModal({ symbol, onClose }) {
   const [candles, setCandles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Sep 19 2026: intraday added (15m/30m), direct request -- each
+  // interval has its OWN valid range options (3M/6M/12M make no
+  // sense, and cost too much, at 15-min resolution; 1D/5D make no
+  // sense for a daily chart), so switching interval snaps range to
+  // that interval's own default instead of carrying over a value the
+  // new interval doesn't support.
+  const isIntraday = intervalType === '15' || intervalType === '30';
+  const RANGE_OPTIONS = isIntraday ? ['1D', '5D'] : ['3M', '6M', '12M'];
+  const selectInterval = (v) => {
+    setIntervalType(v);
+    const nowIntraday = v === '15' || v === '30';
+    setRange(nowIntraday ? '1D' : '6M');
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +102,13 @@ export default function ChartModal({ symbol, onClose }) {
 
   const chartData = candles.map((c) => ({ ...c, range: [c.low, c.high] }));
   const latest = candles[candles.length - 1];
+  // Intraday bars repeat the same clock time every day (e.g. every
+  // 9:15, 9:30...) -- a date-only tick label would show duplicate,
+  // confusing ticks. Time-of-day for intraday, date for daily/weekly,
+  // same convention every real trading platform uses.
+  const fmtTick = isIntraday
+    ? (epochSeconds) => new Date(epochSeconds * 1000).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : fmtDate;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
@@ -102,18 +126,18 @@ export default function ChartModal({ symbol, onClose }) {
 
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div className="flex gap-1">
-            {['D', 'W'].map((v) => (
+            {[['D', 'Daily'], ['W', 'Weekly'], ['15', '15m'], ['30', '30m']].map(([v, label]) => (
               <button
                 key={v}
-                onClick={() => setIntervalType(v)}
+                onClick={() => selectInterval(v)}
                 className={`px-2.5 py-1 text-xs rounded-lg border ${intervalType === v ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'text-slate-400 border-slate-700'}`}
               >
-                {v === 'D' ? 'Daily' : 'Weekly'}
+                {label}
               </button>
             ))}
           </div>
           <div className="flex gap-1">
-            {['3M', '6M', '12M'].map((v) => (
+            {RANGE_OPTIONS.map((v) => (
               <button
                 key={v}
                 onClick={() => setRange(v)}
@@ -146,9 +170,9 @@ export default function ChartModal({ symbol, onClose }) {
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={chartData} syncId="chartmodal" margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="time" tickFormatter={fmtDate} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
+                <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
                 <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
-                <Tooltip content={<ChartTooltip />} />
+                <Tooltip content={<ChartTooltip isIntraday={isIntraday} />} />
                 <Bar dataKey="range" shape={<Candle />} isAnimationActive={false} />
                 {showEma.ema10 && <Line type="monotone" dataKey="ema10" stroke={EMA_COLORS.ema10} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
                 {showEma.ema20 && <Line type="monotone" dataKey="ema20" stroke={EMA_COLORS.ema20} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
@@ -163,7 +187,7 @@ export default function ChartModal({ symbol, onClose }) {
             </div>
             <ResponsiveContainer width="100%" height={100}>
               <LineChart data={chartData} syncId="chartmodal" margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <XAxis dataKey="time" tickFormatter={fmtDate} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
+                <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
                 <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[30, 70]} />
                 <ReferenceLine y={70} stroke="#475569" strokeDasharray="3 3" />
                 <ReferenceLine y={30} stroke="#475569" strokeDasharray="3 3" />
