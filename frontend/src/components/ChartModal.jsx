@@ -69,16 +69,27 @@ export default function ChartModal({ symbol, onClose }) {
 
   // Sep 19 2026: intraday added (15m/30m), direct request -- each
   // interval has its OWN valid range options (3M/6M/12M make no
-  // sense, and cost too much, at 15-min resolution; 1D/5D make no
-  // sense for a daily chart), so switching interval snaps range to
-  // that interval's own default instead of carrying over a value the
-  // new interval doesn't support.
+  // sense, and cost too much, at 15-min resolution; 5D makes no sense
+  // for a daily chart), so switching interval snaps range to that
+  // interval's own default instead of carrying over a value the new
+  // interval doesn't support.
+  // "1D" specifically is kept in BOTH rows rather than only under
+  // 15m/30m -- direct request, and it matches how every real trading
+  // platform actually treats it: "1D" isn't just a date-range pick,
+  // it implies "show me today at intraday resolution," so selecting
+  // it from the daily/weekly row also switches interval to 15m
+  // rather than asking for a single daily candle (which isn't a
+  // chart).
   const isIntraday = intervalType === '15' || intervalType === '30';
-  const RANGE_OPTIONS = isIntraday ? ['1D', '5D'] : ['3M', '6M', '12M'];
+  const RANGE_OPTIONS = isIntraday ? ['1D', '5D'] : ['1D', '3M', '6M', '12M'];
   const selectInterval = (v) => {
     setIntervalType(v);
     const nowIntraday = v === '15' || v === '30';
     setRange(nowIntraday ? '1D' : '6M');
+  };
+  const selectRange = (v) => {
+    if (v === '1D' && !isIntraday) setIntervalType('15');
+    setRange(v);
   };
 
   useEffect(() => {
@@ -140,7 +151,7 @@ export default function ChartModal({ symbol, onClose }) {
             {RANGE_OPTIONS.map((v) => (
               <button
                 key={v}
-                onClick={() => setRange(v)}
+                onClick={() => selectRange(v)}
                 className={`px-2.5 py-1 text-xs rounded-lg border ${range === v ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'text-slate-400 border-slate-700'}`}
               >
                 {v}
