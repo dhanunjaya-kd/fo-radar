@@ -127,14 +127,17 @@ function StockCard({ stock, onOpenChart }) {
   const positive = (stock.change_percent || 0) >= 0;
   const [showExplain, setShowExplain] = useState(false);
   return (
-    <div className="group relative rounded-xl bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800 p-4 hover:border-slate-600 hover:shadow-lg hover:shadow-black/20 transition-all duration-200">
+    <div
+      onClick={() => onOpenChart(stock.symbol)}
+      className="group relative rounded-xl bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800 p-4 hover:border-slate-600 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 cursor-pointer"
+    >
       <div className="flex items-start justify-between mb-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-white truncate">{stock.symbol}</span>
+            <span className="text-sm font-bold text-white truncate">{stock.symbol}</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 shrink-0">NSE</span>
           </div>
-          <div className="text-[11px] text-slate-500 mt-0.5 truncate">{stock.company_name || stock.sector}</div>
+          <div className="text-[10px] text-slate-500 mt-0.5 truncate">{stock.company_name || stock.sector}</div>
         </div>
         {stock.score != null && (
           <div className={`flex items-center gap-1 rounded-full border px-2 py-1 shrink-0 ${gradeColor(stock.grade)}`}>
@@ -144,26 +147,28 @@ function StockCard({ stock, onOpenChart }) {
         )}
       </div>
 
-      <div className="text-2xl font-bold text-white">{fmtPrice(stock.price)}</div>
-      <div className={`text-sm font-medium ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
+      <div className="text-xl font-bold text-white">{fmtPrice(stock.price)}</div>
+      <div className={`text-xs font-medium ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
         {positive ? '↗' : '↘'} {fmtPct(stock.change_percent)}
       </div>
 
-      {/* Sep 19 2026: was a "Chart view coming soon" placeholder --
-          ChartModal already exists (Watchlist.jsx/TopLiveSignals.jsx
-          both use it against the same real /api/candles/ endpoint),
-          just hadn't been wired in here yet. Same trigger pattern
-          those two already use. */}
-      <button onClick={() => onOpenChart(stock.symbol)} className="relative my-2 w-full block cursor-pointer">
+      {/* Sep 19 2026: whole card opens the chart now, not just this
+          area -- was click-anywhere-on-the-sparkline only, apparently
+          not discoverable/reliable enough. ChartModal already exists
+          (Watchlist.jsx/TopLiveSignals.jsx both use it against the
+          same real /api/candles/ endpoint), same trigger pattern
+          those two already use. The hover label here is now purely a
+          visual cue, not a separate click target. */}
+      <div className="relative my-2">
         <MiniSparkline values={stock.sparkline} positive={positive} />
         {stock.sparkline && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-slate-950/40 rounded-lg">
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/40 rounded-lg pointer-events-none">
             <span className="text-[11px] font-medium text-slate-200 bg-slate-800/90 border border-slate-600 rounded-full px-3 py-1">View Chart</span>
           </div>
         )}
-      </button>
+      </div>
 
-      <div className="grid grid-cols-4 gap-2 text-center text-[11px] pt-2 border-t border-slate-800">
+      <div className="grid grid-cols-4 gap-2 text-center text-[10px] pt-2 border-t border-slate-800">
         <div>
           <div className="text-slate-500">VOL</div>
           <div className="text-slate-300 font-medium">{fmtVol(stock.volume)}</div>
@@ -198,13 +203,13 @@ function StockCard({ stock, onOpenChart }) {
       {stock.explain && (
         <>
           <button
-            onClick={() => setShowExplain(v => !v)}
+            onClick={(e) => { e.stopPropagation(); setShowExplain(v => !v); }}
             className="mt-2 text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
           >
             {showExplain ? 'Hide analysis' : 'Show analysis'}
             <span className={`transition-transform ${showExplain ? 'rotate-180' : ''}`}>▾</span>
           </button>
-          {showExplain && <ExplainPanel explain={stock.explain} />}
+          {showExplain && <div onClick={(e) => e.stopPropagation()}><ExplainPanel explain={stock.explain} /></div>}
         </>
       )}
     </div>
