@@ -74,20 +74,25 @@ function patternStyle(pattern) {
   return 'text-amber-400 border-amber-500/40 bg-amber-500/10';
 }
 
+function fmt52w(high) {
+  if (high === null || high === undefined) return '—';
+  return `₹${high.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
 function StockCard({ stock }) {
   const positive = (stock.change_percent || 0) >= 0;
   return (
-    <div className="rounded-xl bg-slate-900/60 border border-slate-800 p-4 hover:border-slate-600 transition-colors">
+    <div className="group relative rounded-xl bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800 p-4 hover:border-slate-600 hover:shadow-lg hover:shadow-black/20 transition-all duration-200">
       <div className="flex items-start justify-between mb-2">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-white">{stock.symbol}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">NSE</span>
+            <span className="text-base font-bold text-white truncate">{stock.symbol}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 shrink-0">NSE</span>
           </div>
-          <div className="text-[11px] text-slate-500 mt-0.5">{stock.sector}</div>
+          <div className="text-[11px] text-slate-500 mt-0.5 truncate">{stock.company_name || stock.sector}</div>
         </div>
         {stock.score != null && (
-          <div className={`flex items-center gap-1 rounded-full border px-2 py-1 ${gradeColor(stock.grade)}`}>
+          <div className={`flex items-center gap-1 rounded-full border px-2 py-1 shrink-0 ${gradeColor(stock.grade)}`}>
             <span className="text-xs font-bold">{stock.score}</span>
             <span className="text-[10px] opacity-70">{stock.grade}</span>
           </div>
@@ -99,9 +104,22 @@ function StockCard({ stock }) {
         {positive ? '↗' : '↘'} {fmtPct(stock.change_percent)}
       </div>
 
-      <div className="my-2"><MiniSparkline values={stock.sparkline} positive={positive} /></div>
+      {/* Sep 19 2026: hover-reveal "View Chart" overlay, matching the
+          reference's own card interaction -- purely presentational
+          here (no chart page exists to link to yet), so it's styled
+          as a label, not a button, to avoid looking clickable when it
+          isn't. Swap the <div> for a real link/button once a chart
+          route exists to send it to. */}
+      <div className="relative my-2">
+        <MiniSparkline values={stock.sparkline} positive={positive} />
+        {stock.sparkline && (
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/40 rounded-lg">
+            <span className="text-[11px] font-medium text-slate-200 bg-slate-800/90 border border-slate-600 rounded-full px-3 py-1">Chart view coming soon</span>
+          </div>
+        )}
+      </div>
 
-      <div className="grid grid-cols-3 gap-2 text-center text-[11px] pt-2 border-t border-slate-800">
+      <div className="grid grid-cols-4 gap-2 text-center text-[11px] pt-2 border-t border-slate-800">
         <div>
           <div className="text-slate-500">VOL</div>
           <div className="text-slate-300 font-medium">{fmtVol(stock.volume)}</div>
@@ -115,6 +133,10 @@ function StockCard({ stock }) {
           <div className={`font-medium ${stock.macd_bias === 'Bull' ? 'text-emerald-400' : stock.macd_bias === 'Bear' ? 'text-rose-400' : 'text-slate-300'}`}>
             {stock.macd_bias || '—'}
           </div>
+        </div>
+        <div>
+          <div className="text-slate-500">52W HI</div>
+          <div className="text-slate-300 font-medium">{fmt52w(stock.high_52w)}</div>
         </div>
       </div>
 

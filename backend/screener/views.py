@@ -3685,6 +3685,81 @@ _breadth_tech_cache = {}
 _breadth_quote_cache = {}
 _breadth_cache_lock = threading.Lock()
 
+# Sep 19 2026: real fix for a repeatedly-reported symptom -- every
+# code delivery this session has meant restarting the dev server to
+# pick it up, and every restart was wiping _breadth_quote_cache/
+# _breadth_tech_cache back to empty (they're plain in-memory dicts,
+# nothing survives a process restart). The off-hours warmup added
+# earlier today genuinely works, but it still takes real minutes to
+# rebuild from zero -- and testing again within seconds of a restart,
+# which is exactly the normal rhythm of an iterate-with-Claude
+# session, meant hitting that empty window over and over. The warmup
+# speed was never actually the problem; starting from zero every few
+# minutes was.
+# Small JSON snapshot of both caches, written periodically (throttled,
+# not on every single update) and loaded once at process start,
+# BEFORE the worker thread begins -- a restart now resumes from
+# wherever the last process left off instead of from nothing. Freshness
+# checked by real elapsed time (96h — long enough to span a full
+# weekend, since Friday's close is still the right "last known" state
+# all the way to Monday's open) rather than a same-calendar-day
+# string match, which would have wrongly rejected a perfectly good
+# Friday-evening snapshot the moment the clock rolled past midnight
+# into Saturday -- exactly the situation this has been tested under
+# all session. A stale-beyond-that snapshot is skipped outright, never
+# loaded and quietly presented as current.
+_BREADTH_SNAPSHOT_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "breadth_cache_snapshot.json")
+_BREADTH_SNAPSHOT_MAX_AGE_HOURS = 96
+_last_snapshot_write = 0.0
+_SNAPSHOT_WRITE_INTERVAL_SECONDS = 60.0
+
+
+def _save_breadth_snapshot():
+    global _last_snapshot_write
+    now = time.monotonic()
+    if now - _last_snapshot_write < _SNAPSHOT_WRITE_INTERVAL_SECONDS:
+        return
+    _last_snapshot_write = now
+    try:
+        import json
+        with _breadth_cache_lock:
+            snapshot = {
+                "saved_at": datetime.now().isoformat(),
+                "quotes": dict(_breadth_quote_cache),
+                "techs": dict(_breadth_tech_cache),
+            }
+        tmp_path = _BREADTH_SNAPSHOT_PATH + ".tmp"
+        with open(tmp_path, "w") as f:
+            json.dump(snapshot, f)
+        os.replace(tmp_path, _BREADTH_SNAPSHOT_PATH)  # atomic on both Windows and POSIX -- never leaves a half-written file behind for the loader to trip on
+    except Exception as e:
+        print(f"[Breadth snapshot] save failed: {e}")
+
+
+def _load_breadth_snapshot():
+    try:
+        import json
+        if not os.path.exists(_BREADTH_SNAPSHOT_PATH):
+            return
+        with open(_BREADTH_SNAPSHOT_PATH) as f:
+            snapshot = json.load(f)
+        saved_at_str = snapshot.get("saved_at")
+        saved_at = datetime.fromisoformat(saved_at_str) if saved_at_str else None
+        age_hours = (datetime.now() - saved_at).total_seconds() / 3600 if saved_at else None
+        if age_hours is None or age_hours > _BREADTH_SNAPSHOT_MAX_AGE_HOURS:
+            print(f"[Breadth snapshot] found one from {saved_at_str}, {'unparseable' if age_hours is None else f'{age_hours:.0f}h old'} -- older than {_BREADTH_SNAPSHOT_MAX_AGE_HOURS}h, skipping rather than presenting stale data as current.")
+            return
+        quotes, techs = snapshot.get("quotes") or {}, snapshot.get("techs") or {}
+        with _breadth_cache_lock:
+            _breadth_quote_cache.update(quotes)
+            _breadth_tech_cache.update(techs)
+        print(f"[Breadth snapshot] loaded {len(quotes)} quotes / {len(techs)} techs from {saved_at_str} ({age_hours:.1f}h old) -- restart resumes instead of starting from zero.")
+    except Exception as e:
+        print(f"[Breadth snapshot] load failed: {e}")
+
+
+_load_breadth_snapshot()
+
 
 def _breadth_indicators_worker():
     from .market_hours import is_market_hours
@@ -3743,6 +3818,7 @@ def _breadth_indicators_worker():
                     # else in this file for a transient miss.
                 with _breadth_cache_lock:
                     _breadth_tech_cache.update(computed)
+                _save_breadth_snapshot()
                 print(f"[{datetime.now()}] Breadth indicators refreshed: {len(computed)}/{len(symbols_and_quotes)} stocks (quotes cache: {len(_breadth_quote_cache)}).")
                 time.sleep(180)
             else:
@@ -3766,6 +3842,7 @@ def _breadth_indicators_worker():
                                 computed[sym] = tech
                         with _breadth_cache_lock:
                             _breadth_tech_cache.update(computed)
+                        _save_breadth_snapshot()
                         print(f"[{datetime.now()}] Off-hours warmup: +{len(computed)} ({len(missing) - len(computed)} still missing).")
                     time.sleep(30)
                 else:
@@ -4424,6 +4501,56 @@ def _get_market_cap_cr(symbol):
     return (entry.get("fundamentals") or {}).get("market_cap_cr")
 
 
+def _get_company_name(symbol):
+    """
+    Sep 19 2026: for the Scanner card's company-name line -- same
+    already-loaded fundamentals_data.json cache _get_market_cap_cr()
+    uses (shares _fundamentals_data_cache, no second file load).
+    Returns None, never the bare symbol dressed up as a name, for a
+    symbol that file hasn't covered yet.
+    """
+    global _fundamentals_data_cache
+    with _fundamentals_cache_lock:
+        if _fundamentals_data_cache is None:
+            import json
+            from fundamentals.ranking import DATA_FILE
+            try:
+                with open(DATA_FILE) as f:
+                    _fundamentals_data_cache = json.load(f)
+            except Exception as e:
+                print(f"[SectorStocks] fundamentals_data.json load failed: {e}")
+                _fundamentals_data_cache = {}
+        entry = _fundamentals_data_cache.get(f"NSE:{symbol}-EQ") or {}
+    return (entry.get("fundamentals") or {}).get("company_name")
+
+
+def _get_cached_52w_range(symbol):
+    """
+    Sep 19 2026: for the Scanner card's 52W HI stat -- deliberately
+    READS _year_history_cache directly instead of calling
+    get_52_week_high_low(symbol). That function's job is "fetch if not
+    cached" (a real 365-day History call), which is EXACTLY the bug
+    just found and fixed in this same view for the sparkline/patterns
+    lookup (see ScannerView's own comment on that fix) -- calling it
+    here would reintroduce the identical unbounded-fetch problem for a
+    cache this on-demand path never actually populates (it only ever
+    warms the 100-day window _calc_tech needs, never the 365-day one
+    this uses). Returns (None, None) rather than fetching when this
+    symbol's 52-week range isn't already cached from something else
+    (FiftyTwoWeekRangeView, elsewhere) having asked for it -- expect
+    this to come back empty for most symbols most of the time; that's
+    an honest gap, not a bug, until this project has a real, separate,
+    paced path to warm it (same kind of staged rollout the Nifty 500
+    widening and the off-hours warmup both got, not something to bolt
+    on silently here).
+    """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _year_history_cache.get(symbol)
+    if cached and cached.get('date') == today_str:
+        return cached['high_52w'], cached['low_52w']
+    return None, None
+
+
 class SectorStocksView(APIView):
     """
     Aug 30 2026: powers the Market Heatmap's sector click-through.
@@ -4624,6 +4751,7 @@ class ScannerView(APIView):
                 with _breadth_cache_lock:
                     _breadth_quote_cache.update(fetched_quotes)
                     _breadth_tech_cache.update(new_techs)
+                _save_breadth_snapshot()
                 breadth_quotes.update(fetched_quotes)
                 breadth_techs.update(new_techs)
 
@@ -4674,8 +4802,10 @@ class ScannerView(APIView):
             except Exception as e:
                 print(f"[Scanner] {sym} sparkline/pattern lookup failed: {e}")
 
+            high_52w, low_52w = _get_cached_52w_range(sym)
             results.append({
                 "symbol": sym,
+                "company_name": _get_company_name(sym),
                 "price": price,
                 "change_percent": quote.get('change_percent'),
                 "volume": quote.get('volume'),
@@ -4687,6 +4817,7 @@ class ScannerView(APIView):
                     else "Bear" if tech and tech.get('macd') is not None
                     else None
                 ),
+                "high_52w": high_52w,
                 "score": quality["score"] if quality else None,
                 "grade": quality["grade"] if quality else None,
                 "direction": quality["direction"] if quality else None,
