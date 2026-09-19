@@ -117,8 +117,8 @@ function AppShell() {
         onSelect={setActiveTab}
         brand={(
           <div className="leading-tight min-w-0">
-            <div className="font-bold text-white text-sm sm:text-base tracking-wide whitespace-nowrap">MARKETEDGE</div>
-            <div className="text-[10px] text-slate-500 font-medium tracking-wide whitespace-nowrap">Market Intelligence Terminal</div>
+            <div className="font-bold text-white text-xs sm:text-sm tracking-wide whitespace-nowrap">MARKETEDGE</div>
+            <div className="text-[9px] text-slate-500 font-medium tracking-wide whitespace-nowrap">Market Intelligence Terminal</div>
           </div>
         )}
       />
