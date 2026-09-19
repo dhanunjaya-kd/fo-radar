@@ -20,6 +20,7 @@ import StrategyBacktest from './components/StrategyBacktest';
 import CASRadar from './components/CASRadar';
 import Sidebar from './components/Sidebar';
 import MarketHeatmap from './components/MarketHeatmap';
+import Scanner from './components/Scanner';
 import MarqueeTicker from './components/MarqueeTicker';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -65,6 +66,7 @@ function AppShell() {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', count: null },
+    { id: 'scanner', label: 'Scanner', count: null },
     { id: 'signals', label: 'Sniper Signals', count: signalCount },
     { id: 'oi', label: 'Open Interest Analytics', count: null },
     { id: 'index', label: 'Index Monitor', count: null },
@@ -78,7 +80,7 @@ function AppShell() {
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
-  const primaryNavOrder = ['dashboard', 'signals', 'oi', 'index', 'cas', 'market', 'heatmap', 'nextday', 'backtest', 'shadow', 'settings'];
+  const primaryNavOrder = ['dashboard', 'scanner', 'signals', 'oi', 'index', 'cas', 'market', 'heatmap', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   useEffect(() => {
@@ -136,6 +138,7 @@ function AppShell() {
           {activeTab === 'cas' && <CASRadar />}
           {activeTab === 'market' && <MarketView />}
           {activeTab === 'heatmap' && <MarketHeatmap />}
+          {activeTab === 'scanner' && <Scanner />}
           {activeTab === 'nextday' && <NextDayWatchlist />}
           {activeTab === 'backtest' && <DailyBacktestTab />}
           {activeTab === 'shadow' && <ShadowSignals />}
