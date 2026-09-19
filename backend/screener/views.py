@@ -4435,8 +4435,8 @@ class ScannerView(APIView):
     from those three tiers on a known local data gap -- not silently
     misplaced).
 
-    Deliberately reuses ALREADY-CACHED data end to end -- zero new
-    Fyers calls from this view:
+    Reuses ALREADY-CACHED data first -- zero new Fyers calls when it's
+    there:
       - price/change/volume: _breadth_quote_cache (Market Pulse's own
         500-stock cache) for anything in Nifty 500, falling back to
         _stock_cache (the 208 F&O names) for the few FNO_STOCKS not
@@ -4451,15 +4451,37 @@ class ScannerView(APIView):
       - company name / market cap: fundamentals_data.json, via the
         same _get_market_cap_cr() the sector drawer already uses.
 
-    Honest about coverage rather than pretending everything's live:
-    only names already in _breadth_quote_cache/_stock_cache get a
-    real card. Nifty 50/100/200/500 and F&O are all fully inside that
-    ~500-name window, so those tiers should show real data for
-    everything. "All Stocks" (2,466) is NOT -- most of it is outside
-    what's actually live-fetched anywhere in this project right now.
-    `covered` in the response says exactly how many of the selected
-    universe's stocks got a real card this call; the response never
-    fabricates a price for the rest.
+    Sep 19 2026, SAME DAY: was READ-ONLY against those caches, which
+    only the background workers ever populate, and only during
+    is_market_hours() -- so this tab showed nothing at all outside
+    trading hours, exactly like Market Pulse before its own market-
+    closed messaging got added. Real difference here: unlike a LIVE
+    signal feed, a technical score/RSI/sparkline reads Friday's last
+    daily candle whether it's Saturday morning or Tuesday at 11am --
+    it was never actually a "market must be open" feature, that was
+    just this view never fetching anything itself. Fixed properly,
+    not by relaxing a gate that shouldn't have applied here in the
+    first place: for symbols missing from the cache, this view now
+    does its OWN on-demand fetch -- quotes (_fetch_all_stocks, already
+    batches 50/call) then per-symbol technicals (_calc_tech, same
+    governed _call() pacing as everywhere else in this file, same
+    per-day history cache so a symbol fetched once today is free for
+    the rest of today). NOT gated on is_market_hours() anywhere in
+    this path -- neither _fetch_all_stocks nor _calc_tech ever were;
+    only the periodic BACKGROUND workers had that gate, and this is a
+    direct request, not a periodic one. Results get written back into
+    _breadth_quote_cache/_breadth_tech_cache (same locks, same shared
+    caches), so this also warms Market Pulse's own data, and a second
+    Scanner request for the same universe is free.
+    Bounded the same way SectorStocksView's own live loop already is,
+    for the same reason: a cold cache asking for a big universe (Nifty
+    500, or worse, All Stocks) could otherwise take a very long time
+    serialized through the one shared Fyers governor. _SCANNER_FETCH_
+    DEADLINE_SECONDS below caps this view's OWN on-demand fetch; past
+    it, remaining symbols just don't get a card yet, same "covered"
+    honesty already in the response -- try again in a few seconds
+    fills in more each time as the shared caches keep warming, rather
+    than one request blocking toward an unbounded worst case.
     """
     UNIVERSE_MAP = {
         'nifty50': NIFTY_50_STOCKS,
@@ -4469,6 +4491,7 @@ class ScannerView(APIView):
         'fno': FNO_STOCKS,
         'all': ALL_NSE_STOCKS,
     }
+    _SCANNER_FETCH_DEADLINE_SECONDS = 20.0
 
     def get(self, request):
         universe_key = request.GET.get('universe', 'nifty500')
@@ -4480,11 +4503,35 @@ class ScannerView(APIView):
         with _cache_lock:
             fno_quotes = dict(_stock_cache)
 
+        missing = [s for s in symbols if s not in breadth_quotes and s not in fno_quotes]
+        fetch_deadline_hit = False
+        if missing and is_authenticated():
+            deadline = time.monotonic() + self._SCANNER_FETCH_DEADLINE_SECONDS
+            try:
+                fetched_quotes = _fetch_all_stocks(missing)
+            except Exception as e:
+                print(f"[Scanner] on-demand quote fetch failed: {e}")
+                fetched_quotes = {}
+            if fetched_quotes:
+                new_techs = {}
+                for sym, quote in fetched_quotes.items():
+                    if time.monotonic() >= deadline:
+                        fetch_deadline_hit = True
+                        break
+                    tech = _calc_tech(sym, live_quote=quote)
+                    if tech:
+                        new_techs[sym] = tech
+                with _breadth_cache_lock:
+                    _breadth_quote_cache.update(fetched_quotes)
+                    _breadth_tech_cache.update(new_techs)
+                breadth_quotes.update(fetched_quotes)
+                breadth_techs.update(new_techs)
+
         results = []
         for sym in symbols:
             quote = breadth_quotes.get(sym) or fno_quotes.get(sym)
             if not quote:
-                continue  # not in any live cache yet this session -- left out, not faked
+                continue  # not in any live cache yet, even after this pass -- left out, not faked
             tech = breadth_techs.get(sym)
             price = quote.get('price')
             quality = _technical_quality_score(tech, price, quote.get('volume')) if tech else None
@@ -4522,6 +4569,7 @@ class ScannerView(APIView):
             "universe": universe_key,
             "universe_size": len(symbols),
             "covered": len(results),
+            "fetch_deadline_hit": fetch_deadline_hit,
             "stocks": results,
         })
 
