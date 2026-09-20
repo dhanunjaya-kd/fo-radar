@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ComposedChart, LineChart, Bar, Line, XAxis, YAxis,
-  ResponsiveContainer, ReferenceLine, Tooltip, CartesianGrid,
+  ResponsiveContainer, ReferenceLine, Tooltip, CartesianGrid, Cell,
 } from 'recharts';
 
 // Sep 19 2026: factored out of ChartModal.jsx so the new full-page
@@ -63,12 +63,14 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
   const [intervalType, setIntervalType] = useState('D');
   const [range, setRange] = useState('6M');
   const [showEma, setShowEma] = useState({ ema10: true, ema20: true, ema50: true, ema200: true });
+  const [showBB, setShowBB] = useState(false);
+  const [showMACD, setShowMACD] = useState(false);
   const [candles, setCandles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const isIntraday = intervalType === '15' || intervalType === '30';
-  const RANGE_OPTIONS = isIntraday ? ['1D', '5D'] : ['1D', '3M', '6M', '12M'];
+  const RANGE_OPTIONS = isIntraday ? ['1D', '5D'] : ['1D', '3M', '6M', 'YTD', '12M'];
   const selectInterval = (v) => {
     setIntervalType(v);
     const nowIntraday = v === '15' || v === '30';
@@ -146,6 +148,14 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
               {EMA_LABELS[k]}
             </label>
           ))}
+          <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={showBB} onChange={() => setShowBB(v => !v)} style={{ accentColor: '#94a3b8' }} />
+            BB
+          </label>
+          <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={showMACD} onChange={() => setShowMACD(v => !v)} style={{ accentColor: '#38bdf8' }} />
+            MACD
+          </label>
         </div>
       </div>
 
@@ -165,6 +175,9 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
               {showEma.ema20 && <Line type="monotone" dataKey="ema20" stroke={EMA_COLORS.ema20} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
               {showEma.ema50 && <Line type="monotone" dataKey="ema50" stroke={EMA_COLORS.ema50} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
               {showEma.ema200 && <Line type="monotone" dataKey="ema200" stroke={EMA_COLORS.ema200} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
+              {showBB && <Line type="monotone" dataKey="bb_upper" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
+              {showBB && <Line type="monotone" dataKey="bb_mid" stroke="#94a3b8" dot={false} strokeWidth={1} isAnimationActive={false} />}
+              {showBB && <Line type="monotone" dataKey="bb_lower" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
             </ComposedChart>
           </ResponsiveContainer>
 
@@ -181,6 +194,33 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
               <Line type="monotone" dataKey="rsi14" stroke="#38bdf8" dot={false} strokeWidth={1.4} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
+
+          {showMACD && (
+            <>
+              <div className="flex items-center justify-between mt-3 mb-1">
+                <span className="text-xs text-slate-500">MACD (12, 26, 9)</span>
+                {latest?.macd_line != null && (
+                  <span className="text-xs text-slate-300">
+                    {latest.macd_line.toFixed(2)} / {latest.macd_signal?.toFixed(2)}
+                  </span>
+                )}
+              </div>
+              <ResponsiveContainer width="100%" height={rsiHeight}>
+                <ComposedChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
+                  <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" />
+                  <Bar dataKey="macd_hist" isAnimationActive={false}>
+                    {chartData.map((d, i) => (
+                      <Cell key={i} fill={(d.macd_hist ?? 0) >= 0 ? '#34d399' : '#fb7185'} />
+                    ))}
+                  </Bar>
+                  <Line type="monotone" dataKey="macd_line" stroke="#38bdf8" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="macd_signal" stroke="#f59e0b" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </>
+          )}
         </>
       )}
 
