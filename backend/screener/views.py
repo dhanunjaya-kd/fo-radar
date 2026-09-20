@@ -6545,24 +6545,39 @@ class OptionHistoryView(APIView):
         return Response(clean_json({"symbol": symbol, "resolution": resolution, "candles": points}))
 
 
-def _add_macd_bollinger(df):
+def _add_chart_indicators(df):
     """
-    Sep 19 2026: per-CANDLE MACD (12/26/9) and Bollinger Bands (20,
-    2 std dev) for the chart's new MACD subplot and BB overlay --
-    direct request, part of the reference terminal's own indicator
-    row. Genuinely different from _compute_indicators() elsewhere in
-    this file: that function returns a single CURRENT snapshot value
-    (today's MACD, say) for the signal engine's own scoring; a chart
-    needs the whole ROLLING series, one value per candle, so this is
-    its own computation rather than a call to that function repeated
-    per row (which would also be far slower -- one rolling pandas
-    operation here versus N re-fetches of the same history there).
-    Standard, textbook formulas, not an approximation: MACD = EMA12 -
-    EMA26, signal = EMA9 of MACD, histogram = MACD - signal; BB
-    middle = 20-period SMA, upper/lower = middle +/- 2 standard
-    deviations of the same 20-period window. Mutates and returns the
+    Sep 19 2026: per-CANDLE indicators for the chart's overlay/subplot
+    toggles -- direct request, working through the reference
+    terminal's own indicator row a batch at a time rather than
+    attempting all ~20 at once. Genuinely different from
+    _compute_indicators() elsewhere in this file: that function
+    returns a single CURRENT snapshot value (today's MACD, say) for
+    the signal engine's own scoring; a chart needs the whole ROLLING
+    series, one value per candle, so this is its own computation
+    rather than a call to that function repeated per row (which would
+    also be far slower -- one rolling pandas operation here versus N
+    re-fetches of the same history there). Mutates and returns the
     same DataFrame -- called on the same `df` the EMA/RSI columns are
     already being added to, both intraday and daily/weekly paths.
+
+    MACD (12/26/9) and Bollinger Bands (20, 2 std dev): standard,
+    textbook formulas. MACD = EMA12 - EMA26, signal = EMA9 of MACD,
+    histogram = MACD - signal; BB middle = 20-period SMA, upper/lower
+    = middle +/- 2 standard deviations of the same 20-period window.
+
+    Sep 19 2026, next batch -- ADX(14)/+DI/-DI, StochRSI(14,14,3,3),
+    CCI(20), same textbook formulas, each checked against real
+    invariants before being wired in here (not just eyeballed): ADX's
+    own +DI properly exceeded -DI on a synthetic clean uptrend; CCI's
+    value at a specific row matched an independent manual mean/
+    deviation calculation exactly; StochRSI briefly came back NaN
+    under an unrealistically clean synthetic uptrend where RSI pins
+    at exactly 100 for 14+ candles straight (a genuine 0/0 -- no range
+    left to stochastic-normalize against, not a bug) and resolved
+    normally once tested against realistic, actually-noisy price data
+    instead. ADX uses Wilder's own smoothing (alpha=1/14 ewm, the
+    method ADX was originally defined with), not a plain EMA.
     """
     ema12 = df["close"].ewm(span=12, adjust=False).mean()
     ema26 = df["close"].ewm(span=26, adjust=False).mean()
@@ -6577,6 +6592,36 @@ def _add_macd_bollinger(df):
     df["bb_mid"] = bb_mid
     df["bb_upper"] = bb_mid + 2 * bb_std
     df["bb_lower"] = bb_mid - 2 * bb_std
+
+    # ADX(14) / +DI / -DI -- Wilder's method.
+    high, low, close = df["high"], df["low"], df["close"]
+    prev_close, prev_high, prev_low = close.shift(1), high.shift(1), low.shift(1)
+    tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+    up_move, down_move = high - prev_high, prev_low - low
+    plus_dm = pd.Series(np.where((up_move > down_move) & (up_move > 0), up_move, 0.0), index=df.index)
+    minus_dm = pd.Series(np.where((down_move > up_move) & (down_move > 0), down_move, 0.0), index=df.index)
+    atr14 = tr.ewm(alpha=1 / 14, adjust=False).mean()
+    plus_di = 100 * plus_dm.ewm(alpha=1 / 14, adjust=False).mean() / atr14
+    minus_di = 100 * minus_dm.ewm(alpha=1 / 14, adjust=False).mean() / atr14
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
+    df["adx14"] = dx.ewm(alpha=1 / 14, adjust=False).mean()
+    df["plus_di"] = plus_di
+    df["minus_di"] = minus_di
+
+    # StochRSI(14, 14, 3, 3).
+    rsi_min = df["rsi14"].rolling(14).min()
+    rsi_max = df["rsi14"].rolling(14).max()
+    stoch_rsi = (df["rsi14"] - rsi_min) / (rsi_max - rsi_min).replace(0, np.nan) * 100
+    df["stochrsi"] = stoch_rsi
+    df["stochrsi_k"] = stoch_rsi.rolling(3).mean()
+    df["stochrsi_d"] = df["stochrsi_k"].rolling(3).mean()
+
+    # CCI(20).
+    tp = (df["high"] + df["low"] + df["close"]) / 3
+    sma_tp = tp.rolling(20).mean()
+    mean_dev = tp.rolling(20).apply(lambda x: (x - x.mean()).abs().mean(), raw=False)
+    df["cci20"] = (tp - sma_tp) / (0.015 * mean_dev)
+
     return df
 
 
@@ -6726,7 +6771,7 @@ class CandleChartView(APIView):
             rsi = rsi.where(~((avg_gain == 0) & (avg_loss == 0)), 50.0)
             df["rsi14"] = rsi
             df.loc[df.index[:14], "rsi14"] = np.nan
-            df = _add_macd_bollinger(df)
+            df = _add_chart_indicators(df)
 
             candles = [
                 {
@@ -6740,6 +6785,9 @@ class CandleChartView(APIView):
                     "macd_line": float(row.macd_line), "macd_signal": float(row.macd_signal),
                     "macd_hist": float(row.macd_hist),
                     "bb_upper": float(row.bb_upper), "bb_mid": float(row.bb_mid), "bb_lower": float(row.bb_lower),
+                    "adx14": float(row.adx14), "plus_di": float(row.plus_di), "minus_di": float(row.minus_di),
+                    "stochrsi": float(row.stochrsi), "stochrsi_k": float(row.stochrsi_k), "stochrsi_d": float(row.stochrsi_d),
+                    "cci20": float(row.cci20),
                 }
                 for row in df.itertuples()
             ]
@@ -6847,7 +6895,7 @@ class CandleChartView(APIView):
         # a full window), but that number isn't a real 14-period
         # average yet -- blanked out rather than shown as if it were.
         df.loc[df.index[:14], "rsi14"] = np.nan
-        df = _add_macd_bollinger(df)
+        df = _add_chart_indicators(df)
 
         visible_start = df["time"].max() - pd.Timedelta(days=visible_days)
         visible = df[df["time"] >= visible_start]
@@ -6864,6 +6912,9 @@ class CandleChartView(APIView):
                 "macd_line": float(row.macd_line), "macd_signal": float(row.macd_signal),
                 "macd_hist": float(row.macd_hist),
                 "bb_upper": float(row.bb_upper), "bb_mid": float(row.bb_mid), "bb_lower": float(row.bb_lower),
+                "adx14": float(row.adx14), "plus_di": float(row.plus_di), "minus_di": float(row.minus_di),
+                "stochrsi": float(row.stochrsi), "stochrsi_k": float(row.stochrsi_k), "stochrsi_d": float(row.stochrsi_d),
+                "cci20": float(row.cci20),
             }
             for row in visible.itertuples()
         ]
