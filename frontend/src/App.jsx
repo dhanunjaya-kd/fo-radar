@@ -125,19 +125,24 @@ function AppShell() {
         onSelect={setActiveTab}
         brand={(
           <div className="leading-tight min-w-0">
-            {/* Sep 19 2026: two-tone name split, matching the
-                reference's own "Sniper" + italic-accent "Pro"
-                treatment -- MARKETEDGE doesn't have a natural word
-                break the same way, so split as MARKET (bold white) +
-                EDGE (italic, accent blue matching the logo mark)
-                instead of inventing an unrelated second word.
-                Subtitle uppercased + letter-spaced to match
-                "INTELLIGENCE SYSTEM"'s treatment too. */}
-            <div className="text-xs sm:text-sm tracking-wide whitespace-nowrap">
+            {/* Sep 19 2026: reworked after seeing it actually rendered
+                -- italic on EDGE read more editorial than a clean
+                product wordmark, and the wide-tracked all-caps
+                subtitle was crowding the chevron now that it sits
+                inline beside this block (own comment above this one).
+                Dropped the italic (color split alone still
+                distinguishes MARKET/EDGE, without looking like a
+                stylistic afterthought), tightened tracking on the
+                subtitle from wider to wide, and let both lines truncate
+                with an ellipsis instead of forcing nowrap -- so if
+                this ever sits somewhere narrower, text yields
+                gracefully instead of overlapping the button next to
+                it. */}
+            <div className="text-xs sm:text-sm truncate">
               <span className="font-bold text-white">MARKET</span>
-              <span className="font-bold italic text-blue-400">EDGE</span>
+              <span className="font-bold text-blue-400">EDGE</span>
             </div>
-            <div className="text-[9px] text-slate-500 font-medium tracking-wider uppercase whitespace-nowrap">Market Intelligence Terminal</div>
+            <div className="text-[9px] text-slate-500 font-medium tracking-wide uppercase truncate">Market Intelligence Terminal</div>
           </div>
         )}
       />
