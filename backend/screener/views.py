@@ -6713,19 +6713,110 @@ def _add_chart_indicators(df):
     return df
 
 
+_USER_WATCHLIST_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "user_watchlist.json")
+_user_watchlist_lock = threading.Lock()
+_DEFAULT_USER_WATCHLIST = ['RELIANCE', 'HDFCBANK', 'ICICIBANK', 'INFY', 'TCS']
+
+
+def _load_user_watchlist():
+    import json
+    try:
+        with open(_USER_WATCHLIST_PATH) as f:
+            data = json.load(f)
+        symbols = data.get('symbols')
+        if isinstance(symbols, list):
+            return symbols
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[UserWatchlist] load failed, starting from the built-in default: {e}")
+    return list(_DEFAULT_USER_WATCHLIST)
+
+
+def _save_user_watchlist(symbols):
+    import json
+    tmp_path = _USER_WATCHLIST_PATH + ".tmp"
+    with open(tmp_path, "w") as f:
+        json.dump({"symbols": symbols}, f)
+    os.replace(tmp_path, _USER_WATCHLIST_PATH)  # atomic, same pattern as the breadth cache snapshot
+
+
+def _quotes_for_symbols(symbols):
+    with _breadth_cache_lock:
+        breadth_quotes = dict(_breadth_quote_cache)
+    with _cache_lock:
+        fno_quotes = dict(_stock_cache)
+    quotes = []
+    for sym in symbols:
+        q = breadth_quotes.get(sym) or fno_quotes.get(sym)
+        if not q:
+            continue
+        quotes.append({
+            "symbol": sym,
+            "company_name": _get_company_name(sym),
+            "price": q.get('price'),
+            "change_percent": q.get('change_percent'),
+        })
+    return quotes
+
+
+class UserWatchlistView(APIView):
+    """
+    Sep 19 2026: real, user-managed watchlist -- direct request, this
+    was previously WatchlistQuotesView's hardcoded DEFAULT_WATCHLIST
+    (fine as a first pass, but not what was actually asked for: add/
+    remove your own symbols from any stock card). Persisted to a small
+    JSON file (same atomic-write pattern already used for the breadth
+    cache snapshot), so a saved watchlist survives a server restart,
+    not just a browser session -- this app is single-user (yours),
+    same as every other piece of local state here (no accounts, no
+    per-browser split).
+    GET: returns the saved symbol list plus live quotes for each (same
+    cache-only reads WatchlistQuotesView already used -- zero new
+    Fyers calls). POST {"symbol": "X"}: adds it (no-op, not an error,
+    if already present). DELETE with a symbol in the URL: removes it.
+    A first-ever run (no file yet) starts from a small built-in
+    default (RELIANCE/HDFCBANK/ICICIBANK/INFY/TCS) rather than an
+    empty list, so the rail isn't blank before anyone's added
+    anything -- that default is just a starting point, fully
+    removable like anything else once the file exists.
+    """
+    def get(self, request):
+        with _user_watchlist_lock:
+            symbols = _load_user_watchlist()
+        return Response({"symbols": symbols, "quotes": _quotes_for_symbols(symbols)})
+
+    def post(self, request):
+        symbol = (request.data.get('symbol') or '').strip().upper()
+        if not symbol:
+            return Response({"error": "symbol is required"}, status=400)
+        with _user_watchlist_lock:
+            symbols = _load_user_watchlist()
+            if symbol not in symbols:
+                symbols.append(symbol)
+                _save_user_watchlist(symbols)
+        return Response({"symbols": symbols, "quotes": _quotes_for_symbols(symbols)})
+
+    def delete(self, request, symbol=None):
+        symbol = (symbol or '').strip().upper()
+        with _user_watchlist_lock:
+            symbols = _load_user_watchlist()
+            if symbol in symbols:
+                symbols = [s for s in symbols if s != symbol]
+                _save_user_watchlist(symbols)
+        return Response({"symbols": symbols, "quotes": _quotes_for_symbols(symbols)})
+
+
 class WatchlistQuotesView(APIView):
     """
-    Sep 19 2026: powers the new Charts-page watchlist rail -- a small,
-    fixed list of symbols with live price/change, click-to-switch the
-    main chart. Deliberately READ-ONLY against the same caches
-    Scanner/Market Pulse already keep warm (_breadth_quote_cache,
-    falling back to _stock_cache for the few FNO_STOCKS not also in
-    the Nifty 500 snapshot) -- no new Fyers calls from this view at
-    all, same reasoning as ScannerView's own docstring: a handful of
-    symbols is cheap regardless, but there's no reason to add a THIRD
-    place in this app that fetches live quotes when two already exist
-    and this rail's whole symbol list sits inside what they already
-    cover.
+    Sep 19 2026: powers ad-hoc "quotes for these specific symbols"
+    lookups -- READ-ONLY against the same caches Scanner/Market Pulse
+    already keep warm (_breadth_quote_cache, falling back to
+    _stock_cache for the few FNO_STOCKS not also in the Nifty 500
+    snapshot), zero new Fyers calls. For the actual watchlist rail's
+    OWN saved list, see UserWatchlistView instead -- that one persists
+    what the user has added; this one is a stateless "look these up"
+    utility.
     GET /api/watchlist-quotes/?symbols=NIFTY,BANKNIFTY,RELIANCE,...
     A symbol not yet in either cache is simply left out of the
     response rather than faked -- same honesty rule as everywhere
