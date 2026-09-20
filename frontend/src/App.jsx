@@ -125,8 +125,19 @@ function AppShell() {
         onSelect={setActiveTab}
         brand={(
           <div className="leading-tight min-w-0">
-            <div className="font-bold text-white text-xs sm:text-sm tracking-wide whitespace-nowrap">MARKETEDGE</div>
-            <div className="text-[9px] text-slate-500 font-medium tracking-wide whitespace-nowrap">Market Intelligence Terminal</div>
+            {/* Sep 19 2026: two-tone name split, matching the
+                reference's own "Sniper" + italic-accent "Pro"
+                treatment -- MARKETEDGE doesn't have a natural word
+                break the same way, so split as MARKET (bold white) +
+                EDGE (italic, accent blue matching the logo mark)
+                instead of inventing an unrelated second word.
+                Subtitle uppercased + letter-spaced to match
+                "INTELLIGENCE SYSTEM"'s treatment too. */}
+            <div className="text-xs sm:text-sm tracking-wide whitespace-nowrap">
+              <span className="font-bold text-white">MARKET</span>
+              <span className="font-bold italic text-blue-400">EDGE</span>
+            </div>
+            <div className="text-[9px] text-slate-500 font-medium tracking-wider uppercase whitespace-nowrap">Market Intelligence Terminal</div>
           </div>
         )}
       />
