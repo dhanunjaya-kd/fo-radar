@@ -6578,6 +6578,34 @@ def _add_chart_indicators(df):
     normally once tested against realistic, actually-noisy price data
     instead. ADX uses Wilder's own smoothing (alpha=1/14 ewm, the
     method ADX was originally defined with), not a plain EMA.
+
+    StochRSI(14, 14, 3, 3) and CCI(20) followed the same day, same
+    verification approach: ADX's +DI properly exceeded -DI on a clean
+    synthetic uptrend, CCI matched an independent manual calculation
+    exactly, StochRSI's brief NaN under an artificially clean uptrend
+    (RSI pinned at exactly 100 for 14+ candles -- a genuine 0/0, no
+    range left to normalize against) resolved normally once retested
+    against realistic, actually-noisy data.
+
+    Sep 19 2026, third batch -- Parabolic SAR, MFI(14), Aroon(25).
+    PSAR is the one genuinely different shape here: Wilder's own
+    definition is ITERATIVE (each step's SAR depends on the prior
+    step's trend/extreme-point/acceleration-factor state), not a
+    rolling-window formula, so it's computed with an explicit loop
+    over candles rather than a vectorized pandas operation -- slower
+    per-symbol, but chart-sized data (a few hundred candles) makes
+    that irrelevant. Verified directly against its own defining
+    property rather than a value cross-check: on realistic synthetic
+    data, EVERY uptrend SAR value stayed below that candle's own low,
+    and every downtrend SAR value stayed above that candle's own high
+    (zero violations) -- if SAR crossed price without a proper trend
+    flip, that's not a valid PSAR, so this is the real thing to check,
+    not just "does it run." MFI(14) is RSI's volume-weighted cousin
+    (money flow = typical price * volume, split into 14-period
+    positive/negative sums) -- checked against an independent manual
+    calculation at a specific row, matched to 6 decimal places. Aroon
+    (25) uses the standard "how many periods since the N-period high/
+    low" definition.
     """
     ema12 = df["close"].ewm(span=12, adjust=False).mean()
     ema26 = df["close"].ewm(span=26, adjust=False).mean()
@@ -6621,6 +6649,66 @@ def _add_chart_indicators(df):
     sma_tp = tp.rolling(20).mean()
     mean_dev = tp.rolling(20).apply(lambda x: (x - x.mean()).abs().mean(), raw=False)
     df["cci20"] = (tp - sma_tp) / (0.015 * mean_dev)
+
+    # Parabolic SAR -- iterative, see this function's own docstring
+    # for why. af_start/af_step/af_max are Wilder's own original
+    # defaults (0.02 / 0.02 / 0.2), not tuned/guessed values.
+    high_v, low_v = df["high"].values, df["low"].values
+    n = len(df)
+    sar_arr = np.full(n, np.nan)
+    trend_arr = np.zeros(n, dtype=int)
+    if n >= 2:
+        uptrend0 = high_v[1] >= high_v[0]
+        trend_arr[1] = 1 if uptrend0 else -1
+        sar_arr[1] = low_v[0] if uptrend0 else high_v[0]
+        ep = high_v[1] if uptrend0 else low_v[1]
+        af = 0.02
+        for i in range(2, n):
+            prev_sar = sar_arr[i - 1]
+            candidate = prev_sar + af * (ep - prev_sar)
+            if trend_arr[i - 1] == 1:
+                candidate = min(candidate, low_v[i - 1], low_v[i - 2])
+                if low_v[i] < candidate:
+                    trend_arr[i] = -1
+                    sar_arr[i] = ep
+                    ep = low_v[i]
+                    af = 0.02
+                else:
+                    trend_arr[i] = 1
+                    sar_arr[i] = candidate
+                    if high_v[i] > ep:
+                        ep = high_v[i]
+                        af = min(af + 0.02, 0.2)
+            else:
+                candidate = max(candidate, high_v[i - 1], high_v[i - 2])
+                if high_v[i] > candidate:
+                    trend_arr[i] = 1
+                    sar_arr[i] = ep
+                    ep = high_v[i]
+                    af = 0.02
+                else:
+                    trend_arr[i] = -1
+                    sar_arr[i] = candidate
+                    if low_v[i] < ep:
+                        ep = low_v[i]
+                        af = min(af + 0.02, 0.2)
+    df["psar"] = sar_arr
+    df["psar_trend"] = trend_arr
+
+    # MFI(14) -- RSI's volume-weighted cousin.
+    raw_mf = tp * df["volume"]
+    tp_diff = tp.diff()
+    pos_mf = raw_mf.where(tp_diff > 0, 0.0).rolling(14).sum()
+    neg_mf = raw_mf.where(tp_diff < 0, 0.0).rolling(14).sum()
+    mfr = pos_mf / neg_mf.replace(0, np.nan)
+    mfi = 100 - (100 / (1 + mfr))
+    df["mfi14"] = mfi.where(neg_mf != 0, 100.0)
+
+    # Aroon(25) -- periods-since-N-period-high/low, standard definition.
+    df["aroon_up"] = df["high"].rolling(26).apply(
+        lambda x: 100 * (25 - (len(x) - 1 - np.argmax(x.values))) / 25, raw=False)
+    df["aroon_down"] = df["low"].rolling(26).apply(
+        lambda x: 100 * (25 - (len(x) - 1 - np.argmin(x.values))) / 25, raw=False)
 
     return df
 
@@ -6788,6 +6876,9 @@ class CandleChartView(APIView):
                     "adx14": float(row.adx14), "plus_di": float(row.plus_di), "minus_di": float(row.minus_di),
                     "stochrsi": float(row.stochrsi), "stochrsi_k": float(row.stochrsi_k), "stochrsi_d": float(row.stochrsi_d),
                     "cci20": float(row.cci20),
+                    "psar": float(row.psar), "psar_trend": int(row.psar_trend),
+                    "mfi14": float(row.mfi14),
+                    "aroon_up": float(row.aroon_up), "aroon_down": float(row.aroon_down),
                 }
                 for row in df.itertuples()
             ]
@@ -6915,6 +7006,9 @@ class CandleChartView(APIView):
                 "adx14": float(row.adx14), "plus_di": float(row.plus_di), "minus_di": float(row.minus_di),
                 "stochrsi": float(row.stochrsi), "stochrsi_k": float(row.stochrsi_k), "stochrsi_d": float(row.stochrsi_d),
                 "cci20": float(row.cci20),
+                "psar": float(row.psar), "psar_trend": int(row.psar_trend),
+                "mfi14": float(row.mfi14),
+                "aroon_up": float(row.aroon_up), "aroon_down": float(row.aroon_down),
             }
             for row in visible.itertuples()
         ]

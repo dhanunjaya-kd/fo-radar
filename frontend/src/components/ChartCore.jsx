@@ -40,6 +40,13 @@ function fmtDate(epochSeconds) {
   return new Date(epochSeconds * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 }
 
+function PsarDot(props) {
+  const { cx, cy, payload } = props;
+  if (cx == null || cy == null || payload.psar == null) return null;
+  const color = payload.psar_trend === 1 ? '#34d399' : '#fb7185';
+  return <circle cx={cx} cy={cy} r={1.6} fill={color} />;
+}
+
 function ChartTooltip({ active, payload, isIntraday }) {
   if (!active || !payload || !payload.length) return null;
   const d = payload[0].payload;
@@ -68,6 +75,9 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
   const [showADX, setShowADX] = useState(false);
   const [showStochRSI, setShowStochRSI] = useState(false);
   const [showCCI, setShowCCI] = useState(false);
+  const [showPSAR, setShowPSAR] = useState(false);
+  const [showMFI, setShowMFI] = useState(false);
+  const [showAroon, setShowAroon] = useState(false);
   const [candles, setCandles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -171,6 +181,18 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
             <input type="checkbox" checked={showCCI} onChange={() => setShowCCI(v => !v)} style={{ accentColor: '#fb923c' }} />
             CCI
           </label>
+          <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={showPSAR} onChange={() => setShowPSAR(v => !v)} style={{ accentColor: '#facc15' }} />
+            PSAR
+          </label>
+          <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={showMFI} onChange={() => setShowMFI(v => !v)} style={{ accentColor: '#22d3ee' }} />
+            MFI
+          </label>
+          <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={showAroon} onChange={() => setShowAroon(v => !v)} style={{ accentColor: '#c084fc' }} />
+            Aroon
+          </label>
         </div>
       </div>
 
@@ -193,6 +215,7 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
               {showBB && <Line type="monotone" dataKey="bb_upper" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
               {showBB && <Line type="monotone" dataKey="bb_mid" stroke="#94a3b8" dot={false} strokeWidth={1} isAnimationActive={false} />}
               {showBB && <Line type="monotone" dataKey="bb_lower" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
+              {showPSAR && <Line dataKey="psar" stroke="none" dot={<PsarDot />} isAnimationActive={false} />}
             </ComposedChart>
           </ResponsiveContainer>
 
@@ -288,6 +311,45 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
                   <ReferenceLine y={100} stroke="#475569" strokeDasharray="3 3" />
                   <ReferenceLine y={-100} stroke="#475569" strokeDasharray="3 3" />
                   <Line type="monotone" dataKey="cci20" stroke="#fb923c" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </>
+          )}
+
+          {showMFI && (
+            <>
+              <div className="flex items-center justify-between mt-3 mb-1">
+                <span className="text-xs text-slate-500">MFI (14)</span>
+                {latest?.mfi14 != null && <span className="text-xs text-slate-300">{latest.mfi14.toFixed(1)}</span>}
+              </div>
+              <ResponsiveContainer width="100%" height={rsiHeight}>
+                <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[20, 80]} />
+                  <ReferenceLine y={80} stroke="#475569" strokeDasharray="3 3" />
+                  <ReferenceLine y={20} stroke="#475569" strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="mfi14" stroke="#22d3ee" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </>
+          )}
+
+          {showAroon && (
+            <>
+              <div className="flex items-center justify-between mt-3 mb-1">
+                <span className="text-xs text-slate-500">Aroon (25)</span>
+                {latest?.aroon_up != null && (
+                  <span className="text-xs text-slate-300">
+                    Up {latest.aroon_up.toFixed(0)} / Down {latest.aroon_down?.toFixed(0)}
+                  </span>
+                )}
+              </div>
+              <ResponsiveContainer width="100%" height={rsiHeight}>
+                <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
+                  <Line type="monotone" dataKey="aroon_up" stroke="#34d399" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="aroon_down" stroke="#fb7185" dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </>
