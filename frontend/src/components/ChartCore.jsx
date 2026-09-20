@@ -65,6 +65,9 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
   const [showEma, setShowEma] = useState({ ema10: true, ema20: true, ema50: true, ema200: true });
   const [showBB, setShowBB] = useState(false);
   const [showMACD, setShowMACD] = useState(false);
+  const [showADX, setShowADX] = useState(false);
+  const [showStochRSI, setShowStochRSI] = useState(false);
+  const [showCCI, setShowCCI] = useState(false);
   const [candles, setCandles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -156,6 +159,18 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
             <input type="checkbox" checked={showMACD} onChange={() => setShowMACD(v => !v)} style={{ accentColor: '#38bdf8' }} />
             MACD
           </label>
+          <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={showADX} onChange={() => setShowADX(v => !v)} style={{ accentColor: '#f472b6' }} />
+            ADX
+          </label>
+          <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={showStochRSI} onChange={() => setShowStochRSI(v => !v)} style={{ accentColor: '#a3e635' }} />
+            StochRSI
+          </label>
+          <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
+            <input type="checkbox" checked={showCCI} onChange={() => setShowCCI(v => !v)} style={{ accentColor: '#fb923c' }} />
+            CCI
+          </label>
         </div>
       </div>
 
@@ -218,6 +233,62 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
                   <Line type="monotone" dataKey="macd_line" stroke="#38bdf8" dot={false} strokeWidth={1.4} isAnimationActive={false} />
                   <Line type="monotone" dataKey="macd_signal" stroke="#f59e0b" dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </ComposedChart>
+              </ResponsiveContainer>
+            </>
+          )}
+
+          {showADX && (
+            <>
+              <div className="flex items-center justify-between mt-3 mb-1">
+                <span className="text-xs text-slate-500">ADX (14)</span>
+                {latest?.adx14 != null && <span className="text-xs text-slate-300">{latest.adx14.toFixed(1)}</span>}
+              </div>
+              <ResponsiveContainer width="100%" height={rsiHeight}>
+                <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[25]} />
+                  <ReferenceLine y={25} stroke="#475569" strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="adx14" stroke="#f472b6" dot={false} strokeWidth={1.6} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="plus_di" stroke="#34d399" dot={false} strokeWidth={1} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="minus_di" stroke="#fb7185" dot={false} strokeWidth={1} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </>
+          )}
+
+          {showStochRSI && (
+            <>
+              <div className="flex items-center justify-between mt-3 mb-1">
+                <span className="text-xs text-slate-500">Stoch RSI (14, 14, 3, 3)</span>
+                {latest?.stochrsi_k != null && <span className="text-xs text-slate-300">{latest.stochrsi_k.toFixed(1)}</span>}
+              </div>
+              <ResponsiveContainer width="100%" height={rsiHeight}>
+                <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[20, 80]} />
+                  <ReferenceLine y={80} stroke="#475569" strokeDasharray="3 3" />
+                  <ReferenceLine y={20} stroke="#475569" strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="stochrsi_k" stroke="#a3e635" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="stochrsi_d" stroke="#f59e0b" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </>
+          )}
+
+          {showCCI && (
+            <>
+              <div className="flex items-center justify-between mt-3 mb-1">
+                <span className="text-xs text-slate-500">CCI (20)</span>
+                {latest?.cci20 != null && <span className="text-xs text-slate-300">{latest.cci20.toFixed(1)}</span>}
+              </div>
+              <ResponsiveContainer width="100%" height={rsiHeight}>
+                <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
+                  <ReferenceLine y={100} stroke="#475569" strokeDasharray="3 3" />
+                  <ReferenceLine y={-100} stroke="#475569" strokeDasharray="3 3" />
+                  <Line type="monotone" dataKey="cci20" stroke="#fb923c" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                </LineChart>
               </ResponsiveContainer>
             </>
           )}
