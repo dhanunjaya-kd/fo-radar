@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import ChartModal from './ChartModal';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -216,7 +215,7 @@ function StockCard({ stock, onOpenChart }) {
   );
 }
 
-export default function Scanner() {
+export default function Scanner({ onOpenChart }) {
   const [universe, setUniverse] = useState('nifty500');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [data, setData] = useState(null);
@@ -225,7 +224,6 @@ export default function Scanner() {
   const [error, setError] = useState(null);
   const [selectedPattern, setSelectedPattern] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [chartSymbol, setChartSymbol] = useState(null);
   const dropdownRef = useRef(null);
 
   // Sep 19 2026: was a single fetch, full skeleton on every load --
@@ -403,13 +401,11 @@ export default function Scanner() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {visibleStocks.map(s => <StockCard key={s.symbol} stock={s} onOpenChart={setChartSymbol} />)}
+              {visibleStocks.map(s => <StockCard key={s.symbol} stock={s} onOpenChart={onOpenChart} />)}
             </div>
           )}
         </>
       )}
-
-      {chartSymbol && <ChartModal symbol={chartSymbol} onClose={() => setChartSymbol(null)} />}
     </div>
   );
 }
