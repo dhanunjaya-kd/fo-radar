@@ -6545,6 +6545,41 @@ class OptionHistoryView(APIView):
         return Response(clean_json({"symbol": symbol, "resolution": resolution, "candles": points}))
 
 
+def _add_macd_bollinger(df):
+    """
+    Sep 19 2026: per-CANDLE MACD (12/26/9) and Bollinger Bands (20,
+    2 std dev) for the chart's new MACD subplot and BB overlay --
+    direct request, part of the reference terminal's own indicator
+    row. Genuinely different from _compute_indicators() elsewhere in
+    this file: that function returns a single CURRENT snapshot value
+    (today's MACD, say) for the signal engine's own scoring; a chart
+    needs the whole ROLLING series, one value per candle, so this is
+    its own computation rather than a call to that function repeated
+    per row (which would also be far slower -- one rolling pandas
+    operation here versus N re-fetches of the same history there).
+    Standard, textbook formulas, not an approximation: MACD = EMA12 -
+    EMA26, signal = EMA9 of MACD, histogram = MACD - signal; BB
+    middle = 20-period SMA, upper/lower = middle +/- 2 standard
+    deviations of the same 20-period window. Mutates and returns the
+    same DataFrame -- called on the same `df` the EMA/RSI columns are
+    already being added to, both intraday and daily/weekly paths.
+    """
+    ema12 = df["close"].ewm(span=12, adjust=False).mean()
+    ema26 = df["close"].ewm(span=26, adjust=False).mean()
+    macd_line = ema12 - ema26
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    df["macd_line"] = macd_line
+    df["macd_signal"] = signal_line
+    df["macd_hist"] = macd_line - signal_line
+
+    bb_mid = df["close"].rolling(window=20).mean()
+    bb_std = df["close"].rolling(window=20).std()
+    df["bb_mid"] = bb_mid
+    df["bb_upper"] = bb_mid + 2 * bb_std
+    df["bb_lower"] = bb_mid - 2 * bb_std
+    return df
+
+
 class CandleChartView(APIView):
     """
     Sep 7 2026: real OHLC candles + EMA(10/20/50/200) + RSI(14) for the
@@ -6691,6 +6726,7 @@ class CandleChartView(APIView):
             rsi = rsi.where(~((avg_gain == 0) & (avg_loss == 0)), 50.0)
             df["rsi14"] = rsi
             df.loc[df.index[:14], "rsi14"] = np.nan
+            df = _add_macd_bollinger(df)
 
             candles = [
                 {
@@ -6701,6 +6737,9 @@ class CandleChartView(APIView):
                     "ema10": float(row.ema10), "ema20": float(row.ema20),
                     "ema50": float(row.ema50), "ema200": float(row.ema200),
                     "rsi14": float(row.rsi14),
+                    "macd_line": float(row.macd_line), "macd_signal": float(row.macd_signal),
+                    "macd_hist": float(row.macd_hist),
+                    "bb_upper": float(row.bb_upper), "bb_mid": float(row.bb_mid), "bb_lower": float(row.bb_lower),
                 }
                 for row in df.itertuples()
             ]
@@ -6710,7 +6749,16 @@ class CandleChartView(APIView):
                 "candles": candles,
             }))
 
-        RANGE_DAYS = {"3M": 90, "6M": 182, "12M": 365}
+        # Sep 19 2026: YTD added, direct request -- computed dynamically
+        # (days since Jan 1 of the current year), always safely under
+        # the 366-day-per-call limit below by construction (it's at
+        # most one calendar year). "5Y"/"ALL" deliberately NOT added
+        # here -- both would need MULTIPLE chained 366-day-max calls
+        # concatenated together, a genuinely different pagination
+        # scheme from the two-call visible+buffer approach below, not
+        # a one-line addition to this dict.
+        ytd_days = (datetime.now().date() - datetime(datetime.now().year, 1, 1).date()).days + 1
+        RANGE_DAYS = {"3M": 90, "6M": 182, "12M": 365, "YTD": ytd_days}
         visible_days = RANGE_DAYS.get(range_param, 182)
 
         # Sep 8 2026: real bug, confirmed live against Fyers -- a single
@@ -6799,6 +6847,7 @@ class CandleChartView(APIView):
         # a full window), but that number isn't a real 14-period
         # average yet -- blanked out rather than shown as if it were.
         df.loc[df.index[:14], "rsi14"] = np.nan
+        df = _add_macd_bollinger(df)
 
         visible_start = df["time"].max() - pd.Timedelta(days=visible_days)
         visible = df[df["time"] >= visible_start]
@@ -6812,6 +6861,9 @@ class CandleChartView(APIView):
                 "ema10": float(row.ema10), "ema20": float(row.ema20),
                 "ema50": float(row.ema50), "ema200": float(row.ema200),
                 "rsi14": float(row.rsi14),
+                "macd_line": float(row.macd_line), "macd_signal": float(row.macd_signal),
+                "macd_hist": float(row.macd_hist),
+                "bb_upper": float(row.bb_upper), "bb_mid": float(row.bb_mid), "bb_lower": float(row.bb_lower),
             }
             for row in visible.itertuples()
         ]
