@@ -16,6 +16,7 @@ from screener.views import (
     DailyBacktestRangeReportView, SectorStocksView, NoTradeLogView, ShadowSignalsView, ShadowPerformanceView, IndexAgreementLogView,
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
     EODScanTriggerView, OptionHistoryView, CandleChartView, NextTradingSessionView,
+    WatchlistQuotesView,
     ScannerView,
 )
 from screener.next_day_watchlist_history import (
@@ -87,6 +88,7 @@ urlpatterns = [
     path('api/strategy-backtest/status/', StrategyBacktestStatusView.as_view(), name='strategy_backtest_status'),
     path('api/option-history/', OptionHistoryView.as_view(), name='option_history'),
     path('api/candles/<str:symbol>/', CandleChartView.as_view(), name='candle_chart'),
+    path('api/watchlist-quotes/', WatchlistQuotesView.as_view(), name='watchlist_quotes'),
     path('api/next-trading-session/<str:market>/', NextTradingSessionView.as_view(), name='next_trading_session'),
     path('api/screener/', include('screener.urls')),
     path('api/options/', include('options.urls')),
