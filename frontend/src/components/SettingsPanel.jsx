@@ -57,6 +57,51 @@ export default function SettingsPanel({ onDensityChange }) {
   const [riskBudgetSaved, setRiskBudgetSaved] = useState(false);
   const [riskBudgetError, setRiskBudgetError] = useState(null);
 
+  // Sep 19 2026: real "Connections" status card, direct request --
+  // deliberately just ONE row (Fyers), not five like the reference
+  // screenshot. Checked first rather than assumed: this codebase has
+  // no Dhan Broker API, no OpenAlgo Bridge, no Groq/Gemini AI
+  // integration anywhere (grepped for all four, zero matches) -- those
+  // are that OTHER tool's own integrations, not ours, and rows for
+  // things that don't exist here would just be fabricated status.
+  // Fyers itself is real: /api/fyers-status/ already existed, this
+  // just surfaces it. Also found and NOT perpetuated a real bug while
+  // wiring this up -- that endpoint's own "message" field says
+  // "Please authenticate via /api/fyers/login/", but no such route is
+  // registered anywhere in urls.py; that's a dead link baked into the
+  // API response. The one real way to connect, confirmed by reading
+  // FyersDisconnectView's own docstring, is running get_fyers_token.py
+  // from the project root -- no in-app connect flow exists to link to,
+  // so this says that plainly instead of adding a "Set up" button that
+  // would click through to nothing. Disconnect, unlike connect, DOES
+  // have a real working endpoint (/api/fyers-disconnect/) -- wired to
+  // an actual button, not a placeholder.
+  const [fyersStatus, setFyersStatus] = useState(null);
+  const [fyersLoading, setFyersLoading] = useState(true);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const loadFyersStatus = () => {
+    setFyersLoading(true);
+    fetch(`${API_BASE}/api/fyers-status/`)
+      .then(r => r.json())
+      .then(d => setFyersStatus(d))
+      .catch(() => setFyersStatus(null))
+      .finally(() => setFyersLoading(false));
+  };
+  useEffect(() => { loadFyersStatus(); }, []);
+
+  const disconnectFyers = async () => {
+    setDisconnecting(true);
+    try {
+      await fetch(`${API_BASE}/api/fyers-disconnect/`, { method: 'POST' });
+    } catch (e) {
+      // best-effort -- loadFyersStatus() below re-checks either way
+    } finally {
+      setDisconnecting(false);
+      loadFyersStatus();
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     fetch(`${API_BASE}/api/settings/risk-budget/`)
@@ -98,11 +143,45 @@ export default function SettingsPanel({ onDensityChange }) {
   };
 
   return (
-    <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4 max-w-lg">
-      <h3 className="text-sm font-bold text-white mb-3">Settings</h3>
+    <div className="space-y-3 max-w-lg">
+      <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
+        <h3 className="text-sm font-bold text-white mb-3">Connections</h3>
+        {fyersLoading ? (
+          <div className="text-xs text-slate-500">Checking…</div>
+        ) : (
+          <div className="flex items-center justify-between rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2.5">
+            <div>
+              <div className="text-sm font-medium text-white">Fyers Broker API</div>
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                {fyersStatus?.authenticated
+                  ? (fyersStatus.message || 'Connected')
+                  : 'Not connected — run get_fyers_token.py from the project root (no in-app connect flow exists yet)'}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 ml-3">
+              <span className={`w-1.5 h-1.5 rounded-full ${fyersStatus?.authenticated ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+              <span className={`text-xs font-medium ${fyersStatus?.authenticated ? 'text-emerald-400' : 'text-slate-500'}`}>
+                {fyersStatus?.authenticated ? 'Connected' : 'Not connected'}
+              </span>
+              {fyersStatus?.authenticated && (
+                <button
+                  onClick={disconnectFyers}
+                  disabled={disconnecting}
+                  className="text-xs text-rose-400 hover:text-rose-300 disabled:opacity-50 ml-1"
+                >
+                  {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
 
-      <div className="mb-4">
-        <p className="text-xs font-medium text-slate-300 mb-1.5">Table Density</p>
+      <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
+        <h3 className="text-sm font-bold text-white mb-3">Settings</h3>
+
+        <div className="mb-4">
+          <p className="text-xs font-medium text-slate-300 mb-1.5">Table Density</p>
         <div className="flex gap-1 bg-slate-900/50 p-0.5 rounded-lg w-fit">
           {VALID_DENSITIES.map(d => (
             <button
@@ -169,6 +248,7 @@ export default function SettingsPanel({ onDensityChange }) {
         <p className="text-xs text-slate-400">🎨 Theme — sun/moon icon, top navigation bar</p>
         <p className="text-xs text-slate-400">🔔 Notification alerts — toggle in the Live Signals tab</p>
         <p className="text-xs text-slate-400">📍 Default tab — remembers whichever tab you last had open</p>
+      </div>
       </div>
     </div>
   );
