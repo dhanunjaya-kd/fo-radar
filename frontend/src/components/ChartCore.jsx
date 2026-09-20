@@ -66,7 +66,7 @@ function ChartTooltip({ active, payload, isIntraday }) {
 
 // priceHeight/rsiHeight let the full-page version render noticeably
 // bigger than the modal's compact 280/100 -- same component either way.
-export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }) {
+export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, priceOverlay = null }) {
   const [intervalType, setIntervalType] = useState('D');
   const [range, setRange] = useState('6M');
   const [showEma, setShowEma] = useState({ ema10: true, ema20: true, ema50: true, ema200: true });
@@ -83,7 +83,7 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
   const [error, setError] = useState(null);
 
   const isIntraday = intervalType === '15' || intervalType === '30';
-  const RANGE_OPTIONS = isIntraday ? ['1D', '5D'] : ['1D', '3M', '6M', 'YTD', '12M'];
+  const RANGE_OPTIONS = isIntraday ? ['1D', '5D'] : ['1D', '3M', '6M', 'YTD', '12M', '5Y', 'ALL'];
   const selectInterval = (v) => {
     setIntervalType(v);
     const nowIntraday = v === '15' || v === '30';
@@ -201,23 +201,26 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100 }
 
       {!loading && !error && candles.length > 0 && (
         <>
-          <ResponsiveContainer width="100%" height={priceHeight}>
-            <ComposedChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
-              <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
-              <Tooltip content={<ChartTooltip isIntraday={isIntraday} />} />
-              <Bar dataKey="range" shape={<Candle />} isAnimationActive={false} />
-              {showEma.ema10 && <Line type="monotone" dataKey="ema10" stroke={EMA_COLORS.ema10} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
-              {showEma.ema20 && <Line type="monotone" dataKey="ema20" stroke={EMA_COLORS.ema20} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
-              {showEma.ema50 && <Line type="monotone" dataKey="ema50" stroke={EMA_COLORS.ema50} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
-              {showEma.ema200 && <Line type="monotone" dataKey="ema200" stroke={EMA_COLORS.ema200} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
-              {showBB && <Line type="monotone" dataKey="bb_upper" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
-              {showBB && <Line type="monotone" dataKey="bb_mid" stroke="#94a3b8" dot={false} strokeWidth={1} isAnimationActive={false} />}
-              {showBB && <Line type="monotone" dataKey="bb_lower" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
-              {showPSAR && <Line dataKey="psar" stroke="none" dot={<PsarDot />} isAnimationActive={false} />}
-            </ComposedChart>
-          </ResponsiveContainer>
+          <div className="relative">
+            <ResponsiveContainer width="100%" height={priceHeight}>
+              <ComposedChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
+                <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
+                <Tooltip content={<ChartTooltip isIntraday={isIntraday} />} />
+                <Bar dataKey="range" shape={<Candle />} isAnimationActive={false} />
+                {showEma.ema10 && <Line type="monotone" dataKey="ema10" stroke={EMA_COLORS.ema10} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
+                {showEma.ema20 && <Line type="monotone" dataKey="ema20" stroke={EMA_COLORS.ema20} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
+                {showEma.ema50 && <Line type="monotone" dataKey="ema50" stroke={EMA_COLORS.ema50} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
+                {showEma.ema200 && <Line type="monotone" dataKey="ema200" stroke={EMA_COLORS.ema200} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
+                {showBB && <Line type="monotone" dataKey="bb_upper" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
+                {showBB && <Line type="monotone" dataKey="bb_mid" stroke="#94a3b8" dot={false} strokeWidth={1} isAnimationActive={false} />}
+                {showBB && <Line type="monotone" dataKey="bb_lower" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
+                {showPSAR && <Line dataKey="psar" stroke="none" dot={<PsarDot />} isAnimationActive={false} />}
+              </ComposedChart>
+            </ResponsiveContainer>
+            {priceOverlay}
+          </div>
 
           <div className="flex items-center justify-between mt-3 mb-1">
             <span className="text-xs text-slate-500">RSI (14)</span>
