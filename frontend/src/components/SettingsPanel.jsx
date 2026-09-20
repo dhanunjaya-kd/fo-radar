@@ -152,11 +152,17 @@ export default function SettingsPanel({ onDensityChange }) {
           <div className="flex items-center justify-between rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2.5">
             <div>
               <div className="text-sm font-medium text-white">Fyers Broker API</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">
-                {fyersStatus?.authenticated
-                  ? (fyersStatus.message || 'Connected')
-                  : 'Not connected — run get_fyers_token.py from the project root (no in-app connect flow exists yet)'}
-              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">{fyersStatus?.message}</div>
+              {/* Sep 19 2026: real diagnostic detail (Fyers' own
+                  response code/message, or a clear config problem)
+                  behind a failed check, not just "Not connected" --
+                  direct request, confirmed live: a genuinely valid,
+                  Fyers-side-connected token still showed Disconnected
+                  here, and this is what actually finds out why on the
+                  next check instead of guessing again. */}
+              {fyersStatus?.error_detail && (
+                <div className="text-[11px] text-rose-400/90 mt-1">⚠ {fyersStatus.error_detail}</div>
+              )}
             </div>
             <div className="flex items-center gap-2 shrink-0 ml-3">
               <span className={`w-1.5 h-1.5 rounded-full ${fyersStatus?.authenticated ? 'bg-emerald-400' : 'bg-slate-600'}`} />
