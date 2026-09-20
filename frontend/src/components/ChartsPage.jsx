@@ -127,20 +127,19 @@ export default function ChartsPage({ initialSymbol }) {
         {tool !== 'none' && <span className="text-[10px] text-slate-500 ml-1">Click the active pane's chart to draw · click a pane first to make it active</span>}
       </div>
 
-      <div className="flex gap-4 items-start">
-        <div className={`grid ${gridCols} gap-4 flex-1 min-w-0`}>
-          {visiblePanes.map((symbol, idx) => (
-            <div
-              key={`pane-${idx}`}
-              onClick={() => setActivePane(idx)}
-              className={`rounded-xl transition-shadow ${activePane === idx ? 'ring-1 ring-emerald-500/40' : ''}`}
-            >
-              <Pane key={symbol} symbol={symbol} priceHeight={priceHeight} tool={activePane === idx ? tool : 'none'} />
-            </div>
-          ))}
-        </div>
-        <WatchlistRail activeSymbol={panes[activePane]} onSelect={(s) => setPaneSymbol(activePane, s)} />
+      <div className={`grid ${gridCols} gap-4`}>
+        {visiblePanes.map((symbol, idx) => (
+          <div
+            key={`pane-${idx}`}
+            onClick={() => setActivePane(idx)}
+            className={`rounded-xl transition-shadow ${activePane === idx ? 'ring-1 ring-emerald-500/40' : ''}`}
+          >
+            <Pane key={symbol} symbol={symbol} priceHeight={priceHeight} tool={activePane === idx ? tool : 'none'} />
+          </div>
+        ))}
       </div>
+
+      <WatchlistRail activeSymbol={panes[activePane]} onSelect={(s) => setPaneSymbol(activePane, s)} />
     </div>
   );
 }
