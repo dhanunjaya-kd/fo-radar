@@ -6713,6 +6713,49 @@ def _add_chart_indicators(df):
     return df
 
 
+class WatchlistQuotesView(APIView):
+    """
+    Sep 19 2026: powers the new Charts-page watchlist rail -- a small,
+    fixed list of symbols with live price/change, click-to-switch the
+    main chart. Deliberately READ-ONLY against the same caches
+    Scanner/Market Pulse already keep warm (_breadth_quote_cache,
+    falling back to _stock_cache for the few FNO_STOCKS not also in
+    the Nifty 500 snapshot) -- no new Fyers calls from this view at
+    all, same reasoning as ScannerView's own docstring: a handful of
+    symbols is cheap regardless, but there's no reason to add a THIRD
+    place in this app that fetches live quotes when two already exist
+    and this rail's whole symbol list sits inside what they already
+    cover.
+    GET /api/watchlist-quotes/?symbols=NIFTY,BANKNIFTY,RELIANCE,...
+    A symbol not yet in either cache is simply left out of the
+    response rather than faked -- same honesty rule as everywhere
+    else, not a special case for this view.
+    """
+    def get(self, request):
+        symbols_param = request.GET.get('symbols', '')
+        symbols = [s.strip().upper() for s in symbols_param.split(',') if s.strip()]
+        if not symbols:
+            return Response({"quotes": []})
+
+        with _breadth_cache_lock:
+            breadth_quotes = dict(_breadth_quote_cache)
+        with _cache_lock:
+            fno_quotes = dict(_stock_cache)
+
+        quotes = []
+        for sym in symbols:
+            q = breadth_quotes.get(sym) or fno_quotes.get(sym)
+            if not q:
+                continue
+            quotes.append({
+                "symbol": sym,
+                "company_name": _get_company_name(sym),
+                "price": q.get('price'),
+                "change_percent": q.get('change_percent'),
+            })
+        return Response({"quotes": quotes})
+
+
 class CandleChartView(APIView):
     """
     Sep 7 2026: real OHLC candles + EMA(10/20/50/200) + RSI(14) for the
@@ -6891,14 +6934,119 @@ class CandleChartView(APIView):
         # Sep 19 2026: YTD added, direct request -- computed dynamically
         # (days since Jan 1 of the current year), always safely under
         # the 366-day-per-call limit below by construction (it's at
-        # most one calendar year). "5Y"/"ALL" deliberately NOT added
-        # here -- both would need MULTIPLE chained 366-day-max calls
-        # concatenated together, a genuinely different pagination
-        # scheme from the two-call visible+buffer approach below, not
-        # a one-line addition to this dict.
+        # most one calendar year).
         ytd_days = (datetime.now().date() - datetime(datetime.now().year, 1, 1).date()).days + 1
-        RANGE_DAYS = {"3M": 90, "6M": 182, "12M": 365, "YTD": ytd_days}
+        RANGE_DAYS = {"3M": 90, "6M": 182, "12M": 365, "YTD": ytd_days, "5Y": 1825}
         visible_days = RANGE_DAYS.get(range_param, 182)
+
+        # Sep 19 2026: 5Y/ALL added -- genuinely different pagination
+        # from the two-call visible+buffer scheme below (that scheme
+        # is sized for <=365-day visible windows; 5Y is 1825 days, ALL
+        # is unbounded). Works backward in <=365-day chunks (the same
+        # real Fyers limit found live on Sep 8, still respected here,
+        # just chunked around instead of hit), concatenating each
+        # response, until either the target duration is covered (5Y)
+        # or Fyers returns an empty chunk -- which for a real, listed
+        # stock means "gone past its IPO/listing date," the honest
+        # signal to stop, not an error. ALL uses a 15-year (5,475-day)
+        # SAFETY CAP, not a truly unbounded loop -- if the empty-
+        # response stop condition somehow never fires, this is what
+        # keeps a single request from turning into an ever-growing
+        # chain of calls. No separate EMA200-warmup buffer call is
+        # needed here the way the <=365-day ranges need one -- a 5Y+
+        # chunked fetch already goes far beyond any 200-period EMA's
+        # own warmup requirement on its own.
+        # Real, new cost, stated plainly: 5Y is ~5 chunked calls, ALL
+        # up to ~15 -- each still individually governed by the same
+        # _call() pacing as every other Fyers call in this file, so
+        # this is slower for the user (a few real seconds), not a
+        # burst-risk the rate limiter would ever see as one.
+        if range_param in ("5Y", "ALL"):
+            MAX_ALL_DAYS = 5475
+            target_days = visible_days if range_param == "5Y" else MAX_ALL_DAYS
+            all_candles = []
+            chunk_end = datetime.now().date()
+            days_covered = 0
+            while days_covered < target_days:
+                chunk_days = min(365, target_days - days_covered)
+                chunk_start = chunk_end - timedelta(days=chunk_days)
+                try:
+                    resp = get_history(fyers_symbol, resolution="D",
+                                        range_from=str(chunk_start), range_to=str(chunk_end))
+                except Exception as e:
+                    print(f"[CandleChart] {fyers_symbol} {range_param} chunk fetch failed, stopping there: {e}")
+                    break
+                if not resp or resp.get("s") != "ok" or not resp.get("candles"):
+                    break  # no more history available (hit listing date, or a real gap) -- stop, not an error
+                all_candles.extend(resp["candles"])
+                chunk_end = chunk_start - timedelta(days=1)
+                days_covered += chunk_days
+
+            if not all_candles:
+                return Response({
+                    "error": "No real historical data available for this symbol right now.",
+                    "symbol": sym,
+                }, status=503)
+
+            raw = sorted(all_candles, key=lambda c: c[0])
+            df = pd.DataFrame(
+                [c[:6] for c in raw if len(c) >= 6],
+                columns=["time", "open", "high", "low", "close", "volume"],
+            ).drop_duplicates(subset="time")
+            df["time"] = pd.to_datetime(df["time"], unit="s")
+
+            if interval == "W":
+                df = (
+                    df.set_index("time").resample("W")
+                    .agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"})
+                    .dropna(subset=["open"]).reset_index()
+                )
+
+            for period in (10, 20, 50, 200):
+                df[f"ema{period}"] = df["close"].ewm(span=period, adjust=False).mean()
+            delta = df["close"].diff()
+            gain = delta.clip(lower=0)
+            loss = -delta.clip(upper=0)
+            avg_gain = gain.ewm(alpha=1 / 14, adjust=False).mean()
+            avg_loss = loss.ewm(alpha=1 / 14, adjust=False).mean()
+            rs = avg_gain / avg_loss.replace(0, np.nan)
+            rsi = 100 - (100 / (1 + rs))
+            rsi = rsi.where(avg_loss != 0, 100.0)
+            rsi = rsi.where(~((avg_gain == 0) & (avg_loss == 0)), 50.0)
+            df["rsi14"] = rsi
+            df.loc[df.index[:14], "rsi14"] = np.nan
+            df = _add_chart_indicators(df)
+            # "ALL" shows everything actually fetched, by definition --
+            # no separate visible-window trim the way every other
+            # range gets one.
+            visible = df if range_param == "ALL" else df[df["time"] >= df["time"].max() - pd.Timedelta(days=visible_days)]
+
+            candles = [
+                {
+                    "time": int(row.time.timestamp()),
+                    "open": float(row.open), "high": float(row.high),
+                    "low": float(row.low), "close": float(row.close),
+                    "volume": int(row.volume),
+                    "ema10": float(row.ema10), "ema20": float(row.ema20),
+                    "ema50": float(row.ema50), "ema200": float(row.ema200),
+                    "rsi14": float(row.rsi14),
+                    "macd_line": float(row.macd_line), "macd_signal": float(row.macd_signal),
+                    "macd_hist": float(row.macd_hist),
+                    "bb_upper": float(row.bb_upper), "bb_mid": float(row.bb_mid), "bb_lower": float(row.bb_lower),
+                    "adx14": float(row.adx14), "plus_di": float(row.plus_di), "minus_di": float(row.minus_di),
+                    "stochrsi": float(row.stochrsi), "stochrsi_k": float(row.stochrsi_k), "stochrsi_d": float(row.stochrsi_d),
+                    "cci20": float(row.cci20),
+                    "psar": float(row.psar), "psar_trend": int(row.psar_trend),
+                    "mfi14": float(row.mfi14),
+                    "aroon_up": float(row.aroon_up), "aroon_down": float(row.aroon_down),
+                }
+                for row in visible.itertuples()
+            ]
+            return Response(clean_json({
+                "symbol": sym, "fyers_symbol": fyers_symbol,
+                "interval": interval, "range": range_param,
+                "candles": candles,
+            }))
 
         # Sep 8 2026: real bug, confirmed live against Fyers -- a single
         # history request spanning more than 366 days for D/W/M
