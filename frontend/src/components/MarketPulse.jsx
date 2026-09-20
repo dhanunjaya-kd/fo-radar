@@ -55,7 +55,7 @@ function BreadthTile({ label, tag, tagColor, children }) {
 
 function ProgressTile({ title, icon, value, valueLabel, subLabel, pct, barColor, footer }) {
   return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3.5">
+    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[11px] font-semibold text-slate-400 tracking-wide">{title}</span>
         {icon}

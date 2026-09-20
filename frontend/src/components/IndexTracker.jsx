@@ -287,8 +287,8 @@ export function TrendMomentumCard({ indexName }) {
     : 'text-slate-300';
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-      <div className="flex items-center justify-between mb-3">
+    <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3.5">
+      <div className="flex items-center justify-between mb-2.5">
         <h3 className="text-sm font-semibold text-white">{DISPLAY_NAME[indexName] || indexName} · Trend &amp; Momentum</h3>
         <div className="flex items-center gap-2">
           {frozen && (
@@ -646,7 +646,7 @@ function IndexSection({ indexName, showBacktest = true, showCasMoves = true, top
           index at a time (see IndexTracker() below) -- stacks under
           the chart on small screens rather than squeezing both side
           by side. */}
-      <div className="px-4 pt-4 flex flex-col lg:flex-row gap-4">
+      <div className="px-3.5 pt-3.5 flex flex-col lg:flex-row gap-3">
         <div className="flex-1 min-w-0">
           <IndexPriceChart indexName={indexName} />
           <div className="mt-3">
@@ -670,7 +670,7 @@ function IndexSection({ indexName, showBacktest = true, showCasMoves = true, top
           duplicate pixels. TrendMomentumCard itself is untouched below
           (still exported) since Dashboard still needs it. */}
 
-      <div className="p-4">
+      <div className="p-3.5">
         {loading && rows.length === 0 && (
           <div className="py-8 text-center text-slate-500 text-sm">Loading {DISPLAY_NAME[indexName] || indexName} snapshots...</div>
         )}
@@ -697,7 +697,7 @@ function IndexSection({ indexName, showBacktest = true, showCasMoves = true, top
 
 export default function IndexTracker() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <TabInfoBanner>
         NIFTY, BANKNIFTY, and SENSEX, snapshotted every scan cycle. "Fut" is the real front-month futures
         price; "Fut OI" and "Fut OI Chg%" (day-over-day) are tracked via Fyers' Market Depth API for
@@ -717,8 +717,8 @@ export default function IndexTracker() {
       <IndexSection
         indexName="NIFTY"
         topSideContent={
-          <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-4 h-full">
-            <h3 className="text-sm font-bold text-white mb-3">Advances / Declines</h3>
+          <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-3.5 h-full">
+            <h3 className="text-sm font-bold text-white mb-2.5">Advances / Declines</h3>
             <AdvanceDeclineDonut />
           </div>
         }
