@@ -169,7 +169,7 @@ export default function MarketPulse() {
   const closedWithStaleData = data.market_open === false && (ad.count_with_data || 0) > 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {closedWithNoData && (
         <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg px-3 py-2 text-xs text-slate-400">
           Market closed — no live session data yet. This panel refreshes automatically once trading resumes.
@@ -181,8 +181,8 @@ export default function MarketPulse() {
         </div>
       )}
       {/* Market Pulse headline card */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-        <div className="flex items-center justify-between mb-3">
+      <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5">
+        <div className="flex items-center justify-between mb-2.5">
           <span className="text-sm font-semibold text-white">Market Pulse</span>
           {mood.strength && (
             <span className="text-[11px] font-bold text-emerald-400 border border-emerald-500/30 bg-emerald-500/10 rounded px-2 py-0.5">
@@ -190,7 +190,7 @@ export default function MarketPulse() {
             </span>
           )}
         </div>
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-3">
           <MoodGauge score={mood.score} label={mood.label} />
           <div className="flex-1 min-w-0">
             <div className="text-[11px] text-slate-500 mb-0.5">

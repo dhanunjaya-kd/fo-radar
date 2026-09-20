@@ -155,8 +155,8 @@ export default function IndexCard({ indexName, displayName }) {
   const isVix = data.regime_kind === 'vix_level';
 
   return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-2">
+    <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5">
+      <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
           <span className="text-xs font-semibold text-slate-300">{displayName}</span>

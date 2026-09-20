@@ -50,7 +50,7 @@ import { TrendMomentumCard } from './IndexTracker';
 // NoTradeLogView/P0-6), not a second view of the same signals.
 export default function Dashboard({ onNavigate }) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <DataHealthStrip />
       {/* Sep 18 2026: 4 index cards (sparkline + 18-day range + real
           regime badge), sitting above Market Pulse per the reference
@@ -58,7 +58,7 @@ export default function Dashboard({ onNavigate }) {
           grid below, which shows genuinely different detail
           (RSI/SMA/ATR/pivot levels) this new card intentionally
           keeps compact. Neither replaces the other. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
         <IndexCard indexName="NIFTY" displayName="NIFTY 50" />
         <IndexCard indexName="BANKNIFTY" displayName="BANK NIFTY" />
         <IndexCard indexName="SENSEX" displayName="SENSEX" />
@@ -71,11 +71,11 @@ export default function Dashboard({ onNavigate }) {
           same TrendMomentumCard component (now a named export from
           IndexTracker.jsx) rather than a duplicate copy, so a future
           change to the card only has to happen in one place. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <TrendMomentumCard indexName="NIFTY" />
         <TrendMomentumCard indexName="BANKNIFTY" />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2">
           <TopLiveSignals onViewAll={onNavigate ? () => onNavigate('signals') : null} limit={3} />
         </div>
