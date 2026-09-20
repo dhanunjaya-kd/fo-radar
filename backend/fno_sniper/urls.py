@@ -17,6 +17,7 @@ from screener.views import (
     DataHealthView, TrendMomentumView, NextDayWatchlistView, RiskBudgetSettingsView,
     EODScanTriggerView, OptionHistoryView, CandleChartView, NextTradingSessionView,
     WatchlistQuotesView,
+    UserWatchlistView,
     ScannerView,
 )
 from screener.next_day_watchlist_history import (
@@ -89,6 +90,8 @@ urlpatterns = [
     path('api/option-history/', OptionHistoryView.as_view(), name='option_history'),
     path('api/candles/<str:symbol>/', CandleChartView.as_view(), name='candle_chart'),
     path('api/watchlist-quotes/', WatchlistQuotesView.as_view(), name='watchlist_quotes'),
+    path('api/user-watchlist/', UserWatchlistView.as_view(), name='user_watchlist'),
+    path('api/user-watchlist/<str:symbol>/', UserWatchlistView.as_view(), name='user_watchlist_symbol'),
     path('api/next-trading-session/<str:market>/', NextTradingSessionView.as_view(), name='next_trading_session'),
     path('api/screener/', include('screener.urls')),
     path('api/options/', include('options.urls')),
