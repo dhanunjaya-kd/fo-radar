@@ -5233,11 +5233,25 @@ class FundamentalsWatchlistView(APIView):
 class FyersStatusView(APIView):
     def get(self, request):
         auth = is_authenticated()
+        # Sep 19 2026: real bug found live -- this "message" field
+        # pointed to /api/fyers/login/, a route that was never actually
+        # registered anywhere in urls.py (confirmed by grepping this
+        # project's own urls.py, not assumed). Fixed to name the real
+        # mechanism (get_fyers_token.py -- see FyersDisconnectView's own
+        # docstring, no in-app connect flow exists). error_detail is new:
+        # the actual Fyers response code/message (or a clear config
+        # problem like a missing CLIENT_ID) behind the last failed
+        # check, not just a flat "Disconnected" -- see
+        # is_authenticated()'s own Sep 19 comment for the real incident
+        # this was built to diagnose (a genuinely valid token, confirmed
+        # connected on Fyers' own dashboard, still failing here).
+        from .fyers_client import get_last_auth_error
         return Response({
             "authenticated": auth,
-            "client_id": CLIENT_ID if auth else None,
+            "client_id": CLIENT_ID or None,
             "status": "Connected" if auth else "Disconnected",
-            "message": "Fyers API v3 active" if auth else "Please authenticate via /api/fyers/login/"
+            "message": "Fyers API v3 active" if auth else "Not connected -- run get_fyers_token.py from the project root (no in-app connect flow exists yet)",
+            "error_detail": None if auth else get_last_auth_error(),
         })
 
 

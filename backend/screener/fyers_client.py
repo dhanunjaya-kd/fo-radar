@@ -169,7 +169,7 @@ def _refresh_access_token():
 # ---------------------------------------------------------------------------
 # Authentication cache
 # ---------------------------------------------------------------------------
-_auth_cache = {"value": None, "checked_at": 0.0}
+_auth_cache = {"value": None, "checked_at": 0.0, "last_error": None}
 _AUTH_SUCCESS_TTL = 30.0
 _AUTH_FAILURE_TTL = 5.0
 
@@ -297,11 +297,38 @@ def is_authenticated():
     if cached is not None and age < ttl:
         return cached
 
+    # Sep 19 2026: real bug found live -- get_fyers_token.py (run
+    # standalone) succeeded and Fyers' OWN dashboard showed the app as
+    # Connected, yet this function kept reporting False. The token
+    # file itself was never the problem (get_access_token() already
+    # re-reads it fresh every call, no stale caching there); the
+    # SYMPTOM -- "a genuinely valid token still fails here" -- is
+    # exactly what a CLIENT_ID mismatch looks like (Fyers ties a token
+    # to the specific app it was issued for; pairing a real token with
+    # the WRONG or missing client_id fails the profile check even
+    # though the token itself is fine). CLIENT_ID here comes from the
+    # FYERS_APP_ID environment variable (settings.py), which is a
+    # SEPARATE value from whatever get_fyers_token.py itself used to
+    # generate the auth URL -- if those two aren't the same app ID,
+    # this is exactly what results. Rather than assert that's the
+    # cause without being able to see his actual .env file, last_error
+    # now carries the REAL diagnostic (Fyers' own response code/
+    # message, or a direct "CLIENT_ID isn't set" when that's the
+    # issue) all the way to the UI -- so the actual cause is visible on
+    # the next check, not guessed at a second time.
+    if not CLIENT_ID:
+        result = False
+        _auth_cache["last_error"] = "FYERS_APP_ID isn't set (checked the FYERS_APP_ID environment variable) -- a token alone can't authenticate without knowing which Fyers app it belongs to."
+        _auth_cache["value"] = result
+        _auth_cache["checked_at"] = time.monotonic()
+        return result
+
     try:
         fyers = get_fyers_client()
         resp = _call(fyers.get_profile, "Profile")
         if resp is not None and resp.get("s") == "ok":
             result = True
+            _auth_cache["last_error"] = None
         elif resp is not None and str(resp.get("code")) == "-8":
             print("[Fyers] Access token expired -- attempting automatic refresh.")
             if _refresh_access_token():
@@ -312,17 +339,33 @@ def is_authenticated():
                 result = False
             if not result and resp:
                 print(f"[Fyers] Profile after refresh returned not-ok: {resp}")
+            _auth_cache["last_error"] = None if result else f"Token refresh didn't resolve it -- Fyers said: {resp}"
         else:
             result = False
             if resp is not None:
                 print(f"[Fyers] is_authenticated(): profile check returned not-ok: {resp}")
+                code = resp.get("code")
+                message = resp.get("message") or resp.get("s")
+                _auth_cache["last_error"] = f"Fyers rejected the profile check (code {code}): {message}"
+            else:
+                _auth_cache["last_error"] = "No response from Fyers (network issue, timeout, or rate limit -- see server console for which)."
     except Exception as exc:
         print(f"[Fyers] is_authenticated(): profile setup failed: {exc}")
         result = False
+        _auth_cache["last_error"] = f"Client setup failed: {exc}"
 
     _auth_cache["value"] = result
     _auth_cache["checked_at"] = time.monotonic()
     return result
+
+
+def get_last_auth_error():
+    """The real diagnostic detail behind the last is_authenticated()
+    failure (Fyers' own response code/message, or a clear config
+    problem like a missing CLIENT_ID) -- None when currently
+    authenticated. Read by FyersStatusView so the actual cause is
+    visible in the UI instead of a flat 'Not connected.'"""
+    return _auth_cache.get("last_error")
 
 
 def get_quotes(symbols):
