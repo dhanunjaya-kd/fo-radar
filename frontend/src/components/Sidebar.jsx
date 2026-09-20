@@ -71,21 +71,34 @@ export default function Sidebar({ tabs, activeTab, onSelect, brand }) {
 
   return (
     <div className={`sidebar-nav flex flex-col shrink-0 h-screen sticky top-0 border-r border-slate-800/60 bg-slate-950/60 transition-all duration-200 ${collapsed ? 'w-[64px]' : 'w-[220px]'}`}>
-      <div className={`flex items-center gap-2.5 px-3 py-4 ${collapsed ? 'justify-center' : ''}`}>
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shrink-0">
-          <span className="text-white font-bold text-base leading-none">M</span>
+      {/* Sep 19 2026: collapse button moved INLINE beside the brand
+          block when EXPANDED -- was on its own row below (via mb-3 +
+          self-end) regardless of state, which is exactly the "extra
+          space taken up underneath" being pointed at. Matches the
+          reference's own layout: icon + name/subtitle on the left,
+          chevron on the right, one row, not two.
+          COLLAPSED stays a separate row on purpose, not a copy-paste
+          leftover: at 64px total width, icon (32px) + gap + button
+          (28px) genuinely don't fit on one row without overflowing --
+          verified by adding the actual widths, not assumed. Only the
+          expanded case had the complained-about problem; collapsed
+          already looked right. */}
+      <div className={`flex items-center gap-2.5 px-3 pt-4 ${collapsed ? 'flex-col' : 'justify-between py-4'}`}>
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shrink-0">
+            <span className="text-white font-bold text-base leading-none">M</span>
+          </div>
+          {!collapsed && brand}
         </div>
-        {!collapsed && brand}
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={`flex items-center justify-center w-7 h-7 rounded-md border border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors shrink-0 ${collapsed ? 'mt-3 mb-1' : ''}`}
+        >
+          {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
+        </button>
       </div>
-
-      <button
-        onClick={() => setCollapsed(c => !c)}
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        className={`mx-3 mb-3 flex items-center justify-center w-7 h-7 rounded-md border border-slate-700/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors ${collapsed ? '' : 'self-end mr-3'}`}
-      >
-        {collapsed ? <IconChevronRight /> : <IconChevronLeft />}
-      </button>
 
       <nav className="flex-1 overflow-y-auto px-2 space-y-1">
         {(() => {
