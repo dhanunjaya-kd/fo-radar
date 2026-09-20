@@ -122,7 +122,7 @@ function ExplainPanel({ explain }) {
   );
 }
 
-function StockCard({ stock, onOpenChart }) {
+function StockCard({ stock, onOpenChart, isWatchlisted, onToggleWatchlist }) {
   const positive = (stock.change_percent || 0) >= 0;
   const [showExplain, setShowExplain] = useState(false);
   return (
@@ -130,6 +130,13 @@ function StockCard({ stock, onOpenChart }) {
       onClick={() => onOpenChart(stock.symbol)}
       className="group relative rounded-xl bg-gradient-to-b from-slate-900/80 to-slate-900/40 border border-slate-800 p-4 hover:border-slate-600 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 cursor-pointer"
     >
+      <button
+        onClick={(e) => { e.stopPropagation(); onToggleWatchlist(stock.symbol); }}
+        title={isWatchlisted ? 'Remove from watchlist' : 'Add to watchlist'}
+        className={`absolute top-3 right-3 z-10 text-base leading-none transition-colors ${isWatchlisted ? 'text-amber-400' : 'text-slate-600 hover:text-slate-400'}`}
+      >
+        {isWatchlisted ? '★' : '☆'}
+      </button>
       <div className="flex items-start justify-between mb-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -139,7 +146,7 @@ function StockCard({ stock, onOpenChart }) {
           <div className="text-[10px] text-slate-500 mt-0.5 truncate">{stock.company_name || stock.sector}</div>
         </div>
         {stock.score != null && (
-          <div className={`flex items-center gap-1 rounded-full border px-2 py-1 shrink-0 ${gradeColor(stock.grade)}`}>
+          <div className={`flex items-center gap-1 rounded-full border px-2 py-1 shrink-0 mr-5 ${gradeColor(stock.grade)}`}>
             <span className="text-xs font-bold">{stock.score}</span>
             <span className="text-[10px] opacity-70">{stock.grade}</span>
           </div>
@@ -224,7 +231,34 @@ export default function Scanner({ onOpenChart }) {
   const [error, setError] = useState(null);
   const [selectedPattern, setSelectedPattern] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [watchlisted, setWatchlisted] = useState(new Set());
   const dropdownRef = useRef(null);
+
+  // Sep 19 2026: fetched once here (not per-card) so 200+ cards on
+  // screen don't mean 200+ separate "am I watchlisted" requests --
+  // one fetch, a Set every card checks against.
+  useEffect(() => {
+    fetch(`${API_BASE}/api/user-watchlist/`)
+      .then(r => r.json())
+      .then(d => setWatchlisted(new Set((d.symbols || []))))
+      .catch(() => {});
+  }, []);
+
+  const toggleWatchlist = (symbol) => {
+    const inList = watchlisted.has(symbol);
+    // Optimistic update -- the request below is a single small POST/
+    // DELETE against an already-fast local endpoint, not worth a
+    // loading spinner on every star click.
+    setWatchlisted(prev => {
+      const next = new Set(prev);
+      inList ? next.delete(symbol) : next.add(symbol);
+      return next;
+    });
+    const req = inList
+      ? fetch(`${API_BASE}/api/user-watchlist/${symbol}/`, { method: 'DELETE' })
+      : fetch(`${API_BASE}/api/user-watchlist/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol }) });
+    req.then(() => { if (window.__refreshWatchlistRail) window.__refreshWatchlistRail(); }).catch(() => {});
+  };
 
   // Sep 19 2026: was a single fetch, full skeleton on every load --
   // fine once the backend's own cache is warm, but on a cold cache
@@ -401,7 +435,15 @@ export default function Scanner({ onOpenChart }) {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {visibleStocks.map(s => <StockCard key={s.symbol} stock={s} onOpenChart={onOpenChart} />)}
+              {visibleStocks.map(s => (
+                <StockCard
+                  key={s.symbol}
+                  stock={s}
+                  onOpenChart={onOpenChart}
+                  isWatchlisted={watchlisted.has(s.symbol)}
+                  onToggleWatchlist={toggleWatchlist}
+                />
+              ))}
             </div>
           )}
         </>
