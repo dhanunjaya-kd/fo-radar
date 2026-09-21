@@ -20,6 +20,7 @@ import StrategyBacktest from './components/StrategyBacktest';
 import CASRadar from './components/CASRadar';
 import Sidebar from './components/Sidebar';
 import MarketHeatmap from './components/MarketHeatmap';
+import SectorStrength from './components/SectorStrength';
 import Scanner from './components/Scanner';
 import ChartsPage from './components/ChartsPage';
 import MarqueeTicker from './components/MarqueeTicker';
@@ -161,7 +162,18 @@ function AppShell() {
           {activeTab === 'index' && <IndexTracker />}
           {activeTab === 'cas' && <CASRadar />}
           {activeTab === 'market' && <MarketView />}
-          {activeTab === 'heatmap' && <MarketHeatmap />}
+          {/* Sep 21 2026: SectorStrength moved here from Dashboard.jsx,
+              direct request -- LEADING/LAGGING sector rankings belong
+              alongside the sector-level heatmap view, not the 5-second-
+              glance Dashboard. Same component, same onNavigate wiring
+              Dashboard gave it (its own "View All" link), just a
+              different home. */}
+          {activeTab === 'heatmap' && (
+            <div className="space-y-3">
+              <MarketHeatmap />
+              <SectorStrength onNavigate={setActiveTab} />
+            </div>
+          )}
           {activeTab === 'scanner' && <Scanner onOpenChart={openChartsTab} />}
           {activeTab === 'charts' && <ChartsPage initialSymbol={chartsSymbol} />}
           {activeTab === 'nextday' && <NextDayWatchlist />}
