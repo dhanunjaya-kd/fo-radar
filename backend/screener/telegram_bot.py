@@ -1,5 +1,6 @@
 """Telegram Bot integration for F&O Radar alerts."""
 import os
+import time
 import requests
 from django.conf import settings
 
@@ -37,9 +38,36 @@ class TelegramBot:
             return None
 
     def send_message(self, message, parse_mode='HTML'):
-        """Send a text message to Telegram."""
+        """
+        Send a text message to Telegram.
+
+        Sep 21 2026: real, confirmed incident -- signals were logging
+        correctly (proven from the actual Excel log) but zero
+        Telegram alerts arrived, with only a quiet one-line console
+        print as the trace. Two changes here, addressing the two real
+        failure modes separately rather than one blanket fix:
+
+        1. Missing config (blank token/chat id) -- retrying gains
+           nothing (the same blank value fails the same way every
+           time), so this now prints a hard-to-miss, multi-line
+           warning ONCE instead of a single easy-to-scroll-past line,
+           pointing directly at test_telegram_alert.py (backend/,
+           same folder, run standalone anytime -- not market-hours-
+           or live-signal-dependent) for full diagnosis rather than
+           repeating that script's own detailed guidance here.
+        2. An actual send that fails (network blip, timeout, a
+           transient Telegram-side 5xx) -- THIS case retrying
+           genuinely helps, so up to 2 retries with a short backoff
+           (1s, then 2s) before giving up, each attempt's failure
+           reason printed so a persistent failure is still fully
+           diagnosable, not just eaten silently after 3 tries.
+        """
         if not self.bot_token or not self.chat_id:
-            print("[TelegramBot] Token or Chat ID not configured. Skipping send.")
+            print("=" * 60)
+            print("[TelegramBot] NOT CONFIGURED -- alert not sent.")
+            print("TELEGRAM_BOT_TOKEN and/or TELEGRAM_CHAT_ID missing from backend/.env")
+            print("Run: python test_telegram_alert.py  (from backend/) to diagnose and fix.")
+            print("=" * 60)
             return None
 
         url = f"{self.base_url}/sendMessage"
@@ -49,12 +77,26 @@ class TelegramBot:
             "parse_mode": parse_mode
         }
 
-        try:
-            response = requests.post(url, json=payload, timeout=10)
-            return response.json()
-        except Exception as e:
-            print(f"[TelegramBot] Error sending message: {e}")
-            return None
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = requests.post(url, json=payload, timeout=10)
+                data = response.json()
+                if data.get("ok"):
+                    return data
+                # A real Telegram-side rejection (bad token, bad chat
+                # id, message too long, etc.) -- retrying with the
+                # IDENTICAL payload would fail identically, so this
+                # does NOT retry; it reports the real reason instead.
+                print(f"[TelegramBot] Telegram rejected the message (attempt {attempt}/{max_attempts}): {data}")
+                return data
+            except Exception as e:
+                print(f"[TelegramBot] Send attempt {attempt}/{max_attempts} failed: {e}")
+                if attempt < max_attempts:
+                    time.sleep(attempt)  # 1s before attempt 2, 2s before attempt 3
+                else:
+                    print("[TelegramBot] All retry attempts exhausted -- message NOT delivered.")
+                    return None
 
     def send_signal_alert(self, symbol, signal_type, entry, sl, target, grade="A", strike=None):
         """Send a formatted signal alert."""
