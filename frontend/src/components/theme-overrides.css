@@ -65,13 +65,54 @@
      nearly vanishes into the light background, leaving what reads as
      a hollow, outline-only label. --sparkline-label-fill/-halo swap
      the halo/fill roles in light mode (dark fill, light halo) so the
-     same technique keeps working on either background. */
+     same technique keeps working on either background.
+
+   Sep 21 2026: real, confirmed complaint that light mode still
+   looked bad despite the Sep 19 pass -- re-audited the whole codebase
+   with a CORRECTED grep this time (the previous pass's regex didn't
+   properly exclude opacity-suffixed classes like bg-teal-500/10,
+   producing 18 apparent "gaps" that turned out to be false positives
+   on closer check -- every SOLID Tailwind color class in the app was
+   already covered). The real remaining gap was the same class this
+   file already correctly diagnosed once: raw hex in inline SVG/style
+   attributes, which no amount of class-name mapping can ever reach.
+   ChartCore.jsx (built entirely this session, so never audited this
+   way) had 17 hardcoded hex colors. Left UNCHANGED on purpose: the 14
+   that are DATA-series colors -- candle up/down, EMA10/20/50/200,
+   RSI/MACD/ADX/StochRSI/CCI/MFI/Aroon/PSAR line colors. Those are
+   meant to read the same in either theme, the same way a green "up"
+   candle or a specific EMA color shouldn't shift between light and
+   dark -- changing them would be a step backward, not a fix. Fixed
+   the 2 that are structural chrome, not data: CartesianGrid
+   (#1e293b, near-black -- rendered as a harsh dark grid crossing a
+   white chart in light mode, the single most visible break) and
+   every ReferenceLine (#475569 -- RSI 30/70, MACD zero, ADX 25,
+   StochRSI 20/80, CCI +/-100). --chart-grid-line/--chart-reference-
+   line's light values were pulled from this file's OWN existing
+   border-slate-800/border-slate-600 mappings just below (#e2e8f0 and
+   #94a3b8 respectively) rather than picked fresh, so the chart's
+   structural lines land on tones this app already uses elsewhere for
+   the same visual role, not a new, unrelated pair of grays. Axis tick
+   text (#64748b) was deliberately left as a literal, unvaried hex --
+   this file's own text-slate-500/600 light mappings already resolve
+   to that exact same value, confirming it already reads fine
+   unchanged in both themes. A third case, MarketPulse.jsx's tag-color
+   fallback and IndexCard.jsx's hover crosshair line, both hardcode
+   #94a3b8 (slate-400) directly rather than via a class -- and
+   slate-400 is NOT one of the "stays the same" tones like 500/600
+   above: this file's own .light .text-slate-400 mapping already
+   resolves to #475569, a real, different value, confirming raw
+   slate-400 genuinely needs the swap. --muted-slate-400 reuses that
+   exact established mapping rather than picking a fresh one. */
 :root {
   --gauge-needle: #e2e8f0;
   --gauge-score-text: #f1f5f9;
   --mood-gauge-track: #1e293b;
   --sparkline-label-fill: #fff;
   --sparkline-label-halo: #0f172a;
+  --chart-grid-line: #1e293b;
+  --chart-reference-line: #475569;
+  --muted-slate-400: #94a3b8;
 }
 .light {
   --gauge-needle: #334155;
@@ -79,6 +120,9 @@
   --mood-gauge-track: #e2e8f0;
   --sparkline-label-fill: #0f172a;
   --sparkline-label-halo: #ffffff;
+  --chart-grid-line: #e2e8f0;
+  --chart-reference-line: #94a3b8;
+  --muted-slate-400: #475569;
 }
 
 /* ---- Backgrounds (near-black -> near-white) ---- */

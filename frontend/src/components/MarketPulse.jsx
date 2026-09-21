@@ -46,61 +46,87 @@ function BreadthTile({ label, tag, tagColor, children }) {
       <div className="flex items-center gap-1.5 mb-1.5">
         <span className={`w-1.5 h-1.5 rounded-full ${tagColor}`} />
         <span className="text-[11px] font-semibold text-slate-400 tracking-wide">{label}</span>
-        <span className="text-[11px] font-semibold" style={{ color: tagColor ? undefined : '#94a3b8' }}>· {tag}</span>
+        <span className="text-[11px] font-semibold" style={{ color: tagColor ? undefined : 'var(--muted-slate-400)' }}>· {tag}</span>
       </div>
       <div className="text-sm text-slate-300 leading-snug">{children}</div>
     </div>
   );
 }
 
-function ProgressTile({ title, icon, value, valueLabel, subLabel, pct, barColor, footer }) {
+// Sep 19 2026: hover tooltip explaining what each tile actually
+// measured -- direct request, matching the reference's own per-tile
+// explanations. Every tooltip below is built from the SAME real
+// numbers already passed into that tile (ad.advancing, tp.count_with_data,
+// etc.), not a second data source or a generic description -- if a
+// number in the tile is "—" because that input didn't load, the
+// tooltip says so too, it doesn't paper over the gap with boilerplate.
+function InfoTooltip({ text, children }) {
+  if (!text) return children;
   return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-semibold text-slate-400 tracking-wide">{title}</span>
-        {icon}
-      </div>
-      <div className="flex items-baseline gap-2 mb-1">
-        <span className="text-xl font-bold text-white">{value}</span>
-        {valueLabel && <span className="text-[11px] font-semibold text-slate-500 tracking-wide">{valueLabel}</span>}
-      </div>
-      {pct != null && (
-        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-1.5">
-          <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, backgroundColor: barColor }} />
+    <div className="group relative">
+      {children}
+      <div className="pointer-events-none absolute z-20 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-[11px] text-slate-300 leading-snug shadow-xl">
+          {text}
         </div>
-      )}
-      <div className="text-[11px] text-slate-500">{subLabel}</div>
-      {footer && <div className="text-[11px] text-slate-500 mt-1">{footer}</div>}
+        <div className="w-2 h-2 bg-slate-950 border-r border-b border-slate-700 rotate-45 mx-auto -mt-1" />
+      </div>
     </div>
   );
 }
 
-function SplitTile({ title, universe, leftLabel, leftValue, leftSub, rightLabel, rightValue, rightSub, leftPct, unavailable }) {
+function ProgressTile({ title, icon, value, valueLabel, subLabel, pct, barColor, footer, tooltip }) {
   return (
-    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
-      <div className="text-[11px] font-semibold text-slate-400 tracking-wide mb-2">
-        {title}{universe ? ` · ${universe} STOCKS` : ''}
+    <InfoTooltip text={tooltip}>
+      <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-semibold text-slate-400 tracking-wide">{title}</span>
+          {icon}
+        </div>
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-xl font-bold text-white">{value}</span>
+          {valueLabel && <span className="text-[11px] font-semibold text-slate-500 tracking-wide">{valueLabel}</span>}
+        </div>
+        {pct != null && (
+          <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-1.5">
+            <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, backgroundColor: barColor }} />
+          </div>
+        )}
+        <div className="text-[11px] text-slate-500">{subLabel}</div>
+        {footer && <div className="text-[11px] text-slate-500 mt-1">{footer}</div>}
       </div>
-      {unavailable ? (
-        <div className="text-[11px] text-slate-500 italic">Not yet available — needs a year of price history this project doesn't fetch yet.</div>
-      ) : (
-        <>
-          <div className="flex justify-between text-xs mb-1">
-            <div>
-              <div className="text-[10px] text-slate-500">{leftLabel}</div>
-              <div className="text-emerald-400 font-semibold">{leftValue} <span className="text-slate-500">{leftSub}</span></div>
+    </InfoTooltip>
+  );
+}
+
+function SplitTile({ title, universe, leftLabel, leftValue, leftSub, rightLabel, rightValue, rightSub, leftPct, unavailable, tooltip }) {
+  return (
+    <InfoTooltip text={tooltip}>
+      <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
+        <div className="text-[11px] font-semibold text-slate-400 tracking-wide mb-2">
+          {title}{universe ? ` · ${universe} STOCKS` : ''}
+        </div>
+        {unavailable ? (
+          <div className="text-[11px] text-slate-500 italic">Not yet available — needs a year of price history this project doesn't fetch yet.</div>
+        ) : (
+          <>
+            <div className="flex justify-between text-xs mb-1">
+              <div>
+                <div className="text-[10px] text-slate-500">{leftLabel}</div>
+                <div className="text-emerald-400 font-semibold">{leftValue} <span className="text-slate-500">{leftSub}</span></div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] text-slate-500">{rightLabel}</div>
+                <div className="text-rose-400 font-semibold">{rightValue} <span className="text-slate-500">{rightSub}</span></div>
+              </div>
             </div>
-            <div className="text-right">
-              <div className="text-[10px] text-slate-500">{rightLabel}</div>
-              <div className="text-rose-400 font-semibold">{rightValue} <span className="text-slate-500">{rightSub}</span></div>
+            <div className="w-full h-1.5 bg-rose-500/30 rounded-full overflow-hidden">
+              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.max(0, Math.min(100, leftPct || 0))}%` }} />
             </div>
-          </div>
-          <div className="w-full h-1.5 bg-rose-500/30 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.max(0, Math.min(100, leftPct || 0))}%` }} />
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </InfoTooltip>
   );
 }
 

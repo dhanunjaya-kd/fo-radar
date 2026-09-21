@@ -71,8 +71,8 @@ function Sparkline({ values, dates, positive }) {
       <polyline points={points.join(' ')} fill="none" stroke={color} strokeWidth="1.5" />
       {hover && (
         <>
-          <line x1={hover.x} y1={0} x2={hover.x} y2={h} stroke="#94a3b8" strokeWidth="1" strokeDasharray="2,2" opacity="0.6" />
-          <circle cx={hover.x} cy={hover.y} r="2.5" fill="#fff" stroke={color} strokeWidth="1.5" />
+          <line x1={hover.x} y1={0} x2={hover.x} y2={h} stroke="var(--muted-slate-400)" strokeWidth="1" strokeDasharray="2,2" opacity="0.6" />
+          <circle cx={hover.x} cy={hover.y} r="2.5" fill="var(--sparkline-label-fill)" stroke={color} strokeWidth="1.5" />
           <text
             x={labelX} y={hover.y > h / 2 ? 10 : h - 6}
             textAnchor={labelAnchor} fontSize="9" fontWeight="700"

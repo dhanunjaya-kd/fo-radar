@@ -204,7 +204,7 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
           <div className="relative">
             <ResponsiveContainer width="100%" height={priceHeight}>
               <ComposedChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                <CartesianGrid stroke="var(--chart-grid-line)" strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
                 <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
                 <Tooltip content={<ChartTooltip isIntraday={isIntraday} />} />
@@ -230,8 +230,8 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
             <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
               <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
               <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[30, 70]} />
-              <ReferenceLine y={70} stroke="#475569" strokeDasharray="3 3" />
-              <ReferenceLine y={30} stroke="#475569" strokeDasharray="3 3" />
+              <ReferenceLine y={70} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
+              <ReferenceLine y={30} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
               <Line type="monotone" dataKey="rsi14" stroke="#38bdf8" dot={false} strokeWidth={1.4} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -250,7 +250,7 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
                 <ComposedChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
                   <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
-                  <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" />
+                  <ReferenceLine y={0} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
                   <Bar dataKey="macd_hist" isAnimationActive={false}>
                     {chartData.map((d, i) => (
                       <Cell key={i} fill={(d.macd_hist ?? 0) >= 0 ? '#34d399' : '#fb7185'} />
@@ -273,7 +273,7 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
                 <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
                   <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[25]} />
-                  <ReferenceLine y={25} stroke="#475569" strokeDasharray="3 3" />
+                  <ReferenceLine y={25} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
                   <Line type="monotone" dataKey="adx14" stroke="#f472b6" dot={false} strokeWidth={1.6} isAnimationActive={false} />
                   <Line type="monotone" dataKey="plus_di" stroke="#34d399" dot={false} strokeWidth={1} isAnimationActive={false} />
                   <Line type="monotone" dataKey="minus_di" stroke="#fb7185" dot={false} strokeWidth={1} isAnimationActive={false} />
@@ -292,8 +292,8 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
                 <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
                   <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[20, 80]} />
-                  <ReferenceLine y={80} stroke="#475569" strokeDasharray="3 3" />
-                  <ReferenceLine y={20} stroke="#475569" strokeDasharray="3 3" />
+                  <ReferenceLine y={80} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
+                  <ReferenceLine y={20} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
                   <Line type="monotone" dataKey="stochrsi_k" stroke="#a3e635" dot={false} strokeWidth={1.4} isAnimationActive={false} />
                   <Line type="monotone" dataKey="stochrsi_d" stroke="#f59e0b" dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </LineChart>
@@ -311,8 +311,8 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
                 <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
                   <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
-                  <ReferenceLine y={100} stroke="#475569" strokeDasharray="3 3" />
-                  <ReferenceLine y={-100} stroke="#475569" strokeDasharray="3 3" />
+                  <ReferenceLine y={100} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
+                  <ReferenceLine y={-100} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
                   <Line type="monotone" dataKey="cci20" stroke="#fb923c" dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
@@ -329,8 +329,8 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
                 <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
                   <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[20, 80]} />
-                  <ReferenceLine y={80} stroke="#475569" strokeDasharray="3 3" />
-                  <ReferenceLine y={20} stroke="#475569" strokeDasharray="3 3" />
+                  <ReferenceLine y={80} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
+                  <ReferenceLine y={20} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
                   <Line type="monotone" dataKey="mfi14" stroke="#22d3ee" dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
