@@ -3717,21 +3717,49 @@ def _build_all():
         from .excel_logger import sync_active_signals, check_outcomes
         newly_logged = sync_active_signals(quality_signals)
         if newly_logged:
+            # Sep 21 2026: real, confirmed incident -- credentials were
+            # proven fully correct via a standalone test (a real message
+            # delivered to the real chat), yet live signals still
+            # produced zero alerts. Root cause not fully pinned down
+            # from a single incident, so this hardens two real
+            # structural weaknesses found while investigating rather
+            # than guessing at one specific fix:
+            # 1. The try/except used to wrap the WHOLE for loop -- one
+            #    signal's alert throwing (a bad field value, an
+            #    unexpected type, anything) would silently abort every
+            #    OTHER signal in the same batch too, not just the one
+            #    that failed. Now each signal gets its own try/except,
+            #    so one bad signal can't take the rest down with it.
+            # 2. Only str(e) was ever printed -- enough to know
+            #    SOMETHING failed, not enough to know WHERE or WHY.
+            #    traceback.format_exc() now prints the full stack on
+            #    any failure, so the next time (if there is one) is
+            #    diagnosable from the console directly, not another
+            #    round of investigation.
             try:
                 from trading.telegram_bot import TelegramBot
                 bot = TelegramBot()
-                for s in newly_logged:
-                    bot.send_signal_alert(
-                        symbol=s.get("symbol"),
-                        signal_type=s.get("action"),
-                        entry=s.get("entry"),
-                        sl=s.get("sl"),
-                        target=s.get("target1"),
-                        grade=s.get("grade", "A"),
-                        strike=s.get("strike"),
-                    )
             except Exception as e:
-                print(f"[Telegram] Failed to send new-signal alert: {e}")
+                import traceback
+                print(f"[Telegram] Could not construct TelegramBot -- no alerts sent this cycle: {e}")
+                print(traceback.format_exc())
+                bot = None
+            if bot:
+                for s in newly_logged:
+                    try:
+                        bot.send_signal_alert(
+                            symbol=s.get("symbol"),
+                            signal_type=s.get("action"),
+                            entry=s.get("entry"),
+                            sl=s.get("sl"),
+                            target=s.get("target1"),
+                            grade=s.get("grade", "A"),
+                            strike=s.get("strike"),
+                        )
+                    except Exception as e:
+                        import traceback
+                        print(f"[Telegram] Failed to send alert for {s.get('symbol')}: {e}")
+                        print(traceback.format_exc())
             # Aug 30 2026: the SAME genuinely-new signals, ALSO logged
             # to the positional tracker with wider multi-day SL/Target
             # -- see positional_logger.py's own docstring for exactly
