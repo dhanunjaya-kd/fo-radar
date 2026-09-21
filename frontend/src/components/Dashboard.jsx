@@ -3,7 +3,6 @@ import MarketPulse from './MarketPulse';
 import IndexCard from './IndexCard';
 import TodaysMovers from './TodaysMovers';
 import MarketSentimentGauge from './MarketSentimentGauge';
-import SectorStrength from './SectorStrength';
 import OIDistribution from './OIDistribution';
 import DataHealthStrip from './DataHealthStrip';
 import { TrendMomentumCard } from './IndexTracker';
@@ -75,24 +74,31 @@ export default function Dashboard({ onNavigate }) {
         <TrendMomentumCard indexName="NIFTY" />
         <TrendMomentumCard indexName="BANKNIFTY" />
       </div>
+      {/* Sep 21 2026: OIDistribution moved into this row's side-panel
+          column, direct request ("move this to the side panel") --
+          this lg:grid-cols-3 split (TopLiveSignals 2/3, narrow column
+          1/3) was already the dashboard's one existing "side panel"
+          pattern, so OIDistribution joins it here (stacked below the
+          gauge) rather than a new, separate side-panel layout
+          invented elsewhere on the page. SectorStrength, previously
+          full-width below this row, moved to the Market Heatmap tab
+          instead (also direct request) -- sector-level detail belongs
+          next to the sector-level heatmap view, not the 5-second-
+          glance Dashboard; same component, not a duplicate. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2">
           <TopLiveSignals onViewAll={onNavigate ? () => onNavigate('signals') : null} limit={3} />
         </div>
-        <MarketSentimentGauge />
+        <div className="space-y-3">
+          <MarketSentimentGauge />
+          <OIDistribution />
+        </div>
       </div>
       {/* Sep 3 2026: NoTradeLog + OISnapshot removed per direct request
           ("no use of this 2") -- OISnapshot's PCR/Sentiment/Max Pain
           summary became redundant once the full OIDistribution chart
-          (below) landed on the Dashboard too. Neither component file
-          was deleted, just no longer rendered here. */}
-      {/* Sep 3 2026: reverses the Aug 28 decision that deliberately kept
-          this off the Dashboard ("genuinely detailed analysis... belongs
-          in investigation-tool tabs, not a 5-second scan") -- per direct
-          request this time. Same component used on the OI Analytics tab,
-          not a duplicate. */}
-      <OIDistribution />
-      <SectorStrength onNavigate={onNavigate} />
+          landed on the Dashboard too. Neither component file was
+          deleted, just no longer rendered here. */}
       <TodaysMovers />
     </div>
   );
