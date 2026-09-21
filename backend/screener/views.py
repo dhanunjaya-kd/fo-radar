@@ -405,7 +405,7 @@ def _is_oi_confirmed_with_hysteresis(symbol, action, oi_confirmation_reading, st
 # strangle the list more than intended -- quality_confirmed/score/
 # verdict/reasons stay attached to every signal either way, so the
 # gate's would-be effect is always visible even while it's toggled off.
-_QUALITY_GATE_ENABLED = os.environ.get("ENABLE_QUALITY_CONFIRMATION_GATE", "true").lower() == "true"
+_QUALITY_GATE_ENABLED = os.environ.get("ENABLE_QUALITY_CONFIRMATION_GATE", "false").lower() == "true"
 
 
 # ---------------------------------------------------------------------------
