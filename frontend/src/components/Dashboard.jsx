@@ -86,10 +86,27 @@ export default function Dashboard({ onNavigate }) {
           next to the sector-level heatmap view, not the 5-second-
           glance Dashboard; same component, not a duplicate. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 min-w-0">
           <TopLiveSignals onViewAll={onNavigate ? () => onNavigate('signals') : null} limit={3} />
         </div>
-        <div className="space-y-3">
+        {/* Sep 21 2026 (later same day): min-w-0 added defensively --
+            NOT a confirmed fix. Direct request reported this column
+            still rendering full-width after the restructure above, and
+            the working hypothesis was OIDistribution's own hardcoded
+            `const WIDTH = 700` SVG viewBox forcing the grid track via
+            the standard "grid items don't shrink below min-content"
+            behavior. Actually tested that hypothesis with a faithful
+            Puppeteer reproduction (real header/legend/SVG markup, 1900px
+            viewport) rather than assuming it -- min-w-0 made ZERO
+            measurable difference in either test; the column narrowed
+            correctly (544px, a sane side-panel width) with or without
+            it. So the real cause of what was reported is still
+            unconfirmed -- most likely a stale Vite/browser cache rather
+            than this layout code, given the code itself measures
+            correctly in isolation. min-w-0 is harmless and correct
+            practice regardless, so left in, but do not treat its
+            presence as "the fix" if this gets revisited. */}
+        <div className="space-y-3 min-w-0">
           <MarketSentimentGauge />
           <OIDistribution />
         </div>
