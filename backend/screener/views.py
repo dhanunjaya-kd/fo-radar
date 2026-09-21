@@ -289,16 +289,18 @@ def _is_quality_confirmed_with_hysteresis(symbol, action, quality_result, state_
     docstring already documented are exactly as they were.
 
     Asymmetric by DESIGN, not by a tuned number:
-      - ENTRY requires this cycle's OWN score to be >= 70, no grace
-        on the way in -- same "no grace on entry" shape as the
-        technical score's ENTRY_SCORE_THRESHOLD.
+      - ENTRY requires this cycle's OWN score to be >= QUALITY_CONFIRMATION_
+        MIN_SCORE (module-level, .env-configurable, default 70 -- see that
+        constant's own comment), no grace on the way in -- same "no grace
+        on entry" shape as the technical score's ENTRY_SCORE_THRESHOLD.
       - EXIT is immediate ONLY on a real, confirmed contradiction --
         quality_result['conflict_gate_triggered'] (options structure
         or market regime actively fighting this direction, not a mere
         score dip) -- same "excluded entirely, not just penalized"
         principle the live oi_confirmation check already applies to a
         fresh CONFLICT reading.
-      - Everything else that drops out (a score dip below 70 with no
+      - Everything else that drops out (a score dip below
+        QUALITY_CONFIRMATION_MIN_SCORE with no
         active conflict, a thin-data cycle, or quality_result itself
         being None because _evaluate_and_log_shadow() itself raised)
         is held through, not exited -- same "don't drop on noise or on
@@ -328,10 +330,10 @@ def _is_quality_confirmed_with_hysteresis(symbol, action, quality_result, state_
     if state['confirmed']:
         if conflict:
             state['confirmed'] = False
-        # else: hold through a score dip below 70, a thin-data cycle,
-        # or a computation failure -- see docstring above.
+        # else: hold through a score dip below QUALITY_CONFIRMATION_MIN_SCORE,
+        # a thin-data cycle, or a computation failure -- see docstring above.
     else:
-        if score is not None and score >= 70 and not conflict:
+        if score is not None and score >= QUALITY_CONFIRMATION_MIN_SCORE and not conflict:
             state['confirmed'] = True
 
     return state['confirmed']
@@ -405,7 +407,39 @@ def _is_oi_confirmed_with_hysteresis(symbol, action, oi_confirmation_reading, st
 # strangle the list more than intended -- quality_confirmed/score/
 # verdict/reasons stay attached to every signal either way, so the
 # gate's would-be effect is always visible even while it's toggled off.
-_QUALITY_GATE_ENABLED = os.environ.get("ENABLE_QUALITY_CONFIRMATION_GATE", "false").lower() == "true"
+_QUALITY_GATE_ENABLED = os.environ.get("ENABLE_QUALITY_CONFIRMATION_GATE", "true").lower() == "true"
+
+# Sep 21 2026: was hardcoded to 70 inside _is_quality_confirmed_with_
+# hysteresis() (the TRADE/WATCH grade-band boundary quality_engine.py
+# itself uses) -- made configurable after going from 0 signals (gate
+# on, 70) to a genuinely high volume (gate off, no quality floor at
+# all) in the same day. Both are real, working states of the same
+# lever, not a bug in either direction -- this just makes the middle
+# ground reachable via .env instead of needing another code change
+# for every number tried. Only takes effect when
+# ENABLE_QUALITY_CONFIRMATION_GATE=true; irrelevant while the gate
+# itself is off. Default 70 matches quality_engine.py's own WATCH-tier
+# floor exactly, so re-enabling with no override reproduces the
+# original strict behavior precisely, not an approximation of it.
+# Sep 21 2026: default set to 60, not back to the original 70 or left
+# at "no floor." Reasoned, not guessed: multi_tf_trend (20pts) and
+# futures_oi (10pts) are structurally unavailable for every stock
+# right now -- 30 of the 100 points, permanently -- so every real
+# score is already a redistribution across the REMAINING 70-point
+# pool (market_regime 15 + price_structure 15 + volume_rvol 15 +
+# momentum 10 + options_confirmation 10 + sector_alignment 5), scaled
+# up to 100. The original 70 threshold effectively demanded near-
+# perfect alignment across whatever's actually measurable -- which
+# is exactly why it produced zero live signals on Sep 21. 60 asks for
+# roughly 6/10 on what's actually measurable instead of visibly-
+# unreachable near-perfection, without dropping all the way to "no
+# quality floor beyond the base technical score" (the fully-off state
+# that produced the opposite problem, a high volume, the same day).
+# This is a reasoned STARTING point, not a data-derived optimum --
+# see the score-distribution logging added in _build_all() below,
+# which exists specifically so the next adjustment (if any) is made
+# from real numbers instead of another guess.
+QUALITY_CONFIRMATION_MIN_SCORE = float(os.environ.get("QUALITY_CONFIRMATION_MIN_SCORE", "60"))
 
 
 # ---------------------------------------------------------------------------
@@ -2387,6 +2421,16 @@ def _build_all():
     """Fetch everything: indices, stocks, signals. Cache all."""
     global _stock_cache, _index_cache, _index_cache_updated_at, _signal_cache, _tech_cache, _last_fetch, _no_trade_cache
 
+    # Sep 21 2026: collects every quality_result['score'] computed this
+    # cycle (TRADE/WATCH/IGNORE alike, whether or not the candidate
+    # ultimately became a signal) so the summary printed near the end
+    # of this function reflects the REAL distribution, not just
+    # whatever made it past every earlier filter. Directly answers "is
+    # QUALITY_CONFIRMATION_MIN_SCORE calibrated right" with actual
+    # numbers on the next cycle, instead of the guess-a-number-and-
+    # restart loop this was built to end.
+    _quality_scores_this_cycle = []
+
     # 1. Indices -- Aug 20 2026: reuse _index_snapshot_worker's fetch if
     # it's recent (that loop runs every 60s specifically for this, and
     # independently re-fetching the identical 3 symbols here was
@@ -3431,6 +3475,8 @@ def _build_all():
             oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
             mtf_data=mtf_data, futures_oi_data=futures_oi_data, skip_logging=True,
         )
+        if quality_result and quality_result.get('score') is not None:
+            _quality_scores_this_cycle.append(quality_result['score'])
         quality_confirmed = _is_quality_confirmed_with_hysteresis(sym, action, quality_result)
 
         signals.append({
@@ -3617,12 +3663,29 @@ def _build_all():
     #     already reached this point on equal footing; only the
     #     requirement that it be CONFIRMED specifically is removed.
     # quality_confirmed's own bar was separately changed inside
-    # _is_quality_confirmed_with_hysteresis() itself (score>=70,
-    # TRADE or WATCH) -- not touched again here.
+    # _is_quality_confirmed_with_hysteresis() itself (QUALITY_CONFIRMATION_
+    # MIN_SCORE, default 70, TRADE or WATCH tier) -- not touched again here.
     quality_signals = [
         s for s in signals
         if (not _QUALITY_GATE_ENABLED or s.get('quality_confirmed'))
     ][:15]
+
+    # Sep 21 2026: prints once per cycle, real numbers only -- if this
+    # is empty, nothing scored at all this cycle (a real, different
+    # problem from "scored too low"), worth telling apart at a glance.
+    if _quality_scores_this_cycle:
+        _sorted_scores = sorted(_quality_scores_this_cycle)
+        _n = len(_sorted_scores)
+        _median = _sorted_scores[_n // 2] if _n % 2 else (_sorted_scores[_n // 2 - 1] + _sorted_scores[_n // 2]) / 2
+        _above = sum(1 for s in _sorted_scores if s >= QUALITY_CONFIRMATION_MIN_SCORE)
+        print(
+            f"[QualityScore] {_n} candidates scored this cycle -- "
+            f"min={_sorted_scores[0]:.1f} median={_median:.1f} max={_sorted_scores[-1]:.1f} -- "
+            f"{_above}/{_n} clear the current {QUALITY_CONFIRMATION_MIN_SCORE:.0f} threshold "
+            f"(gate {'ON' if _QUALITY_GATE_ENABLED else 'OFF'})"
+        )
+    else:
+        print("[QualityScore] No candidates had a real quality_result this cycle (0 evaluated, not 0 passing)")
 
     with _cache_lock:
         _signal_cache = quality_signals
