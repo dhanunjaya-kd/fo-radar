@@ -1,10 +1,10 @@
 {
-  "generated_at": "2026-09-21T16:38:24.947045",
-  "universe_scanned": 2720,
-  "stocks_with_enough_data": 2670,
+  "generated_at": "2026-09-21T16:41:34.549943",
+  "universe_scanned": 2723,
+  "stocks_with_enough_data": 2674,
   "excluded_low_price": 606,
-  "excluded_low_liquidity": 1085,
-  "excluded_unknown_sector": 2463,
+  "excluded_low_liquidity": 1089,
+  "excluded_unknown_sector": 2467,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
   "require_known_sector": true,
@@ -130,30 +130,6 @@
       "rank": 5
     },
     {
-      "symbol": "NSE:UNITDSPR-EQ",
-      "sector": "Beverages",
-      "eod_price": 1397,
-      "change_percent": 1.9,
-      "rsi": 31.0,
-      "sma_20": 1461.14,
-      "distance_from_sma_pct": -4.39,
-      "today_volume": 773709,
-      "avg_volume_20d": 571893.0,
-      "volume_ratio": 1.35,
-      "sector_relative_pct": 0.59,
-      "sector_strength": "Leading",
-      "trend_status": "Moderate",
-      "volume_status": "Normal",
-      "score": 72,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 22,
-        "volume": 5,
-        "sector_strength": 25
-      },
-      "rank": 6
-    },
-    {
       "symbol": "NSE:360ONE-EQ",
       "sector": "Finance",
       "eod_price": 1072.7,
@@ -175,7 +151,7 @@
         "volume": 0,
         "sector_strength": 25
       },
-      "rank": 7
+      "rank": 6
     },
     {
       "symbol": "NSE:ASTRAL-EQ",
@@ -199,7 +175,7 @@
         "volume": 0,
         "sector_strength": 25
       },
-      "rank": 8
+      "rank": 7
     },
     {
       "symbol": "NSE:DIXON-EQ",
@@ -223,7 +199,7 @@
         "volume": 0,
         "sector_strength": 25
       },
-      "rank": 9
+      "rank": 8
     },
     {
       "symbol": "NSE:LAURUSLABS-EQ",
@@ -247,7 +223,36 @@
         "volume": 0,
         "sector_strength": 25
       },
+      "rank": 9
+    },
+    {
+      "symbol": "NSE:MARUTI-EQ",
+      "sector": "Auto",
+      "eod_price": 12153,
+      "change_percent": 0.41,
+      "rsi": 28.3,
+      "sma_20": 12826.55,
+      "distance_from_sma_pct": -5.25,
+      "today_volume": 339126,
+      "avg_volume_20d": 393394.0,
+      "volume_ratio": 0.86,
+      "sector_relative_pct": 0.55,
+      "sector_strength": "Leading",
+      "trend_status": "Strong",
+      "volume_status": "Normal",
+      "score": 70,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 0,
+        "sector_strength": 25
+      },
       "rank": 10
     }
-  ]
+  ],
+  "backtest": {
+    "recorded": 10,
+    "resolved": 10,
+    "file": "C:\\Users\\FixAdmin\\Downloads\\fo-sniper-fullstack\\backend\\signal_logs\\next_day_watchlist_backtest.xlsx"
+  }
 }
