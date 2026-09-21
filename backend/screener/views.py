@@ -2607,6 +2607,22 @@ def _build_all():
     from .fyers_client import _rate_limited_now
     _cold_batch = [] if _rate_limited_now() else _cold[:_history_warmup_batch_size]
     movers = _warm + _cold_batch
+
+    # Sep 21 2026: real numbers, same reason as the QualityScore line
+    # below -- "only 5 candidates scored" turned out to trace back to
+    # THIS stage, not the quality gate being tuned that same day. If
+    # _rate_limited_now() is True here at 1:30pm, hours after market
+    # open, that's the circuit breaker re-tripping repeatedly through
+    # the day, not a normal cold-start ramp-up (which should have
+    # finished warming all ~207 symbols in well under an hour at 10/
+    # cycle). Prints every cycle so the pattern (stuck vs. genuinely
+    # still ramping vs. one-off) is visible from the console instead
+    # of inferred from a single snapshot.
+    print(
+        f"[MoversWarmup] warm={len(_warm)} cold_total={len(_cold)} "
+        f"cold_batch_used={len(_cold_batch)} (cap={_history_warmup_batch_size}) "
+        f"rate_limited_now={_rate_limited_now()} -- movers this cycle={len(movers)}"
+    )
     signals = []
     techs = {}
     # Aug 31 2026: P0-7 -- one VIX read for the whole cycle, reused by
