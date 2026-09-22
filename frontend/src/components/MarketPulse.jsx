@@ -169,7 +169,8 @@ export default function MarketPulse() {
 
   const { market_mood: mood, advance_decline: ad, trend_participation: tp,
            market_momentum: mm, volume_activity: va, ema50_breadth: e50,
-           momentum_breadth: mb, volatility_breadth: vb, sector_breadth: sb } = data;
+           momentum_breadth: mb, volatility_breadth: vb, sector_breadth: sb,
+           fifty_two_week: fw52 } = data;
 
   // Sector rotation read: how many sectors (with at least 2 names,
   // so a 1-stock "sector" can't flip the read) have a clear majority
@@ -297,17 +298,24 @@ export default function MarketPulse() {
       </div>
 
       {/* Bottom stat tiles -- reuses data already in this same
-          response, no second fetch needed. 52-week is deliberately
-          shown as "not yet available" (has_52w_data is always false
-          today -- that needs ~252 days of history, this project only
-          fetches 100) rather than a fabricated number. */}
+          response, no second fetch needed. Sep 22 2026: 52-week is
+          real now -- fifty_two_week comes from a separate 380-day
+          fetch (_breadth_long_tech_cache, backend) that warms gently
+          in the background, same shape as the rest of this cache.
+          count_with_data can legitimately stay 0 for the first few
+          minutes after a restart until that warmup catches up -- shown
+          as "not yet available" only in that genuinely-empty case, not
+          hardcoded false anymore. */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <SplitTile title="TODAY" universe={ad.count_with_data}
           leftLabel="ADVANCING" leftValue={ad.count_with_data ? `${Math.round(100*ad.advancing/ad.count_with_data)}%` : '—'} leftSub={`(${ad.advancing})`}
           rightLabel="DECLINING" rightValue={ad.count_with_data ? `${Math.round(100*ad.declining/ad.count_with_data)}%` : '—'} rightSub={`(${ad.declining})`}
           leftPct={ad.count_with_data ? 100*ad.advancing/ad.count_with_data : 0} />
-        <SplitTile title="52W" universe={null} unavailable
-          leftLabel="NEAR HIGH" rightLabel="NEAR LOW" />
+        <SplitTile title="52W" universe={fw52.count_with_data}
+          unavailable={!fw52.count_with_data}
+          leftLabel="NEAR HIGH" leftValue={fw52.pct_near_high != null ? `${fw52.pct_near_high}%` : '—'} leftSub={`(${fw52.near_high_count})`}
+          rightLabel="NEAR LOW" rightValue={fw52.count_with_data ? `${(100-fw52.pct_near_high).toFixed(1)}%` : '—'} rightSub={`(${fw52.near_low_count})`}
+          leftPct={fw52.pct_near_high || 0} />
         <SplitTile title="EMA50" universe={e50.count_with_data}
           leftLabel="ABOVE" leftValue={e50.pct_above != null ? `${e50.pct_above}%` : '—'} leftSub={`(${e50.above_count})`}
           rightLabel="BELOW" rightValue={e50.count_with_data ? `${(100-e50.pct_above).toFixed(1)}%` : '—'} rightSub={`(${e50.below_count})`}

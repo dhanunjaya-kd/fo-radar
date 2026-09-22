@@ -3968,6 +3968,119 @@ def _load_breadth_snapshot():
 _load_breadth_snapshot()
 
 
+# Sep 22 2026: real EMA200 + 52-week high/low for the Market Pulse
+# "TREND PARTICIPATION" and "52W" tiles -- both were silently dead.
+# EMA200 was computed in _compute_indicators() (line ~1331) but gated
+# on len(close) >= 200, while _calc_tech() only ever fetches 100 days
+# -- that branch could physically never fire, so trend_participation's
+# count_with_data has been 0 every single cycle since the tile shipped.
+# 52-week breadth was honestly flagged as unbuilt for the identical
+# reason (has_52w_data: False, hardcoded) -- this project's own
+# get_52_week_high_low() (line ~1480) already proved a 365-day fetch
+# works fine for single-symbol lookups; this extends that same idea
+# across the whole breadth universe.
+#
+# Deliberately its OWN cache and its OWN raw _fyers_history_df() call,
+# NOT routed through _cached_history_df()/_history_cache (the shared
+# 100-day cache _calc_tech and the live signal engine both use). That
+# cache's key is symbol+date only, not symbol+days -- a 100-day request
+# and a 380-day request for the same symbol on the same day would
+# silently collide (whichever ran first "wins", the other silently
+# gets the wrong window). _year_history_cache's own docstring already
+# flagged and avoided this exact trap for 52-week lookups; this reuses
+# that avoidance, just combined with EMA200 in the same fetch.
+#
+# Cost: one EXTRA Fyers History call per symbol per day for whatever
+# the breadth universe is that day (500 for Nifty 500, up to ~2450 if
+# the Scanner tab's "All Stocks" universe has been used, since that
+# view shares this same quote cache) -- on top of the existing 100-day
+# call _calc_tech already makes for the same symbols. Both calls run
+# through get_history()'s existing shared circuit breaker (the Sep 3
+# rate-limit fix), same governor as every other Fyers call in this
+# file; this only adds steady, paced volume, not a new burst pattern.
+# Real trade-off, stated plainly rather than hidden -- watch the first
+# few real days of this running before assuming it's fully free.
+_breadth_long_tech_cache = {}  # {symbol: {'date', 'ema200', 'high_52w', 'low_52w'}}
+_BREADTH_LONG_HISTORY_DAYS = 380  # ~1 year + buffer for weekends/holidays
+_FULL_YEAR_MIN_ROWS = 240  # NSE trades ~250 sessions/year; 240 leaves room for a handful of missed candles without calling a recent listing's partial history "52 weeks"
+
+
+def _calc_long_term_tech(symbol, live_quote=None):
+    """See the module-level comment above this cache for why this is a
+    separate path from _calc_tech()/_cached_history_df(). Returns
+    {'date','ema200','high_52w','low_52w'} (any of the three real
+    fields may be None if this symbol genuinely doesn't have enough
+    listed history yet) or None if the fetch itself failed."""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _breadth_long_tech_cache.get(symbol)
+    if cached and cached.get('date') == today_str:
+        return cached
+
+    df = _fyers_history_df(symbol, days=_BREADTH_LONG_HISTORY_DAYS)
+    if df is None or df.empty:
+        return None
+
+    if live_quote is not None:
+        # Same "swap the last row for this cycle's real live quote"
+        # trick _calc_tech() already uses -- keeps EMA200/52w read as
+        # of right now, not stuck on yesterday's close.
+        df = df.iloc[:-1].reset_index(drop=True) if len(df) > 1 else df
+        today_row = pd.DataFrame([{
+            'ts': int(datetime.now().timestamp()),
+            'Open': live_quote.get('open') or live_quote.get('price'),
+            'High': live_quote.get('high') or live_quote.get('price'),
+            'Low': live_quote.get('low') or live_quote.get('price'),
+            'Close': live_quote.get('price'),
+            'Volume': live_quote.get('volume', 0),
+        }])
+        df = pd.concat([df, today_row], ignore_index=True)
+
+    close, high, low = df['Close'], df['High'], df['Low']
+    has_full_year = len(close) >= _FULL_YEAR_MIN_ROWS
+    result = {
+        'date': today_str,
+        'ema200': float(close.ewm(span=200, adjust=False).mean().iloc[-1]) if len(close) >= 200 else None,
+        'high_52w': round(float(high.max()), 2) if has_full_year else None,
+        'low_52w': round(float(low.min()), 2) if has_full_year else None,
+    }
+    _breadth_long_tech_cache[symbol] = result
+    return result
+
+
+def _breadth_long_history_worker():
+    """
+    Gently fills _breadth_long_tech_cache for whatever symbols
+    _breadth_quote_cache already has a live quote for -- small paced
+    batches, same spirit as the off-hours warmup below but running
+    continuously (not gated to off-hours), since EMA200/52-week range
+    only need refreshing once per symbol per day, not every 180s like
+    the main breadth cycle.
+    """
+    BATCH_SIZE = 20
+    while True:
+        try:
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            with _breadth_cache_lock:
+                quotes_snapshot = dict(_breadth_quote_cache)
+            missing = [
+                s for s in quotes_snapshot
+                if _breadth_long_tech_cache.get(s, {}).get('date') != today_str
+            ]
+            if missing and is_authenticated():
+                batch = missing[:BATCH_SIZE]
+                done = 0
+                for sym in batch:
+                    if _calc_long_term_tech(sym, live_quote=quotes_snapshot.get(sym)):
+                        done += 1
+                print(f"[{datetime.now()}] Long-history breadth warmup: +{done}/{len(batch)} ({len(missing) - len(batch)} still missing today).")
+                time.sleep(15)
+            else:
+                time.sleep(60)
+        except Exception as e:
+            print(f"[{datetime.now()}] Long-history breadth worker error: {e}")
+            time.sleep(90)
+
+
 def _breadth_indicators_worker():
     from .market_hours import is_market_hours
     last_closed_log = 0
@@ -4062,6 +4175,10 @@ def _breadth_indicators_worker():
 _breadth_worker_thread = threading.Thread(target=_breadth_indicators_worker, daemon=True)
 if not _IS_RELOADER_WATCHER_PROCESS:
     _breadth_worker_thread.start()
+
+_breadth_long_history_worker_thread = threading.Thread(target=_breadth_long_history_worker, daemon=True)
+if not _IS_RELOADER_WATCHER_PROCESS:
+    _breadth_long_history_worker_thread.start()
 
 
 def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call, price_change_pct=None, fut_oi_chg_pct=None, atm_strike=None):
@@ -5633,14 +5750,23 @@ class MarketBreadthView(APIView):
     - ema50_breadth / vwap_breadth: price > ema50 / price > vwap.
     - sector_breadth: per SECTORS mapping (already existed, used
       elsewhere in this file), count of advancing vs declining names.
+    - fifty_two_week: near_high vs near_low, a full binary split (same
+      shape as ema50/vwap breadth) -- whichever of the real 52-week
+      high/low the live price sits closer to. Real data now, sourced
+      from _breadth_long_tech_cache (see that cache's own module-level
+      comment for the full history).
 
-    Deliberately NOT included: 52-week high/low breadth. That needs
-    roughly a year of daily history per symbol; _calc_tech's own history
-    fetch is 100 days today. Rather than fake this tile from data that
-    doesn't exist, it's left out of this response entirely -- flagged
-    here, not silently omitted, in has_52w_data: false so the frontend
-    can show its own honest "not yet available" state instead of a
-    default emerging as a fake number.
+    Sep 22 2026: trend_participation and fifty_two_week both used to
+    be permanently empty here -- ema200 was gated on len(close)>=200
+    but only ever fed 100 days, and 52-week breadth was honestly
+    flagged unbuilt for the identical reason (has_52w_data: false,
+    hardcoded). Both now come from a separate 380-day fetch
+    (_breadth_long_tech_cache / _calc_long_term_tech), NOT the 100-day
+    _breadth_tech_cache the rest of this view reads -- see that cache's
+    comment for why it had to be isolated rather than just widening the
+    shared one. count_with_data on both still reports real, possibly
+    partial coverage (a recent listing legitimately won't have 200+ or
+    240+ days yet) rather than assuming full-universe coverage.
     GET /api/market-breadth/
     """
     def get(self, request):
@@ -5654,6 +5780,7 @@ class MarketBreadthView(APIView):
         with _breadth_cache_lock:
             quotes = dict(_breadth_quote_cache)
             techs = dict(_breadth_tech_cache)
+            long_techs = dict(_breadth_long_tech_cache)
 
         advancing = declining = flat = 0
         bucket_edges = [-5, -2, 0, 2, 5]
@@ -5675,6 +5802,7 @@ class MarketBreadthView(APIView):
         elevated_up = elevated_down = elevated_total = 0
         ema50_above = ema50_total = 0
         vwap_above = vwap_total = 0
+        near_52w_high = near_52w_low = fifty_two_week_total = 0
         sector_breadth = {}
 
         for sym, q in quotes.items():
@@ -5706,9 +5834,33 @@ class MarketBreadthView(APIView):
             if not tech or price is None:
                 continue
 
-            if tech.get('ema200') is not None:
+            # Sep 22 2026: sourced from _breadth_long_tech_cache (the
+            # 380-day path above), NOT tech['ema200'] -- that field
+            # exists in _compute_indicators() but is unreachable dead
+            # code today (gated on len(close)>=200, fed by a 100-day
+            # fetch that can never satisfy it). See that cache's own
+            # module-level comment for why this had to be a separate
+            # fetch rather than just widening the shared one.
+            long_tech = long_techs.get(sym)
+            if long_tech and long_tech.get('ema200') is not None:
                 ema200_total += 1
-                if price > tech['ema200']: ema200_above += 1
+                if price > long_tech['ema200']: ema200_above += 1
+
+            # Sep 22 2026: 52-week breadth, real data now that
+            # _breadth_long_tech_cache actually populates high_52w/
+            # low_52w. "Near high" vs "near low" is a full, honest,
+            # no-middle-ground split (same shape as EMA50/VWAP's
+            # ABOVE/BELOW tiles) -- whichever of the two the live price
+            # currently sits closer to, not an arbitrary "within X%"
+            # band that would leave some names in neither bucket.
+            if long_tech and long_tech.get('high_52w') is not None and long_tech.get('low_52w') is not None:
+                fifty_two_week_total += 1
+                dist_to_high = abs(price - long_tech['high_52w'])
+                dist_to_low = abs(price - long_tech['low_52w'])
+                if dist_to_high <= dist_to_low:
+                    near_52w_high += 1
+                else:
+                    near_52w_low += 1
 
             if tech.get('rsi') is not None:
                 rsi_values.append(tech['rsi'])
@@ -5901,7 +6053,18 @@ class MarketBreadthView(APIView):
                 "pct_wide": round(100 * bb_wide_count / bb_total, 1) if bb_total else None,
             },
             "sector_breadth": sector_breadth,
-            "has_52w_data": False,
+            # Sep 22 2026: real now -- see _breadth_long_tech_cache's
+            # module-level comment. has_52w_data reflects genuine
+            # coverage so far today (the long-history warmup runs
+            # gently in the background and fills in over the first
+            # several minutes after a restart, same shape as the main
+            # breadth cache's own warmup), not a hardcoded flag.
+            "has_52w_data": fifty_two_week_total > 0,
+            "fifty_two_week": {
+                "near_high_count": near_52w_high, "near_low_count": near_52w_low,
+                "count_with_data": fifty_two_week_total,
+                "pct_near_high": round(100 * near_52w_high / fifty_two_week_total, 1) if fifty_two_week_total else None,
+            },
         })
 
 
