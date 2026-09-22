@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-22T16:38:11.090490",
+  "generated_at": "2026-09-22T16:40:36.021913",
   "universe_scanned": 2724,
   "stocks_with_enough_data": 2678,
   "excluded_low_price": 600,
-  "excluded_low_liquidity": 1089,
+  "excluded_low_liquidity": 1091,
   "excluded_unknown_sector": 2471,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
@@ -134,48 +134,24 @@
       "sector": "Power",
       "eod_price": 2494.8,
       "change_percent": -0.17,
-      "rsi": 39.7,
-      "sma_20": 2585.57,
-      "distance_from_sma_pct": -3.51,
+      "rsi": 39.5,
+      "sma_20": 2576.57,
+      "distance_from_sma_pct": -3.17,
       "today_volume": 1148399,
-      "avg_volume_20d": 566256.0,
-      "volume_ratio": 2.03,
+      "avg_volume_20d": 568368.0,
+      "volume_ratio": 2.02,
       "sector_relative_pct": 0.04,
       "sector_strength": "Leading",
       "trend_status": "Moderate",
       "volume_status": "Accumulation",
-      "score": 78,
+      "score": 76,
       "score_breakdown": {
         "rsi": 20,
-        "trend_distance": 18,
+        "trend_distance": 16,
         "volume": 15,
         "sector_strength": 25
       },
       "rank": 6
-    },
-    {
-      "symbol": "NSE:WIPRO-EQ",
-      "sector": "IT",
-      "eod_price": 166,
-      "change_percent": 0.88,
-      "rsi": 34.2,
-      "sma_20": 173.56,
-      "distance_from_sma_pct": -4.36,
-      "today_volume": 14724175,
-      "avg_volume_20d": 10165774.0,
-      "volume_ratio": 1.45,
-      "sector_relative_pct": 1.67,
-      "sector_strength": "Leading",
-      "trend_status": "Moderate",
-      "volume_status": "Normal",
-      "score": 74,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 22,
-        "volume": 7,
-        "sector_strength": 25
-      },
-      "rank": 7
     },
     {
       "symbol": "NSE:TATAELXSI-EQ",
@@ -198,6 +174,30 @@
         "trend_distance": 25,
         "volume": 26,
         "sector_strength": 0
+      },
+      "rank": 7
+    },
+    {
+      "symbol": "NSE:WIPRO-EQ",
+      "sector": "IT",
+      "eod_price": 166,
+      "change_percent": 0.88,
+      "rsi": 37.3,
+      "sma_20": 172.79,
+      "distance_from_sma_pct": -3.93,
+      "today_volume": 14724175,
+      "avg_volume_20d": 10397982.0,
+      "volume_ratio": 1.42,
+      "sector_relative_pct": 1.67,
+      "sector_strength": "Leading",
+      "trend_status": "Moderate",
+      "volume_status": "Normal",
+      "score": 71,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 20,
+        "volume": 6,
+        "sector_strength": 25
       },
       "rank": 8
     },
@@ -249,5 +249,10 @@
       },
       "rank": 10
     }
-  ]
+  ],
+  "backtest": {
+    "recorded": 10,
+    "resolved": 10,
+    "file": "C:\\Users\\FixAdmin\\Downloads\\fo-sniper-fullstack\\backend\\signal_logs\\next_day_watchlist_backtest.xlsx"
+  }
 }
