@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-22T16:22:04.160881",
+  "generated_at": "2026-09-22T16:25:51.604636",
   "universe_scanned": 2724,
   "stocks_with_enough_data": 2678,
   "excluded_low_price": 600,
-  "excluded_low_liquidity": 1089,
+  "excluded_low_liquidity": 1088,
   "excluded_unknown_sector": 2471,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
@@ -14,12 +14,12 @@
       "sector": "FMCG",
       "eod_price": 404,
       "change_percent": 1.97,
-      "rsi": 76.8,
-      "sma_20": 349.64,
-      "distance_from_sma_pct": 15.55,
+      "rsi": 78.6,
+      "sma_20": 352.34,
+      "distance_from_sma_pct": 14.66,
       "today_volume": 14870474,
-      "avg_volume_20d": 3294112.0,
-      "volume_ratio": 4.51,
+      "avg_volume_20d": 4371073.0,
+      "volume_ratio": 3.4,
       "sector_relative_pct": 2.37,
       "sector_strength": "Leading",
       "trend_status": "Strong",
@@ -106,30 +106,6 @@
       "rank": 4
     },
     {
-      "symbol": "NSE:PIIND-EQ",
-      "sector": "Agro",
-      "eod_price": 2410,
-      "change_percent": 3.8,
-      "rsi": 38.5,
-      "sma_20": 2388.65,
-      "distance_from_sma_pct": 0.89,
-      "today_volume": 837663,
-      "avg_volume_20d": 249947.0,
-      "volume_ratio": 3.35,
-      "sector_relative_pct": 1.9,
-      "sector_strength": "Leading",
-      "trend_status": "Weak",
-      "volume_status": "Heavy Accumulation",
-      "score": 79,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 4,
-        "volume": 30,
-        "sector_strength": 25
-      },
-      "rank": 5
-    },
-    {
       "symbol": "NSE:WAAREEENER-EQ",
       "sector": "Power",
       "eod_price": 2494.8,
@@ -151,7 +127,7 @@
         "volume": 15,
         "sector_strength": 25
       },
-      "rank": 6
+      "rank": 5
     },
     {
       "symbol": "NSE:WIPRO-EQ",
@@ -175,7 +151,7 @@
         "volume": 7,
         "sector_strength": 25
       },
-      "rank": 7
+      "rank": 6
     },
     {
       "symbol": "NSE:TATAELXSI-EQ",
@@ -199,31 +175,7 @@
         "volume": 28,
         "sector_strength": 0
       },
-      "rank": 8
-    },
-    {
-      "symbol": "NSE:OFSS-EQ",
-      "sector": "IT",
-      "eod_price": 10989,
-      "change_percent": 0.71,
-      "rsi": 37.0,
-      "sma_20": 11833.45,
-      "distance_from_sma_pct": -7.14,
-      "today_volume": 232711,
-      "avg_volume_20d": 215640.0,
-      "volume_ratio": 1.08,
-      "sector_relative_pct": 1.5,
-      "sector_strength": "Leading",
-      "trend_status": "Strong",
-      "volume_status": "Normal",
-      "score": 71,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 1,
-        "sector_strength": 25
-      },
-      "rank": 9
+      "rank": 7
     },
     {
       "symbol": "NSE:HAVELLS-EQ",
@@ -240,6 +192,54 @@
       "sector_strength": "Leading",
       "trend_status": "Strong",
       "volume_status": "Heavy Distribution",
+      "score": 70,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 0,
+        "sector_strength": 25
+      },
+      "rank": 8
+    },
+    {
+      "symbol": "NSE:KEI-EQ",
+      "sector": "Capital Goods",
+      "eod_price": 4575,
+      "change_percent": -0.46,
+      "rsi": 35.6,
+      "sma_20": 4967.27,
+      "distance_from_sma_pct": -7.9,
+      "today_volume": 181919,
+      "avg_volume_20d": 642791.0,
+      "volume_ratio": 0.28,
+      "sector_relative_pct": 0.85,
+      "sector_strength": "Leading",
+      "trend_status": "Strong",
+      "volume_status": "Heavy Distribution",
+      "score": 70,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 0,
+        "sector_strength": 25
+      },
+      "rank": 9
+    },
+    {
+      "symbol": "NSE:OFSS-EQ",
+      "sector": "IT",
+      "eod_price": 10989,
+      "change_percent": 0.71,
+      "rsi": 39.2,
+      "sma_20": 11807.0,
+      "distance_from_sma_pct": -6.93,
+      "today_volume": 232711,
+      "avg_volume_20d": 238397.0,
+      "volume_ratio": 0.98,
+      "sector_relative_pct": 1.5,
+      "sector_strength": "Leading",
+      "trend_status": "Strong",
+      "volume_status": "Normal",
       "score": 70,
       "score_breakdown": {
         "rsi": 20,
