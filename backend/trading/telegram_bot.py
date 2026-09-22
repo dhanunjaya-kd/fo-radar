@@ -1,5 +1,6 @@
 """Telegram Bot integration for F&O Radar alerts."""
 import os
+import time
 import requests
 from django.conf import settings
 
@@ -37,9 +38,32 @@ class TelegramBot:
             return None
 
     def send_message(self, message, parse_mode='HTML'):
-        """Send a text message to Telegram."""
+        """
+        Send a text message to Telegram.
+
+        Sep 22 2026: this is the module every real call site (views.py,
+        tasks.py, generate_weekly_report.py) actually imports --
+        `screener/telegram_bot.py` is a separate, unused duplicate that
+        earlier retry/logging improvements were mistakenly written into
+        instead of here. Ported those improvements into the real file
+        this time:
+
+        1. Missing config (blank token/chat id) -- retrying gains
+           nothing, so this prints a hard-to-miss, multi-line warning
+           ONCE instead of a single easy-to-scroll-past line, pointing
+           at test_telegram_alert.py (backend/, run standalone anytime)
+           for full diagnosis.
+        2. An actual send that fails (network blip, timeout, a
+           transient Telegram-side 5xx) -- THIS case retrying genuinely
+           helps, so up to 2 retries with a short backoff (1s, then 2s)
+           before giving up, each attempt's failure reason printed.
+        """
         if not self.bot_token or not self.chat_id:
-            print("[TelegramBot] Token or Chat ID not configured. Skipping send.")
+            print("=" * 60)
+            print("[TelegramBot] NOT CONFIGURED -- alert not sent.")
+            print("TELEGRAM_BOT_TOKEN and/or TELEGRAM_CHAT_ID missing from backend/.env")
+            print("Run: python test_telegram_alert.py  (from backend/) to diagnose and fix.")
+            print("=" * 60)
             return None
 
         url = f"{self.base_url}/sendMessage"
@@ -49,20 +73,46 @@ class TelegramBot:
             "parse_mode": parse_mode
         }
 
-        try:
-            response = requests.post(url, json=payload, timeout=10)
-            return response.json()
-        except Exception as e:
-            print(f"[TelegramBot] Error sending message: {e}")
-            return None
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = requests.post(url, json=payload, timeout=10)
+                data = response.json()
+                if data.get("ok"):
+                    return data
+                # A real Telegram-side rejection (bad token, bad chat
+                # id, message too long, etc.) -- retrying with the
+                # IDENTICAL payload would fail identically, so this
+                # does NOT retry; it reports the real reason instead.
+                print(f"[TelegramBot] Telegram rejected the message (attempt {attempt}/{max_attempts}): {data}")
+                return data
+            except Exception as e:
+                print(f"[TelegramBot] Send attempt {attempt}/{max_attempts} failed: {e}")
+                if attempt < max_attempts:
+                    time.sleep(attempt)  # 1s before attempt 2, 2s before attempt 3
+                else:
+                    print("[TelegramBot] All retry attempts exhausted -- message NOT delivered.")
+                    return None
 
-    def send_signal_alert(self, symbol, signal_type, entry, sl, target, grade="A"):
-        """Send a formatted signal alert."""
+    def send_signal_alert(self, symbol, signal_type, entry, sl, target, grade="A", strike=None):
+        """
+        Send a formatted signal alert.
+
+        Sep 22 2026 fix: `strike` was added to views.py's call to this
+        method on Sep 19, but the parameter itself was only ever added
+        to the unused screener/telegram_bot.py duplicate -- this file
+        (the one actually imported) never had it, so every live call
+        since then raised TypeError: unexpected keyword argument
+        'strike', silently swallowed by views.py's try/except. Added
+        here now, matching the exact behavior the duplicate had:
+        optional, only shown when a real value is present.
+        """
         emoji = "🟢" if signal_type in ["BUY", "BUY NOW"] else "🔴"
+        strike_line = f"\n<b>Strike:</b> ₹{strike}" if strike is not None else ""
         message = f"""
 {emoji} <b>F&O RADAR SIGNAL</b> {emoji}
 
-<b>Symbol:</b> {symbol}
+<b>Symbol:</b> {symbol}{strike_line}
 <b>Signal:</b> {signal_type}
 <b>Grade:</b> {grade}
 <b>Entry:</b> ₹{entry}
@@ -122,6 +172,6 @@ class TelegramBot:
         """Test if bot is working."""
         return self.send_message("🤖 <b>F&O Radar Bot</b> is online and ready!")
 
-    
-    # Alias for compatibility with views.py
+
+# Alias for compatibility with views.py
 TelegramAlertBot = TelegramBot
