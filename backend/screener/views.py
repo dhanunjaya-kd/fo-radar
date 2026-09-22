@@ -3920,6 +3920,18 @@ _BREADTH_SNAPSHOT_MAX_AGE_HOURS = 96
 _last_snapshot_write = 0.0
 _SNAPSHOT_WRITE_INTERVAL_SECONDS = 60.0
 
+# Sep 22 2026: moved up here (was previously declared right next to
+# _calc_long_term_tech() below, AFTER _load_breadth_snapshot()'s own
+# call at module load) -- that ordering was a real bug. Python
+# resolves a global name at CALL time, not definition time, but
+# _load_breadth_snapshot() is CALLED at module import (a few lines
+# below), and this dict didn't exist as a module global yet at that
+# point -- so the moment persistence below tries to read it, that's a
+# NameError on every single server start, before the long-history
+# worker ever gets a chance to run. Declaring it here, ahead of that
+# call, fixes the ordering.
+_breadth_long_tech_cache = {}  # {symbol: {'date', 'ema200', 'high_52w', 'low_52w'}}
+
 
 def _save_breadth_snapshot():
     global _last_snapshot_write
@@ -3934,6 +3946,7 @@ def _save_breadth_snapshot():
                 "saved_at": datetime.now().isoformat(),
                 "quotes": dict(_breadth_quote_cache),
                 "techs": dict(_breadth_tech_cache),
+                "long_techs": dict(_breadth_long_tech_cache),
             }
         tmp_path = _BREADTH_SNAPSHOT_PATH + ".tmp"
         with open(tmp_path, "w") as f:
@@ -3957,10 +3970,12 @@ def _load_breadth_snapshot():
             print(f"[Breadth snapshot] found one from {saved_at_str}, {'unparseable' if age_hours is None else f'{age_hours:.0f}h old'} -- older than {_BREADTH_SNAPSHOT_MAX_AGE_HOURS}h, skipping rather than presenting stale data as current.")
             return
         quotes, techs = snapshot.get("quotes") or {}, snapshot.get("techs") or {}
+        long_techs = snapshot.get("long_techs") or {}
         with _breadth_cache_lock:
             _breadth_quote_cache.update(quotes)
             _breadth_tech_cache.update(techs)
-        print(f"[Breadth snapshot] loaded {len(quotes)} quotes / {len(techs)} techs from {saved_at_str} ({age_hours:.1f}h old) -- restart resumes instead of starting from zero.")
+            _breadth_long_tech_cache.update(long_techs)
+        print(f"[Breadth snapshot] loaded {len(quotes)} quotes / {len(techs)} techs / {len(long_techs)} long-history (EMA200/52w) from {saved_at_str} ({age_hours:.1f}h old) -- restart resumes instead of starting from zero.")
     except Exception as e:
         print(f"[Breadth snapshot] load failed: {e}")
 
@@ -4000,7 +4015,6 @@ _load_breadth_snapshot()
 # file; this only adds steady, paced volume, not a new burst pattern.
 # Real trade-off, stated plainly rather than hidden -- watch the first
 # few real days of this running before assuming it's fully free.
-_breadth_long_tech_cache = {}  # {symbol: {'date', 'ema200', 'high_52w', 'low_52w'}}
 _BREADTH_LONG_HISTORY_DAYS = 380  # ~1 year + buffer for weekends/holidays
 _FULL_YEAR_MIN_ROWS = 240  # NSE trades ~250 sessions/year; 240 leaves room for a handful of missed candles without calling a recent listing's partial history "52 weeks"
 
@@ -4010,41 +4024,56 @@ def _calc_long_term_tech(symbol, live_quote=None):
     separate path from _calc_tech()/_cached_history_df(). Returns
     {'date','ema200','high_52w','low_52w'} (any of the three real
     fields may be None if this symbol genuinely doesn't have enough
-    listed history yet) or None if the fetch itself failed."""
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    cached = _breadth_long_tech_cache.get(symbol)
-    if cached and cached.get('date') == today_str:
-        return cached
+    listed history yet) or None if the fetch itself failed.
 
-    df = _fyers_history_df(symbol, days=_BREADTH_LONG_HISTORY_DAYS)
-    if df is None or df.empty:
+    Sep 22 2026: wrapped in the same try/except shape _calc_tech()
+    itself already uses -- this function originally didn't have one,
+    which meant one symbol with a genuine data oddity (a halted
+    listing, a malformed candle) could raise and propagate all the way
+    up into _breadth_long_history_worker's per-cycle try/except,
+    aborting that ENTIRE batch and sleeping 90s before retrying the
+    exact same (deterministic, dict-ordered) symbol again next cycle --
+    a real way for this cache to stay permanently empty regardless of
+    how long the worker runs, not just a theoretical risk.
+    """
+    try:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        cached = _breadth_long_tech_cache.get(symbol)
+        if cached and cached.get('date') == today_str:
+            return cached
+
+        df = _fyers_history_df(symbol, days=_BREADTH_LONG_HISTORY_DAYS)
+        if df is None or df.empty:
+            return None
+
+        if live_quote is not None:
+            # Same "swap the last row for this cycle's real live quote"
+            # trick _calc_tech() already uses -- keeps EMA200/52w read as
+            # of right now, not stuck on yesterday's close.
+            df = df.iloc[:-1].reset_index(drop=True) if len(df) > 1 else df
+            today_row = pd.DataFrame([{
+                'ts': int(datetime.now().timestamp()),
+                'Open': live_quote.get('open') or live_quote.get('price'),
+                'High': live_quote.get('high') or live_quote.get('price'),
+                'Low': live_quote.get('low') or live_quote.get('price'),
+                'Close': live_quote.get('price'),
+                'Volume': live_quote.get('volume', 0),
+            }])
+            df = pd.concat([df, today_row], ignore_index=True)
+
+        close, high, low = df['Close'], df['High'], df['Low']
+        has_full_year = len(close) >= _FULL_YEAR_MIN_ROWS
+        result = {
+            'date': today_str,
+            'ema200': float(close.ewm(span=200, adjust=False).mean().iloc[-1]) if len(close) >= 200 else None,
+            'high_52w': round(float(high.max()), 2) if has_full_year else None,
+            'low_52w': round(float(low.min()), 2) if has_full_year else None,
+        }
+        _breadth_long_tech_cache[symbol] = result
+        return result
+    except Exception as e:
+        print(f"[LongTermTech] calc error {symbol}: {e}")
         return None
-
-    if live_quote is not None:
-        # Same "swap the last row for this cycle's real live quote"
-        # trick _calc_tech() already uses -- keeps EMA200/52w read as
-        # of right now, not stuck on yesterday's close.
-        df = df.iloc[:-1].reset_index(drop=True) if len(df) > 1 else df
-        today_row = pd.DataFrame([{
-            'ts': int(datetime.now().timestamp()),
-            'Open': live_quote.get('open') or live_quote.get('price'),
-            'High': live_quote.get('high') or live_quote.get('price'),
-            'Low': live_quote.get('low') or live_quote.get('price'),
-            'Close': live_quote.get('price'),
-            'Volume': live_quote.get('volume', 0),
-        }])
-        df = pd.concat([df, today_row], ignore_index=True)
-
-    close, high, low = df['Close'], df['High'], df['Low']
-    has_full_year = len(close) >= _FULL_YEAR_MIN_ROWS
-    result = {
-        'date': today_str,
-        'ema200': float(close.ewm(span=200, adjust=False).mean().iloc[-1]) if len(close) >= 200 else None,
-        'high_52w': round(float(high.max()), 2) if has_full_year else None,
-        'low_52w': round(float(low.min()), 2) if has_full_year else None,
-    }
-    _breadth_long_tech_cache[symbol] = result
-    return result
 
 
 def _breadth_long_history_worker():
@@ -4070,8 +4099,15 @@ def _breadth_long_history_worker():
                 batch = missing[:BATCH_SIZE]
                 done = 0
                 for sym in batch:
-                    if _calc_long_term_tech(sym, live_quote=quotes_snapshot.get(sym)):
-                        done += 1
+                    # Belt-and-suspenders on top of _calc_long_term_tech's
+                    # own try/except: even if some future change to that
+                    # function reintroduces an unguarded raise, one bad
+                    # symbol still can't take out the rest of this batch.
+                    try:
+                        if _calc_long_term_tech(sym, live_quote=quotes_snapshot.get(sym)):
+                            done += 1
+                    except Exception as e:
+                        print(f"[LongTermTech] {sym} raised unexpectedly, skipping: {e}")
                 print(f"[{datetime.now()}] Long-history breadth warmup: +{done}/{len(batch)} ({len(missing) - len(batch)} still missing today).")
                 time.sleep(15)
             else:
