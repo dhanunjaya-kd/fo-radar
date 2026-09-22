@@ -3,7 +3,6 @@ import MarketPulse from './MarketPulse';
 import IndexCard from './IndexCard';
 import TodaysMovers from './TodaysMovers';
 import MarketSentimentGauge from './MarketSentimentGauge';
-import OIDistribution from './OIDistribution';
 import DataHealthStrip from './DataHealthStrip';
 import { TrendMomentumCard } from './IndexTracker';
 
@@ -74,41 +73,18 @@ export default function Dashboard({ onNavigate }) {
         <TrendMomentumCard indexName="NIFTY" />
         <TrendMomentumCard indexName="BANKNIFTY" />
       </div>
-      {/* Sep 21 2026: OIDistribution moved into this row's side-panel
-          column, direct request ("move this to the side panel") --
-          this lg:grid-cols-3 split (TopLiveSignals 2/3, narrow column
-          1/3) was already the dashboard's one existing "side panel"
-          pattern, so OIDistribution joins it here (stacked below the
-          gauge) rather than a new, separate side-panel layout
-          invented elsewhere on the page. SectorStrength, previously
-          full-width below this row, moved to the Market Heatmap tab
-          instead (also direct request) -- sector-level detail belongs
-          next to the sector-level heatmap view, not the 5-second-
-          glance Dashboard; same component, not a duplicate. */}
+      {/* Sep 22 2026: OIDistribution moved out to its own top-level tab,
+          direct request -- it was sitting below the fold here, needing
+          a scroll every time to reach it, same complaint that already
+          moved SectorStrength off this page on Sep 21. This side panel
+          now holds just MarketSentimentGauge; the lg:col-span-3 row
+          split (TopLiveSignals 2/3, this column 1/3) is unchanged. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2 min-w-0">
           <TopLiveSignals onViewAll={onNavigate ? () => onNavigate('signals') : null} limit={3} />
         </div>
-        {/* Sep 21 2026 (later same day): min-w-0 added defensively --
-            NOT a confirmed fix. Direct request reported this column
-            still rendering full-width after the restructure above, and
-            the working hypothesis was OIDistribution's own hardcoded
-            `const WIDTH = 700` SVG viewBox forcing the grid track via
-            the standard "grid items don't shrink below min-content"
-            behavior. Actually tested that hypothesis with a faithful
-            Puppeteer reproduction (real header/legend/SVG markup, 1900px
-            viewport) rather than assuming it -- min-w-0 made ZERO
-            measurable difference in either test; the column narrowed
-            correctly (544px, a sane side-panel width) with or without
-            it. So the real cause of what was reported is still
-            unconfirmed -- most likely a stale Vite/browser cache rather
-            than this layout code, given the code itself measures
-            correctly in isolation. min-w-0 is harmless and correct
-            practice regardless, so left in, but do not treat its
-            presence as "the fix" if this gets revisited. */}
         <div className="space-y-3 min-w-0">
           <MarketSentimentGauge />
-          <OIDistribution />
         </div>
       </div>
       {/* Sep 3 2026: NoTradeLog + OISnapshot removed per direct request

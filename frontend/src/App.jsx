@@ -9,6 +9,7 @@ import MarketBanner from './components/MarketBanner';
 import MarketStatusHeader from './components/MarketStatusHeader';
 import SignalList from './components/SignalList';
 import Analytics from './components/Analytics';
+import OIDistribution from './components/OIDistribution';
 import IndexTracker from './components/IndexTracker';
 import MarketView from './components/MarketView';
 import NextDayWatchlist from './components/NextDayWatchlist';
@@ -77,6 +78,7 @@ function AppShell() {
     { id: 'scanner', label: 'Scanner', count: null },
     { id: 'signals', label: 'Sniper Signals', count: signalCount },
     { id: 'oi', label: 'Open Interest Analytics', count: null },
+    { id: 'oidist', label: 'OI Distribution', count: null },
     { id: 'index', label: 'Index Monitor', count: null },
     { id: 'cas', label: 'CAS Radar', count: null },
     { id: 'market', label: 'Market Overview', count: null },
@@ -89,7 +91,7 @@ function AppShell() {
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
-  const primaryNavOrder = ['dashboard', 'scanner', 'signals', 'oi', 'index', 'cas', 'market', 'heatmap', 'charts', 'nextday', 'backtest', 'shadow', 'settings'];
+  const primaryNavOrder = ['dashboard', 'scanner', 'signals', 'oi', 'oidist', 'index', 'cas', 'market', 'heatmap', 'charts', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   useEffect(() => {
@@ -159,6 +161,12 @@ function AppShell() {
           {activeTab === 'settings' && <SettingsPanel onDensityChange={setDensity} />}
           {activeTab === 'signals' && <SignalList />}
           {activeTab === 'oi' && <Analytics />}
+          {/* Sep 22 2026: standalone tab, direct request -- was living
+              in Dashboard's side panel (Sep 21), needed a scroll every
+              time to reach it there. Same component, no props before
+              or after -- just a different home, exact SectorStrength/
+              Market Heatmap precedent from the day before. */}
+          {activeTab === 'oidist' && <OIDistribution />}
           {activeTab === 'index' && <IndexTracker />}
           {activeTab === 'cas' && <CASRadar />}
           {activeTab === 'market' && <MarketView />}

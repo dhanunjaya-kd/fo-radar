@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-22T16:25:51.604636",
+  "generated_at": "2026-09-22T16:38:11.090490",
   "universe_scanned": 2724,
   "stocks_with_enough_data": 2678,
   "excluded_low_price": 600,
-  "excluded_low_liquidity": 1088,
+  "excluded_low_liquidity": 1089,
   "excluded_unknown_sector": 2471,
   "min_price_threshold": 50,
   "min_avg_volume_threshold": 100000,
@@ -82,6 +82,30 @@
       "rank": 3
     },
     {
+      "symbol": "NSE:RBLBANK-EQ",
+      "sector": "Banking",
+      "eod_price": 423.2,
+      "change_percent": 5.17,
+      "rsi": 66.1,
+      "sma_20": 401.63,
+      "distance_from_sma_pct": 5.37,
+      "today_volume": 7366136,
+      "avg_volume_20d": 3606336.0,
+      "volume_ratio": 2.04,
+      "sector_relative_pct": 5.1,
+      "sector_strength": "Leading",
+      "trend_status": "Strong",
+      "volume_status": "Accumulation",
+      "score": 86,
+      "score_breakdown": {
+        "rsi": 20,
+        "trend_distance": 25,
+        "volume": 16,
+        "sector_strength": 25
+      },
+      "rank": 4
+    },
+    {
       "symbol": "NSE:MANKIND-EQ",
       "sector": "Pharma",
       "eod_price": 2480,
@@ -103,7 +127,7 @@
         "volume": 12,
         "sector_strength": 25
       },
-      "rank": 4
+      "rank": 5
     },
     {
       "symbol": "NSE:WAAREEENER-EQ",
@@ -127,7 +151,7 @@
         "volume": 15,
         "sector_strength": 25
       },
-      "rank": 5
+      "rank": 6
     },
     {
       "symbol": "NSE:WIPRO-EQ",
@@ -151,31 +175,31 @@
         "volume": 7,
         "sector_strength": 25
       },
-      "rank": 6
+      "rank": 7
     },
     {
       "symbol": "NSE:TATAELXSI-EQ",
       "sector": "IT",
       "eod_price": 3220,
       "change_percent": -2.04,
-      "rsi": 34.1,
-      "sma_20": 3509.18,
-      "distance_from_sma_pct": -8.24,
+      "rsi": 28.8,
+      "sma_20": 3486.51,
+      "distance_from_sma_pct": -7.64,
       "today_volume": 522950,
-      "avg_volume_20d": 184231.0,
-      "volume_ratio": 2.84,
+      "avg_volume_20d": 193677.0,
+      "volume_ratio": 2.7,
       "sector_relative_pct": -1.25,
       "sector_strength": "Lagging",
       "trend_status": "Strong",
       "volume_status": "Accumulation",
-      "score": 73,
+      "score": 71,
       "score_breakdown": {
         "rsi": 20,
         "trend_distance": 25,
-        "volume": 28,
+        "volume": 26,
         "sector_strength": 0
       },
-      "rank": 7
+      "rank": 8
     },
     {
       "symbol": "NSE:HAVELLS-EQ",
@@ -199,7 +223,7 @@
         "volume": 0,
         "sector_strength": 25
       },
-      "rank": 8
+      "rank": 9
     },
     {
       "symbol": "NSE:KEI-EQ",
@@ -216,30 +240,6 @@
       "sector_strength": "Leading",
       "trend_status": "Strong",
       "volume_status": "Heavy Distribution",
-      "score": 70,
-      "score_breakdown": {
-        "rsi": 20,
-        "trend_distance": 25,
-        "volume": 0,
-        "sector_strength": 25
-      },
-      "rank": 9
-    },
-    {
-      "symbol": "NSE:OFSS-EQ",
-      "sector": "IT",
-      "eod_price": 10989,
-      "change_percent": 0.71,
-      "rsi": 39.2,
-      "sma_20": 11807.0,
-      "distance_from_sma_pct": -6.93,
-      "today_volume": 232711,
-      "avg_volume_20d": 238397.0,
-      "volume_ratio": 0.98,
-      "sector_relative_pct": 1.5,
-      "sector_strength": "Leading",
-      "trend_status": "Strong",
-      "volume_status": "Normal",
       "score": 70,
       "score_breakdown": {
         "rsi": 20,
