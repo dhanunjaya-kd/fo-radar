@@ -517,6 +517,26 @@ SNIPER_V2_CONFIG = {
     # above already uses. Flip to "false" via env var to restore the
     # original any-conflict-excludes behavior with no code change.
     "OI_CONFLICT_REQUIRES_FUTURES_CORROBORATION": os.environ.get("OI_CONFLICT_REQUIRES_FUTURES_CORROBORATION", "true").lower() == "true",
+    # Sep 23 2026: two ideas ported from the Gamma Blast strategy
+    # module (a separate paid package, its own strike-resolution logic
+    # verified against the original before being wired into Gamma --
+    # see gamma_options_resolver.py). Checked against this file's own
+    # ATM strike selection first, not assumed: confirmed this project
+    # currently has NO minimum-DTE gate (days_to_expiry only ever
+    # produces a soft near_expiry_warning at <=2 days, never a
+    # rejection) and NO delta-band strike selection at all (strike is
+    # always just price rounded to the nearest standard interval,
+    # i.e. always ATM, regardless of premium cost or theta profile).
+    # Both are real, reasoned improvements -- but both are also a
+    # genuine strategy change to every future signal's premium and
+    # risk profile, not a small tweak, and neither has been validated
+    # against this project's own real historical outcomes. Same
+    # "ready, not silently activated" discipline as every other
+    # switch in this dict: default False, flip via env var with no
+    # code change once actually wanted.
+    "REQUIRE_MIN_DTE": os.environ.get("REQUIRE_MIN_DTE", "false").lower() == "true",
+    "MIN_DTE_DAYS": int(os.environ.get("MIN_DTE_DAYS", "8")),
+    "USE_DELTA_BAND_STRIKE_SELECTION": os.environ.get("USE_DELTA_BAND_STRIKE_SELECTION", "false").lower() == "true",
 }
 # Back-compat module-level names some earlier code in this session already
 # reads directly -- same values, single source of truth is the dict above.
@@ -2426,6 +2446,73 @@ def _evaluate_and_log_shadow(sym, action, price, tech, stock, sector_change_map,
         return None, []
 
 
+def _resolve_sniper_strike_via_gamma_criteria(sym, action, opt_side, price, oi):
+    """
+    Sep 23 2026: only called when SNIPER_V2_CONFIG's REQUIRE_MIN_DTE
+    and/or USE_DELTA_BAND_STRIKE_SELECTION are on (both default off --
+    see that dict's own comment). Reuses gamma_options_resolver.py's
+    already-verified resolve_expiry_with_min_dte/resolve_ce_otm_
+    candidates/resolve_pe_otm_candidates directly, not reimplemented.
+
+    Returns (strike, greeks_dict, updated_oi, reject_reason). On
+    success reject_reason is None and greeks_dict is sourced from the
+    SPECIFIC chosen strike's own row (oi['rows'] already carries real
+    per-strike Greeks via enrich_rows_with_iv_greeks) -- deliberately
+    NOT oi['greeks'], which is ATM-only (compute_atm_iv) and would be
+    the wrong Greeks entirely for any strike this function might pick
+    that isn't ATM. On failure strike is None and reject_reason
+    explains why (no qualifying expiry, or no delta-band candidate) --
+    caller's job to no_trade_log and skip, same as every other
+    rejection path in this file.
+    """
+    from .gamma_options_resolver import resolve_expiry_with_min_dte, resolve_ce_otm_candidates, resolve_pe_otm_candidates
+    from .gamma_config import GAMMA_BLAST_CONFIG
+    ocfg = GAMMA_BLAST_CONFIG['options_resolution']
+
+    if SNIPER_V2_CONFIG["REQUIRE_MIN_DTE"]:
+        min_dte = SNIPER_V2_CONFIG["MIN_DTE_DAYS"]
+        current_dte = oi.get('days_to_expiry')
+        if current_dte is None or current_dte < min_dte:
+            fyers_symbol = f"NSE:{sym}-EQ"
+            expiry = resolve_expiry_with_min_dte(fyers_symbol, min_dte, get_option_chain)
+            if not expiry:
+                return None, None, oi, f"No expiry with DTE>={min_dte} available for {sym}"
+            try:
+                oi = get_option_analytics(fyers_symbol, strikecount=10, timestamp=expiry['timestamp'])
+            except Exception as e:
+                return None, None, oi, f"Re-fetch for DTE>={min_dte} expiry failed: {e}"
+            if not oi or not oi.get('rows'):
+                return None, None, oi, f"No option chain data for the DTE>={min_dte} expiry"
+
+    if not SNIPER_V2_CONFIG["USE_DELTA_BAND_STRIKE_SELECTION"]:
+        strike = oi.get('atm_strike') or price
+        greeks = (oi.get('greeks') or {}).get(opt_side, {})
+        return strike, greeks, oi, None
+
+    rows, spot = oi.get('rows'), oi.get('spot')
+    if not rows or not spot:
+        return None, None, oi, "No option chain rows/spot available for delta-band selection"
+
+    lot_size = get_lot_size(sym) or 1
+    resolver_fn = resolve_ce_otm_candidates if opt_side == 'CE' else resolve_pe_otm_candidates
+    kwargs = dict(
+        lot_size=lot_size, max_candidates=1, min_oi=ocfg['min_option_oi'], min_vol=ocfg['min_option_volume'],
+        max_spread_pct=ocfg['max_bid_ask_spread_pct'], min_convexity=ocfg['gamma_convexity_min'],
+        sweet_min_pct=ocfg['sweet_spot_distance_min_pct'], sweet_max_pct=ocfg['sweet_spot_distance_max_pct'],
+    )
+    if opt_side == 'CE':
+        kwargs['otm_ce_max_pct'] = ocfg['otm_moneyness_ce_max_pct']
+    else:
+        kwargs['otm_pe_min_pct'] = ocfg['otm_moneyness_pe_min_pct']
+    candidates = resolver_fn(rows, spot, **kwargs)
+    if not candidates:
+        return None, None, oi, f"No {opt_side} strike cleared the delta 0.20-0.45 / convexity>={ocfg['gamma_convexity_min']} band for {sym}"
+
+    best = candidates[0]
+    greeks = {"delta": best["delta"], "gamma": best["gamma"], "theta": best["theta"], "vega": best["vega"]}
+    return best["strike"], greeks, oi, None
+
+
 def _build_all():
     """Fetch everything: indices, stocks, signals. Cache all."""
     global _stock_cache, _index_cache, _index_cache_updated_at, _signal_cache, _tech_cache, _last_fetch, _no_trade_cache
@@ -3013,8 +3100,26 @@ def _build_all():
         # answer this exact question.
 
         if oi:
-            strike = oi.get('atm_strike') or strike
-            greeks = (oi.get('greeks') or {}).get(opt_side, {})
+            # Sep 23 2026: only takes a different path than the original
+            # `strike = oi.get('atm_strike') or strike` when
+            # REQUIRE_MIN_DTE / USE_DELTA_BAND_STRIKE_SELECTION are
+            # explicitly turned on (both default off) -- see
+            # _resolve_sniper_strike_via_gamma_criteria()'s own
+            # docstring and SNIPER_V2_CONFIG's comment for the full
+            # reasoning. A None result means neither the DTE floor nor
+            # a real delta-band candidate could be satisfied -- reject
+            # this candidate rather than silently falling back to the
+            # plain ATM strike, same "no chain, no signal" discipline
+            # this file already applies to a missing option chain.
+            if SNIPER_V2_CONFIG["REQUIRE_MIN_DTE"] or SNIPER_V2_CONFIG["USE_DELTA_BAND_STRIKE_SELECTION"]:
+                new_strike, new_greeks, oi, reject_reason = _resolve_sniper_strike_via_gamma_criteria(sym, action, opt_side, price, oi)
+                if reject_reason:
+                    no_trade_log.append({"symbol": sym, "reason": reject_reason})
+                    continue
+                strike, greeks = new_strike, new_greeks
+            else:
+                strike = oi.get('atm_strike') or strike
+                greeks = (oi.get('greeks') or {}).get(opt_side, {})
             signal_extra = {
                 "ce_oi": oi.get('ce_oi'), "pe_oi": oi.get('pe_oi'),
                 "ce_oi_chg": oi.get('ce_oi_chg'), "pe_oi_chg": oi.get('pe_oi_chg'),
