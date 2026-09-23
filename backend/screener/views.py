@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import threading
+from pathlib import Path
 from datetime import datetime, timedelta
 from datetime import time as dt_time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -4228,25 +4229,38 @@ if not _IS_RELOADER_WATCHER_PROCESS:
 # =============================================================================
 # GAMMA BLAST STRATEGY -- separate module, Sep 23 2026.
 #
-# Logic (zone engine, EMA50 gate, proximity thresholds) ported exactly from
-# the purchased Gamma_Blast_Options_strategy package -- see
-# gamma_zone_engine.py/gamma_watchlist_scanner.py's own docstrings for the
-# verification this was checked against the original package's code,
-# field-for-field, before being wired in here. This block is ONLY the
-# wiring: real Fyers daily history in, the same zone/EMA logic already
-# proven, real live quotes from the SAME _breadth_quote_cache the rest of
-# the dashboard already reuses (no new quote-fetch cost).
+# Logic (zone engine, EMA50 gate, proximity thresholds, options resolver,
+# 4-phase microstructure trigger, Telegram alert format, position sizing)
+# ported exactly from the purchased Gamma_Blast_Options_strategy package --
+# see gamma_*.py's own docstrings for the verification each piece was
+# checked against the original package's code, field-for-field or byte-
+# for-byte, before being wired in here. This block is the wiring: real
+# Fyers data in, the same logic already proven.
 #
-# Scope of THIS pass: resistance/support watchlist (zones + 50 EMA gate),
-# real and live. The options resolver (DTE/delta/gamma-convexity ranking)
-# and the microstructure trigger are NOT wired yet -- both need their own
-# careful integration with this project's live Fyers option-chain fetch,
-# not something to rush alongside this. GammaStrategyView below reports
-# them honestly as "PENDING", not silently empty.
+# Full pipeline now wired: zones+EMA50 gate -> top-3-per-side watchlist ->
+# real Fyers option-chain resolution (DTE>=8, delta/gamma-convexity
+# ranked) for those 6 stocks -> 12 contracts fed into the microstructure
+# daemon -> a real trigger sends a real Telegram alert via this project's
+# own already-fixed bot -> GammaStateManager persists watchlist/options
+# for multi-day carryover and invalidation.
+#
+# Real, disclosed trade-off: option-chain fetches are paced to once per
+# ~75s per watchlist stock (not the original's 1-minute-tick cadence) to
+# stay well clear of this project's own well-documented Fyers rate-limit
+# history. The microstructure daemon's buffer_len=25 ticks therefore
+# spans roughly 30 real minutes at this cadence instead of ~25 minutes
+# of 1-minute ticks -- close, not identical, and worth knowing.
 _gamma_cache_lock = threading.Lock()
-_gamma_zone_cache = {}       # {symbol: {'date', 'resistance_zones', 'support_zones', 'ema50', 'atr50'}}
+_gamma_zone_cache = {}       # {symbol: {'date', 'nearest_resistance', 'nearest_support', 'ema50', 'atr50'}}
 _gamma_watchlist_cache = {"resistance_watchlist": [], "support_watchlist": [], "updated_at": None}
+_gamma_expiry_cache = {}     # {fyers_symbol: {'date', 'timestamp', 'dte', 'date_str'}} -- DTE>=8 expiry, once/day
+_gamma_options_fetch_time = {}  # {fyers_symbol: monotonic time of last option-chain fetch} -- paces the 75s cadence
+_gamma_active_options_cache = {"items": [], "updated_at": None}
+_gamma_alerts_cache = {"items": []}
+_gamma_microstructure_daemon = None  # lazy-built on first use, see _gamma_get_microstructure_daemon()
+_gamma_state_mgr = None              # lazy-built, see _gamma_get_state_manager()
 _GAMMA_ZONE_HISTORY_DAYS = 250  # enough real bars for ATR(50) to warm up plus a real pivot history
+_GAMMA_OPTIONS_FETCH_INTERVAL_SECONDS = 75.0
 
 
 def _gamma_compute_zones_for_symbol(symbol):
@@ -4254,10 +4268,21 @@ def _gamma_compute_zones_for_symbol(symbol):
     same reasoning as _calc_long_term_tech's -- NOT routed through the
     shared 100-day _cached_history_df/_history_cache, to avoid that
     cache's symbol+date-only key silently colliding with a different
-    days= request for the same symbol), computes zones via the verified
-    gamma_zone_engine, and EMA50 from the same series. Returns None if
-    the fetch itself failed; caches result (including a real "no zones
-    found" result) once per symbol per day either way."""
+    days= request for the same symbol).
+
+    Sep 23 2026 fix: this used to call gamma_zone_engine directly and
+    take zones[0] as "nearest" -- wrong. Reading daily_premarket_
+    runner.py (the purchased package's actual premarket script, not
+    yet examined when this was first written) surfaced two real
+    pieces of logic that lived ONLY there, not in the raw zone engine:
+    a consolidation-ceiling/floor zone (catches tight-range setups the
+    pivot detector alone misses) and "nearest" being the geometrically
+    closest zone actually overhead/underneath price, not whichever
+    zone the pivot detector happens to have found most recently. Now
+    routed through gamma_premarket_zones.compute_symbol_sr_directory,
+    which was verified byte-for-byte against that original file
+    before this fix. Caches result (including a real "no zones found"
+    result) once per symbol per day either way."""
     today_str = datetime.now().strftime("%Y-%m-%d")
     cached = _gamma_zone_cache.get(symbol)
     if cached and cached.get('date') == today_str:
@@ -4272,32 +4297,180 @@ def _gamma_compute_zones_for_symbol(symbol):
         'date': pd.to_datetime(df['ts'], unit='s').dt.strftime('%Y-%m-%d'),
     })
     try:
-        from .gamma_zone_engine import VolatilitySupplyDemandEngine
-        engine = VolatilitySupplyDemandEngine(
-            pivot_len=GAMMA_BLAST_CONFIG['zone_engine']['pivot_len'],
-            zone_depth=GAMMA_BLAST_CONFIG['zone_engine']['zone_depth'],
-            guard_mult=GAMMA_BLAST_CONFIG['zone_engine']['guard_mult'],
-            zone_memory=GAMMA_BLAST_CONFIG['zone_engine']['zone_memory'],
-            use_wick=GAMMA_BLAST_CONFIG['zone_engine']['use_wick'],
+        from .gamma_premarket_zones import compute_symbol_sr_directory
+        zcfg = GAMMA_BLAST_CONFIG['zone_engine']
+        directory = compute_symbol_sr_directory(
+            zone_df, lot_size=1, pivot_len=zcfg['pivot_len'],
+            zone_depth=zcfg['zone_depth'], guard_mult=zcfg['guard_mult'],
         )
-        sell_zones, buy_zones = engine.compute_zones(zone_df)
         close_series = df['Close']
         ema50 = float(close_series.ewm(span=50, adjust=False).mean().iloc[-1]) if len(close_series) >= 50 else None
-        atr50 = float(engine.calculate_atr_wilder(
-            df['High'].to_numpy(dtype=float), df['Low'].to_numpy(dtype=float), df['Close'].to_numpy(dtype=float), length=50
-        )[-1])
+        atr50 = directory['resistance']['atr50']
         result = {
             'date': today_str,
-            'resistance_zones': sell_zones,   # SELL side = resistance, CE candidates
-            'support_zones': buy_zones,       # BUY side = support, PE candidates
+            'nearest_resistance': directory['resistance']['nearest_resistance'],
+            'nearest_support': directory['support']['nearest_support'],
             'ema50': ema50,
-            'atr50': atr50 if not (atr50 != atr50) else None,  # NaN guard
+            'atr50': atr50 if atr50 == atr50 else None,  # NaN guard
         }
         _gamma_zone_cache[symbol] = result
         return result
     except Exception as e:
         print(f"[GammaZones] calc error {symbol}: {e}")
         return None
+
+
+def _gamma_get_microstructure_daemon():
+    global _gamma_microstructure_daemon
+    if _gamma_microstructure_daemon is None:
+        from .gamma_microstructure import MicrostructureDaemon
+        mcfg = GAMMA_BLAST_CONFIG['microstructure_trigger']
+        _gamma_microstructure_daemon = MicrostructureDaemon(
+            buffer_len=mcfg['buffer_length'], cooldown_sec=mcfg['cooldown_seconds'], enforce_5m_boundary=False,
+        )
+    return _gamma_microstructure_daemon
+
+
+def _gamma_get_state_manager():
+    global _gamma_state_mgr
+    if _gamma_state_mgr is None:
+        from .gamma_state_manager import GammaStateManager
+        state_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "signal_logs", "gamma_blast_state.json")
+        _gamma_state_mgr = GammaStateManager(state_file=Path(state_path))
+    return _gamma_state_mgr
+
+
+def _gamma_resolve_expiry(fyers_symbol, min_dte):
+    """DTE>=8 expiry, cached once per symbol per day -- expiries don't
+    change intraday, no reason to re-probe every cycle."""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _gamma_expiry_cache.get(fyers_symbol)
+    if cached and cached.get('cached_on') == today_str:
+        return cached
+    try:
+        from .gamma_options_resolver import resolve_expiry_with_min_dte
+        from .fyers_client import get_option_chain
+        result = resolve_expiry_with_min_dte(fyers_symbol, min_dte, get_option_chain)
+    except Exception as e:
+        print(f"[GammaOptions] expiry resolution error {fyers_symbol}: {e}")
+        result = None
+    if result:
+        # 'cached_on' tracks when THIS cache entry was computed (for the
+        # staleness check above) -- deliberately a different key from
+        # 'date', which resolve_expiry_with_min_dte already set to the
+        # REAL contract expiry date. Overwriting 'date' here would have
+        # silently replaced the real expiry date with today's date --
+        # caught before shipping, not after.
+        result['cached_on'] = today_str
+        _gamma_expiry_cache[fyers_symbol] = result
+    return result
+
+
+def _gamma_resolve_options_for_watchlist(resistance_watchlist, support_watchlist):
+    """
+    Real Fyers option-chain fetch + resolution for the 6 watchlist
+    stocks (top 3 resistance -> CE, top 3 support -> PE), 2 contracts
+    each (Gold/Silver by the same multi-factor sort the original
+    uses) -- 12 total, exactly matching options_per_stock/max_ce_
+    stocks/max_pe_stocks/total_options_count in GAMMA_BLAST_CONFIG.
+    Paced per-symbol via _gamma_options_fetch_time -- see this
+    module's header comment for the real cadence trade-off.
+    """
+    from .gamma_options_resolver import resolve_ce_otm_candidates, resolve_pe_otm_candidates
+    from .fyers_client import get_option_analytics
+
+    ocfg = GAMMA_BLAST_CONFIG['options_resolution']
+    resolved = []
+    now_mono = time.monotonic()
+
+    def _process(stock, option_type):
+        sym = stock['symbol']
+        fyers_symbol = f"NSE:{sym}-EQ"
+        last_fetch = _gamma_options_fetch_time.get(fyers_symbol, 0.0)
+        if (now_mono - last_fetch) < _GAMMA_OPTIONS_FETCH_INTERVAL_SECONDS:
+            return  # too soon, real quotes for this symbol are still fresh enough to skip
+        expiry = _gamma_resolve_expiry(fyers_symbol, ocfg['min_dte'])
+        if not expiry:
+            return
+        try:
+            analytics = get_option_analytics(fyers_symbol, strikecount=10, timestamp=expiry['timestamp'])
+        except Exception as e:
+            print(f"[GammaOptions] chain fetch error {sym}: {e}")
+            return
+        _gamma_options_fetch_time[fyers_symbol] = now_mono
+        if not analytics or not analytics.get('rows') or not analytics.get('spot'):
+            return
+
+        rows, spot = analytics['rows'], analytics['spot']
+        lot = stock.get('lot_size', 1)
+        if option_type == 'CE':
+            candidates = resolve_ce_otm_candidates(
+                rows, spot, lot_size=lot, max_candidates=5, min_oi=ocfg['min_option_oi'], min_vol=ocfg['min_option_volume'],
+                max_spread_pct=ocfg['max_bid_ask_spread_pct'], min_convexity=ocfg['gamma_convexity_min'],
+                otm_ce_max_pct=ocfg['otm_moneyness_ce_max_pct'], sweet_min_pct=ocfg['sweet_spot_distance_min_pct'], sweet_max_pct=ocfg['sweet_spot_distance_max_pct'],
+            )
+        else:
+            candidates = resolve_pe_otm_candidates(
+                rows, spot, lot_size=lot, max_candidates=5, min_oi=ocfg['min_option_oi'], min_vol=ocfg['min_option_volume'],
+                max_spread_pct=ocfg['max_bid_ask_spread_pct'], min_convexity=ocfg['gamma_convexity_min'],
+                otm_pe_min_pct=ocfg['otm_moneyness_pe_min_pct'], sweet_min_pct=ocfg['sweet_spot_distance_min_pct'], sweet_max_pct=ocfg['sweet_spot_distance_max_pct'],
+            )
+        for c in candidates[:ocfg['options_per_stock']]:
+            c['symbol'] = sym
+            c['expiry'] = expiry.get('date')
+            c['security_id'] = f"{sym}_{expiry.get('date')}_{int(c['strike'])}_{option_type}"
+            c['dte'] = expiry['dte']
+            c['spot_cmp'] = spot
+            c['category'] = f"{c['tier']} {option_type} OTM Option ({sym} Rank {c['rank']})"
+            resolved.append(c)
+
+    for stock in (resistance_watchlist or [])[:3]:
+        _process(stock, 'CE')
+    for stock in (support_watchlist or [])[:3]:
+        _process(stock, 'PE')
+    return resolved
+
+
+def _gamma_feed_microstructure_and_alert(options_list):
+    """Registers each resolved contract with the microstructure daemon,
+    feeds it this cycle's real tick, and sends a real Telegram alert
+    (via this project's own already-fixed bot) through exactly the
+    same format_gamma_alert() text the purchased package uses whenever
+    the real 4-phase confluence fires."""
+    daemon = _gamma_get_microstructure_daemon()
+    new_triggers = []
+    for opt in options_list:
+        contract = {
+            "security_id": opt['security_id'], "symbol": opt['symbol'], "option_type": opt['option_type'],
+            "strike": opt['strike'], "expiry": opt['expiry'], "lot_size": opt['lot_size'],
+        }
+        daemon.register_contract(contract)
+        trigger = daemon.record_tick(
+            opt['security_id'], ltp=opt['ltp'], oi=opt['oi'], volume=opt['volume'],
+            bid=opt['bid'], ask=opt['ask'],
+        )
+        if trigger:
+            trigger['spot_cmp'] = opt.get('spot_cmp', 0.0)
+            trigger['dte'] = opt.get('dte', 8)
+            new_triggers.append(trigger)
+
+    if new_triggers:
+        try:
+            from .gamma_telegram import format_gamma_alert
+            from trading.telegram_bot import TelegramBot
+            bot = TelegramBot()
+            for trig in new_triggers:
+                msg = format_gamma_alert({
+                    **trig, "chase_ceiling": round(trig['entry_price'] * 1.07, 2),
+                    "spot_price": trig.get('spot_cmp', 0.0),
+                })
+                bot.send_message(msg)
+        except Exception as e:
+            print(f"[GammaTelegram] alert send failed: {e}")
+
+    with _gamma_cache_lock:
+        _gamma_alerts_cache["items"] = daemon.get_signal_journal()["signals"][-50:]
+    return new_triggers
 
 
 def _gamma_strategy_worker():
@@ -4338,16 +4511,14 @@ def _gamma_strategy_worker():
                 q = quotes_snapshot.get(sym)
                 if not zinfo or zinfo.get('date') != today_str or not q:
                     continue
-                res_zones = zinfo.get('resistance_zones') or []
-                sup_zones = zinfo.get('support_zones') or []
                 quotes_in[sym] = {
                     "cmp": q.get('price', 0.0), "open": q.get('open', 0.0),
                     "day_high": q.get('high', 0.0), "day_low": q.get('low', 0.0),
                     "volume": q.get('volume', 0), "lot_size": 1,
                 }
                 zones_in[sym] = {
-                    "nearest_resistance": res_zones[0] if res_zones else None,
-                    "nearest_support": sup_zones[0] if sup_zones else None,
+                    "nearest_resistance": zinfo.get('nearest_resistance'),
+                    "nearest_support": zinfo.get('nearest_support'),
                     "atr50": zinfo.get('atr50') or (q.get('price', 0.0) * 0.02),
                 }
                 if zinfo.get('ema50') is not None:
@@ -4360,11 +4531,31 @@ def _gamma_strategy_worker():
                     proximity_pct=cfg['strict_proximity_pct'], approach_pct=cfg['approaching_proximity_pct'],
                     min_underlying_volume=cfg['min_underlying_volume'], min_underlying_turnover_cr=cfg['min_underlying_turnover_cr'],
                 )
+                res_wl, sup_wl = result["resistance_watchlist"], result["support_watchlist"]
                 with _gamma_cache_lock:
-                    _gamma_watchlist_cache["resistance_watchlist"] = result["resistance_watchlist"]
-                    _gamma_watchlist_cache["support_watchlist"] = result["support_watchlist"]
+                    _gamma_watchlist_cache["resistance_watchlist"] = res_wl
+                    _gamma_watchlist_cache["support_watchlist"] = sup_wl
                     _gamma_watchlist_cache["updated_at"] = datetime.now().isoformat()
                     _gamma_watchlist_cache["symbols_with_zones_today"] = len(zones_in)
+
+                # Options resolution + microstructure + Telegram + state
+                # persistence, all real, all gated behind is_authenticated()
+                # like every other live Fyers call in this file.
+                if is_authenticated() and (res_wl or sup_wl):
+                    try:
+                        options_list = _gamma_resolve_options_for_watchlist(res_wl, sup_wl)
+                        if options_list:
+                            with _gamma_cache_lock:
+                                _gamma_active_options_cache["items"] = options_list
+                                _gamma_active_options_cache["updated_at"] = datetime.now().isoformat()
+                            _gamma_feed_microstructure_and_alert(options_list)
+                            state_mgr = _gamma_get_state_manager()
+                            state_mgr.sync_scanned_stocks(res_wl, sup_wl, prune_unlisted=True)
+                            state_mgr.sync_scanned_options(options_list, prune_unlisted=True)
+                            live_quotes_by_symbol = {s: {"cmp": q.get('price', 0.0), "volume": q.get('volume', 0)} for s, q in quotes_snapshot.items()}
+                            state_mgr.evaluate_invalidation(live_quotes_by_symbol)
+                    except Exception as e:
+                        print(f"[GammaOptions] resolution/alert cycle error: {e}")
 
             time.sleep(20)
         except Exception as e:
@@ -4381,27 +4572,37 @@ class GammaStrategyView(APIView):
     """
     GET /api/gamma-strategy/
 
-    Real, live: resistance_watchlist / support_watchlist (top 3 each,
-    zone + 50 EMA gate + intraday momentum, all from _gamma_strategy_worker
-    above). Honestly pending, not faked: active_options and
-    microstructure_alerts -- those need the options resolver and tick
-    daemon wired to this project's live Fyers option-chain fetch, a
-    separate piece of work, reported here as status: "PENDING" rather
-    than silently returning an empty list indistinguishable from "ran
-    and found nothing."
+    Everything real and live now: resistance_watchlist/support_watchlist
+    (zone + 50 EMA gate), active_options (real Fyers option-chain
+    resolution, DTE>=8 + delta/gamma-convexity ranked, 12 contracts),
+    microstructure_alerts (real 4-phase trigger history from the tick
+    daemon these same option updates feed). "status" stays explicit
+    (LIVE vs WARMING_UP) rather than silently returning an empty list
+    indistinguishable from "ran and found nothing" -- WARMING_UP is
+    real and expected right after a restart, before the first options
+    cycle has had time to run (up to ~75s per watchlist stock).
     """
     def get(self, request):
         with _gamma_cache_lock:
-            snapshot = dict(_gamma_watchlist_cache)
+            wl_snapshot = dict(_gamma_watchlist_cache)
+            opt_snapshot = dict(_gamma_active_options_cache)
+            alert_snapshot = list(_gamma_alerts_cache.get("items", []))
         return Response({
             "strategy": "Gamma_Blast_Options_strategy",
-            "resistance_watchlist": snapshot.get("resistance_watchlist", []),
-            "support_watchlist": snapshot.get("support_watchlist", []),
-            "updated_at": snapshot.get("updated_at"),
-            "symbols_with_zones_today": snapshot.get("symbols_with_zones_today", 0),
+            "resistance_watchlist": wl_snapshot.get("resistance_watchlist", []),
+            "support_watchlist": wl_snapshot.get("support_watchlist", []),
+            "updated_at": wl_snapshot.get("updated_at"),
+            "symbols_with_zones_today": wl_snapshot.get("symbols_with_zones_today", 0),
             "universe_size": len(FNO_STOCKS),
-            "active_options": {"status": "PENDING", "items": []},
-            "microstructure_alerts": {"status": "PENDING", "items": []},
+            "active_options": {
+                "status": "LIVE" if opt_snapshot.get("items") else "WARMING_UP",
+                "items": opt_snapshot.get("items", []),
+                "updated_at": opt_snapshot.get("updated_at"),
+            },
+            "microstructure_alerts": {
+                "status": "LIVE" if alert_snapshot else "WARMING_UP",
+                "items": alert_snapshot,
+            },
         })
 
 

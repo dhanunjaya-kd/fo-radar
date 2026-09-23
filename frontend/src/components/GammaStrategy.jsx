@@ -5,17 +5,17 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 // Sep 23 2026: Gamma Blast Strategy tab -- separate block, direct
 // request, own sidebar entry (not folded into Sniper Signals).
 //
-// Backend status as of this build: resistance_watchlist/support_watchlist
-// are REAL and LIVE (zone engine + 50 EMA gate, verified against the
-// purchased package's own code before being wired in -- see
-// gamma_zone_engine.py/gamma_watchlist_scanner.py). active_options and
-// microstructure_alerts are honestly reported as PENDING by the
-// backend, not silently empty -- the options resolver (needs this
-// project's live Fyers option-chain fetch, not yet wired) and the
-// microstructure daemon (needs a continuous tick feed, same reason)
-// are still to come. This component renders that PENDING state
-// plainly rather than showing an empty list that looks like "ran and
-// found nothing."
+// Sep 23 2026 (later same day): active_options/microstructure_alerts
+// FIXED here -- the backend (GammaStrategyView) was updated to return
+// real data for both (options resolver + microstructure daemon wired
+// in), but this component was never updated to actually read either
+// field -- it unconditionally rendered two hardcoded "PENDING" blocks
+// regardless of what the API returned. Real bug, not a backend issue;
+// caught from a screenshot showing PENDING while the backend logs
+// showed the options/microstructure cycle actually running. Now reads
+// data.active_options.status / data.microstructure_alerts.status
+// ("LIVE" vs "WARMING_UP", set by the backend, not guessed here) and
+// renders real cards once either goes LIVE.
 
 function fmtPct(n) {
   if (n == null) return '—';
@@ -56,12 +56,68 @@ function StockRow({ stock, side }) {
   );
 }
 
-function PendingSection({ title, note }) {
+const TIER_COLOR = { GOLD: 'text-amber-400 bg-amber-500/10', SILVER: 'text-slate-300 bg-slate-400/10', STANDARD: 'text-slate-500 bg-slate-500/10' };
+
+function OptionRow({ opt }) {
+  const isCe = opt.option_type === 'CE';
+  const sideColor = isCe ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10';
+  return (
+    <div className="rounded-lg bg-slate-900/40 border border-slate-700/40 p-3">
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-white">{opt.symbol}</span>
+          <span className="text-xs text-slate-300">{opt.strike} {opt.option_type}</span>
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${sideColor}`}>{opt.option_type}</span>
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${TIER_COLOR[opt.tier] || TIER_COLOR.STANDARD}`}>{opt.tier}</span>
+        </div>
+        <span className="text-sm text-white font-medium">₹{opt.ltp?.toFixed(2)}</span>
+      </div>
+      <div className="flex items-center justify-between text-[11px] text-slate-400">
+        <span>Expiry {opt.expiry} · DTE {opt.dte}</span>
+        <span>Spread {opt.spread_pct?.toFixed(2)}%</span>
+      </div>
+      <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-400">
+        <span>Δ {opt.delta?.toFixed(2)}</span>
+        <span>Γ-conv {opt.convexity?.toFixed(3)}</span>
+        <span>OI {opt.oi?.toLocaleString('en-IN')}</span>
+        <span>Vol {opt.volume?.toLocaleString('en-IN')}</span>
+      </div>
+    </div>
+  );
+}
+
+const ALERT_STATUS_COLOR = {
+  ACTIVE: 'text-blue-400 bg-blue-500/10', TARGET_1_HIT: 'text-emerald-400 bg-emerald-500/10',
+  TARGET_1_HIT_TRAILED: 'text-emerald-400 bg-emerald-500/10', TARGET_2_HIT: 'text-emerald-400 bg-emerald-500/10',
+  STOPPED_OUT: 'text-rose-400 bg-rose-500/10',
+};
+
+function AlertRow({ alert }) {
+  return (
+    <div className="rounded-lg bg-slate-900/40 border border-slate-700/40 p-3">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm font-bold text-white">{alert.contract}</span>
+        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${ALERT_STATUS_COLOR[alert.status] || 'text-slate-400 bg-slate-500/10'}`}>
+          {alert.status?.replace(/_/g, ' ')}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 text-[11px] text-slate-400">
+        <span>Entry ₹{alert.entry_price?.toFixed(2)}</span>
+        <span>SL ₹{alert.stop_loss?.toFixed(2)}</span>
+        <span>T1 ₹{alert.target_1?.toFixed(2)}</span>
+        <span>T2 ₹{alert.target_2?.toFixed(2)}</span>
+      </div>
+      <div className="text-[10px] text-slate-500 mt-1">{alert.timestamp_ist}</div>
+    </div>
+  );
+}
+
+function WarmingUpSection({ title, note }) {
   return (
     <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-bold text-white">{title}</h3>
-        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-amber-400 bg-amber-500/10">PENDING</span>
+        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-amber-400 bg-amber-500/10">WARMING UP</span>
       </div>
       <p className="text-xs text-slate-500 italic">{note}</p>
     </div>
@@ -105,6 +161,10 @@ export default function GammaStrategy() {
 
   const resWatch = data.resistance_watchlist || [];
   const supWatch = data.support_watchlist || [];
+  const options = data.active_options || { status: 'WARMING_UP', items: [] };
+  const alerts = data.microstructure_alerts || { status: 'WARMING_UP', items: [] };
+  const ceOptions = (options.items || []).filter((o) => o.option_type === 'CE');
+  const peOptions = (options.items || []).filter((o) => o.option_type === 'PE');
 
   return (
     <div className="space-y-3">
@@ -149,14 +209,48 @@ export default function GammaStrategy() {
         </div>
       </div>
 
-      <PendingSection
-        title="Options Resolver — 12-Contract OTM Watchlist"
-        note="DTE≥8, delta 0.20–0.45, gamma convexity≥0.150 ranking against live option-chain Greeks. Logic ported and tested; not yet wired to this project's live Fyers option-chain fetch."
-      />
-      <PendingSection
-        title="Microstructure Alerts — 4-Phase Trigger"
-        note="OI dip → inflection → volume expansion → price lift confluence, per contract. Logic ported and tested; needs a continuous tick feed from the options above before it can run live."
-      />
+      {options.status === 'LIVE' ? (
+        <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-white">Options Resolver — {options.items.length}-Contract OTM Watchlist</h3>
+            {options.updated_at && <span className="text-[10px] text-slate-500">Updated {new Date(options.updated_at).toLocaleTimeString('en-IN')}</span>}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-semibold text-emerald-400 mb-2">CE Contracts</p>
+              <div className="space-y-2">
+                {ceOptions.length ? ceOptions.map((o) => <OptionRow key={o.security_id} opt={o} />) : <p className="text-xs text-slate-500 italic">None resolved this cycle.</p>}
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-rose-400 mb-2">PE Contracts</p>
+              <div className="space-y-2">
+                {peOptions.length ? peOptions.map((o) => <OptionRow key={o.security_id} opt={o} />) : <p className="text-xs text-slate-500 italic">None resolved this cycle.</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <WarmingUpSection
+          title="Options Resolver — 12-Contract OTM Watchlist"
+          note="DTE≥8, delta 0.20–0.45, gamma convexity≥0.150 ranking against live option-chain Greeks. Wired and running — waiting for the first resolution cycle against the watchlist above (paced ~75s per stock to stay clear of Fyers rate limits)."
+        />
+      )}
+
+      {alerts.status === 'LIVE' ? (
+        <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
+          <h3 className="text-sm font-bold text-white mb-3">Microstructure Alerts — 4-Phase Trigger</h3>
+          <div className="space-y-2">
+            {alerts.items.slice().reverse().map((a) => <AlertRow key={a.alert_id} alert={a} />)}
+          </div>
+        </div>
+      ) : (
+        <WarmingUpSection
+          title="Microstructure Alerts — 4-Phase Trigger"
+          note="OI dip → inflection → volume expansion → price lift confluence, per contract. Wired and running — no real 4-phase confluence has fired yet on the current watchlist. This is expected most cycles; the trigger is meant to be rare."
+        />
+      )}
     </div>
   );
 }
+

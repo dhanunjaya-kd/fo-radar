@@ -93,7 +93,7 @@ function AppShell() {
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
-  const primaryNavOrder = ['dashboard', 'scanner', 'signals', 'oi', 'oidist', 'gamma', 'index', 'cas', 'market', 'heatmap', 'charts', 'nextday', 'backtest', 'shadow', 'settings'];
+  const primaryNavOrder = ['dashboard', 'scanner', 'signals', 'gamma', 'oi', 'oidist', 'index', 'cas', 'market', 'heatmap', 'charts', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   useEffect(() => {
