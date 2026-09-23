@@ -4328,6 +4328,14 @@ def _gamma_get_microstructure_daemon():
         _gamma_microstructure_daemon = MicrostructureDaemon(
             buffer_len=mcfg['buffer_length'], cooldown_sec=mcfg['cooldown_seconds'], enforce_5m_boundary=False,
         )
+        # Restart-resilience: without this, every restart silently
+        # drops outcome tracking for any position still open from
+        # before the restart -- the daemon itself has no persistence
+        # of its own (see gamma_excel_logger.py's own docstring for
+        # why this matters for the month-long observation period this
+        # exists for).
+        from .gamma_excel_logger import rebuild_open_alerts_from_log
+        _gamma_microstructure_daemon.alerts_emitted = rebuild_open_alerts_from_log()
     return _gamma_microstructure_daemon
 
 
@@ -4467,6 +4475,27 @@ def _gamma_feed_microstructure_and_alert(options_list):
                 bot.send_message(msg)
         except Exception as e:
             print(f"[GammaTelegram] alert send failed: {e}")
+
+        # Durable log -- one row per real trigger, written once here.
+        # Outcome tracking (below, every cycle) updates this same row
+        # in place as the daemon's own status/MFE/MAE/realized_r move.
+        try:
+            from .gamma_excel_logger import log_new_trigger
+            for trig in new_triggers:
+                log_new_trigger(trig)
+        except Exception as e:
+            print(f"[GammaExcelLog] log_new_trigger failed: {e}")
+
+    # Sync outcome fields for EVERY tracked alert (not just new ones)
+    # on every cycle -- this is what actually makes the log usable for
+    # a real backtest later: status/MFE/MAE/realized_r keep updating
+    # on the same row as a position plays out, not just at entry.
+    if daemon.alerts_emitted:
+        try:
+            from .gamma_excel_logger import sync_alert_outcomes
+            sync_alert_outcomes(daemon.alerts_emitted)
+        except Exception as e:
+            print(f"[GammaExcelLog] sync_alert_outcomes failed: {e}")
 
     with _gamma_cache_lock:
         _gamma_alerts_cache["items"] = daemon.get_signal_journal()["signals"][-50:]
