@@ -10,6 +10,7 @@ import MarketStatusHeader from './components/MarketStatusHeader';
 import SignalList from './components/SignalList';
 import Analytics from './components/Analytics';
 import OIDistribution from './components/OIDistribution';
+import GammaStrategy from './components/GammaStrategy';
 import IndexTracker from './components/IndexTracker';
 import MarketView from './components/MarketView';
 import NextDayWatchlist from './components/NextDayWatchlist';
@@ -79,6 +80,7 @@ function AppShell() {
     { id: 'signals', label: 'Sniper Signals', count: signalCount },
     { id: 'oi', label: 'Open Interest Analytics', count: null },
     { id: 'oidist', label: 'OI Distribution', count: null },
+    { id: 'gamma', label: 'Gamma Strategy', count: null },
     { id: 'index', label: 'Index Monitor', count: null },
     { id: 'cas', label: 'CAS Radar', count: null },
     { id: 'market', label: 'Market Overview', count: null },
@@ -91,7 +93,7 @@ function AppShell() {
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
-  const primaryNavOrder = ['dashboard', 'scanner', 'signals', 'oi', 'oidist', 'index', 'cas', 'market', 'heatmap', 'charts', 'nextday', 'backtest', 'shadow', 'settings'];
+  const primaryNavOrder = ['dashboard', 'scanner', 'signals', 'oi', 'oidist', 'gamma', 'index', 'cas', 'market', 'heatmap', 'charts', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   useEffect(() => {
@@ -167,6 +169,12 @@ function AppShell() {
               or after -- just a different home, exact SectorStrength/
               Market Heatmap precedent from the day before. */}
           {activeTab === 'oidist' && <OIDistribution />}
+          {/* Sep 23 2026: separate sidebar block, direct request -- the
+              Gamma Blast strategy (paid package logic, ported and
+              verified, adapted to this project's Fyers data instead
+              of the original's Dhan wiring) gets its own tab, not
+              folded into Sniper Signals. */}
+          {activeTab === 'gamma' && <GammaStrategy />}
           {activeTab === 'index' && <IndexTracker />}
           {activeTab === 'cas' && <CASRadar />}
           {activeTab === 'market' && <MarketView />}
