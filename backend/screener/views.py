@@ -339,8 +339,17 @@ def _is_quality_confirmed_with_hysteresis(symbol, action, quality_result, state_
     if state['confirmed']:
         if conflict:
             state['confirmed'] = False
-        # else: hold through a score dip below QUALITY_CONFIRMATION_MIN_SCORE,
-        # a thin-data cycle, or a computation failure -- see docstring above.
+        elif QUALITY_HYSTERESIS_EXIT_ENABLED and score is not None and score < QUALITY_EXIT_SCORE_MIN:
+            # Sep 23 2026: the actual fix -- see QUALITY_EXIT_SCORE_MIN's
+            # own comment above for why this was missing. A genuine,
+            # sustained drop below this floor now revokes confirmation,
+            # same shape as the technical score's EXIT_SCORE_THRESHOLD.
+            # A dip that stays ABOVE this floor still holds through,
+            # unchanged -- this only catches a real decline, not noise.
+            state['confirmed'] = False
+        # else: hold through a score dip that stays above
+        # QUALITY_EXIT_SCORE_MIN, a thin-data cycle, or a computation
+        # failure -- see docstring above.
     else:
         if score is not None and score >= QUALITY_CONFIRMATION_MIN_SCORE and not conflict:
             state['confirmed'] = True
@@ -449,6 +458,27 @@ _QUALITY_GATE_ENABLED = os.environ.get("ENABLE_QUALITY_CONFIRMATION_GATE", "true
 # which exists specifically so the next adjustment (if any) is made
 # from real numbers instead of another guess.
 QUALITY_CONFIRMATION_MIN_SCORE = float(os.environ.get("QUALITY_CONFIRMATION_MIN_SCORE", "60"))
+# Sep 23 2026: real gap found by comparing this function's sibling
+# (_is_qualified_with_hysteresis, technical score) against this one --
+# the technical version has a REAL decay-based exit (EXIT_SCORE_
+# THRESHOLD=35, a 15-point gap below its own ENTRY_SCORE_THRESHOLD=50).
+# This quality version has never had an equivalent -- read closely,
+# `if state['confirmed']: if conflict: ... # else: hold through a
+# score dip` holds through ANY score dip, not just a small one, with
+# no floor at all short of the conflict-gate flag. A signal confirmed
+# once at score 75 can sit "Open" all day even if its score later
+# craters to 24 -- exactly the "Quality IGNORE" pattern on still-Open
+# signals this was built in response to seeing. Same proportional gap
+# (15 points) as the sibling function uses, not a new invented number.
+QUALITY_EXIT_SCORE_MIN = float(os.environ.get("QUALITY_EXIT_SCORE_MIN", str(QUALITY_CONFIRMATION_MIN_SCORE - 15)))
+# Default OFF -- same "ready, not silently activated" rule as every
+# other live-engine behavior change in this file (see SNIPER_V2_CONFIG's
+# own REQUIRE_MIN_DTE/USE_DELTA_BAND_STRIKE_SELECTION comment for the
+# reasoning repeated here). This one is arguably a bug fix rather than
+# a new strategy, but it will still close some signals sooner than
+# today's behavior does -- your call when to flip it, not something to
+# change under you.
+QUALITY_HYSTERESIS_EXIT_ENABLED = os.environ.get("QUALITY_HYSTERESIS_EXIT_ENABLED", "false").lower() == "true"
 
 
 # ---------------------------------------------------------------------------
