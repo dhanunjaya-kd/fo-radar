@@ -19,6 +19,7 @@ from screener.views import (
     WatchlistQuotesView,
     UserWatchlistView,
     ScannerView,
+    GammaStrategyView,
 )
 from screener.next_day_watchlist_history import (
     NextDayWatchlistDatesView, NextDayWatchlistHistoryView, NextDayWatchlistExportView,
@@ -69,6 +70,7 @@ urlpatterns = [
     path('api/commodity-symbol/<str:base_name>/', CommodityCurrentSymbolView.as_view(), name='commodity_symbol'),
     path('api/commodity-quote/<str:name>/', CommodityQuoteView.as_view(), name='commodity_quote'),
     path('api/market-breadth/', MarketBreadthView.as_view(), name='market_breadth'),
+    path('api/gamma-strategy/', GammaStrategyView.as_view(), name='gamma_strategy'),
     path('api/todays-movers/', TodaysMoversView.as_view(), name='todays_movers'),
     path('api/index-card/<str:index_name>/', IndexCardView.as_view(), name='index_card'),
     path('api/daily-backtest/status/', DailyBacktestStatusView.as_view(), name='daily_backtest_status'),
