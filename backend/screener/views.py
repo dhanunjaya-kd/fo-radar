@@ -53,6 +53,14 @@ try:
 except ImportError:
     detect_patterns = lambda df: []
 
+try:
+    from .gamma_config import GAMMA_BLAST_CONFIG
+except ImportError:
+    GAMMA_BLAST_CONFIG = {
+        "zone_engine": {"pivot_len": 10, "zone_depth": 2.5, "guard_mult": 2.0, "zone_memory": 20, "use_wick": False},
+        "market_scanner": {"strict_proximity_pct": 0.75, "approaching_proximity_pct": 2.0, "min_underlying_volume": 500000, "min_underlying_turnover_cr": 100.0},
+    }
+
 # ============================================================
 # CACHES
 # ============================================================
@@ -4215,6 +4223,186 @@ if not _IS_RELOADER_WATCHER_PROCESS:
 _breadth_long_history_worker_thread = threading.Thread(target=_breadth_long_history_worker, daemon=True)
 if not _IS_RELOADER_WATCHER_PROCESS:
     _breadth_long_history_worker_thread.start()
+
+
+# =============================================================================
+# GAMMA BLAST STRATEGY -- separate module, Sep 23 2026.
+#
+# Logic (zone engine, EMA50 gate, proximity thresholds) ported exactly from
+# the purchased Gamma_Blast_Options_strategy package -- see
+# gamma_zone_engine.py/gamma_watchlist_scanner.py's own docstrings for the
+# verification this was checked against the original package's code,
+# field-for-field, before being wired in here. This block is ONLY the
+# wiring: real Fyers daily history in, the same zone/EMA logic already
+# proven, real live quotes from the SAME _breadth_quote_cache the rest of
+# the dashboard already reuses (no new quote-fetch cost).
+#
+# Scope of THIS pass: resistance/support watchlist (zones + 50 EMA gate),
+# real and live. The options resolver (DTE/delta/gamma-convexity ranking)
+# and the microstructure trigger are NOT wired yet -- both need their own
+# careful integration with this project's live Fyers option-chain fetch,
+# not something to rush alongside this. GammaStrategyView below reports
+# them honestly as "PENDING", not silently empty.
+_gamma_cache_lock = threading.Lock()
+_gamma_zone_cache = {}       # {symbol: {'date', 'resistance_zones', 'support_zones', 'ema50', 'atr50'}}
+_gamma_watchlist_cache = {"resistance_watchlist": [], "support_watchlist": [], "updated_at": None}
+_GAMMA_ZONE_HISTORY_DAYS = 250  # enough real bars for ATR(50) to warm up plus a real pivot history
+
+
+def _gamma_compute_zones_for_symbol(symbol):
+    """Fetches ~250 days of real Fyers daily history (own isolated fetch,
+    same reasoning as _calc_long_term_tech's -- NOT routed through the
+    shared 100-day _cached_history_df/_history_cache, to avoid that
+    cache's symbol+date-only key silently colliding with a different
+    days= request for the same symbol), computes zones via the verified
+    gamma_zone_engine, and EMA50 from the same series. Returns None if
+    the fetch itself failed; caches result (including a real "no zones
+    found" result) once per symbol per day either way."""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _gamma_zone_cache.get(symbol)
+    if cached and cached.get('date') == today_str:
+        return cached
+
+    df = _fyers_history_df(symbol, days=_GAMMA_ZONE_HISTORY_DAYS)
+    if df is None or df.empty or len(df) < 25:
+        return None
+
+    zone_df = pd.DataFrame({
+        'open': df['Open'], 'high': df['High'], 'low': df['Low'], 'close': df['Close'],
+        'date': pd.to_datetime(df['ts'], unit='s').dt.strftime('%Y-%m-%d'),
+    })
+    try:
+        from .gamma_zone_engine import VolatilitySupplyDemandEngine
+        engine = VolatilitySupplyDemandEngine(
+            pivot_len=GAMMA_BLAST_CONFIG['zone_engine']['pivot_len'],
+            zone_depth=GAMMA_BLAST_CONFIG['zone_engine']['zone_depth'],
+            guard_mult=GAMMA_BLAST_CONFIG['zone_engine']['guard_mult'],
+            zone_memory=GAMMA_BLAST_CONFIG['zone_engine']['zone_memory'],
+            use_wick=GAMMA_BLAST_CONFIG['zone_engine']['use_wick'],
+        )
+        sell_zones, buy_zones = engine.compute_zones(zone_df)
+        close_series = df['Close']
+        ema50 = float(close_series.ewm(span=50, adjust=False).mean().iloc[-1]) if len(close_series) >= 50 else None
+        atr50 = float(engine.calculate_atr_wilder(
+            df['High'].to_numpy(dtype=float), df['Low'].to_numpy(dtype=float), df['Close'].to_numpy(dtype=float), length=50
+        )[-1])
+        result = {
+            'date': today_str,
+            'resistance_zones': sell_zones,   # SELL side = resistance, CE candidates
+            'support_zones': buy_zones,       # BUY side = support, PE candidates
+            'ema50': ema50,
+            'atr50': atr50 if not (atr50 != atr50) else None,  # NaN guard
+        }
+        _gamma_zone_cache[symbol] = result
+        return result
+    except Exception as e:
+        print(f"[GammaZones] calc error {symbol}: {e}")
+        return None
+
+
+def _gamma_strategy_worker():
+    """
+    Two jobs, same gentle-pace shape as _breadth_long_history_worker:
+    1. Keep _gamma_zone_cache warm for FNO_STOCKS (zones only need
+       recomputing once/day per symbol -- they're built from daily
+       candles, not intraday ticks).
+    2. Every cycle, re-run the proximity scan against whichever symbols
+       already have today's zones cached, using live quotes from the
+       EXISTING _breadth_quote_cache (zero extra Fyers calls for this
+       part) -- so the watchlist itself refreshes continuously even
+       though the underlying zones only change once a day.
+    """
+    ZONE_BATCH_SIZE = 15
+    cfg = GAMMA_BLAST_CONFIG['market_scanner']
+    while True:
+        try:
+            today_str = datetime.now().strftime("%Y-%m-%d")
+            zone_missing = [s for s in FNO_STOCKS if _gamma_zone_cache.get(s, {}).get('date') != today_str]
+            if zone_missing and is_authenticated():
+                batch = zone_missing[:ZONE_BATCH_SIZE]
+                done = 0
+                for sym in batch:
+                    try:
+                        if _gamma_compute_zones_for_symbol(sym):
+                            done += 1
+                    except Exception as e:
+                        print(f"[GammaZones] {sym} raised unexpectedly, skipping: {e}")
+                print(f"[{datetime.now()}] Gamma zone warmup: +{done}/{len(batch)} ({len(zone_missing) - len(batch)} still missing today).")
+
+            with _breadth_cache_lock:
+                quotes_snapshot = dict(_breadth_quote_cache)
+
+            quotes_in, zones_in, ema_in = {}, {}, {}
+            for sym in FNO_STOCKS:
+                zinfo = _gamma_zone_cache.get(sym)
+                q = quotes_snapshot.get(sym)
+                if not zinfo or zinfo.get('date') != today_str or not q:
+                    continue
+                res_zones = zinfo.get('resistance_zones') or []
+                sup_zones = zinfo.get('support_zones') or []
+                quotes_in[sym] = {
+                    "cmp": q.get('price', 0.0), "open": q.get('open', 0.0),
+                    "day_high": q.get('high', 0.0), "day_low": q.get('low', 0.0),
+                    "volume": q.get('volume', 0), "lot_size": 1,
+                }
+                zones_in[sym] = {
+                    "nearest_resistance": res_zones[0] if res_zones else None,
+                    "nearest_support": sup_zones[0] if sup_zones else None,
+                    "atr50": zinfo.get('atr50') or (q.get('price', 0.0) * 0.02),
+                }
+                if zinfo.get('ema50') is not None:
+                    ema_in[sym] = zinfo['ema50']
+
+            if quotes_in:
+                from .gamma_watchlist_scanner import scan_universe
+                result = scan_universe(
+                    quotes_in, zones_in, ema_in,
+                    proximity_pct=cfg['strict_proximity_pct'], approach_pct=cfg['approaching_proximity_pct'],
+                    min_underlying_volume=cfg['min_underlying_volume'], min_underlying_turnover_cr=cfg['min_underlying_turnover_cr'],
+                )
+                with _gamma_cache_lock:
+                    _gamma_watchlist_cache["resistance_watchlist"] = result["resistance_watchlist"]
+                    _gamma_watchlist_cache["support_watchlist"] = result["support_watchlist"]
+                    _gamma_watchlist_cache["updated_at"] = datetime.now().isoformat()
+                    _gamma_watchlist_cache["symbols_with_zones_today"] = len(zones_in)
+
+            time.sleep(20)
+        except Exception as e:
+            print(f"[{datetime.now()}] Gamma strategy worker error: {e}")
+            time.sleep(90)
+
+
+_gamma_strategy_worker_thread = threading.Thread(target=_gamma_strategy_worker, daemon=True)
+if not _IS_RELOADER_WATCHER_PROCESS:
+    _gamma_strategy_worker_thread.start()
+
+
+class GammaStrategyView(APIView):
+    """
+    GET /api/gamma-strategy/
+
+    Real, live: resistance_watchlist / support_watchlist (top 3 each,
+    zone + 50 EMA gate + intraday momentum, all from _gamma_strategy_worker
+    above). Honestly pending, not faked: active_options and
+    microstructure_alerts -- those need the options resolver and tick
+    daemon wired to this project's live Fyers option-chain fetch, a
+    separate piece of work, reported here as status: "PENDING" rather
+    than silently returning an empty list indistinguishable from "ran
+    and found nothing."
+    """
+    def get(self, request):
+        with _gamma_cache_lock:
+            snapshot = dict(_gamma_watchlist_cache)
+        return Response({
+            "strategy": "Gamma_Blast_Options_strategy",
+            "resistance_watchlist": snapshot.get("resistance_watchlist", []),
+            "support_watchlist": snapshot.get("support_watchlist", []),
+            "updated_at": snapshot.get("updated_at"),
+            "symbols_with_zones_today": snapshot.get("symbols_with_zones_today", 0),
+            "universe_size": len(FNO_STOCKS),
+            "active_options": {"status": "PENDING", "items": []},
+            "microstructure_alerts": {"status": "PENDING", "items": []},
+        })
 
 
 def _evaluate_and_log_index_shadow(name, fyers_symbol, bias, spot, atr, oi, call, price_change_pct=None, fut_oi_chg_pct=None, atm_strike=None):
