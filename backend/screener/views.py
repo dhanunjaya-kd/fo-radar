@@ -3848,11 +3848,26 @@ def _build_all():
     #     requirement that it be CONFIRMED specifically is removed.
     # quality_confirmed's own bar was separately changed inside
     # _is_quality_confirmed_with_hysteresis() itself (QUALITY_CONFIRMATION_
-    # MIN_SCORE, default 70, TRADE or WATCH tier) -- not touched again here.
+    # MIN_SCORE, default 60 as of Sep 21 2026 -- this comment previously
+    # said 70, stale since that change; see QUALITY_CONFIRMATION_MIN_SCORE's
+    # own comment for why 70 caused zero live signals and was reverted)
+    # -- not touched again here.
+    #
+    # Sep 24 2026: cap dropped 15 -> 8, direct request after the
+    # exit-hysteresis fix and label fix (both shipped last round)
+    # didn't reduce the count enough on their own -- those fixed decay
+    # and mislabeling, not volume, exactly as flagged when they shipped.
+    # This is the blunt lever: guarantees a lower ceiling regardless of
+    # how many technically clear quality_confirmed, without touching
+    # entry criteria at all (zero regression risk to signal existence,
+    # unlike raising QUALITY_CONFIRMATION_MIN_SCORE would be) -- purely
+    # trims which of the ALREADY-qualified signals get shown, keeping
+    # the highest-confidence ones (signals.sort() above already ranks
+    # by confidence descending before this slice runs).
     quality_signals = [
         s for s in signals
         if (not _QUALITY_GATE_ENABLED or s.get('quality_confirmed'))
-    ][:15]
+    ][:8]
 
     # Sep 21 2026: prints once per cycle, real numbers only -- if this
     # is empty, nothing scored at all this cycle (a real, different
