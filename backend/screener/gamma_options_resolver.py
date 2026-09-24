@@ -120,6 +120,13 @@ def _resolve_side(rows: List[Dict], spot: float, option_type: str, lot_size: int
             "theta": round(float(leg.get('theta') or 0.0), 4), "vega": round(float(leg.get('vega') or 0.0), 4),
             "convexity": convexity, "delta_sweet_spot": is_sweet_spot,
             "lot_size": lot_size, "distance_to_strike_pct": dist_pct, "tier_score": tier_score,
+            # Sep 24 2026: the real, tradable Fyers instrument symbol
+            # for this exact contract (e.g. "NSE:TATAMOTORS26MAY1000CE"),
+            # straight from the option-chain row -- not this project's
+            # own internal security_id joining-key. Added specifically
+            # so the Telegram alert can show something the person could
+            # actually look up or trade, not a synthetic tracking key.
+            "fyers_symbol": leg.get('symbol', ''),
         })
 
     out.sort(key=lambda x: (x["tier_score"], -x["oi"], -x["volume"], -x["convexity"], x["spread_pct"]))

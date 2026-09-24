@@ -4634,6 +4634,7 @@ def _gamma_feed_microstructure_and_alert(options_list):
         if trigger:
             trigger['spot_cmp'] = opt.get('spot_cmp', 0.0)
             trigger['dte'] = opt.get('dte', 8)
+            trigger['fyers_symbol'] = opt.get('fyers_symbol', '')
             new_triggers.append(trigger)
 
     if new_triggers:
