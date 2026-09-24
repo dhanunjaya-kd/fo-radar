@@ -471,14 +471,11 @@ QUALITY_CONFIRMATION_MIN_SCORE = float(os.environ.get("QUALITY_CONFIRMATION_MIN_
 # signals this was built in response to seeing. Same proportional gap
 # (15 points) as the sibling function uses, not a new invented number.
 QUALITY_EXIT_SCORE_MIN = float(os.environ.get("QUALITY_EXIT_SCORE_MIN", str(QUALITY_CONFIRMATION_MIN_SCORE - 15)))
-# Default OFF -- same "ready, not silently activated" rule as every
-# other live-engine behavior change in this file (see SNIPER_V2_CONFIG's
-# own REQUIRE_MIN_DTE/USE_DELTA_BAND_STRIKE_SELECTION comment for the
-# reasoning repeated here). This one is arguably a bug fix rather than
-# a new strategy, but it will still close some signals sooner than
-# today's behavior does -- your call when to flip it, not something to
-# change under you.
-QUALITY_HYSTERESIS_EXIT_ENABLED = os.environ.get("QUALITY_HYSTERESIS_EXIT_ENABLED", "false").lower() == "true"
+# Sep 24 2026: flipped to default ON. Confirmed via your own screenshots
+# this was actively producing stale "Open" signals (e.g. NBCC sitting at
+# quality score 37.2), and the fix was already tested against that exact
+# decay pattern before this flip -- not turned on speculatively.
+QUALITY_HYSTERESIS_EXIT_ENABLED = os.environ.get("QUALITY_HYSTERESIS_EXIT_ENABLED", "true").lower() == "true"
 
 
 # ---------------------------------------------------------------------------
@@ -3639,6 +3636,23 @@ def _build_all():
             _quality_scores_this_cycle.append(quality_result['score'])
         quality_confirmed = _is_quality_confirmed_with_hysteresis(sym, action, quality_result)
 
+        # Sep 24 2026: label fix, not a threshold change -- found by
+        # tracing a real "IGNORE tagged, still Open" screenshot back to
+        # its cause. quality_engine.py's own verdict tiers (WATCH>=70)
+        # are spec-mandated (its own docstring: "exactly as specified"),
+        # and QUALITY_CONFIRMATION_MIN_SCORE is deliberately 60, not 70
+        # -- raising it back to 70 was already tried once (Sep 21) and
+        # produced zero live signals that day, a real regression, not a
+        # guess. So neither number should move. But showing quality_
+        # engine's raw "IGNORE" verdict next to a signal Sniper's OWN
+        # (intentionally more lenient) gate just confirmed is genuinely
+        # misleading -- looks like a contradiction even though both
+        # thresholds are working exactly as designed. Only the DISPLAYED
+        # label is corrected here; the real score is untouched.
+        quality_verdict_display = (quality_result or {}).get("verdict")
+        if quality_confirmed and quality_verdict_display == "IGNORE":
+            quality_verdict_display = "CONFIRMED"
+
         signals.append({
             "symbol": sym, "name": sym, "price": price,
             "change": stock['change'], "change_percent": stock['change_percent'],
@@ -3727,7 +3741,7 @@ def _build_all():
             # would-be effect on the list can be watched before trusting it.
             "quality_confirmed": quality_confirmed,
             "quality_score": (quality_result or {}).get("score"),
-            "quality_verdict": (quality_result or {}).get("verdict"),
+            "quality_verdict": quality_verdict_display,
             "quality_reasons": quality_reasons,
             "audit_snapshot": audit_snapshot,
             "sector": stock["sector"], "signal_type": "SNIPER",
