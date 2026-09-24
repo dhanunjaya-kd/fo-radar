@@ -3930,15 +3930,11 @@ def _build_all():
             if bot:
                 for s in newly_logged:
                     try:
-                        bot.send_signal_alert(
-                            symbol=s.get("symbol"),
-                            signal_type=s.get("action"),
-                            entry=s.get("entry"),
-                            sl=s.get("sl"),
-                            target=s.get("target1"),
-                            grade=s.get("grade", "A"),
-                            strike=s.get("strike"),
-                        )
+                        # Sep 24 2026: passes the full signal dict now
+                        # -- see trading/telegram_bot.py's own
+                        # send_signal_alert() docstring for why the
+                        # signature changed from individual named params.
+                        bot.send_signal_alert(s)
                     except Exception as e:
                         import traceback
                         print(f"[Telegram] Failed to send alert for {s.get('symbol')}: {e}")
