@@ -96,6 +96,7 @@ urlpatterns = [
     path('api/user-watchlist/<str:symbol>/', UserWatchlistView.as_view(), name='user_watchlist_symbol'),
     path('api/next-trading-session/<str:market>/', NextTradingSessionView.as_view(), name='next_trading_session'),
     path('api/screener/', include('screener.urls')),
+    path('api/research/', include('fundamentals_research.urls')),
     path('api/options/', include('options.urls')),
     path('api/news/', include('news.urls')),
     path('api/trading/', include('trading.urls')),

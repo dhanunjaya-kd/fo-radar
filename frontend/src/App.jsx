@@ -17,6 +17,7 @@ import NextDayWatchlist from './components/NextDayWatchlist';
 import DailyBacktestTab from './components/DailyBacktestTab';
 import ShadowSignals from './components/ShadowSignals';
 import Dashboard from './components/Dashboard';
+import ResearchDashboard from './components/ResearchDashboard';
 import SettingsPanel from './components/SettingsPanel';
 import StrategyBacktest from './components/StrategyBacktest';
 import CASRadar from './components/CASRadar';
@@ -81,6 +82,7 @@ function AppShell() {
     { id: 'oi', label: 'Open Interest Analytics', count: null },
     { id: 'oidist', label: 'OI Distribution', count: null },
     { id: 'gamma', label: 'Gamma Strategy', count: null },
+    { id: 'research', label: 'Fundamental Research', count: null },
     { id: 'index', label: 'Index Monitor', count: null },
     { id: 'cas', label: 'CAS Radar', count: null },
     { id: 'market', label: 'Market Overview', count: null },
@@ -93,7 +95,7 @@ function AppShell() {
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
-  const primaryNavOrder = ['dashboard', 'scanner', 'signals', 'gamma', 'oi', 'oidist', 'index', 'cas', 'market', 'heatmap', 'charts', 'nextday', 'backtest', 'shadow', 'settings'];
+  const primaryNavOrder = ['dashboard', 'scanner', 'signals', 'gamma', 'research', 'oi', 'oidist', 'index', 'cas', 'market', 'heatmap', 'charts', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   useEffect(() => {
@@ -175,6 +177,7 @@ function AppShell() {
               of the original's Dhan wiring) gets its own tab, not
               folded into Sniper Signals. */}
           {activeTab === 'gamma' && <GammaStrategy />}
+          {activeTab === 'research' && <ResearchDashboard />}
           {activeTab === 'index' && <IndexTracker />}
           {activeTab === 'cas' && <CASRadar />}
           {activeTab === 'market' && <MarketView />}

@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'trading',
     'backtest',
     'fyers_api',
+    'fundamentals_research',
 ]
 
 MIDDLEWARE = [

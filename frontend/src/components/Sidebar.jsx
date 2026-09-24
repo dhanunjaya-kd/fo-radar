@@ -46,7 +46,7 @@ const TAB_ICONS = {
 // just falls into the final unlabeled group rather than disappearing.
 const NAV_SECTIONS = [
   { label: 'SYSTEM', tabIds: ['dashboard', 'scanner'] },
-  { label: 'ANALYSIS', tabIds: ['signals', 'oi', 'index', 'cas', 'market', 'heatmap', 'charts'] },
+  { label: 'ANALYSIS', tabIds: ['signals', 'gamma', 'research', 'oi', 'oidist', 'index', 'cas', 'market', 'heatmap', 'charts'] },
   { label: 'PLANNING', tabIds: ['nextday', 'backtest', 'shadow'] },
 ];
 
