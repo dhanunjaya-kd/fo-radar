@@ -3660,6 +3660,16 @@ def _build_all():
             "technical_score": score, "oi_adjustment": oi_adjustment, "score_breakdown": score_breakdown,
             "rsi": rsi, "adx": round(adx, 1),
             "oi_confirmation": oi_confirmation, "oi_reason": oi_reason, "pattern": pattern,
+            # Sep 24 2026: direct request -- when this call was actually
+            # generated, not just that it's currently Open. Sourced from
+            # get_locked_plan() above (already called, already fetched
+            # this cycle for entry/SL/target locking) rather than adding
+            # new state -- created_at has been tracked in _open_positions
+            # since this signal's very first cycle, just never exposed
+            # to the API before now. None for a genuinely fresh signal
+            # this exact cycle (no locked plan yet to read it from) --
+            # the frontend falls back to "now" for that case, correctly.
+            "generated_at": (locked.get("created_at").strftime("%Y-%m-%d %H:%M:%S") if locked and locked.get("created_at") else None),
             # Sep 13 2026: raw values for the not-yet-tested SNIPER
             # STOCKS filter candidates -- see excel_logger.py's own
             # COLUMNS comment for why these specific forms (ratio/%

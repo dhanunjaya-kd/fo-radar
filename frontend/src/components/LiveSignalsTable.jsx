@@ -262,7 +262,9 @@ export default function LiveSignalsTable({ signals = [], onSignalClick }) {
                         ? 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20'
                         : signal.quality_verdict === 'WATCH'
                           ? 'text-amber-300 bg-amber-500/10 border-amber-500/20'
-                          : 'text-rose-300 bg-rose-500/10 border-rose-500/20'
+                          : signal.quality_verdict === 'CONFIRMED'
+                            ? 'text-sky-300 bg-sky-500/10 border-sky-500/20'
+                            : 'text-rose-300 bg-rose-500/10 border-rose-500/20'
                       }`}>
                         Quality {signal.quality_verdict}{signal.quality_score != null ? ` · ${signal.quality_score}` : ''}
                       </span>
@@ -275,6 +277,17 @@ export default function LiveSignalsTable({ signals = [], onSignalClick }) {
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${GRADE_STYLES[signal.grade] || 'text-slate-400 bg-slate-700/30'}`}>{signal.grade || '—'}</span>
                 <div className="text-xs text-slate-400 mt-1">{statusBucket(signal.outcome_status)}</div>
                 <div className="text-[10px] text-slate-600 mt-1">{signal.confidence != null ? `${signal.confidence} confidence` : 'Open details'}</div>
+                {/* Sep 24 2026: direct request -- when this call was
+                    actually generated, not just that it's Open. null
+                    means this is the very first cycle for a genuinely
+                    fresh signal (no locked plan to read a time from
+                    yet) -- "Just now" is accurate for that case, not a
+                    placeholder covering a gap. */}
+                <div className="text-[10px] text-slate-600 mt-0.5">
+                  {signal.generated_at
+                    ? new Date(signal.generated_at.replace(' ', 'T')).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+                    : 'Just now'}
+                </div>
               </div>
             </div>
 
