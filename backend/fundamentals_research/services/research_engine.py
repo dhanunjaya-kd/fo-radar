@@ -136,9 +136,7 @@ def run_research(symbol: str, triggered_by: str = 'refresh'):
     metrics_to_record = {}  # metric_name -> (value, unit, period, source), fed into ResearchMetric at the end
 
     if bundle:
-        _persist_bharatstock_financials(snapshot, bundle, FinancialSnapshot, QuarterlyFinancialSnapshot, metrics_to_record)
-        _persist_bharatstock_balance_sheet(snapshot, bundle, BalanceSheetSnapshot, metrics_to_record)
-        _persist_bharatstock_cash_flow(snapshot, bundle, CashFlowSnapshot, metrics_to_record)
+        _persist_bharatstock_financials(snapshot, bundle, FinancialSnapshot, QuarterlyFinancialSnapshot, metrics_to_record, SegmentSnapshot=SegmentSnapshot)
 
         stock = bundle['stock']
         prev_promoter = None
@@ -176,13 +174,13 @@ def run_research(symbol: str, triggered_by: str = 'refresh'):
             if valuation[key].is_available:
                 metrics_to_record[f'valuation_{key}'] = (valuation[key].value, '', None, Source.BHARATSTOCK)
 
-        for seg in (stock.get('segments') or []):
-            SegmentSnapshot.objects.create(
-                snapshot=snapshot, fiscal_period=seg.get('period', ''), segment_name=seg.get('name', 'Unknown'),
-                segment_revenue=seg.get('revenue'), segment_result=seg.get('result'),
-                revenue_contribution_pct=seg.get('revenue_contribution_pct'),
-                source=Source.BHARATSTOCK, retrieved_at=now,
-            )
+        # Sep 24 2026: segment persistence used to live here, reading
+        # stock.get('segments') -- confirmed via your real response
+        # that get_stock() never returns a 'segments' key at all.
+        # Real segment data (segment_revenue/segment_results) comes
+        # from get_financials() instead, per fiscal period -- now
+        # handled inside _persist_bharatstock_financials() itself,
+        # called above.
 
         _persist_corporate_activity(snapshot, bundle, CorporateActivity, now)
 
@@ -228,32 +226,33 @@ def run_research(symbol: str, triggered_by: str = 'refresh'):
     return snapshot, what_changed, primary_source
 
 
-def _persist_bharatstock_financials(snapshot, bundle, FinancialSnapshot, QuarterlyFinancialSnapshot, metrics_to_record):
-    annual = (bundle.get('financials_annual') or {}).get('periods') or (bundle.get('financials_annual') or {}).get('annual') or []
-    # Rows are assumed newest-first (matches every other time-series in
-    # this codebase, e.g. gamma_zone_engine's own zone lists) -- if
-    # BharatStock returns oldest-first instead this reverses the CAGR/
-    # growth sign, a real risk flagged here rather than silently
-    # trusted; report_builder.py sanity-checks growth signs against
-    # raw revenue direction before display, see that file's own note.
-    #
-    # Sep 24 2026 bug fix, caught by this file's own integration test:
-    # the "prior year" for row i in a NEWEST-FIRST list is row i+1, not
-    # whatever the previous LOOP ITERATION happened to be (that's
-    # backwards -- it would compare the oldest row against the newest
-    # as if the newest came first). Fixed by indexing annual[i+1]
-    # directly instead of carrying a prior_row variable forward.
+def _persist_bharatstock_financials(snapshot, bundle, FinancialSnapshot, QuarterlyFinancialSnapshot, metrics_to_record, SegmentSnapshot=None):
+    """
+    Sep 24 2026 -- REWRITTEN against your real WIPRO response, not
+    guessed a second time. Real shape: {"data": [...], "pagination": {...}},
+    newest-first confirmed (2025-26 before 2024-25 in your actual
+    output). Each row is FLAT -- P&L (revenue/ebitda/net_profit/eps),
+    balance sheet (total_assets/current_assets/current_liabilities/
+    cash_and_cash_equivalents/borrowings_current/borrowings_non_current/
+    total_equity), and cash flow (cash_flow_operating/cash_flow_investing/
+    cash_flow_financing/capex) all live on the SAME per-period row --
+    not in separate sub-objects the way the original guess assumed.
+    Segment data (segment_revenue/segment_results) is ALSO on this same
+    row, confirmed real -- previously assumed (wrongly) to come from
+    get_stock() instead, where it doesn't exist at all.
+    """
+    annual = (bundle.get('financials_annual') or {}).get('data') or []
     for i, period_data in enumerate(annual):
-        fy = period_data.get('fiscal_year') or period_data.get('period') or f'FY-{i}'
+        fy = period_data.get('fiscal_year') or f'FY-{i}'
         revenue = SourcedValue(period_data.get('revenue'), Source.BHARATSTOCK, period=fy)
         ebitda = SourcedValue(period_data.get('ebitda'), Source.BHARATSTOCK, period=fy)
-        pat = SourcedValue(period_data.get('pat') or period_data.get('net_profit'), Source.BHARATSTOCK, period=fy)
+        pat = SourcedValue(period_data.get('net_profit'), Source.BHARATSTOCK, period=fy)
         eps = SourcedValue(period_data.get('eps'), Source.BHARATSTOCK, period=fy)
-        equity = SourcedValue(period_data.get('total_equity') or period_data.get('equity'), Source.BHARATSTOCK, period=fy)
+        equity = SourcedValue(period_data.get('total_equity'), Source.BHARATSTOCK, period=fy)
 
         prior_period = annual[i + 1] if i + 1 < len(annual) else None
         prior_revenue = SourcedValue(prior_period.get('revenue') if prior_period else None, Source.BHARATSTOCK)
-        prior_pat = SourcedValue((prior_period.get('pat') or prior_period.get('net_profit')) if prior_period else None, Source.BHARATSTOCK)
+        prior_pat = SourcedValue(prior_period.get('net_profit') if prior_period else None, Source.BHARATSTOCK)
 
         ebitda_margin = fa.calculate_margin_pct(ebitda, revenue, period=fy)
         pat_margin = fa.calculate_margin_pct(pat, revenue, period=fy)
@@ -269,16 +268,87 @@ def _persist_bharatstock_financials(snapshot, bundle, FinancialSnapshot, Quarter
             eps=_sv_to_decimal(eps), roe_pct=_sv_to_decimal(roe),
             source=Source.BHARATSTOCK, retrieved_at=django_timezone.now(),
         )
+
+        # Balance sheet -- one row per fiscal year, same source data as
+        # above, not a separate BharatStock call (confirmed: no such
+        # call exists -- it's all on this one row).
+        if SegmentSnapshot is not None:  # signals the caller passed a real DB layer, not a dry test
+            total_debt_val = None
+            bc, bnc = period_data.get('borrowings_current'), period_data.get('borrowings_non_current')
+            if bc is not None or bnc is not None:
+                total_debt_val = (bc or 0) + (bnc or 0)
+            debt = SourcedValue(total_debt_val, Source.BHARATSTOCK, period=fy)
+            cash = SourcedValue(period_data.get('cash_and_cash_equivalents'), Source.BHARATSTOCK, period=fy)
+            current_assets = SourcedValue(period_data.get('current_assets'), Source.BHARATSTOCK, period=fy)
+            current_liabilities = SourcedValue(period_data.get('current_liabilities'), Source.BHARATSTOCK, period=fy)
+            net_debt = fa.calculate_net_debt(debt, cash)
+            debt_equity = fa.calculate_debt_equity(debt, equity)
+            current_ratio = fa.calculate_current_ratio(current_assets, current_liabilities)
+            working_capital = fa.calculate_working_capital(current_assets, current_liabilities)
+
+            from ..models import BalanceSheetSnapshot, CashFlowSnapshot
+            BalanceSheetSnapshot.objects.create(
+                snapshot=snapshot, fiscal_year=fy,
+                total_debt=_sv_to_decimal(debt), cash=_sv_to_decimal(cash), net_debt=_sv_to_decimal(net_debt),
+                total_equity=_sv_to_decimal(equity),
+                current_assets=_sv_to_decimal(current_assets), current_liabilities=_sv_to_decimal(current_liabilities),
+                working_capital=_sv_to_decimal(working_capital), debt_equity=_sv_to_decimal(debt_equity),
+                current_ratio=_sv_to_decimal(current_ratio),
+                source=Source.BHARATSTOCK, retrieved_at=django_timezone.now(),
+            )
+
+            cfo = SourcedValue(period_data.get('cash_flow_operating'), Source.BHARATSTOCK, period=fy)
+            capex = SourcedValue(period_data.get('capex'), Source.BHARATSTOCK, period=fy)
+            fcf = fa.calculate_free_cash_flow(cfo, capex)
+            fcf_margin = fa.calculate_margin_pct(fcf, revenue, period=fy)
+            cfo_to_pat = fa.calculate_cfo_to_pat(cfo, pat, period=fy)
+            capex_intensity = fa.calculate_capex_intensity_pct(capex, revenue, period=fy)
+            CashFlowSnapshot.objects.create(
+                snapshot=snapshot, fiscal_year=fy,
+                operating_cash_flow=_sv_to_decimal(cfo), capex=_sv_to_decimal(capex), free_cash_flow=_sv_to_decimal(fcf),
+                investing_cash_flow=period_data.get('cash_flow_investing'), financing_cash_flow=period_data.get('cash_flow_financing'),
+                fcf_margin_pct=_sv_to_decimal(fcf_margin), cfo_to_pat=_sv_to_decimal(cfo_to_pat),
+                capex_intensity_pct=_sv_to_decimal(capex_intensity),
+                source=Source.BHARATSTOCK, retrieved_at=django_timezone.now(),
+            )
+
+            # Segments -- confirmed real, lives on this same row (segment_revenue/segment_results),
+            # NOT on get_stock() as originally (wrongly) assumed.
+            seg_revenue = {s['segment']: s['value'] for s in (period_data.get('segment_revenue') or [])}
+            seg_results = {s['segment']: s['value'] for s in (period_data.get('segment_results') or [])}
+            total_seg_revenue = sum(v for v in seg_revenue.values() if v)
+            for seg_name, seg_rev in seg_revenue.items():
+                SegmentSnapshot.objects.create(
+                    snapshot=snapshot, fiscal_period=fy, segment_name=seg_name,
+                    segment_revenue=seg_rev, segment_result=seg_results.get(seg_name),
+                    revenue_contribution_pct=(round(seg_rev / total_seg_revenue * 100, 2) if seg_rev and total_seg_revenue else None),
+                    source=Source.BHARATSTOCK, retrieved_at=django_timezone.now(),
+                )
+
+            if i == 0:
+                for name, sv_ in [('debt_equity', debt_equity), ('fcf', fcf), ('cfo_to_pat', cfo_to_pat)]:
+                    if sv_.is_available:
+                        metrics_to_record[name] = (sv_.value, '', fy, Source.CALCULATED)
+
         if i == 0:  # most recent year drives the headline metrics dict
             for name, sv_ in [('revenue', revenue), ('pat', pat), ('eps', eps), ('roe_pct', roe)]:
                 if sv_.is_available:
                     metrics_to_record[name] = (sv_.value, '', fy, Source.BHARATSTOCK)
 
-    quarterly = (bundle.get('financials_quarterly') or {}).get('periods') or (bundle.get('financials_quarterly') or {}).get('quarterly') or []
+    quarterly = (bundle.get('financials_quarterly') or {}).get('data') or []
     for i, period_data in enumerate(quarterly):
-        fq = period_data.get('fiscal_quarter') or period_data.get('period') or f'Q-{i}'
+        # Real annual rows confirmed 'quarter': null for annual periods
+        # -- for quarterly rows this is expected to hold something like
+        # "Q1"; combined with fiscal_year for a real label. Not yet
+        # confirmed against a real quarterly response (only annual was
+        # fetched) -- falls back to period_end_date if 'quarter' turns
+        # out empty, so this degrades to a still-correct (if less
+        # pretty) label rather than a blank one.
+        q = period_data.get('quarter')
+        fy = period_data.get('fiscal_year', '')
+        fq = f"{q} FY{fy}" if q else (period_data.get('period_end_date') or f'Q-{i}')
         revenue = SourcedValue(period_data.get('revenue'), Source.BHARATSTOCK, period=fq)
-        pat = SourcedValue(period_data.get('pat') or period_data.get('net_profit'), Source.BHARATSTOCK, period=fq)
+        pat = SourcedValue(period_data.get('net_profit'), Source.BHARATSTOCK, period=fq)
         prior_q_data = quarterly[i + 1] if i + 1 < len(quarterly) else None
         prior_q_revenue = SourcedValue(prior_q_data.get('revenue') if prior_q_data else None, Source.BHARATSTOCK)
         qoq = fa.calculate_growth_pct(revenue, prior_q_revenue, period=fq)
@@ -288,60 +358,6 @@ def _persist_bharatstock_financials(snapshot, bundle, FinancialSnapshot, Quarter
             pat=_sv_to_decimal(pat), eps=period_data.get('eps'),
             source=Source.BHARATSTOCK, retrieved_at=django_timezone.now(),
         )
-
-
-def _persist_bharatstock_balance_sheet(snapshot, bundle, BalanceSheetSnapshot, metrics_to_record):
-    bs = (bundle.get('financials_annual') or {}).get('balance_sheet') or {}
-    if not bs:
-        return
-    debt = SourcedValue(bs.get('total_debt'), Source.BHARATSTOCK)
-    cash = SourcedValue(bs.get('cash'), Source.BHARATSTOCK)
-    equity = SourcedValue(bs.get('total_equity') or bs.get('equity'), Source.BHARATSTOCK)
-    current_assets = SourcedValue(bs.get('current_assets'), Source.BHARATSTOCK)
-    current_liabilities = SourcedValue(bs.get('current_liabilities'), Source.BHARATSTOCK)
-
-    net_debt = fa.calculate_net_debt(debt, cash)
-    debt_equity = fa.calculate_debt_equity(debt, equity)
-    current_ratio = fa.calculate_current_ratio(current_assets, current_liabilities)
-    working_capital = fa.calculate_working_capital(current_assets, current_liabilities)
-
-    BalanceSheetSnapshot.objects.create(
-        snapshot=snapshot, fiscal_year=bs.get('fiscal_year', 'latest'),
-        total_debt=_sv_to_decimal(debt), cash=_sv_to_decimal(cash), net_debt=_sv_to_decimal(net_debt),
-        current_assets=_sv_to_decimal(current_assets), current_liabilities=_sv_to_decimal(current_liabilities),
-        working_capital=_sv_to_decimal(working_capital), debt_equity=_sv_to_decimal(debt_equity),
-        current_ratio=_sv_to_decimal(current_ratio),
-        source=Source.BHARATSTOCK, retrieved_at=django_timezone.now(),
-    )
-    if debt_equity.is_available:
-        metrics_to_record['debt_equity'] = (debt_equity.value, '', None, Source.CALCULATED)
-
-
-def _persist_bharatstock_cash_flow(snapshot, bundle, CashFlowSnapshot, metrics_to_record):
-    cf = (bundle.get('financials_annual') or {}).get('cash_flow') or {}
-    if not cf:
-        return
-    cfo = SourcedValue(cf.get('operating_cash_flow'), Source.BHARATSTOCK)
-    capex = SourcedValue(cf.get('capex'), Source.BHARATSTOCK)
-    pat = SourcedValue(cf.get('pat'), Source.BHARATSTOCK)
-    revenue = SourcedValue(cf.get('revenue'), Source.BHARATSTOCK)
-
-    fcf = fa.calculate_free_cash_flow(cfo, capex)
-    fcf_margin = fa.calculate_margin_pct(fcf, revenue)
-    cfo_to_pat = fa.calculate_cfo_to_pat(cfo, pat)
-    capex_intensity = fa.calculate_capex_intensity_pct(capex, revenue)
-
-    CashFlowSnapshot.objects.create(
-        snapshot=snapshot, fiscal_year=cf.get('fiscal_year', 'latest'),
-        operating_cash_flow=_sv_to_decimal(cfo), capex=_sv_to_decimal(capex), free_cash_flow=_sv_to_decimal(fcf),
-        fcf_margin_pct=_sv_to_decimal(fcf_margin), cfo_to_pat=_sv_to_decimal(cfo_to_pat),
-        capex_intensity_pct=_sv_to_decimal(capex_intensity),
-        source=Source.BHARATSTOCK, retrieved_at=django_timezone.now(),
-    )
-    if fcf.is_available:
-        metrics_to_record['fcf'] = (fcf.value, '', None, Source.CALCULATED)
-    if cfo_to_pat.is_available:
-        metrics_to_record['cfo_to_pat'] = (cfo_to_pat.value, '', None, Source.CALCULATED)
 
 
 def _persist_corporate_activity(snapshot, bundle, CorporateActivity, now):

@@ -21,32 +21,58 @@ from fundamentals_research.services.source_registry import SourcedValue, Source
 
 
 def _fake_bharatstock_stock_response():
+    """Sep 24 2026: rewritten to the REAL raw shape (confirmed live,
+    your WIPRO call) -- this is what get_stock() actually returns,
+    BEFORE normalize_stock_response() processes it. The mock below
+    patches get_stock() only, so normalize_stock_response() still runs
+    for real inside the test -- this is what makes these tests catch a
+    real mapping bug instead of just testing themselves."""
     return {
         'symbol': 'RELIANCE', 'company_name': 'Reliance Industries Limited', 'isin': 'INE002A01018',
         'sector': 'Energy', 'industry': 'Refineries', 'exchange': 'NSE', 'listing_date': '1977-11-29',
-        'market': {'price': 1370.5, 'market_cap': 18543210000000, 'week_52_high': 1608.8, 'week_52_low': 1201.4, 'dma_50': 1350.0, 'dma_200': 1400.0},
-        'valuation': {'pe': 24.1, 'pb': 2.3, 'peg': 1.8, 'ev_ebitda': 12.5, 'price_to_sales': 2.1, 'dividend_yield': 0.4},
-        'ownership': {'as_of_quarter': 'Q1 FY2026-27', 'promoter_pct': 50.3, 'promoter_pledge_pct': 0.0, 'fii_pct': 22.1, 'dii_pct': 15.6, 'public_pct': 12.0, 'mutual_fund_pct': 8.2, 'mutual_fund_scheme_count': 302},
-        'segments': [
-            {'name': 'Oil to Chemicals', 'period': 'FY2025-26', 'revenue': 500000, 'result': 45000, 'revenue_contribution_pct': 55.5},
-            {'name': 'Retail', 'period': 'FY2025-26', 'revenue': 300000, 'result': 22000, 'revenue_contribution_pct': 33.3},
-        ],
-        'mutual_funds': {'scheme_count': 302},
+        'market_cap': 18543210000000.0,  # rupees -- top-level, real unit confirmed live
+        'latest_price': {'close': 1370.5},
+        'metrics': {
+            'price': 1370.5, 'high_52w': 1608.8, 'low_52w': 1201.4,
+            'pe_ratio': 24.1, 'pb_ratio': 2.3, 'peg_ratio': 1.8, 'ev_to_ebitda': 12.5,
+            'price_to_sales': 2.1, 'dividend_yield': 0.4,
+            'promoter_holding': 50.3, 'fii_holding': 22.1, 'dii_holding': 15.6,
+            'public_holding': 12.0, 'mutual_funds_holding': 8.2, 'computed_at': '2026-09-24',
+        },
+        'mf_holdings_summary': {'total_schemes': 302},
     }
 
 
 def _fake_financials_annual(revenue=900000, pat=74000):
-    return {'periods': [
-        {'fiscal_year': 'FY2025-26', 'revenue': revenue, 'ebitda': 150000, 'pat': pat, 'eps': 54.7, 'total_equity': 800000},
-        {'fiscal_year': 'FY2024-25', 'revenue': 850000, 'ebitda': 140000, 'pat': 68000, 'eps': 50.3, 'total_equity': 750000},
-    ], 'balance_sheet': {'fiscal_year': 'FY2025-26', 'total_debt': 300000, 'cash': 50000, 'total_equity': 800000, 'current_assets': 400000, 'current_liabilities': 200000}, 'cash_flow': {'fiscal_year': 'FY2025-26', 'operating_cash_flow': 120000, 'capex': 60000, 'pat': pat, 'revenue': revenue}}
+    """Real shape confirmed live: {"data": [...], "pagination": {...}},
+    newest-first, every field flat on each row -- P&L, balance sheet,
+    and cash flow all together, not in separate sub-objects."""
+    return {'data': [
+        {
+            'fiscal_year': 'FY2025-26', 'quarter': None, 'revenue': revenue, 'ebitda': 150000,
+            'net_profit': pat, 'eps': 54.7, 'total_equity': 800000,
+            'total_assets': 1200000, 'current_assets': 400000, 'current_liabilities': 200000,
+            'cash_and_cash_equivalents': 50000, 'borrowings_current': 100000, 'borrowings_non_current': 200000,
+            'cash_flow_operating': 120000, 'cash_flow_investing': -40000, 'cash_flow_financing': -30000, 'capex': 60000,
+            'segment_revenue': [{'segment': 'Oil to Chemicals', 'value': 500000}, {'segment': 'Retail', 'value': 300000}],
+            'segment_results': [{'segment': 'Oil to Chemicals', 'value': 45000}, {'segment': 'Retail', 'value': 22000}],
+        },
+        {
+            'fiscal_year': 'FY2024-25', 'quarter': None, 'revenue': 850000, 'ebitda': 140000,
+            'net_profit': 68000, 'eps': 50.3, 'total_equity': 750000,
+            'total_assets': 1100000, 'current_assets': 380000, 'current_liabilities': 190000,
+            'cash_and_cash_equivalents': 45000, 'borrowings_current': 95000, 'borrowings_non_current': 190000,
+            'cash_flow_operating': 110000, 'cash_flow_investing': -35000, 'cash_flow_financing': -28000, 'capex': 55000,
+            'segment_revenue': [], 'segment_results': [],
+        },
+    ], 'pagination': {'page': 1, 'page_size': 20, 'total_items': 2, 'total_pages': 1}}
 
 
 def _fake_financials_quarterly():
-    return {'periods': [
-        {'fiscal_quarter': 'Q1 FY2026-27', 'revenue': 230000, 'pat': 19000, 'eps': 14.1},
-        {'fiscal_quarter': 'Q4 FY2025-26', 'revenue': 225000, 'pat': 18500, 'eps': 13.7},
-    ]}
+    return {'data': [
+        {'fiscal_year': '2026-27', 'quarter': 'Q1', 'revenue': 230000, 'net_profit': 19000, 'eps': 14.1},
+        {'fiscal_year': '2025-26', 'quarter': 'Q4', 'revenue': 225000, 'net_profit': 18500, 'eps': 13.7},
+    ], 'pagination': {'page': 1, 'page_size': 20, 'total_items': 2, 'total_pages': 1}}
 
 
 class TestRunResearchBharatStockPath(TestCase):
@@ -80,11 +106,14 @@ class TestRunResearchBharatStockPath(TestCase):
         # revenue growth YoY = (900000-850000)/850000*100
         self.assertAlmostEqual(float(latest.revenue_growth_yoy_pct), 5.88, places=1)
 
-        bs = BalanceSheetSnapshot.objects.get(snapshot=snapshot)
+        # Sep 24 2026: now correctly one row per fiscal year (matches
+        # real multi-year data confirmed live) -- fetch the latest,
+        # not .get() which now correctly errors on >1 row.
+        bs = BalanceSheetSnapshot.objects.filter(snapshot=snapshot).order_by('-fiscal_year').first()
         self.assertAlmostEqual(float(bs.debt_equity), 0.375, places=2)  # 300000/800000
         self.assertAlmostEqual(float(bs.net_debt), 250000.0)  # 300000-50000
 
-        cf = CashFlowSnapshot.objects.get(snapshot=snapshot)
+        cf = CashFlowSnapshot.objects.filter(snapshot=snapshot).order_by('-fiscal_year').first()
         self.assertAlmostEqual(float(cf.free_cash_flow), 60000.0)  # 120000-60000
 
         val = ValuationSnapshot.objects.get(snapshot=snapshot)

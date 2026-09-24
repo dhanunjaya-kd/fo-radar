@@ -119,34 +119,64 @@ class TestRequestStatusHandling(unittest.TestCase):
 
 
 class TestNormalizeStockResponse(unittest.TestCase):
-    def test_full_nested_response_extracts_all_sections(self):
-        raw = {
-            'symbol': 'RELIANCE', 'company_name': 'Reliance Industries Limited',
-            'valuation': {'pe': 24.1, 'pb': 2.3},
-            'ownership': {'promoter_pct': 50.3},
-            'mutual_funds': {'scheme_count': 302},
+    """Sep 24 2026: rewritten against a REAL response (your live
+    WIPRO call), not a guessed shape -- the previous version of these
+    tests was internally consistent but tested the wrong structure,
+    which is exactly why it didn't catch the real bug."""
+
+    def _real_wipro_sample(self):
+        return {
+            'symbol': 'WIPRO', 'company_name': 'Wipro Limited', 'sector': 'Information Technology',
+            'market_cap': 1620608740000.0,
+            'latest_price': {'close': 163.64},
+            'metrics': {
+                'price': 164.9, 'high_52w': 272.67, 'low_52w': 164.55,
+                'pe_ratio': 13.07, 'pb_ratio': 1.8501, 'peg_ratio': 36.3662,
+                'promoter_holding': 72.59, 'fii_holding': 11.14, 'dii_holding': 5.22,
+                'public_holding': 27.29, 'mutual_funds_holding': 1.83, 'computed_at': '2026-09-23',
+            },
+            'mf_holdings_summary': {'total_schemes': 178},
         }
+
+    def test_real_response_extracts_valuation_from_metrics(self):
+        norm = bc.normalize_stock_response(self._real_wipro_sample())
+        self.assertEqual(norm['valuation']['pe'], 13.07)
+        self.assertEqual(norm['valuation']['pb'], 1.8501)
+
+    def test_real_response_extracts_ownership_from_metrics(self):
+        norm = bc.normalize_stock_response(self._real_wipro_sample())
+        self.assertEqual(norm['ownership']['promoter_pct'], 72.59)
+        self.assertEqual(norm['ownership']['fii_pct'], 11.14)
+        self.assertIsNone(norm['ownership']['promoter_pledge_pct'])  # confirmed absent from the real API -- must stay None, never guessed
+
+    def test_market_cap_uses_rupee_figure_not_crore_figure(self):
+        """The real bug this rewrite fixes: metrics['market_cap'] is in
+        CRORES (163308.71), raw['market_cap'] is in RUPEES
+        (1620608740000.0) -- using the wrong one silently corrupts
+        every market-cap-derived ratio by 10,000,000x."""
+        norm = bc.normalize_stock_response(self._real_wipro_sample())
+        self.assertEqual(norm['valuation']['market_cap'], 1620608740000.0)
+        self.assertNotEqual(norm['valuation']['market_cap'], 163308.71)
+
+    def test_mf_holdings_from_real_key(self):
+        norm = bc.normalize_stock_response(self._real_wipro_sample())
+        self.assertEqual(norm['ownership']['mutual_fund_scheme_count'], 178)
+
+    def test_dma_derived_correctly_from_pct(self):
+        """dma50 = price / (1 + price_vs_50dma_pct/100) -- real formula,
+        checked against a hand-computed value, not just 'runs without
+        crashing'."""
+        raw = dict(self._real_wipro_sample())
+        raw['metrics'] = dict(raw['metrics'], price_vs_50dma_pct=-7.1455, price_vs_200dma_pct=-19.0893)
         norm = bc.normalize_stock_response(raw)
-        self.assertEqual(norm['valuation']['pe'], 24.1)
-        self.assertEqual(norm['ownership']['promoter_pct'], 50.3)
-        self.assertEqual(norm['mutual_funds']['scheme_count'], 302)
+        self.assertAlmostEqual(norm['market']['dma_50'], 177.59, places=1)
+        self.assertAlmostEqual(norm['market']['dma_200'], 203.8, places=1)
 
     def test_missing_sections_return_empty_dict_not_none(self):
-        """A missing section must degrade to {} (so downstream .get() calls
-        are safe) rather than None (which would crash the next .get())."""
         norm = bc.normalize_stock_response({'symbol': 'RELIANCE'})
-        self.assertEqual(norm['valuation'], {})
-        self.assertEqual(norm['ownership'], {})
+        self.assertTrue(all(v is None for v in norm['valuation'].values()))
+        self.assertTrue(all(v is None for v in norm['ownership'].values()))
         self.assertEqual(norm['segments'], [])
-
-    def test_alternate_key_names_fall_back_correctly(self):
-        """Covers the case where the real API uses 'ratios' instead of
-        'valuation', or 'shareholding' instead of 'ownership' -- the
-        normalizer tries both, per its own documented uncertainty."""
-        raw = {'ratios': {'pe': 20.0}, 'shareholding': {'promoter_pct': 45.0}}
-        norm = bc.normalize_stock_response(raw)
-        self.assertEqual(norm['valuation']['pe'], 20.0)
-        self.assertEqual(norm['ownership']['promoter_pct'], 45.0)
 
 
 class TestMfHoldingsFallback(unittest.TestCase):
@@ -162,10 +192,11 @@ class TestMfHoldingsFallback(unittest.TestCase):
         def side_effect(url, headers=None, params=None, timeout=None):
             if 'mf-holdings' in url:
                 return _mock_response(404, text_data="not found")
-            return _mock_response(200, {'symbol': 'RELIANCE', 'mutual_funds': {'scheme_count': 302}})
+            # real key confirmed live: 'mf_holdings_summary' with 'total_schemes', not 'mutual_funds'/'scheme_count'
+            return _mock_response(200, {'symbol': 'RELIANCE', 'mf_holdings_summary': {'total_schemes': 302}})
         mock_get.side_effect = side_effect
         result = bc.get_mf_holdings('RELIANCE')
-        self.assertEqual(result['scheme_count'], 302)
+        self.assertEqual(result['total_schemes'], 302)
 
 
 if __name__ == '__main__':

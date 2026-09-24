@@ -209,27 +209,26 @@ def get_block_deals(symbol: Optional[str] = None) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def get_ratios(symbol: str) -> Dict[str, Any]:
-    stock = get_stock(symbol)
-    return stock.get('valuation') or stock.get('ratios') or {}
+    """Sep 24 2026 fix: was reading raw.get('valuation') directly --
+    that key never existed. Now correctly goes through
+    normalize_stock_response(), which extracts these from the real
+    'metrics' dict."""
+    return normalize_stock_response(get_stock(symbol)).get('valuation', {})
 
 
 def get_shareholding(symbol: str) -> Dict[str, Any]:
-    stock = get_stock(symbol)
-    return stock.get('ownership') or stock.get('shareholding') or {}
+    """Same fix as get_ratios() -- was reading a raw key that never existed."""
+    return normalize_stock_response(get_stock(symbol)).get('ownership', {})
 
 
 def get_mf_holdings(symbol: str) -> Dict[str, Any]:
     """INFERRED path as a fallback only -- tries the dedicated
-    endpoint first (mirrors the real, confirmed pattern of
-    bharatstockapi.com/reference#get-mf-holdings existing as a
-    documented anchor, though the literal path wasn't visible in what
-    I fetched), falls back to whatever summary the main stock response
-    already includes (confirmed present) if that 404s."""
+    endpoint first, falls back to the confirmed-real 'mf_holdings_summary'
+    section of get_stock() (via normalize_stock_response()) if that 404s."""
     try:
         return _request(f'/v1/stocks/{symbol.upper()}/mf-holdings')
     except NotFoundError:
-        stock = get_stock(symbol)
-        return stock.get('mutual_funds') or stock.get('mf_holdings') or {}
+        return normalize_stock_response(get_stock(symbol)).get('mutual_funds', {})
 
 
 # ---------------------------------------------------------------------------
@@ -254,14 +253,50 @@ def normalize_stock_response(raw: Dict[str, Any]) -> Dict[str, Any]:
     test reported (company/market/valuation/financial quality/balance
     sheet/cash flow/ownership/segments/mutual funds), not from a
     literal JSON sample -- I do not have one. The keys guessed below
-    are the most REST-conventional mapping of those category names.
+    Sep 24 2026 -- REWRITTEN against a real, verified response (WIPRO,
+    fetched live through your own key -- see chat history for the full
+    raw dump this was built from, not guessed a second time).
 
-    If a real response's actual keys differ, this is the ONE function
-    to fix -- every other part of this app (financial_analysis.py,
-    ownership_analysis.py, etc.) calls THIS function's output, never
-    `raw` directly, specifically so a key-shape correction doesn't
-    ripple through the whole codebase.
+    Real shape, confirmed: BharatStock does NOT split valuation/
+    ownership/balance-sheet into separate top-level objects the way
+    the earlier guess assumed. Almost everything (P/E, ROE, D/E,
+    ownership %, CFO/PAT, margins -- ~70 fields) lives flat inside one
+    `metrics` dict. `latest_price` holds today's OHLC. `mf_holdings_
+    summary` holds mutual fund data. There is no `segments` key at
+    this endpoint at all -- segment revenue/results come back per-
+    period inside get_financials() instead (see research_engine.py).
+
+    Real bug caught and fixed here, not just a rename: `market_cap`
+    appears in TWO places with TWO DIFFERENT UNITS -- the top-level
+    `raw['market_cap']` is in raw rupees (matches revenue/ebitda/
+    net_profit's own units everywhere else in this API), but
+    `metrics['market_cap']` is in CRORES. Using the wrong one would
+    have silently corrupted every market-cap-derived ratio by a
+    factor of 10,000,000. The top-level (rupee) one is used below,
+    for consistency with every other rupee-denominated figure in this
+    codebase.
+
+    No promoter-pledge field exists anywhere in this real response --
+    left genuinely unavailable (None) below rather than assumed.
     """
+    metrics = raw.get('metrics') or {}
+    latest_price = raw.get('latest_price') or {}
+    mf = raw.get('mf_holdings_summary') or {}
+    price = metrics.get('price') or latest_price.get('close')
+
+    def _dma_from_pct(pct):
+        """price_vs_NNdma_pct = (price - dmaNN) / dmaNN * 100, so
+        dmaNN = price / (1 + pct/100) -- a real derivation from two
+        genuinely-reported fields, not a fabricated number, but
+        flagged as CALCULATED (not BharatStock-reported) at the call
+        site in research_engine.py for exactly that reason."""
+        if price is None or pct is None:
+            return None
+        try:
+            return round(price / (1 + pct / 100.0), 2)
+        except ZeroDivisionError:
+            return None
+
     return {
         'symbol': raw.get('symbol'),
         'company_name': raw.get('company_name'),
@@ -270,12 +305,30 @@ def normalize_stock_response(raw: Dict[str, Any]) -> Dict[str, Any]:
         'industry': raw.get('industry'),
         'exchange': raw.get('exchange'),
         'listing_date': raw.get('listing_date'),
-        'market': raw.get('market') or raw.get('latest_price') or {},
-        'valuation': raw.get('valuation') or raw.get('ratios') or {},
-        'financial_summary': raw.get('financial_summary') or raw.get('financials') or {},
-        'balance_sheet_summary': raw.get('balance_sheet_summary') or raw.get('balance_sheet') or {},
-        'cash_flow_summary': raw.get('cash_flow_summary') or raw.get('cash_flow') or {},
-        'ownership': raw.get('ownership') or raw.get('shareholding') or {},
-        'segments': raw.get('segments') or [],
-        'mutual_funds': raw.get('mutual_funds') or raw.get('mf_holdings') or {},
+        'market': {
+            'price': price,
+            'market_cap': raw.get('market_cap'),  # rupees -- NOT metrics['market_cap'], which is crores; see docstring
+            'week_52_high': metrics.get('high_52w'),
+            'week_52_low': metrics.get('low_52w'),
+            'dma_50': _dma_from_pct(metrics.get('price_vs_50dma_pct')),
+            'dma_200': _dma_from_pct(metrics.get('price_vs_200dma_pct')),
+        },
+        'valuation': {
+            'pe': metrics.get('pe_ratio'), 'pb': metrics.get('pb_ratio'), 'peg': metrics.get('peg_ratio'),
+            'ev_ebitda': metrics.get('ev_to_ebitda'), 'price_to_sales': metrics.get('price_to_sales'),
+            'dividend_yield': metrics.get('dividend_yield'), 'earnings_yield': metrics.get('earnings_yield'),
+            'market_cap': raw.get('market_cap'),
+        },
+        'ownership': {
+            'as_of_quarter': metrics.get('computed_at'),  # a computation date, not a real fiscal-quarter label -- BharatStock doesn't return one here
+            'promoter_pct': metrics.get('promoter_holding'),
+            'promoter_change_pct': metrics.get('promoter_holding_change_qoq'),
+            'promoter_pledge_pct': None,  # confirmed absent from this endpoint's real response -- not guessed as 0
+            'fii_pct': metrics.get('fii_holding'), 'dii_pct': metrics.get('dii_holding'),
+            'mutual_fund_pct': metrics.get('mutual_funds_holding'), 'public_pct': metrics.get('public_holding'),
+            'mutual_fund_scheme_count': mf.get('total_schemes'),
+        },
+        'financial_summary': metrics,  # raw metrics kept accessible for anything not explicitly mapped above
+        'segments': [],  # confirmed not present at this endpoint -- real segment data comes from get_financials(), handled separately
+        'mutual_funds': mf,
     }
