@@ -26,6 +26,7 @@ class Source:
     COMPANY_IR = 'company_ir'
     NEWS = 'news'
     CALCULATED = 'calculated'
+    YFINANCE = 'yfinance'
 
 
 @dataclass

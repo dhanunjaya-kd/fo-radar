@@ -22,6 +22,7 @@ from django.db import transaction
 
 from . import bharatstock_client as bsc
 from . import screener_fallback as sf
+from . import yfinance_fallback as yff
 from . import financial_analysis as fa
 from . import ownership_analysis as oa
 from . import valuation_analysis as va
@@ -101,6 +102,7 @@ def run_research(symbol: str, triggered_by: str = 'refresh'):
     symbol = symbol.upper().strip()
     bundle = _fetch_bharatstock_bundle(symbol)
     screener_data = None
+    yfinance_bundle = None
     primary_source = Source.BHARATSTOCK
 
     if bundle is None:
@@ -108,10 +110,14 @@ def run_research(symbol: str, triggered_by: str = 'refresh'):
         screener_data = sf.get_screener_fundamentals(symbol)
         primary_source = Source.SCREENER
         if screener_data is None:
-            raise ResearchUnavailableError(
-                f"Neither BharatStock nor the existing Screener integration returned data for {symbol}. "
-                f"No snapshot created -- per spec Section 7/27, this is reported as unavailable, not fabricated."
-            )
+            logger.info(f"Screener also unavailable for {symbol} -- falling back to yfinance (third tier).")
+            yfinance_bundle = yff.get_yfinance_fundamentals(symbol)
+            primary_source = Source.YFINANCE
+            if yfinance_bundle is None:
+                raise ResearchUnavailableError(
+                    f"BharatStock, Screener, and yfinance all returned no data for {symbol}. "
+                    f"No snapshot created -- per spec Section 7/27, this is reported as unavailable, not fabricated."
+                )
 
     company, _ = ResearchCompany.objects.get_or_create(
         symbol=symbol,
@@ -215,7 +221,23 @@ def run_research(symbol: str, triggered_by: str = 'refresh'):
             if screener_data[key].is_available:
                 metrics_to_record[f'screener_{key}'] = (screener_data[key].value, '', period, Source.SCREENER)
 
-    company_name_for_news = (bundle['stock'].get('company_name') if bundle else (screener_data['company_name'].value if screener_data else '')) or ''
+    elif yfinance_bundle:
+        yc = yfinance_bundle.get('company', {})
+        company.company_name = yc.get('company_name') or company.company_name
+        company.sector = yc.get('sector') or company.sector
+        company.industry = yc.get('industry') or company.industry
+        company.exchange = yc.get('exchange') or company.exchange or 'NSE'
+        company.save()
+        _persist_yfinance_fundamentals(
+            snapshot, yfinance_bundle, FinancialSnapshot, BalanceSheetSnapshot, CashFlowSnapshot,
+            ValuationSnapshot, metrics_to_record, now,
+        )
+
+    company_name_for_news = (
+        bundle['stock'].get('company_name') if bundle
+        else (screener_data['company_name'].value if screener_data
+        else (yfinance_bundle.get('company', {}).get('company_name') if yfinance_bundle else ''))
+    ) or ''
     for item in na.get_company_news(symbol, company_name_for_news):
         ResearchNewsItem.objects.create(snapshot=snapshot, **item)
 
@@ -358,6 +380,120 @@ def _persist_bharatstock_financials(snapshot, bundle, FinancialSnapshot, Quarter
             pat=_sv_to_decimal(pat), eps=period_data.get('eps'),
             source=Source.BHARATSTOCK, retrieved_at=django_timezone.now(),
         )
+
+
+def _persist_yfinance_fundamentals(snapshot, bundle, FinancialSnapshot, BalanceSheetSnapshot, CashFlowSnapshot, ValuationSnapshot, metrics_to_record, now):
+    """
+    Third-tier fallback persistence. bundle['annual'] is already
+    newest-first with merged P&L+balance-sheet+cashflow per period
+    (built and verified in yfinance_fallback.py against real data --
+    see that file for the field-name and scale verification).
+
+    Deliberately does NOT populate OwnershipSnapshot at all. Yahoo's
+    heldPercentInsiders is a genuinely different concept from Indian
+    promoter holding (broader "insiders" category, not the specific
+    promoter/promoter-group definition SEBI filings use) -- populating
+    OwnershipSnapshot.promoter_pct from it would be presenting one
+    metric as if it were another, which Section 7 of the spec this
+    was built against explicitly prohibits ("never silently substitute
+    one metric for another"). Ownership stays genuinely unavailable
+    when the fallback goes this far, rather than showing a
+    same-shaped-but-different number with no visible distinction.
+    """
+    annual = bundle.get('annual') or []
+    for i, period_data in enumerate(annual):
+        fy = period_data.get('period') or f'FY-{i}'
+        revenue = SourcedValue(period_data.get('revenue'), Source.YFINANCE, period=fy)
+        ebitda = SourcedValue(period_data.get('ebitda'), Source.YFINANCE, period=fy)
+        pat = SourcedValue(period_data.get('net_profit'), Source.YFINANCE, period=fy)
+        eps = SourcedValue(period_data.get('eps'), Source.YFINANCE, period=fy)
+        equity = SourcedValue(period_data.get('total_equity'), Source.YFINANCE, period=fy)
+
+        prior_period = annual[i + 1] if i + 1 < len(annual) else None
+        prior_revenue = SourcedValue(prior_period.get('revenue') if prior_period else None, Source.YFINANCE)
+        prior_pat = SourcedValue(prior_period.get('net_profit') if prior_period else None, Source.YFINANCE)
+
+        ebitda_margin = fa.calculate_margin_pct(ebitda, revenue, period=fy)
+        pat_margin = fa.calculate_margin_pct(pat, revenue, period=fy)
+        roe = fa.calculate_roe_pct(pat, equity, period=fy)
+        rev_growth = fa.calculate_growth_pct(revenue, prior_revenue, period=fy)
+        pat_growth = fa.calculate_growth_pct(pat, prior_pat, period=fy)
+
+        FinancialSnapshot.objects.create(
+            snapshot=snapshot, fiscal_year=fy,
+            revenue=_sv_to_decimal(revenue), revenue_growth_yoy_pct=_sv_to_decimal(rev_growth),
+            ebitda=_sv_to_decimal(ebitda), ebitda_margin_pct=_sv_to_decimal(ebitda_margin),
+            pat=_sv_to_decimal(pat), pat_margin_pct=_sv_to_decimal(pat_margin), pat_growth_yoy_pct=_sv_to_decimal(pat_growth),
+            eps=_sv_to_decimal(eps), roe_pct=_sv_to_decimal(roe),
+            source=Source.YFINANCE, retrieved_at=now,
+        )
+
+        total_debt = SourcedValue(period_data.get('total_debt'), Source.YFINANCE, period=fy)
+        cash = SourcedValue(period_data.get('cash'), Source.YFINANCE, period=fy)
+        current_assets = SourcedValue(period_data.get('current_assets'), Source.YFINANCE, period=fy)
+        current_liabilities = SourcedValue(period_data.get('current_liabilities'), Source.YFINANCE, period=fy)
+        net_debt = fa.calculate_net_debt(total_debt, cash)
+        debt_equity = fa.calculate_debt_equity(total_debt, equity)
+        current_ratio = fa.calculate_current_ratio(current_assets, current_liabilities)
+        working_capital = fa.calculate_working_capital(current_assets, current_liabilities)
+        BalanceSheetSnapshot.objects.create(
+            snapshot=snapshot, fiscal_year=fy,
+            total_debt=_sv_to_decimal(total_debt), cash=_sv_to_decimal(cash), net_debt=_sv_to_decimal(net_debt),
+            total_equity=_sv_to_decimal(equity),
+            current_assets=_sv_to_decimal(current_assets), current_liabilities=_sv_to_decimal(current_liabilities),
+            working_capital=_sv_to_decimal(working_capital), debt_equity=_sv_to_decimal(debt_equity),
+            current_ratio=_sv_to_decimal(current_ratio),
+            source=Source.YFINANCE, retrieved_at=now,
+        )
+
+        cfo = SourcedValue(period_data.get('operating_cash_flow'), Source.YFINANCE, period=fy)
+        # Sep 25 2026: confirmed real -- yfinance reports capex as
+        # already-negative (an outflow), unlike BharatStock's positive-
+        # spend convention. calculate_free_cash_flow() already abs()es
+        # its capex input specifically to handle both conventions
+        # safely (see that function's own docstring) -- no separate
+        # sign-flip needed here.
+        capex = SourcedValue(period_data.get('capex'), Source.YFINANCE, period=fy)
+        fcf = fa.calculate_free_cash_flow(cfo, capex)
+        fcf_margin = fa.calculate_margin_pct(fcf, revenue, period=fy)
+        cfo_to_pat = fa.calculate_cfo_to_pat(cfo, pat, period=fy)
+        capex_intensity = fa.calculate_capex_intensity_pct(capex, revenue, period=fy)
+        CashFlowSnapshot.objects.create(
+            snapshot=snapshot, fiscal_year=fy,
+            operating_cash_flow=_sv_to_decimal(cfo), capex=_sv_to_decimal(capex), free_cash_flow=_sv_to_decimal(fcf),
+            investing_cash_flow=period_data.get('investing_cash_flow'), financing_cash_flow=period_data.get('financing_cash_flow'),
+            fcf_margin_pct=_sv_to_decimal(fcf_margin), cfo_to_pat=_sv_to_decimal(cfo_to_pat),
+            capex_intensity_pct=_sv_to_decimal(capex_intensity),
+            source=Source.YFINANCE, retrieved_at=now,
+        )
+
+        if i == 0:
+            for name, sv_ in [('revenue', revenue), ('pat', pat), ('eps', eps), ('roe_pct', roe), ('debt_equity', debt_equity), ('fcf', fcf)]:
+                if sv_.is_available:
+                    metrics_to_record[name] = (sv_.value, '', fy, Source.YFINANCE if name in ('revenue', 'pat', 'eps', 'roe_pct') else Source.CALCULATED)
+
+    val = bundle.get('valuation', {})
+    market = bundle.get('market', {})
+    price = SourcedValue(market.get('price'), Source.YFINANCE)
+    week_52_high = SourcedValue(market.get('week_52_high'), Source.YFINANCE)
+    pe = SourcedValue(val.get('pe'), Source.YFINANCE)
+    ValuationSnapshot.objects.create(
+        snapshot=snapshot, as_of_date=now.date(),
+        price=_sv_to_decimal(price), market_cap=_sv_to_decimal(SourcedValue(val.get('market_cap'), Source.YFINANCE)),
+        pe=_sv_to_decimal(pe), pb=_sv_to_decimal(SourcedValue(val.get('pb'), Source.YFINANCE)),
+        peg=_sv_to_decimal(SourcedValue(val.get('peg'), Source.YFINANCE)),
+        ev_ebitda=_sv_to_decimal(SourcedValue(val.get('ev_ebitda'), Source.YFINANCE)),
+        price_to_sales=_sv_to_decimal(SourcedValue(val.get('price_to_sales'), Source.YFINANCE)),
+        dividend_yield_pct=_sv_to_decimal(SourcedValue(val.get('dividend_yield'), Source.YFINANCE)),
+        earnings_yield_pct=_sv_to_decimal(fa.calculate_earnings_yield_pct(pe)),
+        week_52_high=_sv_to_decimal(week_52_high), week_52_low=_sv_to_decimal(SourcedValue(market.get('week_52_low'), Source.YFINANCE)),
+        distance_from_52w_high_pct=_sv_to_decimal(fa.calculate_distance_from_52w_high_pct(price, week_52_high)),
+        dma_50=_sv_to_decimal(SourcedValue(market.get('dma_50'), Source.YFINANCE)),
+        dma_200=_sv_to_decimal(SourcedValue(market.get('dma_200'), Source.YFINANCE)),
+        source=Source.YFINANCE, retrieved_at=now,
+    )
+    if pe.is_available:
+        metrics_to_record['valuation_pe'] = (pe.value, '', None, Source.YFINANCE)
 
 
 def _persist_corporate_activity(snapshot, bundle, CorporateActivity, now):
