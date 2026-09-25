@@ -94,35 +94,74 @@ class TelegramBot:
                     print("[TelegramBot] All retry attempts exhausted -- message NOT delivered.")
                     return None
 
-    def send_signal_alert(self, symbol, signal_type, entry, sl, target, grade="A", strike=None):
+    def send_signal_alert(self, signal):
         """
         Send a formatted signal alert.
 
-        Sep 22 2026 fix: `strike` was added to views.py's call to this
-        method on Sep 19, but the parameter itself was only ever added
-        to the unused screener/telegram_bot.py duplicate -- this file
-        (the one actually imported) never had it, so every live call
-        since then raised TypeError: unexpected keyword argument
-        'strike', silently swallowed by views.py's try/except. Added
-        here now, matching the exact behavior the duplicate had:
-        optional, only shown when a real value is present.
+        Sep 24 2026 rewrite: clean plain-text layout (direct request --
+        same visual style just built for the separate Gamma Blast
+        alert: aligned "Label:    Value" lines, plain dividers, no HTML
+        card). Takes the full live signal dict directly now, not a
+        curated set of named params -- the old named-param signature
+        (symbol, signal_type, entry, sl, target, grade, strike) is
+        exactly why Strike needed a whole separate bug-hunt to add on
+        Sep 19; every future field would hit the same wall. The one
+        real call site (views.py) already has the full signal dict in
+        hand, so this just takes it directly.
         """
-        emoji = "🟢" if signal_type in ["BUY", "BUY NOW"] else "🔴"
-        strike_line = f"\n<b>Strike:</b> ₹{strike}" if strike is not None else ""
-        message = f"""
-{emoji} <b>F&O RADAR SIGNAL</b> {emoji}
+        symbol = signal.get("symbol", "")
+        action = signal.get("action") or signal.get("signal_type", "")
+        opt_side = "CE" if action == "BUY" else "PE"
+        strike = signal.get("strike")
+        strike_int = int(strike) if strike else None
+        option_symbol = signal.get("option_symbol", "")
+        expiry_date = signal.get("expiry_date") or ""
+        entry = signal.get("entry")
+        sl = signal.get("sl")
+        target1 = signal.get("target1")
+        target2 = signal.get("target2")
+        target3 = signal.get("target3")
+        grade = signal.get("grade", "A")
+        confidence = signal.get("confidence", "")
+        pattern = signal.get("pattern")
+        oi_confirmation = signal.get("oi_confirmation")
+        quality_verdict = signal.get("quality_verdict")
+        quality_score = signal.get("quality_score")
+        risk_reward = signal.get("risk_reward")
+        generated_at = signal.get("generated_at")
 
-<b>Symbol:</b> {symbol}{strike_line}
-<b>Signal:</b> {signal_type}
-<b>Grade:</b> {grade}
-<b>Entry:</b> ₹{entry}
-<b>SL:</b> ₹{sl}
-<b>Target:</b> ₹{target}
+        divider = "\u2501" * 35
+        instrument_bits = [symbol, expiry_date, str(strike_int) if strike_int else "", opt_side]
+        lines = [
+            f"\u26a1 F&O RADAR SIGNAL [{action} {opt_side}] \u26a1",
+            divider,
+            f"Instrument:    {' '.join(b for b in instrument_bits if b)}",
+        ]
+        if option_symbol:
+            lines.append(f"Symbol:        {option_symbol}")
+        lines.append(f"Grade:         {grade} | Confidence: {confidence}")
+        setup_bits = [b for b in [pattern, f"OI: {oi_confirmation}" if oi_confirmation else None] if b]
+        if setup_bits:
+            lines.append(f"Setup:         {' | '.join(setup_bits)}")
+        lines.append(divider)
+        lines.append(f"Entry LTP:     Rs {entry}")
+        lines.append(f"Stop Loss:     Rs {sl}")
+        lines.append(f"Target 1:      Rs {target1}")
+        if target2 is not None:
+            lines.append(f"Target 2:      Rs {target2}")
+        if target3 is not None:
+            lines.append(f"Target 3:      Rs {target3}")
+        if risk_reward:
+            lines.append(f"Risk:Reward:   {risk_reward}")
+        lines.append(divider)
+        if quality_verdict:
+            score_bit = f" \u00b7 {quality_score}" if quality_score is not None else ""
+            lines.append(f"Quality:       {quality_verdict}{score_bit}")
+        lines.append(f"Generated:     {generated_at or 'Just now'}")
+        order_target = option_symbol or (f"{symbol} {strike_int} {opt_side}" if strike_int else f"{symbol} {opt_side}")
+        lines.append(f"Order Copy:    {action} {order_target} LIMIT @ {entry}")
 
-⏱ Auto-refresh: 5s
-        """.strip()
-
-        return self.send_message(message)
+        return self.send_message("\n".join(lines))
 
     def send_pnl_alert(self, trade_info):
         """
