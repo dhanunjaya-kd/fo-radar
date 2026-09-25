@@ -77,26 +77,45 @@ function TrendChart({ data, dataKey, label, color = '#34d399' }) {
 }
 
 function OwnershipBar({ ownership }) {
-  const data = [
-    { name: 'Promoter', value: parseFloat(ownership.promoter_pct) || 0, color: '#34d399' },
-    { name: 'FII', value: parseFloat(ownership.fii_pct) || 0, color: '#60a5fa' },
-    { name: 'DII', value: parseFloat(ownership.dii_pct) || 0, color: '#fbbf24' },
-    { name: 'Public', value: parseFloat(ownership.public_pct) || 0, color: '#94a3b8' },
+  const promoter = parseFloat(ownership.promoter_pct) || 0;
+  const fii = parseFloat(ownership.fii_pct) || 0;
+  const dii = parseFloat(ownership.dii_pct) || 0;
+  const mf = parseFloat(ownership.mutual_fund_pct) || 0;
+  // Sep 25 2026 fix: confirmed from real data (promoter + public summed to
+  // ~100% on their own, e.g. 72.59 + 27.29 = 99.88 for WIPRO) that
+  // BharatStock's "Public" field already INCLUDES FII/DII/MF as subsets --
+  // they're not separate, additive slices. The previous version stacked
+  // all four independently and overflowed past 100% (118.5% seen live on
+  // OFSS). Now: only Promoter vs Public are drawn as the two real,
+  // mutually-exclusive bar segments; FII/DII/MF are shown as a labeled
+  // breakdown of what's inside "Public," not additional bar width.
+  const publicTotal = parseFloat(ownership.public_pct) || (promoter ? Math.max(0, 100 - promoter) : 0);
+  const publicOther = Math.max(0, publicTotal - fii - dii - mf);
+
+  const barData = [
+    { name: 'Promoter', value: promoter, color: '#34d399' },
+    { name: 'Public', value: publicTotal, color: '#475569' },
   ].filter(d => d.value > 0);
-  if (!data.length) return <div className="text-xs text-slate-500">No shareholding data available.</div>;
+  if (!barData.length) return <div className="text-xs text-slate-500">No shareholding data available.</div>;
+
   return (
     <div>
       <div className="flex h-3 rounded-full overflow-hidden mb-2">
-        {data.map(d => <div key={d.name} style={{ width: `${d.value}%`, backgroundColor: d.color }} title={`${d.name}: ${d.value}%`} />)}
+        {barData.map(d => <div key={d.name} style={{ width: `${d.value}%`, backgroundColor: d.color }} title={`${d.name}: ${d.value.toFixed(1)}%`} />)}
       </div>
-      <div className="flex flex-wrap gap-3 text-[11px]">
-        {data.map(d => (
+      <div className="flex flex-wrap gap-3 text-[11px] mb-2">
+        {barData.map(d => (
           <span key={d.name} className="flex items-center gap-1 text-slate-300">
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
             {d.name} {d.value.toFixed(1)}%
           </span>
         ))}
       </div>
+      {(fii > 0 || dii > 0 || mf > 0) && (
+        <div className="text-[10px] text-slate-500 pl-1 border-l border-slate-700/50">
+          Within Public: FII {fii.toFixed(1)}% · DII {dii.toFixed(1)}% · MF {mf.toFixed(1)}%{publicOther > 0.1 ? ` · Other ${publicOther.toFixed(1)}%` : ''}
+        </div>
+      )}
     </div>
   );
 }
