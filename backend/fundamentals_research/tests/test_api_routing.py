@@ -60,7 +60,8 @@ class TestApiRouting(TestCase):
 
     @patch('fundamentals_research.services.research_engine.bsc.get_stock', side_effect=re.bsc.BharatStockError("outage"))
     @patch('fundamentals_research.services.research_engine.sf.get_screener_fundamentals', return_value=None)
-    def test_refresh_returns_503_when_no_source_available(self, mock_screener, mock_stock):
+    @patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=None)
+    def test_refresh_returns_503_when_no_source_available(self, mock_yfinance, mock_screener, mock_stock):
         response = self.client.post('/api/research/company/NOTAREALSTOCK/refresh/')
         self.assertEqual(response.status_code, 503)
         self.assertIn('detail', response.json())

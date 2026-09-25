@@ -31,6 +31,7 @@ class SourceChoices(models.TextChoices):
     COMPANY_IR = 'company_ir', 'Company IR / exchange filing (manual link)'
     NEWS = 'news', 'News (existing NewsAPI/RSS)'
     CALCULATED = 'calculated', 'Calculated internally from stored raw data'
+    YFINANCE = 'yfinance', 'Yahoo Finance (unofficial, third fallback tier -- see yfinance_fallback.py)'
 
 
 class ResearchCompany(models.Model):

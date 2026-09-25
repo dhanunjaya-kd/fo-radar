@@ -181,8 +181,67 @@ class TestRunResearchScreenerFallback(TestCase):
 
     @patch('fundamentals_research.services.research_engine.bsc.get_stock', side_effect=re.bsc.BharatStockError("simulated outage"))
     @patch('fundamentals_research.services.research_engine.sf.get_screener_fundamentals', return_value=None)
-    def test_raises_when_both_sources_fail(self, mock_screener, mock_stock):
+    @patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=None)
+    def test_raises_when_both_sources_fail(self, mock_yfinance, mock_screener, mock_stock):
         with self.assertRaises(re.ResearchUnavailableError):
             re.run_research('NOTAREALSTOCK')
         # confirm nothing was persisted for a symbol that never had real data
         self.assertEqual(ResearchCompany.objects.filter(symbol='NOTAREALSTOCK').count(), 0)
+
+
+class TestRunResearchYfinanceThirdTier(TestCase):
+    """The full 3-tier fallback, end to end: BharatStock down, Screener
+    down, yfinance succeeds -- confirms the chain actually reaches and
+    persists from the third tier, not just that each tier works alone."""
+
+    @patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[])
+    @patch('fundamentals_research.services.research_engine.bsc.get_stock', side_effect=re.bsc.BharatStockError("simulated outage"))
+    @patch('fundamentals_research.services.research_engine.sf.get_screener_fundamentals', return_value=None)
+    def test_falls_back_all_the_way_to_yfinance(self, mock_screener, mock_stock, mock_news):
+        yfinance_bundle = {
+            'company': {'company_name': 'Reliance Industries Limited', 'sector': 'Energy', 'industry': 'Refining', 'exchange': 'NSE'},
+            'market': {'price': 1220.5, 'market_cap': 16516382720000, 'week_52_high': 1611.8, 'week_52_low': 1210.5, 'dma_50': 1292.4, 'dma_200': 1364.0},
+            'valuation': {'pe': 22.65, 'pb': 1.83, 'peg': 0.82, 'ev_ebitda': 10.92, 'price_to_sales': 1.46, 'dividend_yield': 0.48, 'market_cap': 16516382720000},
+            'ownership': {'promoter_pct_proxy': 51.8, 'institutions_pct_proxy': 28.07},
+            'debt_equity_reported': 36.653,
+            'annual': [
+                {'period': '2026-03-31', 'revenue': 1.057219e13, 'ebitda': 2.049060e12, 'net_profit': 8.077500e11, 'eps': 59.69,
+                 'total_equity': 9.040300e12, 'total_debt': 3.980000e12, 'cash': 1.373270e12,
+                 'current_assets': 5.942490e12, 'current_liabilities': 5.412540e12,
+                 'operating_cash_flow': 1.921130e12, 'capex': -1.229160e12,
+                 'investing_cash_flow': -1.010890e12, 'financing_cash_flow': -5.154900e11},
+                {'period': '2025-03-31', 'revenue': 9.646930e12, 'ebitda': 1.812740e12, 'net_profit': 6.964800e11, 'eps': 51.47,
+                 'total_equity': 8.432000e12, 'total_debt': 3.695750e12, 'cash': 1.006450e12,
+                 'current_assets': 4.992700e12, 'current_liabilities': 4.537370e12,
+                 'operating_cash_flow': 1.787030e12, 'capex': -1.399670e12,
+                 'investing_cash_flow': -1.375350e12, 'financing_cash_flow': -3.189100e11},
+            ],
+        }
+        with patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=yfinance_bundle):
+            snapshot, what_changed, primary_source = re.run_research('RELIANCE')
+
+        self.assertEqual(primary_source, Source.YFINANCE)
+
+        company = ResearchCompany.objects.get(symbol='RELIANCE')
+        self.assertEqual(company.company_name, 'Reliance Industries Limited')
+
+        fin = FinancialSnapshot.objects.filter(snapshot=snapshot).order_by('-fiscal_year').first()
+        self.assertEqual(fin.source, Source.YFINANCE)
+        self.assertEqual(float(fin.revenue), 1.057219e13)
+        # confirm growth was actually calculated across the 2 real years, not left blank
+        self.assertAlmostEqual(float(fin.revenue_growth_yoy_pct), 9.60, places=1)
+
+        bs = BalanceSheetSnapshot.objects.filter(snapshot=snapshot).order_by('-fiscal_year').first()
+        self.assertAlmostEqual(float(bs.debt_equity), 0.4403, places=3)  # 3.98e12 / 9.0403e12
+
+        cf = CashFlowSnapshot.objects.filter(snapshot=snapshot).order_by('-fiscal_year').first()
+        self.assertAlmostEqual(float(cf.free_cash_flow), 6.9197e11, delta=1e8)  # capex sign handled correctly (real negative-capex convention)
+
+        val = ValuationSnapshot.objects.get(snapshot=snapshot)
+        self.assertEqual(val.source, Source.YFINANCE)
+        self.assertEqual(float(val.pe), 22.65)
+
+        # The real, deliberate choice this module makes: ownership stays
+        # genuinely unavailable at this fallback tier, not filled with a
+        # same-shaped-but-different proxy number.
+        self.assertFalse(hasattr(snapshot, 'ownership'))
