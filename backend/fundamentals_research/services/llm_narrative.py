@@ -217,3 +217,98 @@ def answer_question(fact_sheet: Dict[str, Any], question: str, conversation_hist
     if answer is None:
         return "Sorry, I couldn't generate an answer right now -- the AI service is unavailable or not configured. The structured data above is still accurate and unaffected."
     return answer
+
+
+_DECISION_STATUSES = [
+    'Potential setup - confirmation pending', 'Setup confirmed under defined conditions',
+    'Trend remains bearish', 'Fundamentals deteriorating',
+    'Fundamentals relatively stable, technical trend weak', 'Risk elevated', 'Insufficient data',
+]
+
+_ROMAN_TELUGU_INSTRUCTION = (
+    "Write your response in Roman Telugu (Telugu language, written in Latin/English script) "
+    "as the default. Keep standard financial terms in English exactly as given, never translated "
+    "or transliterated: BUY, SELL, RSI, EMA, OI, SL, Target, and similarly-standard terms."
+)
+
+
+def generate_decision_summary(
+    fact_sheet: Dict[str, Any], confluence: Dict[str, Any], entry_setup: Dict[str, Any],
+    trend_classification: Dict[str, str], language: str = 'english',
+) -> Optional[Dict[str, Any]]:
+    """
+    Sep 26 2026. Synthesizes the ALREADY-COMPUTED confluence.py,
+    entry_setup.py, and technical_analysis.py outputs (passed in, not
+    re-fetched) into the spec's exact required decision-summary shape.
+    No new numbers are given to the model here beyond what these three
+    already-deterministic modules produced -- this function's only job
+    is turning structured data into the required narrative fields
+    (supporting evidence / opposing evidence / conditions to monitor
+    etc.), not generating new figures.
+
+    language: 'english' (default, safe/explicit -- does not silently
+    change behavior for existing callers) or 'roman_telugu' (per this
+    feature's own spec -- opt-in via this parameter, not forced).
+
+    Returns None on any failure (same fallback contract as
+    generate_narrative_sections) -- caller must have its own fallback
+    (a plain "Insufficient data" summary built from the raw
+    confluence/entry_setup dicts directly, no AI needed for that case).
+    """
+    combined_input = {
+        'fact_sheet': fact_sheet, 'confluence': confluence,
+        'entry_setup': entry_setup, 'trend_classification': trend_classification,
+    }
+    language_instruction = _ROMAN_TELUGU_INSTRUCTION if language == 'roman_telugu' else ""
+
+    prompt = f"""Data for {fact_sheet['company']['name']} ({fact_sheet['company']['symbol']}):
+
+{json.dumps(combined_input, indent=2)}
+
+Write a decision summary. Return ONLY valid JSON, no other text, with exactly these keys:
+{{
+  "status": "...",
+  "supporting_evidence": ["...", "..."],
+  "opposing_evidence": ["...", "..."],
+  "conditions_to_monitor": ["...", "..."],
+  "invalidation_conditions": ["...", "..."]
+}}
+
+"status" MUST be exactly one of these strings (choose the single best match, do not invent a new one):
+{json.dumps(_DECISION_STATUSES)}
+
+Each evidence/condition list: 2-4 short items, each citing a specific number or classification from the data above. If the evidence is genuinely conflicting or data is missing, "status" must be "Insufficient data" or reflect the conflict honestly -- never force a confident status the data doesn't support.
+{language_instruction}"""
+
+    raw = _call_claude(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1000)
+    if raw is None:
+        return None
+
+    try:
+        cleaned = raw.strip()
+        if cleaned.startswith('```'):
+            cleaned = cleaned.split('```')[1]
+            if cleaned.startswith('json'):
+                cleaned = cleaned[4:]
+        summary = json.loads(cleaned.strip())
+    except (ValueError, IndexError) as e:
+        logger.warning(f"Could not parse decision summary JSON from Claude response: {e}")
+        return None
+
+    required_keys = {'status', 'supporting_evidence', 'opposing_evidence', 'conditions_to_monitor', 'invalidation_conditions'}
+    if not required_keys.issubset(summary.keys()):
+        logger.warning(f"Decision summary missing expected keys: {required_keys - summary.keys()}")
+        return None
+
+    if summary['status'] not in _DECISION_STATUSES:
+        logger.warning(f"Decision summary used a non-standard status '{summary['status']}' -- discarding.")
+        return None
+
+    full_text = ' '.join(str(v) for v in summary.values() if isinstance(v, (str, list)) for v in ([v] if isinstance(v, str) else v)).lower()
+    from .report_builder import _BANNED_TERMS
+    for term in _BANNED_TERMS:
+        if term in full_text:
+            logger.warning(f"Decision summary contained banned term '{term}' -- discarding.")
+            return None
+
+    return summary
