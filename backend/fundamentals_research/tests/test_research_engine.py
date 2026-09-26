@@ -78,7 +78,8 @@ def _fake_financials_quarterly():
 class TestRunResearchBharatStockPath(TestCase):
     @patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[])
     @patch('fundamentals_research.services.research_engine.bsc.get_stock', return_value=_fake_bharatstock_stock_response())
-    def test_creates_company_and_full_snapshot(self, mock_stock, mock_news):
+    @patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=None)
+    def test_creates_company_and_full_snapshot(self, mock_yfinance, mock_stock, mock_news):
         with patch('fundamentals_research.services.research_engine.bsc.get_financials') as mock_fin, \
              patch('fundamentals_research.services.research_engine.bsc.get_insider_trades', return_value={'trades': []}), \
              patch('fundamentals_research.services.research_engine.bsc.get_bulk_deals', return_value={'deals': []}), \
@@ -126,7 +127,8 @@ class TestRunResearchBharatStockPath(TestCase):
         self.assertIsNone(own.promoter_change_pct)  # no previous snapshot to compare against yet
 
     @patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[])
-    def test_second_snapshot_computes_what_changed(self, mock_news):
+    @patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=None)
+    def test_second_snapshot_computes_what_changed(self, mock_yfinance, mock_news):
         with patch('fundamentals_research.services.research_engine.bsc.get_stock', return_value=_fake_bharatstock_stock_response()), \
              patch('fundamentals_research.services.research_engine.bsc.get_financials') as mock_fin, \
              patch('fundamentals_research.services.research_engine.bsc.get_insider_trades', return_value={'trades': []}), \
@@ -154,7 +156,8 @@ class TestRunResearchScreenerFallback(TestCase):
     @patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[])
     @patch('fundamentals_research.services.research_engine.bsc.get_stock', side_effect=re.bsc.BharatStockError("simulated outage"))
     @patch('fundamentals_research.services.research_engine.sf.get_screener_fundamentals')
-    def test_falls_back_to_screener_when_bharatstock_fully_down(self, mock_screener, mock_stock, mock_news):
+    @patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=None)
+    def test_falls_back_to_screener_when_bharatstock_fully_down(self, mock_yfinance, mock_screener, mock_stock, mock_news):
         mock_screener.return_value = {
             'company_name': SourcedValue('Reliance Industries', Source.SCREENER, period='Mar-25'),
             'current_price': SourcedValue(1370.5, Source.SCREENER, period='Mar-25'),
@@ -189,15 +192,19 @@ class TestRunResearchScreenerFallback(TestCase):
         self.assertEqual(ResearchCompany.objects.filter(symbol='NOTAREALSTOCK').count(), 0)
 
 
-class TestRunResearchYfinanceThirdTier(TestCase):
-    """The full 3-tier fallback, end to end: BharatStock down, Screener
-    down, yfinance succeeds -- confirms the chain actually reaches and
-    persists from the third tier, not just that each tier works alone."""
+class TestRunResearchYfinancePrimary(TestCase):
+    """Renamed from TestRunResearchYfinanceThirdTier -- yfinance is the
+    primary source now, not the third tier, per the Sep 26 2026 reorder."""
+    """Sep 26 2026: renamed/reframed -- yfinance is now tried FIRST
+    (reordered per explicit request), so this is no longer a 3-tier
+    fallback test, it's the primary-path-succeeds test. The old
+    BharatStock/Screener-fail mocks are removed since neither is even
+    invoked anymore when yfinance succeeds on the first attempt -- an
+    unused mock claiming "BharatStock failed" when it was never called
+    at all would be actively misleading here, not just unnecessary."""
 
     @patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[])
-    @patch('fundamentals_research.services.research_engine.bsc.get_stock', side_effect=re.bsc.BharatStockError("simulated outage"))
-    @patch('fundamentals_research.services.research_engine.sf.get_screener_fundamentals', return_value=None)
-    def test_falls_back_all_the_way_to_yfinance(self, mock_screener, mock_stock, mock_news):
+    def test_yfinance_as_primary_source_succeeds_on_first_attempt(self, mock_news):
         yfinance_bundle = {
             'company': {'company_name': 'Reliance Industries Limited', 'sector': 'Energy', 'industry': 'Refining', 'exchange': 'NSE'},
             'market': {'price': 1220.5, 'market_cap': 16516382720000, 'week_52_high': 1611.8, 'week_52_low': 1210.5, 'dma_50': 1292.4, 'dma_200': 1364.0},
@@ -217,10 +224,17 @@ class TestRunResearchYfinanceThirdTier(TestCase):
                  'investing_cash_flow': -1.375350e12, 'financing_cash_flow': -3.189100e11},
             ],
         }
-        with patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=yfinance_bundle):
+        with patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=yfinance_bundle) as mock_yfinance, \
+             patch('fundamentals_research.services.research_engine.bsc.get_stock') as mock_bharatstock, \
+             patch('fundamentals_research.services.research_engine.sf.get_screener_fundamentals') as mock_screener:
             snapshot, what_changed, primary_source = re.run_research('RELIANCE')
 
         self.assertEqual(primary_source, Source.YFINANCE)
+        # confirm this is really the PRIMARY path now, not a fallback --
+        # BharatStock and Screener must never even be called when
+        # yfinance succeeds on the first attempt.
+        mock_bharatstock.assert_not_called()
+        mock_screener.assert_not_called()
 
         company = ResearchCompany.objects.get(symbol='RELIANCE')
         self.assertEqual(company.company_name, 'Reliance Industries Limited')
@@ -241,7 +255,27 @@ class TestRunResearchYfinanceThirdTier(TestCase):
         self.assertEqual(val.source, Source.YFINANCE)
         self.assertEqual(float(val.pe), 22.65)
 
-        # The real, deliberate choice this module makes: ownership stays
-        # genuinely unavailable at this fallback tier, not filled with a
-        # same-shaped-but-different proxy number.
-        self.assertFalse(hasattr(snapshot, 'ownership'))
+    @patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[])
+    @patch('fundamentals_research.services.research_engine.bsc.get_stock', return_value=_fake_bharatstock_stock_response())
+    def test_falls_through_to_bharatstock_when_yfinance_fails(self, mock_stock, mock_news):
+        """The genuinely new scenario this reorder introduces: yfinance
+        (now primary) fails, falls through to BharatStock (now
+        secondary) -- confirms the fallback direction actually
+        reversed, not just that the primary-succeeds path works."""
+        with patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=None), \
+             patch('fundamentals_research.services.research_engine.bsc.get_financials') as mock_fin, \
+             patch('fundamentals_research.services.research_engine.bsc.get_insider_trades', return_value={'trades': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_bulk_deals', return_value={'deals': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_block_deals', return_value={'deals': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_corporate_actions', return_value={'actions': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_mf_holdings', return_value={}):
+            mock_fin.side_effect = lambda symbol, period_type: _fake_financials_annual() if period_type == 'annual' else _fake_financials_quarterly()
+            snapshot, what_changed, primary_source = re.run_research('RELIANCE')
+
+        self.assertEqual(primary_source, Source.BHARATSTOCK)
+        fin = FinancialSnapshot.objects.filter(snapshot=snapshot).order_by('-fiscal_year').first()
+        self.assertEqual(fin.source, Source.BHARATSTOCK)
+        # ownership IS populated here (BharatStock has it, yfinance doesn't) --
+        # confirms the real, documented tradeoff of yfinance-as-primary in practice
+        own = OwnershipSnapshot.objects.get(snapshot=snapshot)
+        self.assertEqual(float(own.promoter_pct), 50.3)
