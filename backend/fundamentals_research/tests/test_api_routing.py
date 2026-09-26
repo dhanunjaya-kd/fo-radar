@@ -72,6 +72,66 @@ class TestApiRouting(TestCase):
         self.assertIn('results', response.json())
 
 
+class TestAveragingEndpoint(TestCase):
+    """Real HTTP requests through the actual averaging route."""
+
+    def test_averaging_with_explicit_current_price(self):
+        response = self.client.post(
+            '/api/research/company/RELIANCE/averaging/',
+            data={
+                'existing_avg_price': 200, 'existing_qty': 100, 'current_price': 150,
+                'scenarios': [{'label': 'Add 100 shares', 'additional_qty': 100}],
+                'downside_price_levels': [140, 175],
+            },
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['current_position']['unrealized_pnl'], -5000)
+        self.assertEqual(len(data['scenarios']), 1)
+        self.assertEqual(data['scenarios'][0]['new_weighted_avg_price'], 175)
+        self.assertEqual(len(data['scenarios'][0]['downside_scenarios']), 2)
+
+    def test_averaging_missing_required_fields_400s(self):
+        response = self.client.post('/api/research/company/RELIANCE/averaging/', data={}, content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_averaging_without_current_price_and_no_research_400s(self):
+        response = self.client.post(
+            '/api/research/company/NOTRESEARCHED/averaging/',
+            data={'existing_avg_price': 200, 'existing_qty': 100, 'scenarios': []},
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_averaging_invalid_scenario_input_400s(self):
+        response = self.client.post(
+            '/api/research/company/RELIANCE/averaging/',
+            data={
+                'existing_avg_price': 200, 'existing_qty': 100, 'current_price': 150,
+                'scenarios': [{'label': 'Bad', 'additional_qty': -50}],
+            },
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+
+
+class TestTechnicalEndpoint(TestCase):
+    def test_technical_404s_when_snapshot_unavailable(self):
+        with patch('fundamentals_research.services.technical_analysis.get_technical_snapshot', return_value=None):
+            response = self.client.get('/api/research/company/RELIANCE/technical/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_technical_returns_snapshot_and_classification(self):
+        fake_technicals = {'current_price': 110, 'ema20': 105, 'ema50': 100, 'ema200': 95, 'rsi': 58, 'adx': 25, 'plus_di': 28, 'minus_di': 14}
+        with patch('fundamentals_research.services.technical_analysis.get_technical_snapshot', return_value=fake_technicals):
+            response = self.client.get('/api/research/company/RELIANCE/technical/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['trend']['classification'], 'Potential recovery setup')
+        self.assertEqual(data['technicals']['rsi'], 58)
+
+
 class TestChatEndpoint(TestCase):
     """Real HTTP requests through the actual chat route, mocked Claude
     API only -- proves the endpoint, snapshot lookup, and fact-sheet
