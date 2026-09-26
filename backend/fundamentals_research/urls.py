@@ -13,5 +13,6 @@ urlpatterns = [
     path('company/<str:symbol>/refresh/', views.CompanyRefreshView.as_view(), name='research_refresh'),
     path('company/<str:symbol>/chat/', views.CompanyChatView.as_view(), name='research_chat'),
     path('company/<str:symbol>/technical/', views.CompanyTechnicalView.as_view(), name='research_technical'),
+    path('company/<str:symbol>/decision-support/', views.CompanyDecisionSupportView.as_view(), name='research_decision_support'),
     path('company/<str:symbol>/averaging/', views.CompanyAveragingView.as_view(), name='research_averaging'),
 ]

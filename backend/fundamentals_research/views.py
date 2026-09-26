@@ -104,7 +104,10 @@ class CompanyReportView(APIView):
         snapshot = _latest_snapshot_or_none(symbol)
         if not snapshot:
             return Response({'detail': f'No research on file for {symbol.upper()} yet -- POST to /refresh/ to generate one.'}, status=status.HTTP_404_NOT_FOUND)
-        return Response(ResearchSnapshotDetailSerializer(snapshot).data)
+        from .services import freshness as fr
+        data = ResearchSnapshotDetailSerializer(snapshot).data
+        data['freshness'] = fr.assess_snapshot_freshness(snapshot)
+        return Response(data)
 
 
 class CompanyHistoryView(APIView):
@@ -140,9 +143,13 @@ class CompanyRefreshView(APIView):
         report_data = report_builder.build_report(snapshot, what_changed)
         ResearchReport.objects.update_or_create(snapshot=snapshot, defaults=report_data)
 
+        from .services import freshness as fr
+        snapshot_data = ResearchSnapshotDetailSerializer(snapshot).data
+        snapshot_data['freshness'] = fr.assess_snapshot_freshness(snapshot)
+
         return Response({
             'symbol': symbol, 'primary_source': primary_source,
-            'snapshot': ResearchSnapshotDetailSerializer(snapshot).data,
+            'snapshot': snapshot_data,
         }, status=status.HTTP_201_CREATED)
 
 
@@ -188,6 +195,55 @@ class CompanyTechnicalView(APIView):
             return Response({'detail': f'No technical data available for {symbol.upper()} -- insufficient price history or data unavailable.'}, status=status.HTTP_404_NOT_FOUND)
         trend = ta.classify_trend(snapshot)
         return Response({'symbol': symbol.upper(), 'technicals': snapshot, 'trend': trend})
+
+
+class CompanyDecisionSupportView(APIView):
+    """
+    GET /api/research/company/{symbol}/decision-support/?language=english|roman_telugu
+    Ties together technical_analysis + entry_setup + confluence +
+    (optionally) the AI decision summary -- everything deterministic
+    computes regardless of AI availability; only the final
+    ai_decision_summary field depends on the LLM and degrades to a
+    plain, honest structure (built from the same deterministic data,
+    no AI needed) if the LLM call fails or isn't configured.
+    """
+    def get(self, request, symbol):
+        from .services import technical_analysis as ta, entry_setup as es, confluence as cf, llm_narrative as ln
+
+        research_snapshot = _latest_snapshot_or_none(symbol)
+        if not research_snapshot:
+            return Response({'detail': f'No research on file for {symbol.upper()} yet -- research it first.'}, status=status.HTTP_404_NOT_FOUND)
+
+        technicals = ta.get_technical_snapshot(symbol)
+        trend = ta.classify_trend(technicals) if technicals else {'classification': 'Insufficient data', 'reason': 'No technical data available.'}
+        entry = es.build_entry_setup(technicals) if technicals else {'status': 'unavailable', 'message': 'No technical data available.'}
+        confluence_result = cf.build_confluence(research_snapshot, technicals, trend)
+
+        language = request.query_params.get('language', 'english')
+        if language not in ('english', 'roman_telugu'):
+            language = 'english'
+
+        fact_sheet = ln.build_fact_sheet(research_snapshot)
+        ai_summary = ln.generate_decision_summary(fact_sheet, confluence_result, entry, trend, language=language)
+        if ai_summary is None:
+            # Honest, deterministic fallback -- built from the SAME data
+            # the AI would have used, not a generic placeholder. Never
+            # silently claims AI-generated content when the call failed.
+            ai_summary = {
+                'status': 'Insufficient data',
+                'supporting_evidence': [], 'opposing_evidence': [],
+                'conditions_to_monitor': [], 'invalidation_conditions': [],
+                'note': 'AI decision summary unavailable (not configured or the call failed) -- the technical/confluence/entry-setup data above is unaffected and still real.',
+            }
+
+        return Response({
+            'symbol': symbol.upper(),
+            'technicals': technicals,
+            'trend': trend,
+            'entry_setup': entry,
+            'confluence': confluence_result,
+            'ai_decision_summary': ai_summary,
+        })
 
 
 class CompanyAveragingView(APIView):
