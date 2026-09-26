@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch, MagicMock
 from django.test import TestCase
 from django.urls import reverse
@@ -130,6 +131,74 @@ class TestTechnicalEndpoint(TestCase):
         data = response.json()
         self.assertEqual(data['trend']['classification'], 'Potential recovery setup')
         self.assertEqual(data['technicals']['rsi'], 58)
+
+
+class TestDecisionSupportEndpoint(TestCase):
+    """Real HTTP requests through the actual decision-support route,
+    ties together technical_analysis + entry_setup + confluence + the
+    AI decision summary's fallback path (mocked Claude only)."""
+
+    def _research_reliance(self):
+        with patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[]), \
+             patch('fundamentals_research.services.research_engine.bsc.get_stock', return_value=_fake_bharatstock_stock_response()), \
+             patch('fundamentals_research.services.research_engine.bsc.get_financials') as mock_fin, \
+             patch('fundamentals_research.services.research_engine.bsc.get_insider_trades', return_value={'trades': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_bulk_deals', return_value={'deals': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_block_deals', return_value={'deals': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_corporate_actions', return_value={'actions': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_mf_holdings', return_value={}), \
+             patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=None):
+            mock_fin.side_effect = lambda symbol, period_type: _fake_financials_annual() if period_type == 'annual' else _fake_financials_quarterly()
+            self.client.post('/api/research/company/RELIANCE/refresh/')
+
+    def test_404_when_no_research_on_file(self):
+        response = self.client.get('/api/research/company/NOTRESEARCHED/decision-support/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_returns_all_sections_with_no_technicals_available(self):
+        self._research_reliance()
+        with patch('fundamentals_research.services.technical_analysis.get_technical_snapshot', return_value=None), \
+             patch('fundamentals_research.services.llm_narrative.requests.post') as mock_claude:
+            mock_claude.return_value = MagicMock(status_code=500)
+            response = self.client.get('/api/research/company/RELIANCE/decision-support/')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['trend']['classification'], 'Insufficient data')
+        self.assertEqual(data['entry_setup']['status'], 'unavailable')
+        # AI summary must gracefully fall back, never crash the whole endpoint
+        self.assertEqual(data['ai_decision_summary']['status'], 'Insufficient data')
+        self.assertIn('unavailable', data['ai_decision_summary']['note'])
+
+    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-ant-test'})
+    def test_full_pipeline_with_real_technicals_and_ai_summary(self):
+        self._research_reliance()
+        fake_technicals = {'current_price': 110, 'ema20': 105, 'ema50': 100, 'ema200': 95, 'rsi': 58, 'adx': 25, 'plus_di': 28, 'minus_di': 14, 'atr': 4, 'support': 98, 'volume_avg': 500000}
+        ai_response = json.dumps({
+            'status': 'Setup confirmed under defined conditions',
+            'supporting_evidence': ['RSI 58 constructive'], 'opposing_evidence': [],
+            'conditions_to_monitor': ['EMA50'], 'invalidation_conditions': ['Close below stop'],
+        })
+        with patch('fundamentals_research.services.technical_analysis.get_technical_snapshot', return_value=fake_technicals), \
+             patch('fundamentals_research.services.llm_narrative.requests.post') as mock_claude:
+            resp = MagicMock(status_code=200)
+            resp.json.return_value = {'content': [{'type': 'text', 'text': ai_response}]}
+            mock_claude.return_value = resp
+            response = self.client.get('/api/research/company/RELIANCE/decision-support/')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['trend']['classification'], 'Potential recovery setup')
+        self.assertEqual(data['ai_decision_summary']['status'], 'Setup confirmed under defined conditions')
+        # confirm confluence never contains a forbidden combined score
+        self.assertNotIn('score', data['confluence'])
+
+    def test_invalid_language_param_falls_back_to_english(self):
+        self._research_reliance()
+        with patch('fundamentals_research.services.technical_analysis.get_technical_snapshot', return_value=None), \
+             patch('fundamentals_research.services.llm_narrative.requests.post') as mock_claude:
+            mock_claude.return_value = MagicMock(status_code=500)
+            response = self.client.get('/api/research/company/RELIANCE/decision-support/?language=klingon')
+        self.assertEqual(response.status_code, 200)  # doesn't 400/crash on a bad language value, just falls back
 
 
 class TestChatEndpoint(TestCase):
