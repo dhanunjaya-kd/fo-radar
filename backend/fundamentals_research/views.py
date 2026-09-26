@@ -14,7 +14,7 @@ from django.shortcuts import get_object_or_404
 
 from .models import ResearchCompany, ResearchSnapshot, ResearchReport
 from .serializers import ResearchSnapshotDetailSerializer, ResearchSnapshotListSerializer, ResearchCompanySerializer
-from .services import research_engine, report_builder
+from .services import research_engine, report_builder, llm_narrative
 
 logger = logging.getLogger('fundamentals_research.views')
 
@@ -144,3 +144,109 @@ class CompanyRefreshView(APIView):
             'symbol': symbol, 'primary_source': primary_source,
             'snapshot': ResearchSnapshotDetailSerializer(snapshot).data,
         }, status=status.HTTP_201_CREATED)
+
+
+class CompanyChatView(APIView):
+    """
+    POST /api/research/company/{symbol}/chat/
+    Body: {"question": "...", "history": [{"role": "user"|"assistant", "content": "..."}]}
+
+    Stateless on the backend -- history is round-tripped from the
+    frontend with each request (a standard, valid chat-UI pattern),
+    no new model/migration needed for this first version. Grounded
+    strictly in the latest stored snapshot's data via the same
+    build_fact_sheet() the narrative generator uses -- a chat answer
+    can never reference a number the narrative itself didn't also
+    have access to.
+    """
+    def post(self, request, symbol):
+        question = (request.data.get('question') or '').strip()
+        if not question:
+            return Response({'detail': 'question is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        history = request.data.get('history') or []
+        if not isinstance(history, list):
+            return Response({'detail': 'history must be a list of {role, content} objects.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        snapshot = _latest_snapshot_or_none(symbol)
+        if not snapshot:
+            return Response({'detail': f'No research on file for {symbol.upper()} yet -- research it first, then ask questions.'}, status=status.HTTP_404_NOT_FOUND)
+
+        fact_sheet = llm_narrative.build_fact_sheet(snapshot)
+        answer = llm_narrative.answer_question(fact_sheet, question, conversation_history=history)
+        return Response({'answer': answer, 'symbol': symbol.upper()})
+
+
+class CompanyTechnicalView(APIView):
+    """GET /api/research/company/{symbol}/technical/ -- real indicators
+    (reused from screener's own engine) + deterministic trend
+    classification. No AI, no fabrication -- see technical_analysis.py."""
+    def get(self, request, symbol):
+        from .services import technical_analysis as ta
+        snapshot = ta.get_technical_snapshot(symbol)
+        if snapshot is None:
+            return Response({'detail': f'No technical data available for {symbol.upper()} -- insufficient price history or data unavailable.'}, status=status.HTTP_404_NOT_FOUND)
+        trend = ta.classify_trend(snapshot)
+        return Response({'symbol': symbol.upper(), 'technicals': snapshot, 'trend': trend})
+
+
+class CompanyAveragingView(APIView):
+    """
+    POST /api/research/company/{symbol}/averaging/
+    Body: {
+        "existing_avg_price": float, "existing_qty": float, "current_price": float (optional, defaults to latest valuation),
+        "scenarios": [{"label": str, "additional_qty": float} OR {"label": str, "additional_investment": float}, ...],
+        "downside_price_levels": [float, ...] (optional)
+    }
+    Stateless -- nothing persisted, per spec ("the user's holding
+    details are theirs"). Pure math via averaging_calculator.py, no AI
+    call at all in this endpoint.
+    """
+    def post(self, request, symbol):
+        from .services import averaging_calculator as ac
+        data = request.data
+        try:
+            existing_avg_price = float(data.get('existing_avg_price'))
+            existing_qty = float(data.get('existing_qty'))
+        except (TypeError, ValueError):
+            return Response({'detail': 'existing_avg_price and existing_qty are required numeric fields.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        current_price = data.get('current_price')
+        if current_price is not None:
+            try:
+                current_price = float(current_price)
+            except (TypeError, ValueError):
+                return Response({'detail': 'current_price must be numeric if provided.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            snapshot = _latest_snapshot_or_none(symbol)
+            val = getattr(snapshot, 'valuation', None) if snapshot else None
+            if val is None or val.price is None:
+                return Response({'detail': 'current_price not provided and no researched valuation on file for this symbol -- provide it explicitly.'}, status=status.HTTP_400_BAD_REQUEST)
+            current_price = float(val.price)
+
+        try:
+            current_position = ac.calculate_current_position(existing_avg_price, existing_qty, current_price)
+        except ac.AveragingInputError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        scenarios_out = []
+        for s in (data.get('scenarios') or []):
+            try:
+                result = ac.calculate_averaging_scenario(
+                    existing_avg_price=existing_avg_price, existing_qty=existing_qty, current_price=current_price,
+                    additional_qty=s.get('additional_qty'), additional_investment=s.get('additional_investment'),
+                    label=s.get('label', 'Scenario'),
+                )
+            except ac.AveragingInputError as e:
+                return Response({'detail': f"Scenario '{s.get('label', '?')}': {e}"}, status=status.HTTP_400_BAD_REQUEST)
+            scenario_dict = ac.scenario_to_dict(result)
+            downside_levels = data.get('downside_price_levels') or []
+            if downside_levels:
+                scenario_dict['downside_scenarios'] = ac.calculate_downside_scenarios(
+                    result.new_total_qty, result.new_total_invested, [float(p) for p in downside_levels],
+                )
+            scenarios_out.append(scenario_dict)
+
+        return Response({
+            'symbol': symbol.upper(), 'current_position': current_position, 'scenarios': scenarios_out,
+        })
