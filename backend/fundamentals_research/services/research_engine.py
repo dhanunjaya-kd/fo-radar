@@ -100,22 +100,41 @@ def run_research(symbol: str, triggered_by: str = 'refresh'):
     )
 
     symbol = symbol.upper().strip()
-    bundle = _fetch_bharatstock_bundle(symbol)
+    # Sep 26 2026: reordered so yfinance is tried FIRST, per explicit
+    # request -- was BharatStock -> Screener -> yfinance, now yfinance
+    # -> BharatStock -> Screener. The persistence branches below
+    # (if bundle / elif screener_data / elif yfinance_bundle) are
+    # UNCHANGED -- each already correctly handles its own source; only
+    # the ORDER they're attempted in changed here.
+    #
+    # Real, known tradeoff worth stating plainly, not hiding: yfinance
+    # has no promoter/FII/DII ownership data at all (see
+    # yfinance_fallback.py's own module docstring -- Yahoo's "insider
+    # holding" is a genuinely different concept, deliberately never
+    # mapped to promoter_pct). With yfinance as primary, OWNERSHIP WILL
+    # BE UNAVAILABLE on most research pulls now, not just when yfinance
+    # happens to fail -- it only comes back if yfinance fails entirely
+    # and this falls through to BharatStock. If that's not actually
+    # wanted, the fix is a smarter hybrid (yfinance for financials,
+    # opportunistic BharatStock call just for ownership) rather than a
+    # straight reorder -- flagged as a real follow-up option, not
+    # silently built here.
+    bundle = None
     screener_data = None
-    yfinance_bundle = None
-    primary_source = Source.BHARATSTOCK
+    yfinance_bundle = yff.get_yfinance_fundamentals(symbol)
+    primary_source = Source.YFINANCE
 
-    if bundle is None:
-        logger.info(f"BharatStock unavailable for {symbol} -- falling back to existing Screener integration.")
-        screener_data = sf.get_screener_fundamentals(symbol)
-        primary_source = Source.SCREENER
-        if screener_data is None:
-            logger.info(f"Screener also unavailable for {symbol} -- falling back to yfinance (third tier).")
-            yfinance_bundle = yff.get_yfinance_fundamentals(symbol)
-            primary_source = Source.YFINANCE
-            if yfinance_bundle is None:
+    if yfinance_bundle is None:
+        logger.info(f"yfinance unavailable for {symbol} -- falling back to BharatStock.")
+        bundle = _fetch_bharatstock_bundle(symbol)
+        primary_source = Source.BHARATSTOCK
+        if bundle is None:
+            logger.info(f"BharatStock also unavailable for {symbol} -- falling back to Screener.")
+            screener_data = sf.get_screener_fundamentals(symbol)
+            primary_source = Source.SCREENER
+            if screener_data is None:
                 raise ResearchUnavailableError(
-                    f"BharatStock, Screener, and yfinance all returned no data for {symbol}. "
+                    f"yfinance, BharatStock, and Screener all returned no data for {symbol}. "
                     f"No snapshot created -- per spec Section 7/27, this is reported as unavailable, not fabricated."
                 )
 
