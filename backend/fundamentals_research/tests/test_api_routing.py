@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from django.test import TestCase
 from django.urls import reverse
 
@@ -70,3 +70,58 @@ class TestApiRouting(TestCase):
         response = self.client.get('/api/research/search/?q=RELIANCE')
         self.assertEqual(response.status_code, 200)
         self.assertIn('results', response.json())
+
+
+class TestChatEndpoint(TestCase):
+    """Real HTTP requests through the actual chat route, mocked Claude
+    API only -- proves the endpoint, snapshot lookup, and fact-sheet
+    grounding work together, not just that llm_narrative.py works alone."""
+
+    def test_chat_404s_with_no_research_on_file(self):
+        response = self.client.post('/api/research/company/NOTRESEARCHED/chat/', data={'question': 'Why?'}, content_type='application/json')
+        self.assertEqual(response.status_code, 404)
+
+    def test_chat_400s_with_no_question(self):
+        response = self.client.post('/api/research/company/RELIANCE/chat/', data={}, content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-ant-test'})
+    @patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[])
+    @patch('fundamentals_research.services.research_engine.bsc.get_stock', return_value=_fake_bharatstock_stock_response())
+    def test_chat_answers_grounded_in_real_snapshot_after_research(self, mock_stock, mock_news):
+        with patch('fundamentals_research.services.llm_narrative.requests.post') as mock_claude:
+            resp = MagicMock()
+            resp.status_code = 200
+            resp.json.return_value = {'content': [{'type': 'text', 'text': 'Revenue was 900000 for FY2025-26, per the data provided.'}]}
+            mock_claude.return_value = resp
+
+            with patch('fundamentals_research.services.research_engine.bsc.get_financials') as mock_fin, \
+                 patch('fundamentals_research.services.research_engine.bsc.get_insider_trades', return_value={'trades': []}), \
+                 patch('fundamentals_research.services.research_engine.bsc.get_bulk_deals', return_value={'deals': []}), \
+                 patch('fundamentals_research.services.research_engine.bsc.get_block_deals', return_value={'deals': []}), \
+                 patch('fundamentals_research.services.research_engine.bsc.get_corporate_actions', return_value={'actions': []}), \
+                 patch('fundamentals_research.services.research_engine.bsc.get_mf_holdings', return_value={}):
+                mock_fin.side_effect = lambda symbol, period_type: _fake_financials_annual() if period_type == 'annual' else _fake_financials_quarterly()
+                # Sep 25 2026: the refresh call ALSO triggers report_builder's
+                # own LLM narrative attempt (build_report -> generate_narrative_
+                # sections) -- previously unmocked here, so it made a REAL live
+                # call to Anthropic with the fake test key and got a real 401
+                # back (harmless, correctly fell back to templates, but still a
+                # genuine live network call from a test, which this project's
+                # tests never do anywhere else). Now inside the same mock
+                # context as the chat call below, so nothing in this test ever
+                # leaves the process.
+                self.client.post('/api/research/company/RELIANCE/refresh/')
+
+            chat_response = self.client.post(
+                '/api/research/company/RELIANCE/chat/',
+                data={'question': 'What was revenue?'}, content_type='application/json',
+            )
+
+        self.assertEqual(chat_response.status_code, 200)
+        self.assertIn('900000', chat_response.json()['answer'])
+        # confirm the real snapshot's real revenue (900000, from the fake bundle) was actually
+        # sent as grounding context to Claude, not a hardcoded or stale value
+        sent_context = mock_claude.call_args.kwargs['json']['messages'][0]['content']
+        self.assertIn('900000', sent_context)
+        self.assertIn('RELIANCE', sent_context)

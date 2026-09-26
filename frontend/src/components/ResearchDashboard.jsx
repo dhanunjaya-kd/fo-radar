@@ -169,6 +169,77 @@ function WhatChanged({ data }) {
   );
 }
 
+function TwoSeriesBarChart({ data, keyA, labelA, colorA, keyB, labelB, colorB }) {
+  if (!data || data.length < 1) {
+    return <div className="text-xs text-slate-500 py-8 text-center">Not enough periods to chart yet.</div>;
+  }
+  return (
+    <ResponsiveContainer width="100%" height={180}>
+      <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+        <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
+        <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }} labelStyle={{ color: '#e2e8f0' }} />
+        <Bar dataKey={keyA} name={labelA} fill={colorA} radius={[3, 3, 0, 0]} />
+        <Bar dataKey={keyB} name={labelB} fill={colorB} radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function SegmentBreakdown({ segments }) {
+  if (!segments || !segments.length) return <div className="text-xs text-slate-500">No segment data available.</div>;
+  // Sep 25 2026: segments come back per-fiscal-period from the backend
+  // (one row per segment per year) -- show only the LATEST period's
+  // breakdown here, not every year mixed together.
+  const latestPeriod = segments.reduce((max, s) => (s.fiscal_period > max ? s.fiscal_period : max), segments[0].fiscal_period);
+  const latest = segments.filter(s => s.fiscal_period === latestPeriod);
+  const totalRevenue = latest.reduce((sum, s) => sum + (parseFloat(s.segment_revenue) || 0), 0);
+  return (
+    <div>
+      <div className="text-[10px] text-slate-500 mb-2">{latestPeriod}</div>
+      <div className="space-y-2">
+        {latest.map((s, i) => {
+          const rev = parseFloat(s.segment_revenue) || 0;
+          const pct = totalRevenue ? (rev / totalRevenue * 100) : 0;
+          return (
+            <div key={i}>
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="text-slate-300">{s.segment_name}</span>
+                <span className="text-slate-400">{fmtInr(s.segment_revenue, { maximumFractionDigits: 0 })} · {pct.toFixed(0)}%</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                <div className="h-full bg-emerald-500/70 rounded-full" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ScenarioCard({ title, scenario, tone }) {
+  const toneClass = { bull: 'border-emerald-700/30 text-emerald-400', base: 'border-slate-700/30 text-slate-300', bear: 'border-rose-700/30 text-rose-400' }[tone];
+  if (!scenario) return null;
+  return (
+    <div className={`rounded-lg bg-slate-900/40 border p-3 ${toneClass.split(' ')[0]}`}>
+      <div className={`text-xs font-semibold mb-2 ${toneClass.split(' ')[1]}`}>{title}</div>
+      {scenario.assumptions?.length > 0 && (
+        <ul className="text-[11px] text-slate-300 space-y-1 mb-2 list-disc list-inside">
+          {scenario.assumptions.map((a, i) => <li key={i}>{a}</li>)}
+        </ul>
+      )}
+      {scenario.metrics_to_monitor?.length > 0 && (
+        <div className="text-[10px] text-slate-500">Watch: {scenario.metrics_to_monitor.join(', ')}</div>
+      )}
+      {scenario.invalidation_triggers?.length > 0 && (
+        <div className="text-[10px] text-slate-500 mt-1">Invalidated if: {scenario.invalidation_triggers.join('; ')}</div>
+      )}
+    </div>
+  );
+}
+
 export default function ResearchDashboard() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -208,6 +279,18 @@ export default function ResearchDashboard() {
   const chartData = financials.map(f => ({
     period: f.fiscal_year, revenue: f.revenue ? parseFloat(f.revenue) : null,
     pat: f.pat ? parseFloat(f.pat) : null, ebitda: f.ebitda ? parseFloat(f.ebitda) : null,
+    eps: f.eps ? parseFloat(f.eps) : null,
+    ebitda_margin_pct: f.ebitda_margin_pct ? parseFloat(f.ebitda_margin_pct) : null,
+    pat_margin_pct: f.pat_margin_pct ? parseFloat(f.pat_margin_pct) : null,
+  }));
+  const balanceSheets = snapshot?.balance_sheets ? [...snapshot.balance_sheets].reverse() : [];
+  const debtCashData = balanceSheets.map(b => ({
+    period: b.fiscal_year, debt: b.total_debt ? parseFloat(b.total_debt) : null, cash: b.cash ? parseFloat(b.cash) : null,
+  }));
+  const cashFlows = snapshot?.cash_flows ? [...snapshot.cash_flows].reverse() : [];
+  const ocfFcfData = cashFlows.map(c => ({
+    period: c.fiscal_year, ocf: c.operating_cash_flow ? parseFloat(c.operating_cash_flow) : null,
+    fcf: c.free_cash_flow ? parseFloat(c.free_cash_flow) : null,
   }));
   const latest = financials[financials.length - 1];
   const bs = snapshot?.balance_sheets?.[0];
@@ -264,7 +347,49 @@ export default function ResearchDashboard() {
               <StatBox label="ROE" value={latest?.roe_pct != null ? `${fmtNum(latest.roe_pct)}%` : '—'} source="calculated" />
             </div>
             <TrendChart data={chartData} dataKey="revenue" label="Revenue" color="#34d399" />
+            <div className="grid md:grid-cols-3 gap-3 mt-4">
+              <div>
+                <div className="text-[10px] text-slate-500 mb-1">PAT</div>
+                <TrendChart data={chartData} dataKey="pat" label="PAT" color="#60a5fa" />
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 mb-1">EBITDA</div>
+                <TrendChart data={chartData} dataKey="ebitda" label="EBITDA" color="#fbbf24" />
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 mb-1">EPS</div>
+                <TrendChart data={chartData} dataKey="eps" label="EPS" color="#a78bfa" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-[10px] text-slate-500 mb-1">Margin Trend</div>
+              <ResponsiveContainer width="100%" height={160}>
+                <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                  <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }} labelStyle={{ color: '#e2e8f0' }} />
+                  <Line type="monotone" dataKey="ebitda_margin_pct" name="EBITDA Margin %" stroke="#fbbf24" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="pat_margin_pct" name="PAT Margin %" stroke="#60a5fa" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </SectionCard>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <SectionCard title="Debt vs Cash">
+              <TwoSeriesBarChart data={debtCashData} keyA="debt" labelA="Total Debt" colorA="#f87171" keyB="cash" labelB="Cash" colorB="#34d399" />
+            </SectionCard>
+            <SectionCard title="Operating CF vs Free Cash Flow">
+              <TwoSeriesBarChart data={ocfFcfData} keyA="ocf" labelA="Operating CF" colorA="#60a5fa" keyB="fcf" labelB="Free Cash Flow" colorB="#34d399" />
+            </SectionCard>
+          </div>
+
+          {snapshot.segments?.length > 0 && (
+            <SectionCard title="Segment Revenue">
+              <SegmentBreakdown segments={snapshot.segments} />
+            </SectionCard>
+          )}
 
           <div className="grid md:grid-cols-2 gap-4">
             <SectionCard title="Balance Sheet">
@@ -319,6 +444,16 @@ export default function ResearchDashboard() {
             <SectionCard title="Risks">
               <div className="grid md:grid-cols-2 gap-3">
                 {report.risks_json.map((r, i) => <RiskItem key={i} risk={r} />)}
+              </div>
+            </SectionCard>
+          )}
+
+          {(report?.bull_case_json || report?.base_case_json || report?.bear_case_json) && (
+            <SectionCard title="Scenarios — labeled assumptions, not forecasts">
+              <div className="grid md:grid-cols-3 gap-3">
+                <ScenarioCard title="Bull Case" scenario={report.bull_case_json} tone="bull" />
+                <ScenarioCard title="Base Case" scenario={report.base_case_json} tone="base" />
+                <ScenarioCard title="Bear Case" scenario={report.bear_case_json} tone="bear" />
               </div>
             </SectionCard>
           )}
