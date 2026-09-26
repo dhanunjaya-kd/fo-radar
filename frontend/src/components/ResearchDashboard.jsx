@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { formatIndianCurrency, pickSeriesUnit, formatAxisTick, formatPercent, formatRatio } from '../utils/indianNumberFormat';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -9,25 +10,27 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 // (slate-900/40 cards, slate-700/40 borders, emerald/rose/amber accent
 // system) rather than a new visual identity -- this is a new page
 // inside an existing product, not a standalone brand.
+//
+// Sep 26 2026: fmtInr/fmtPct/fmtNum below replaced with the shared,
+// tested Indian number formatter (utils/indianNumberFormat.js) -- was
+// showing raw unformatted rupee figures wide enough to get clipped on
+// chart y-axes (confirmed from real screenshots: "0000000000"-style
+// truncated labels), which is what made correctly-computed data look
+// broken. fmtInr/fmtNum kept as thin aliases so the many existing
+// call sites below don't all need renaming.
 
-const SOURCE_LABEL = { bharatstock: 'BharatStock', screener: 'Screener.in', fyers: 'Fyers', calculated: 'Calculated', news: 'News', company_ir: 'Company IR' };
+const SOURCE_LABEL = { bharatstock: 'BharatStock', screener: 'Screener.in', fyers: 'Fyers', calculated: 'Calculated', news: 'News', company_ir: 'Company IR', yfinance: 'Yahoo Finance' };
 
-function fmtInr(n, opts = {}) {
-  if (n == null) return '—';
-  const num = typeof n === 'string' ? parseFloat(n) : n;
-  if (Number.isNaN(num)) return '—';
-  return `₹${num.toLocaleString('en-IN', opts)}`;
+function fmtInr(n) {
+  return formatIndianCurrency(n);
 }
 function fmtPct(n) {
-  if (n == null) return '—';
-  const num = typeof n === 'string' ? parseFloat(n) : n;
-  if (Number.isNaN(num)) return '—';
-  return `${num > 0 ? '+' : ''}${num.toFixed(2)}%`;
+  return formatPercent(n);
 }
 function fmtNum(n, d = 2) {
   if (n == null) return '—';
   const num = typeof n === 'string' ? parseFloat(n) : n;
-  if (Number.isNaN(num)) return '—';
+  if (!Number.isFinite(num)) return '—';
   return num.toFixed(d);
 }
 
@@ -63,13 +66,25 @@ function TrendChart({ data, dataKey, label, color = '#34d399' }) {
   if (!data || data.length < 2) {
     return <div className="text-xs text-slate-500 py-8 text-center">Not enough periods to chart a trend yet.</div>;
   }
+  // Sep 26 2026 fix: this is the exact chart that showed clipped,
+  // unreadable y-axis labels in real screenshots ("0000000000") --
+  // raw rupee values (e.g. 1420943000000) are simply too wide for the
+  // axis label space. Picking one consistent Cr/L unit for this
+  // series and formatting both the axis ticks and the tooltip through
+  // it fixes the truncation and makes the number actually readable,
+  // without touching the underlying data value at all.
+  const unit = pickSeriesUnit(data.map(d => d[dataKey]));
   return (
     <ResponsiveContainer width="100%" height={180}>
       <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
         <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
-        <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }} labelStyle={{ color: '#e2e8f0' }} />
+        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => formatAxisTick(v, unit)} width={56} />
+        <Tooltip
+          contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
+          labelStyle={{ color: '#e2e8f0' }}
+          formatter={(value) => [formatIndianCurrency(value), label]}
+        />
         <Line type="monotone" dataKey={dataKey} name={label} stroke={color} strokeWidth={2} dot={{ r: 3 }} />
       </LineChart>
     </ResponsiveContainer>
@@ -173,13 +188,18 @@ function TwoSeriesBarChart({ data, keyA, labelA, colorA, keyB, labelB, colorB })
   if (!data || data.length < 1) {
     return <div className="text-xs text-slate-500 py-8 text-center">Not enough periods to chart yet.</div>;
   }
+  const unit = pickSeriesUnit(data.flatMap(d => [d[keyA], d[keyB]]));
   return (
     <ResponsiveContainer width="100%" height={180}>
       <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
         <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
-        <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }} labelStyle={{ color: '#e2e8f0' }} />
+        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => formatAxisTick(v, unit)} width={56} />
+        <Tooltip
+          contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
+          labelStyle={{ color: '#e2e8f0' }}
+          formatter={(value, name) => [formatIndianCurrency(value), name]}
+        />
         <Bar dataKey={keyA} name={labelA} fill={colorA} radius={[3, 3, 0, 0]} />
         <Bar dataKey={keyB} name={labelB} fill={colorB} radius={[3, 3, 0, 0]} />
       </BarChart>
@@ -187,26 +207,42 @@ function TwoSeriesBarChart({ data, keyA, labelA, colorA, keyB, labelB, colorB })
   );
 }
 
-function SegmentBreakdown({ segments }) {
+function SegmentBreakdown({ segments, reportedTotalRevenue }) {
   if (!segments || !segments.length) return <div className="text-xs text-slate-500">No segment data available.</div>;
   // Sep 25 2026: segments come back per-fiscal-period from the backend
   // (one row per segment per year) -- show only the LATEST period's
   // breakdown here, not every year mixed together.
   const latestPeriod = segments.reduce((max, s) => (s.fiscal_period > max ? s.fiscal_period : max), segments[0].fiscal_period);
   const latest = segments.filter(s => s.fiscal_period === latestPeriod);
-  const totalRevenue = latest.reduce((sum, s) => sum + (parseFloat(s.segment_revenue) || 0), 0);
+  const segmentSum = latest.reduce((sum, s) => sum + (parseFloat(s.segment_revenue) || 0), 0);
+
+  // Sep 26 2026: real bug found and fixed -- proven with actual GAIL
+  // numbers, the largest single segment alone (₹1,55,918.52 Cr)
+  // exceeded the company's entire REPORTED total revenue
+  // (₹1,42,094.30 Cr). Percentages below were already computed
+  // against the segment sum (not company total), which is technically
+  // fine -- but nothing ever told the reader that, or warned when the
+  // segment sum itself doesn't reconcile with the real reported
+  // total. Most likely real cause, not a code bug: segment figures
+  // for gas-trading companies like GAIL are often reported GROSS of
+  // inter-segment sales (segments sell to each other internally),
+  // while consolidated revenue is NET of those eliminations -- a
+  // real, known accounting pattern, not fabricated data. Surfaced
+  // honestly here instead of silently implying "88% of the company."
+  const reconciles = reportedTotalRevenue != null && Math.abs(segmentSum - reportedTotalRevenue) / reportedTotalRevenue < 0.05;
+
   return (
     <div>
-      <div className="text-[10px] text-slate-500 mb-2">{latestPeriod}</div>
+      <div className="text-[10px] text-slate-500 mb-2">{latestPeriod} · % shown is each segment's share of the segment total shown below, not of company revenue</div>
       <div className="space-y-2">
         {latest.map((s, i) => {
           const rev = parseFloat(s.segment_revenue) || 0;
-          const pct = totalRevenue ? (rev / totalRevenue * 100) : 0;
+          const pct = segmentSum ? (rev / segmentSum * 100) : 0;
           return (
             <div key={i}>
               <div className="flex items-center justify-between text-[11px] mb-1">
                 <span className="text-slate-300">{s.segment_name}</span>
-                <span className="text-slate-400">{fmtInr(s.segment_revenue, { maximumFractionDigits: 0 })} · {pct.toFixed(0)}%</span>
+                <span className="text-slate-400">{fmtInr(s.segment_revenue)} · {pct.toFixed(0)}%</span>
               </div>
               <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
                 <div className="h-full bg-emerald-500/70 rounded-full" style={{ width: `${pct}%` }} />
@@ -214,6 +250,12 @@ function SegmentBreakdown({ segments }) {
             </div>
           );
         })}
+      </div>
+      <div className="text-[10px] text-slate-500 mt-3 pt-2 border-t border-slate-800">
+        Segment total: {fmtInr(segmentSum)}
+        {reportedTotalRevenue != null && !reconciles && (
+          <span className="text-amber-500/80"> — does not reconcile with reported consolidated revenue ({fmtInr(reportedTotalRevenue)}). Segment figures may be reported gross of inter-segment sales; treat as directional, not exact company-wide share.</span>
+        )}
       </div>
     </div>
   );
@@ -341,8 +383,8 @@ export default function ResearchDashboard() {
 
           <SectionCard title="Financial Snapshot">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <StatBox label={`Revenue (${latest?.fiscal_year || '—'})`} value={fmtInr(latest?.revenue, { maximumFractionDigits: 0 })} sub={latest?.revenue_growth_yoy_pct != null ? `${fmtPct(latest.revenue_growth_yoy_pct)} YoY` : null} source="bharatstock" />
-              <StatBox label="PAT" value={fmtInr(latest?.pat, { maximumFractionDigits: 0 })} sub={latest?.pat_growth_yoy_pct != null ? `${fmtPct(latest.pat_growth_yoy_pct)} YoY` : null} source="bharatstock" />
+              <StatBox label={`Revenue (${latest?.fiscal_year || '—'})`} value={fmtInr(latest?.revenue)} sub={latest?.revenue_growth_yoy_pct != null ? `${fmtPct(latest.revenue_growth_yoy_pct)} YoY` : null} source={latest?.source} />
+              <StatBox label="PAT" value={fmtInr(latest?.pat)} sub={latest?.pat_growth_yoy_pct != null ? `${fmtPct(latest.pat_growth_yoy_pct)} YoY` : null} source={latest?.source} />
               <StatBox label="EBITDA Margin" value={latest?.ebitda_margin_pct != null ? `${fmtNum(latest.ebitda_margin_pct)}%` : '—'} source="calculated" />
               <StatBox label="ROE" value={latest?.roe_pct != null ? `${fmtNum(latest.roe_pct)}%` : '—'} source="calculated" />
             </div>
@@ -367,8 +409,12 @@ export default function ResearchDashboard() {
                 <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
                   <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }} labelStyle={{ color: '#e2e8f0' }} />
+                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => `${v}%`} width={40} />
+                  <Tooltip
+                    contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
+                    labelStyle={{ color: '#e2e8f0' }}
+                    formatter={(value, name) => [`${value.toFixed(2)}%`, name]}
+                  />
                   <Line type="monotone" dataKey="ebitda_margin_pct" name="EBITDA Margin %" stroke="#fbbf24" strokeWidth={2} dot={{ r: 3 }} />
                   <Line type="monotone" dataKey="pat_margin_pct" name="PAT Margin %" stroke="#60a5fa" strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
@@ -387,7 +433,7 @@ export default function ResearchDashboard() {
 
           {snapshot.segments?.length > 0 && (
             <SectionCard title="Segment Revenue">
-              <SegmentBreakdown segments={snapshot.segments} />
+              <SegmentBreakdown segments={snapshot.segments} reportedTotalRevenue={latest?.revenue ? parseFloat(latest.revenue) : null} />
             </SectionCard>
           )}
 
@@ -395,10 +441,10 @@ export default function ResearchDashboard() {
             <SectionCard title="Balance Sheet">
               {bs ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <StatBox label="Total Debt" value={fmtInr(bs.total_debt, { maximumFractionDigits: 0 })} source={bs.source} />
-                  <StatBox label="Cash" value={fmtInr(bs.cash, { maximumFractionDigits: 0 })} source={bs.source} />
-                  <StatBox label="Debt/Equity" value={fmtNum(bs.debt_equity, 2)} source="calculated" />
-                  <StatBox label="Current Ratio" value={fmtNum(bs.current_ratio, 2)} source="calculated" />
+                  <StatBox label="Total Debt" value={fmtInr(bs.total_debt)} source={bs.source} />
+                  <StatBox label="Cash" value={fmtInr(bs.cash)} source={bs.source} />
+                  <StatBox label="Debt/Equity" value={formatRatio(bs.debt_equity)} source="calculated" />
+                  <StatBox label="Current Ratio" value={formatRatio(bs.current_ratio)} source="calculated" />
                 </div>
               ) : <div className="text-xs text-slate-500">N/A — no balance sheet data available.</div>}
             </SectionCard>
@@ -406,9 +452,9 @@ export default function ResearchDashboard() {
             <SectionCard title="Cash Flow">
               {cf ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <StatBox label="Operating CF" value={fmtInr(cf.operating_cash_flow, { maximumFractionDigits: 0 })} source={cf.source} />
-                  <StatBox label="Free Cash Flow" value={fmtInr(cf.free_cash_flow, { maximumFractionDigits: 0 })} source="calculated" />
-                  <StatBox label="CFO/PAT" value={fmtNum(cf.cfo_to_pat, 2)} source="calculated" />
+                  <StatBox label="Operating CF" value={fmtInr(cf.operating_cash_flow)} source={cf.source} />
+                  <StatBox label="Free Cash Flow" value={fmtInr(cf.free_cash_flow)} source="calculated" />
+                  <StatBox label="CFO/PAT" value={formatRatio(cf.cfo_to_pat)} source="calculated" />
                   <StatBox label="Capex Intensity" value={cf.capex_intensity_pct != null ? `${fmtNum(cf.capex_intensity_pct)}%` : '—'} source="calculated" />
                 </div>
               ) : <div className="text-xs text-slate-500">N/A — no cash flow data available.</div>}
@@ -431,8 +477,8 @@ export default function ResearchDashboard() {
             <SectionCard title="Valuation">
               {snapshot.valuation ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <StatBox label="P/E" value={fmtNum(snapshot.valuation.pe, 2)} source={snapshot.valuation.source} />
-                  <StatBox label="P/B" value={fmtNum(snapshot.valuation.pb, 2)} source={snapshot.valuation.source} />
+                  <StatBox label="P/E" value={formatRatio(snapshot.valuation.pe)} source={snapshot.valuation.source} />
+                  <StatBox label="P/B" value={formatRatio(snapshot.valuation.pb)} source={snapshot.valuation.source} />
                   <StatBox label="52W Range" value={`${fmtInr(snapshot.valuation.week_52_low)} – ${fmtInr(snapshot.valuation.week_52_high)}`} />
                   <StatBox label="From 52W High" value={fmtPct(snapshot.valuation.distance_from_52w_high_pct)} />
                 </div>
