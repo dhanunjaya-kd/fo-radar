@@ -1,0 +1,219 @@
+"""
+backend/fundamentals_research/services/llm_narrative.py
+
+The AI interpretation layer the original spec always planned for
+(Section 10: "RAW DATA -> VALIDATION -> NORMALIZATION -> CALCULATIONS
+-> AI INTERPRETATION" -- this file is that last step, deliberately
+built last, after the deterministic pipeline was solid).
+
+Hard rule, carried over from report_builder.py and enforced twice
+here (in the prompt AND by reusing that file's own banned-term check
+on the output): the model narrates and answers questions using ONLY
+the numbers in build_fact_sheet()'s output. It never receives
+instructions to look anything up, never sees anything beyond this
+one snapshot's stored data, and is explicitly told to say "not
+available in this report" rather than estimate a missing figure.
+
+Uses plain requests (already a project dependency) against the
+Messages API directly -- matches this codebase's own established
+pattern (bharatstock_client.py does the same) rather than adding the
+`anthropic` SDK as a new dependency for what's a small number of
+straightforward calls.
+"""
+import os
+import json
+import logging
+from typing import Optional, Dict, Any, List
+
+import requests
+
+logger = logging.getLogger('fundamentals_research.llm_narrative')
+
+API_URL = 'https://api.anthropic.com/v1/messages'
+API_VERSION = '2023-06-01'
+DEFAULT_TIMEOUT = 30
+# Sep 25 2026: Haiku 4.5, confirmed current via live docs search (not
+# memory) -- fast and cheap, appropriate since this runs on every
+# refresh. Configurable via env for anyone who wants richer prose from
+# Sonnet 5 instead -- also confirmed current, no dated suffix (it's an
+# alias). Neither string is guessed.
+DEFAULT_MODEL = os.environ.get('ANTHROPIC_NARRATIVE_MODEL', 'claude-haiku-4-5-20251001')
+
+_SYSTEM_PROMPT = """You are a financial-data narrator for an Indian equity research tool. You will be given a JSON fact sheet of ALREADY-VERIFIED numbers for one company, pulled from structured financial data sources. Your job is to write clear, analytical prose describing what these numbers show.
+
+STRICT RULES, no exceptions:
+1. Use ONLY the numbers given in the fact sheet. Never estimate, infer, or state a figure not explicitly present.
+2. If a section's data is missing or null, say so plainly ("not available in this report") -- never fill the gap with a plausible-sounding guess.
+3. Never give investment advice or a recommendation. Never use the words: buy, sell, strong buy, strong sell, best stock, worst stock, recommend, target price.
+4. Distinguish facts (numbers as given) from your own interpretation (what a trend might suggest) -- make that distinction visible in your writing, e.g. "Revenue grew 12%. This is a meaningfully faster pace than the prior year." not blended into one unattributed claim.
+5. Stay factual and measured in tone -- no hype, no alarm, no superlatives not directly supported by the data.
+6. Cite the specific number when you reference it, so a reader can verify it against the data above your text."""
+
+
+def _get_api_key() -> Optional[str]:
+    return os.environ.get('ANTHROPIC_API_KEY')
+
+
+def _call_claude(system: str, messages: List[Dict[str, str]], max_tokens: int = 1500) -> Optional[str]:
+    """Returns the model's text response, or None on any failure
+    (missing key, network error, malformed response) -- callers fall
+    back to the deterministic template version, never leave a blank
+    section and never raise up into the request that triggered this."""
+    api_key = _get_api_key()
+    if not api_key:
+        logger.info("ANTHROPIC_API_KEY not set -- narrative generation skipped, template fallback will be used.")
+        return None
+
+    try:
+        resp = requests.post(
+            API_URL,
+            headers={'x-api-key': api_key, 'anthropic-version': API_VERSION, 'content-type': 'application/json'},
+            json={'model': DEFAULT_MODEL, 'max_tokens': max_tokens, 'system': system, 'messages': messages},
+            timeout=DEFAULT_TIMEOUT,
+        )
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Claude API call failed (network): {e}")
+        return None
+
+    if resp.status_code != 200:
+        logger.warning(f"Claude API returned HTTP {resp.status_code}: {resp.text[:300]}")
+        return None
+
+    try:
+        data = resp.json()
+        text_blocks = [b['text'] for b in data.get('content', []) if b.get('type') == 'text']
+        return ''.join(text_blocks) if text_blocks else None
+    except (ValueError, KeyError) as e:
+        logger.warning(f"Claude API response malformed: {e}")
+        return None
+
+
+def build_fact_sheet(snapshot) -> Dict[str, Any]:
+    """
+    The single source of grounding for BOTH narrative generation and
+    chat Q&A -- built once, used for both, so a chat answer can never
+    reference a number the narrative didn't also have access to.
+    Reads the exact same model fields report_builder.py's template
+    functions already use.
+    """
+    company = snapshot.company
+    financials = list(snapshot.financials.all())
+    bs = snapshot.balance_sheets.first()
+    cf = snapshot.cash_flows.first()
+    val = getattr(snapshot, 'valuation', None)
+    own = getattr(snapshot, 'ownership', None)
+
+    return {
+        'company': {'name': company.company_name, 'symbol': company.symbol, 'sector': company.sector, 'industry': company.industry},
+        'financials_by_year': [
+            {'year': f.fiscal_year, 'revenue': _n(f.revenue), 'revenue_growth_yoy_pct': _n(f.revenue_growth_yoy_pct),
+             'ebitda': _n(f.ebitda), 'ebitda_margin_pct': _n(f.ebitda_margin_pct), 'pat': _n(f.pat),
+             'pat_margin_pct': _n(f.pat_margin_pct), 'pat_growth_yoy_pct': _n(f.pat_growth_yoy_pct),
+             'eps': _n(f.eps), 'roe_pct': _n(f.roe_pct), 'source': f.source}
+            for f in financials
+        ],
+        'balance_sheet': None if bs is None else {
+            'fiscal_year': bs.fiscal_year, 'total_debt': _n(bs.total_debt), 'cash': _n(bs.cash),
+            'net_debt': _n(bs.net_debt), 'debt_equity': _n(bs.debt_equity), 'current_ratio': _n(bs.current_ratio),
+            'source': bs.source,
+        },
+        'cash_flow': None if cf is None else {
+            'fiscal_year': cf.fiscal_year, 'operating_cash_flow': _n(cf.operating_cash_flow),
+            'free_cash_flow': _n(cf.free_cash_flow), 'cfo_to_pat': _n(cf.cfo_to_pat), 'source': cf.source,
+        },
+        'valuation': None if val is None else {
+            'pe': _n(val.pe), 'pb': _n(val.pb), 'ev_ebitda': _n(val.ev_ebitda),
+            'dividend_yield_pct': _n(val.dividend_yield_pct), 'week_52_high': _n(val.week_52_high),
+            'week_52_low': _n(val.week_52_low), 'distance_from_52w_high_pct': _n(val.distance_from_52w_high_pct),
+            'source': val.source,
+        },
+        'ownership': None if own is None else {
+            'promoter_pct': _n(own.promoter_pct), 'promoter_change_pct': _n(own.promoter_change_pct),
+            'promoter_pledge_pct': _n(own.promoter_pledge_pct), 'fii_pct': _n(own.fii_pct), 'dii_pct': _n(own.dii_pct),
+            'public_pct': _n(own.public_pct), 'source': own.source,
+        },
+    }
+
+
+def _n(decimal_value):
+    """Decimal -> float or None, for clean JSON serialization -- never
+    a Decimal object reaching json.dumps(), never a silent str-cast
+    that would confuse the model about whether something is a number."""
+    return None if decimal_value is None else float(decimal_value)
+
+
+def generate_narrative_sections(fact_sheet: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    """
+    Returns a dict with the same keys report_builder.py's template
+    functions produce (financial_quality_notes, balance_sheet_notes,
+    cash_flow_notes, ownership_notes, valuation_notes), or None if the
+    API call failed for any reason -- report_builder.py's own
+    template versions are the fallback, not duplicated here.
+    """
+    prompt = f"""Fact sheet for {fact_sheet['company']['name']} ({fact_sheet['company']['symbol']}):
+
+{json.dumps(fact_sheet, indent=2)}
+
+Write five short sections analyzing this data. Return ONLY valid JSON, no other text, with exactly these keys:
+{{
+  "financial_quality_notes": "...",
+  "balance_sheet_notes": "...",
+  "cash_flow_notes": "...",
+  "ownership_notes": "...",
+  "valuation_notes": "..."
+}}
+Each value should be 2-4 sentences. If a section's underlying data is null in the fact sheet, that section's text must say the data isn't available -- do not skip the key or invent content for it."""
+
+    raw = _call_claude(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1200)
+    if raw is None:
+        return None
+
+    try:
+        cleaned = raw.strip()
+        if cleaned.startswith('```'):
+            cleaned = cleaned.split('```')[1]
+            if cleaned.startswith('json'):
+                cleaned = cleaned[4:]
+        sections = json.loads(cleaned.strip())
+    except (ValueError, IndexError) as e:
+        logger.warning(f"Could not parse narrative JSON from Claude response: {e}")
+        return None
+
+    required_keys = {'financial_quality_notes', 'balance_sheet_notes', 'cash_flow_notes', 'ownership_notes', 'valuation_notes'}
+    if not required_keys.issubset(sections.keys()):
+        logger.warning(f"Narrative response missing expected keys: {required_keys - sections.keys()}")
+        return None
+
+    full_text = ' '.join(str(v) for v in sections.values()).lower()
+    from .report_builder import _BANNED_TERMS
+    for term in _BANNED_TERMS:
+        if term in full_text:
+            logger.warning(f"LLM narrative contained banned term '{term}' -- discarding, template fallback will be used instead.")
+            return None
+
+    return sections
+
+
+def answer_question(fact_sheet: Dict[str, Any], question: str, conversation_history: Optional[List[Dict[str, str]]] = None) -> str:
+    """
+    conversation_history: prior turns as [{'role': 'user'|'assistant', 'content': ...}, ...]
+    -- kept and sent by the FRONTEND (stateless on the backend, no new
+    model added for this first version), matching a standard,
+    perfectly valid chat-UI pattern that doesn't require persisting
+    conversation state server-side.
+
+    Always returns a string -- on any failure, returns a plain,
+    honest error message rather than None, since this is a direct
+    user-facing response, not a section with a template fallback to
+    fall back to.
+    """
+    context_prompt = f"Fact sheet for {fact_sheet['company']['name']} ({fact_sheet['company']['symbol']}):\n\n{json.dumps(fact_sheet, indent=2)}"
+    messages = [{'role': 'user', 'content': context_prompt}, {'role': 'assistant', 'content': "I have the fact sheet. Ask me anything about this company's numbers."}]
+    messages.extend(conversation_history or [])
+    messages.append({'role': 'user', 'content': question})
+
+    system = _SYSTEM_PROMPT + "\n\nYou are now answering a direct follow-up question from the user about this company. If the answer isn't in the fact sheet, say so plainly -- do not guess."
+    answer = _call_claude(system, messages, max_tokens=600)
+    if answer is None:
+        return "Sorry, I couldn't generate an answer right now -- the AI service is unavailable or not configured. The structured data above is still accurate and unaffected."
+    return answer
