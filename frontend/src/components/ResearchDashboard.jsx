@@ -217,18 +217,26 @@ function SegmentBreakdown({ segments, reportedTotalRevenue }) {
   const segmentSum = latest.reduce((sum, s) => sum + (parseFloat(s.segment_revenue) || 0), 0);
 
   // Sep 26 2026: real bug found and fixed -- proven with actual GAIL
-  // numbers, the largest single segment alone (₹1,55,918.52 Cr)
+  // numbers, the largest single segment alone (Rs 1,55,918.52 Cr)
   // exceeded the company's entire REPORTED total revenue
-  // (₹1,42,094.30 Cr). Percentages below were already computed
+  // (Rs 1,42,094.30 Cr). Percentages below were already computed
   // against the segment sum (not company total), which is technically
   // fine -- but nothing ever told the reader that, or warned when the
-  // segment sum itself doesn't reconcile with the real reported
-  // total. Most likely real cause, not a code bug: segment figures
-  // for gas-trading companies like GAIL are often reported GROSS of
-  // inter-segment sales (segments sell to each other internally),
-  // while consolidated revenue is NET of those eliminations -- a
-  // real, known accounting pattern, not fabricated data. Surfaced
-  // honestly here instead of silently implying "88% of the company."
+  // segment sum itself doesn't reconcile with the real reported total.
+  //
+  // Sep 26 2026 follow-up: root cause now CONFIRMED with real published
+  // evidence, not just a plausible guess -- GAIL's own Q1 FY27 investor
+  // results state directly: "Overall segment revenue increased to
+  // Rs 52,091 crore, while inter-segment adjustments resulted in
+  // consolidated revenue from operations of Rs 41,350 crore." GAIL's own
+  // segment disclosures (per marketscreener.com's breakdown) carry an
+  // explicit "Elimination" line (-Rs 307B to -Rs 344B in recent years)
+  // that BharatStock's segment_revenue field does not include -- this
+  // app has no way to know the elimination figure for whichever specific
+  // period is shown, so it is NOT estimated or backed out here (that
+  // would be fabricating a number this app was never given). The
+  // warning below states the confirmed mechanism, not a fabricated
+  // reconciled total.
   const reconciles = reportedTotalRevenue != null && Math.abs(segmentSum - reportedTotalRevenue) / reportedTotalRevenue < 0.05;
 
   return (
@@ -254,7 +262,7 @@ function SegmentBreakdown({ segments, reportedTotalRevenue }) {
       <div className="text-[10px] text-slate-500 mt-3 pt-2 border-t border-slate-800">
         Segment total: {fmtInr(segmentSum)}
         {reportedTotalRevenue != null && !reconciles && (
-          <span className="text-amber-500/80"> — does not reconcile with reported consolidated revenue ({fmtInr(reportedTotalRevenue)}). Segment figures may be reported gross of inter-segment sales; treat as directional, not exact company-wide share.</span>
+          <span className="text-amber-500/80"> — does not reconcile with reported consolidated revenue ({fmtInr(reportedTotalRevenue)}). Confirmed pattern for some companies (verified for GAIL via its own published results): segments reported before inter-segment eliminations, which this app is not given a figure for; treat percentages as directional, not exact company-wide share.</span>
         )}
       </div>
     </div>
@@ -282,38 +290,300 @@ function ScenarioCard({ title, scenario, tone }) {
   );
 }
 
+function TechnicalTrendCard({ technicals, trend, loading }) {
+  if (loading) return <div className="text-xs text-slate-500 py-6 text-center">Loading technicals…</div>;
+  if (!technicals) return <div className="text-xs text-slate-500">No technical data available for this symbol.</div>;
+
+  const TREND_COLOR = {
+    'Confirmed downtrend': 'text-rose-400 bg-rose-500/10', 'Weakening trend': 'text-amber-400 bg-amber-500/10',
+    'Possible stabilization': 'text-blue-400 bg-blue-500/10', 'Potential recovery setup': 'text-emerald-400 bg-emerald-500/10',
+    'Sideways / range-bound': 'text-slate-400 bg-slate-500/10', 'Insufficient data': 'text-slate-500 bg-slate-500/10',
+  };
+
+  return (
+    <div>
+      <div className={`inline-block text-xs font-semibold px-2 py-1 rounded mb-2 ${TREND_COLOR[trend?.classification] || TREND_COLOR['Insufficient data']}`}>
+        {trend?.classification || 'Insufficient data'}
+      </div>
+      {trend?.reason && <p className="text-[11px] text-slate-400 mb-3">{trend.reason}</p>}
+      <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
+        <StatBox label="RSI" value={fmtNum(technicals.rsi)} />
+        <StatBox label="ADX" value={fmtNum(technicals.adx)} />
+        <StatBox label="EMA20" value={fmtInr(technicals.ema20)} />
+        <StatBox label="EMA50" value={fmtInr(technicals.ema50)} />
+        <StatBox label="EMA200" value={technicals.ema200 ? fmtInr(technicals.ema200) : '—'} />
+        <StatBox label="Support (20d)" value={fmtInr(technicals.support)} />
+        <StatBox label="Resistance (20d)" value={fmtInr(technicals.resistance)} />
+        <StatBox label="ATR" value={fmtNum(technicals.atr)} />
+        <StatBox label="MACD" value={fmtNum(technicals.macd)} />
+        <StatBox label="+DI / -DI" value={`${fmtNum(technicals.plus_di, 1)} / ${fmtNum(technicals.minus_di, 1)}`} />
+      </div>
+    </div>
+  );
+}
+
+function EntrySetupCard({ entrySetup, loading }) {
+  if (loading) return <div className="text-xs text-slate-500 py-6 text-center">Loading…</div>;
+  if (!entrySetup) return <div className="text-xs text-slate-500">No technical data available for this symbol.</div>;
+
+  if (entrySetup.status !== 'setup_confirmed') {
+    return (
+      <div>
+        <div className="text-sm font-semibold text-slate-400 mb-2">{entrySetup.message || 'No validated entry setup currently available.'}</div>
+        {entrySetup.conditions_checked && (
+          <div className="text-[11px] text-slate-500 space-y-1">
+            {Object.entries(entrySetup.conditions_checked).map(([k, v]) => (
+              <div key={k} className="flex items-center gap-2">
+                <span className={v ? 'text-emerald-400' : 'text-rose-400'}>{v ? '✓' : '✗'}</span>
+                <span>{k.replace(/_/g, ' ')}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="inline-block text-xs font-semibold px-2 py-1 rounded mb-3 text-emerald-400 bg-emerald-500/10">Setup confirmed under defined conditions</div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
+        <StatBox label="Entry Zone" value={`${fmtInr(entrySetup.entry_zone.low)} – ${fmtInr(entrySetup.entry_zone.high)}`} />
+        <StatBox label="Stop Loss" value={fmtInr(entrySetup.stop_loss)} />
+        <StatBox label="Target 1" value={fmtInr(entrySetup.target_1)} sub={`${entrySetup.reward_to_risk_target_1}R`} />
+        <StatBox label="Target 2" value={fmtInr(entrySetup.target_2)} sub={`${entrySetup.reward_to_risk_target_2}R`} />
+        <StatBox label="Risk/Share" value={fmtInr(entrySetup.risk_per_share)} />
+      </div>
+      <div className="text-[10px] text-slate-500 space-y-1">
+        <div><span className="text-slate-400">Method: </span>{entrySetup.method}</div>
+        <div><span className="text-amber-500/80">Invalidation: </span>{entrySetup.invalidation_condition}</div>
+      </div>
+    </div>
+  );
+}
+
+function ConfluenceCard({ confluence, loading }) {
+  if (loading) return <div className="text-xs text-slate-500 py-6 text-center">Loading…</div>;
+  if (!confluence) return <div className="text-xs text-slate-500">No confluence data available.</div>;
+
+  const rows = [
+    ['Fundamental Quality', confluence.fundamental_quality], ['Valuation Context', confluence.valuation_context],
+    ['Technical Trend', confluence.technical_trend], ['Momentum', confluence.momentum],
+    ['Volume Confirmation', confluence.volume_confirmation], ['Sector Alignment', confluence.sector_alignment],
+    ['Data Quality', confluence.data_quality],
+  ];
+
+  return (
+    <div>
+      {confluence.combination_note && (
+        <div className="text-xs font-medium text-amber-300 bg-amber-500/10 rounded px-2 py-1.5 mb-3 inline-block">{confluence.combination_note}</div>
+      )}
+      <div className="space-y-2">
+        {rows.map(([label, data]) => (
+          <div key={label} className="flex items-start justify-between text-[11px] gap-3 border-b border-slate-800/60 pb-1.5">
+            <span className="text-slate-500 shrink-0">{label}</span>
+            <span className="text-slate-300 text-right">{data?.assessment}{data?.reason ? <span className="block text-slate-500 text-[10px]">{data.reason}</span> : null}</span>
+          </div>
+        ))}
+      </div>
+      <div className="text-[10px] text-slate-600 mt-3">{confluence.note}</div>
+    </div>
+  );
+}
+
+function DecisionSummaryCard({ summary, language, onLanguageChange, loading }) {
+  if (loading) return <div className="text-xs text-slate-500 py-6 text-center">Loading…</div>;
+  if (!summary) return <div className="text-xs text-slate-500">No decision summary available.</div>;
+
+  const STATUS_COLOR = {
+    'Setup confirmed under defined conditions': 'text-emerald-400 bg-emerald-500/10',
+    'Potential setup - confirmation pending': 'text-blue-400 bg-blue-500/10',
+    'Trend remains bearish': 'text-rose-400 bg-rose-500/10',
+    'Fundamentals deteriorating': 'text-rose-400 bg-rose-500/10',
+    'Risk elevated': 'text-amber-400 bg-amber-500/10',
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className={`inline-block text-xs font-semibold px-2 py-1 rounded ${STATUS_COLOR[summary.status] || 'text-slate-400 bg-slate-500/10'}`}>
+          {summary.status}
+        </div>
+        <select
+          value={language} onChange={e => onLanguageChange(e.target.value)}
+          className="bg-slate-950/60 border border-slate-700/50 rounded text-[10px] text-slate-300 px-2 py-1"
+        >
+          <option value="english">English</option>
+          <option value="roman_telugu">Roman Telugu</option>
+        </select>
+      </div>
+      {summary.note && <div className="text-[10px] text-slate-500 mb-2">{summary.note}</div>}
+      <div className="grid md:grid-cols-2 gap-3">
+        <div>
+          <div className="text-[10px] text-emerald-400 mb-1">Supporting evidence</div>
+          <ul className="text-[11px] text-slate-300 space-y-1 list-disc list-inside">
+            {(summary.supporting_evidence || []).map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+        <div>
+          <div className="text-[10px] text-rose-400 mb-1">Opposing evidence</div>
+          <ul className="text-[11px] text-slate-300 space-y-1 list-disc list-inside">
+            {(summary.opposing_evidence || []).map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+      </div>
+      {summary.conditions_to_monitor?.length > 0 && (
+        <div className="mt-3 text-[10px] text-slate-500">Watch: {summary.conditions_to_monitor.join(', ')}</div>
+      )}
+      {summary.invalidation_conditions?.length > 0 && (
+        <div className="mt-1 text-[10px] text-amber-500/80">Invalidated if: {summary.invalidation_conditions.join('; ')}</div>
+      )}
+    </div>
+  );
+}
+
+function AveragingCalculator({ inputs, onChange, onCalculate, result, error, loading, currentPrice }) {
+  return (
+    <div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+        <input
+          placeholder="Avg buy price" value={inputs.existing_avg_price}
+          onChange={e => onChange({ ...inputs, existing_avg_price: e.target.value })}
+          className="bg-slate-950/60 border border-slate-700/50 rounded px-2 py-1.5 text-xs text-white placeholder-slate-600"
+        />
+        <input
+          placeholder="Existing qty" value={inputs.existing_qty}
+          onChange={e => onChange({ ...inputs, existing_qty: e.target.value })}
+          className="bg-slate-950/60 border border-slate-700/50 rounded px-2 py-1.5 text-xs text-white placeholder-slate-600"
+        />
+        <input
+          placeholder="Additional qty" value={inputs.additional_qty}
+          onChange={e => onChange({ ...inputs, additional_qty: e.target.value })}
+          className="bg-slate-950/60 border border-slate-700/50 rounded px-2 py-1.5 text-xs text-white placeholder-slate-600"
+        />
+        <button onClick={onCalculate} disabled={loading} className="px-3 py-1.5 rounded bg-emerald-600/20 border border-emerald-600/40 text-emerald-400 text-xs font-medium hover:bg-emerald-600/30 disabled:opacity-50">
+          {loading ? 'Calculating…' : 'Calculate'}
+        </button>
+      </div>
+      {currentPrice && <div className="text-[10px] text-slate-500 mb-2">Uses current researched price: {fmtInr(currentPrice)} unless you override it above.</div>}
+      {error && <div className="text-xs text-rose-400 mb-2">{error}</div>}
+      {result && (
+        <div className="space-y-3">
+          <div>
+            <div className="text-[10px] text-slate-500 mb-1">Current position</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <StatBox label="Invested" value={fmtInr(result.current_position.invested_capital)} />
+              <StatBox label="Value Now" value={fmtInr(result.current_position.current_holding_value)} />
+              <StatBox label="Unrealized P&L" value={fmtInr(result.current_position.unrealized_pnl)} sub={fmtPct(result.current_position.unrealized_pnl_pct)} />
+            </div>
+          </div>
+          {result.scenarios.map((s, i) => (
+            <div key={i} className="rounded-lg bg-slate-900/60 border border-slate-700/30 p-3">
+              <div className="text-xs font-semibold text-white mb-2">{s.label}</div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <StatBox label="New Avg Price" value={fmtInr(s.new_weighted_avg_price)} />
+                <StatBox label="New Total Qty" value={fmtNum(s.new_total_qty, 2)} />
+                <StatBox label="Breakeven" value={fmtInr(s.breakeven_price)} />
+                <StatBox label="Exposure +" value={fmtPct(s.exposure_increase_pct)} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ResearchDashboard() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [primarySource, setPrimarySource] = useState(null);
+  const [decisionSupport, setDecisionSupport] = useState(null);
+  const [decisionSupportLoading, setDecisionSupportLoading] = useState(false);
+  const [decisionLanguage, setDecisionLanguage] = useState('english');
+  const [averagingInputs, setAveragingInputs] = useState({ existing_avg_price: '', existing_qty: '', additional_qty: '' });
+  const [averagingResult, setAveragingResult] = useState(null);
+  const [averagingError, setAveragingError] = useState(null);
+  const [averagingLoading, setAveragingLoading] = useState(false);
+
+  const fetchDecisionSupport = async (symbol, language) => {
+    setDecisionSupportLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/research/company/${symbol}/decision-support/?language=${language}`);
+      if (res.ok) {
+        setDecisionSupport(await res.json());
+      } else {
+        setDecisionSupport(null);
+      }
+    } catch {
+      setDecisionSupport(null);
+    } finally {
+      setDecisionSupportLoading(false);
+    }
+  };
 
   const runResearch = async (symbol, forceRefresh) => {
     if (!symbol.trim()) return;
+    const upperSymbol = symbol.trim().toUpperCase();
     setLoading(true);
     setError(null);
+    // Sep 26 2026: clear ALL previously-selected-stock state up front,
+    // not just snapshot -- per spec Phase 5, "Do not allow data from
+    // the previously selected stock to remain visible after a new
+    // search fails." Averaging results are keyed to the PRIOR stock's
+    // price and must not silently persist under a new symbol either.
+    setDecisionSupport(null);
+    setAveragingResult(null);
+    setAveragingError(null);
     try {
       if (!forceRefresh) {
-        const existing = await fetch(`${API_BASE}/api/research/company/${symbol.trim().toUpperCase()}/report/`);
+        const existing = await fetch(`${API_BASE}/api/research/company/${upperSymbol}/report/`);
         if (existing.ok) {
           const data = await existing.json();
           setSnapshot(data);
           setPrimarySource(null);
           setLoading(false);
+          fetchDecisionSupport(upperSymbol, decisionLanguage);
           return;
         }
       }
-      const res = await fetch(`${API_BASE}/api/research/company/${symbol.trim().toUpperCase()}/refresh/`, { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/research/company/${upperSymbol}/refresh/`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Research failed for this symbol.');
       setSnapshot(data.snapshot);
       setPrimarySource(data.primary_source);
+      fetchDecisionSupport(upperSymbol, decisionLanguage);
     } catch (e) {
       setError(e.message || 'Something went wrong.');
       setSnapshot(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runAveraging = async () => {
+    if (!snapshot) return;
+    setAveragingLoading(true);
+    setAveragingError(null);
+    try {
+      const body = {
+        existing_avg_price: parseFloat(averagingInputs.existing_avg_price),
+        existing_qty: parseFloat(averagingInputs.existing_qty),
+        scenarios: [{ label: 'Scenario', additional_qty: parseFloat(averagingInputs.additional_qty) }],
+      };
+      const res = await fetch(`${API_BASE}/api/research/company/${snapshot.company.symbol}/averaging/`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Averaging calculation failed.');
+      setAveragingResult(data);
+    } catch (e) {
+      setAveragingError(e.message || 'Something went wrong.');
+      setAveragingResult(null);
+    } finally {
+      setAveragingLoading(false);
     }
   };
 
@@ -486,6 +756,10 @@ export default function ResearchDashboard() {
             </SectionCard>
           </div>
 
+          <SectionCard title="Technical Trend Analysis" right={<span className="text-[10px] text-slate-500">Reuses the same indicator engine as Sniper Signals</span>}>
+            <TechnicalTrendCard technicals={decisionSupport?.technicals} trend={decisionSupport?.trend} loading={decisionSupportLoading} />
+          </SectionCard>
+
           {report?.risks_json?.length > 0 && (
             <SectionCard title="Risks">
               <div className="grid md:grid-cols-2 gap-3">
@@ -503,6 +777,30 @@ export default function ResearchDashboard() {
               </div>
             </SectionCard>
           )}
+
+          <SectionCard title="Averaging Analysis" right={<span className="text-[10px] text-slate-500">Pure calculation — no recommendation</span>}>
+            <AveragingCalculator
+              inputs={averagingInputs} onChange={setAveragingInputs} onCalculate={runAveraging}
+              result={averagingResult} error={averagingError} loading={averagingLoading}
+              currentPrice={snapshot.valuation?.price}
+            />
+          </SectionCard>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <SectionCard title="Potential Entry Setup">
+              <EntrySetupCard entrySetup={decisionSupport?.entry_setup} loading={decisionSupportLoading} />
+            </SectionCard>
+            <SectionCard title="Fundamental + Technical Confluence">
+              <ConfluenceCard confluence={decisionSupport?.confluence} loading={decisionSupportLoading} />
+            </SectionCard>
+          </div>
+
+          <SectionCard title="AI Decision Summary">
+            <DecisionSummaryCard
+              summary={decisionSupport?.ai_decision_summary} language={decisionLanguage} loading={decisionSupportLoading}
+              onLanguageChange={(lang) => { setDecisionLanguage(lang); fetchDecisionSupport(snapshot.company.symbol, lang); }}
+            />
+          </SectionCard>
 
           {snapshot.news_items?.length > 0 && (
             <SectionCard title="Recent News">
