@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatIndianCurrency, pickSeriesUnit, formatAxisTick, formatPercent, formatRatio } from '../utils/indianNumberFormat';
+import StockChart from './StockChart';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -618,6 +619,8 @@ export default function ResearchDashboard() {
 
   return (
     <div className="space-y-4">
+      <StockChart symbol={snapshot?.company?.symbol} />
+
       <div className="rounded-lg bg-slate-900/40 border border-slate-700/40 p-4">
         <h2 className="text-base font-semibold text-white mb-3">Fundamental Research</h2>
         <div className="flex gap-2">
