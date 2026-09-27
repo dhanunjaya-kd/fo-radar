@@ -78,9 +78,15 @@ def _get_provider() -> str:
 
 
 def _get_api_key(provider: str) -> Optional[str]:
-    if provider == 'gemini':
-        return os.environ.get('GEMINI_API_KEY')
-    return os.environ.get('ANTHROPIC_API_KEY')
+    # Sep 27 2026: .strip() added after finding a real, unhandled bug --
+    # a trailing newline or space in a copy-pasted .env value (a
+    # genuinely common gotcha, especially on Windows) makes the HTTP
+    # header invalid, which raises a plain ValueError -- NOT a
+    # requests.exceptions.RequestException -- so it would crash
+    # unhandled rather than degrade gracefully to 'network_error'.
+    # Confirmed by directly reproducing it before writing this fix.
+    raw = os.environ.get('GEMINI_API_KEY') if provider == 'gemini' else os.environ.get('ANTHROPIC_API_KEY')
+    return raw.strip() if raw else raw
 
 
 def _call_llm(system: str, messages: List[Dict[str, str]], max_tokens: int = 1500) -> tuple:
@@ -114,7 +120,12 @@ def _call_anthropic(system: str, messages: List[Dict[str, str]], max_tokens: int
             json={'model': _ANTHROPIC_DEFAULT_MODEL, 'max_tokens': max_tokens, 'system': system, 'messages': messages},
             timeout=DEFAULT_TIMEOUT,
         )
-    except requests.exceptions.RequestException as e:
+    except (requests.exceptions.RequestException, ValueError) as e:
+        # ValueError included per a real, confirmed finding: a
+        # malformed header value (e.g. from unstripped whitespace)
+        # raises plain ValueError, not a RequestException subclass --
+        # without this, that case would crash unhandled instead of
+        # degrading gracefully.
         logger.warning(f"Claude API call failed (network): {e}")
         return None, 'network_error'
 
@@ -144,7 +155,7 @@ def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, a
     prompt goes in a separate systemInstruction field rather than a
     top-level 'system' key.
     """
-    model = os.environ.get('GEMINI_MODEL', _GEMINI_DEFAULT_MODEL)
+    model = (os.environ.get('GEMINI_MODEL') or _GEMINI_DEFAULT_MODEL).strip()
     url = _GEMINI_API_URL_TEMPLATE.format(model=model)
 
     gemini_contents = [
@@ -163,7 +174,7 @@ def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, a
             },
             timeout=DEFAULT_TIMEOUT,
         )
-    except requests.exceptions.RequestException as e:
+    except (requests.exceptions.RequestException, ValueError) as e:
         logger.warning(f"Gemini API call failed (network): {e}")
         return None, 'network_error'
 

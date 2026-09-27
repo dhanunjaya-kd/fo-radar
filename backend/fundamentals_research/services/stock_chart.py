@@ -54,6 +54,22 @@ _TIMEFRAME_MAP = {
     '1w': ('D', 365 * 3),  # fetch 3 years of daily bars, then aggregate to weekly below
 }
 
+# Sep 27 2026: real, confirmed labeling bug -- 'as_of' was showing the
+# LAST candle's START timestamp (e.g. "3:15pm" for a 15m candle
+# covering 3:15-3:30), understating freshness by a full candle-width.
+# Fixed for intraday timeframes, where the correction is simple and
+# well-understood (candle_start + its own known duration). Deliberately
+# NOT applied to 1d/1w -- Fyers' exact daily-candle timestamp
+# convention (midnight UTC? midnight IST? something else?) was never
+# independently verified in this project, and guessing at an offset
+# there risks introducing a new timezone bug rather than fixing a
+# labeling one.
+_INTRADAY_DURATION_SECONDS = {'5m': 5 * 60, '15m': 15 * 60, '1h': 60 * 60}
+
+
+def _as_of_timestamp(candle_start_time: int, timeframe: str) -> int:
+    return candle_start_time + _INTRADAY_DURATION_SECONDS.get(timeframe, 0)
+
 
 def get_candles(symbol: str, timeframe: str = '1d') -> Dict[str, Any]:
     """
@@ -143,7 +159,7 @@ def _get_candles_from_fyers(symbol: str, timeframe: str) -> Dict[str, Any]:
         'symbol': symbol.upper(),
         'timeframe': timeframe,
         'candles': candles,
-        'as_of': latest['time'],
+        'as_of': _as_of_timestamp(latest['time'], timeframe),
         'latest_price': latest['close'],
         'resolution_used': resolution,
     }
@@ -192,7 +208,7 @@ def _get_candles_from_yfinance(symbol: str, timeframe: str) -> Optional[Dict[str
     latest = candles[-1]
     return {
         'status': 'ok', 'symbol': symbol.upper(), 'timeframe': timeframe, 'candles': candles,
-        'as_of': latest['time'], 'latest_price': latest['close'], 'resolution_used': f'yfinance:{interval}',
+        'as_of': _as_of_timestamp(latest['time'], timeframe), 'latest_price': latest['close'], 'resolution_used': f'yfinance:{interval}',
         'source': 'yfinance',  # distinct from a Fyers-sourced response -- frontend can label this differently if it chooses to
     }
 
