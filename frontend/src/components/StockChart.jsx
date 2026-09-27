@@ -125,62 +125,141 @@ export default function StockChart({ symbol }) {
     };
     chart.subscribeCrosshairMove(handleCrosshairMove);
 
-    const handleResize = () => {
-      if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
-    };
-    window.addEventListener('resize', handleResize);
+    // Sep 27 2026 fix: real, confirmed cause of a genuinely blank
+    // chart (price/EMA legend rendering correctly, canvas area
+    // completely empty). This chart's width was captured ONCE at
+    // creation time from containerRef.current.clientWidth, and the
+    // only resize handling was a window 'resize' listener -- which
+    // only fires on the BROWSER WINDOW changing size, never when the
+    // CONTAINER's own layout settles after React's initial render
+    // (a well-known timing issue with canvas-based chart libraries:
+    // if the container is still 0-width at the instant createChart()
+    // runs, e.g. because a parent flex/grid layout hasn't finished
+    // sizing yet, the chart is created zero-width and NOTHING in the
+    // old code ever corrected it, since no browser window resize
+    // event necessarily follows). Replaced with a ResizeObserver,
+    // which watches the CONTAINER element itself and fires whenever
+    // ITS size changes for any reason, including pure React layout
+    // shifts with no window resize involved.
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry && entry.contentRect.width > 0) {
+        chart.applyOptions({ width: entry.contentRect.width });
+      }
+    });
+    resizeObserver.observe(containerRef.current);
+
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       chart.unsubscribeCrosshairMove(handleCrosshairMove);
       chart.remove();
       chartRef.current = null;
     };
   }, []);
 
-  const loadCandles = useCallback(async (sym, tf) => {
+  const abortControllerRef = useRef(null);
+  const latestRequestIdRef = useRef(0);
+  const candleCacheRef = useRef({});  // {[`${symbol}:${timeframe}`]: data} -- in-memory, cleared on full page reload; not persisted (no browser storage per this environment's rules)
+
+  // Extracted so the SAME rendering path is used for both an
+  // immediately-shown cached value and a freshly-fetched one --
+  // avoids two subtly-diverging copies of this logic.
+  const applyChartData = useCallback((data) => {
+    const candleData = data.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
+    const volumeData = data.candles.map(c => ({ time: c.time, value: c.volume, color: c.close >= c.open ? '#34d39980' : '#f8717180' }));
+    if (candleSeriesRef.current) candleSeriesRef.current.setData(candleData);
+    if (volumeSeriesRef.current) volumeSeriesRef.current.setData(volumeData);
+    for (const period of [20, 50, 200]) {
+      const emaValues = calculateEMA(data.candles, period);
+      const emaData = data.candles
+        .map((c, i) => (emaValues[i] != null ? { time: c.time, value: emaValues[i] } : null))
+        .filter(Boolean);
+      if (emaSeriesRef.current[period]) emaSeriesRef.current[period].setData(emaData);
+    }
+    if (chartRef.current) chartRef.current.timeScale().fitContent();
+    setMeta({ latest_price: data.latest_price, as_of: data.as_of, symbol: data.symbol, source: data.source });
+  }, []);
+
+  const loadCandles = useCallback(async (sym, tf, { bypassCache = false } = {}) => {
     if (!sym) return;
-    setLoading(true);
+    // Sep 27 2026 fix: real race condition -- rapidly clicking through
+    // timeframes (or switching stocks quickly) fired multiple
+    // concurrent fetches with no cancellation, so a SLOWER older
+    // request could resolve AFTER a newer one and overwrite the chart
+    // with the wrong timeframe/symbol's data. Two layers: an
+    // AbortController genuinely cancels the superseded network
+    // request (saves bandwidth and backend load, not just ignored
+    // client-side), and a request-id guard discards any response that
+    // somehow still resolves after being superseded.
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const requestId = ++latestRequestIdRef.current;
+
     setError(null);
     setHoverOHLC(null);  // Sep 27 2026 fix: without this, hovering the OLD symbol's chart then switching symbols left a stale OHLC readout visible until the next mouse move.
+
+    // Sep 27 2026 addition: stale-while-revalidate. If this exact
+    // symbol+timeframe was seen before in this session, render it
+    // IMMEDIATELY (no blank chart, no spinner wait) while a fresh
+    // request still goes out in the background below -- explicit
+    // requirement: "cached chart should appear almost immediately."
+    // setLoading is deliberately NOT set true here when a cached
+    // value exists, since there's already something real on screen;
+    // it's set true only for a genuine first-time (empty-chart) fetch.
+    const cacheKey = `${sym}:${tf}`;
+    const cached = bypassCache ? null : candleCacheRef.current[cacheKey];
+    if (cached) {
+      applyChartData(cached);
+    } else {
+      setLoading(true);
+    }
+
     try {
-      const res = await fetch(`${API_BASE}/api/research/company/${sym}/candles/?timeframe=${tf}`);
+      const res = await fetch(`${API_BASE}/api/research/company/${sym}/candles/?timeframe=${tf}`, { signal: controller.signal });
+      if (requestId !== latestRequestIdRef.current) return;  // superseded by a newer request while this one was in flight
       const data = await res.json();
+      if (requestId !== latestRequestIdRef.current) return;  // re-checked after the second await, same reason
       if (!res.ok || data.status !== 'ok') {
-        setError(data.message || 'Chart data unavailable.');
-        setMeta(null);
-        if (candleSeriesRef.current) candleSeriesRef.current.setData([]);
-        if (volumeSeriesRef.current) volumeSeriesRef.current.setData([]);
-        Object.values(emaSeriesRef.current).forEach(s => s && s.setData([]));
+        // Only show the error / clear the chart if there was NO cached
+        // value already on screen -- a background refresh failing
+        // (e.g. a transient rate limit) shouldn't blank out data the
+        // user can already see and that's still reasonably valid.
+        if (!cached) {
+          setError(data.message || 'Chart data unavailable.');
+          setMeta(null);
+          if (candleSeriesRef.current) candleSeriesRef.current.setData([]);
+          if (volumeSeriesRef.current) volumeSeriesRef.current.setData([]);
+          Object.values(emaSeriesRef.current).forEach(s => s && s.setData([]));
+        }
         return;
       }
-      const candleData = data.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
-      const volumeData = data.candles.map(c => ({ time: c.time, value: c.volume, color: c.close >= c.open ? '#34d39980' : '#f8717180' }));
-      if (candleSeriesRef.current) candleSeriesRef.current.setData(candleData);
-      if (volumeSeriesRef.current) volumeSeriesRef.current.setData(volumeData);
-      // EMA20/50/200 -- computed from the SAME real candles just set
-      // above, no separate fetch. calculateEMA() returns null for
-      // every point before there's enough data to seed the average;
-      // those points are filtered out entirely (a null point would
-      // otherwise render as a broken gap or a fabricated zero).
-      for (const period of [20, 50, 200]) {
-        const emaValues = calculateEMA(data.candles, period);
-        const emaData = data.candles
-          .map((c, i) => (emaValues[i] != null ? { time: c.time, value: emaValues[i] } : null))
-          .filter(Boolean);
-        if (emaSeriesRef.current[period]) emaSeriesRef.current[period].setData(emaData);
-      }
-      if (chartRef.current) chartRef.current.timeScale().fitContent();
-      setMeta({ latest_price: data.latest_price, as_of: data.as_of, symbol: data.symbol, source: data.source });
+      candleCacheRef.current[cacheKey] = data;
+      applyChartData(data);
     } catch (e) {
-      setError('Could not reach the chart data service.');
-      setMeta(null);
+      if (e.name === 'AbortError') return;  // expected when superseded -- not a real error, don't show one
+      if (!cached) {
+        setError('Could not reach the chart data service.');
+        setMeta(null);
+      }
     } finally {
-      setLoading(false);
+      // Guarded too: without this, an aborted/superseded request's
+      // finally block could still fire AFTER a newer request has
+      // already started, incorrectly clearing loading=false while the
+      // newer fetch is genuinely still in flight.
+      if (requestId === latestRequestIdRef.current) setLoading(false);
     }
-  }, []);
+  }, [applyChartData]);
 
   useEffect(() => {
     loadCandles(symbol, timeframe);
+    // Sep 27 2026: abort any in-flight fetch on unmount too, not just
+    // on the next call -- without this, navigating away from the page
+    // mid-fetch would let the request finish anyway and attempt a
+    // setState on an unmounted component.
+    return () => {
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
   }, [symbol, timeframe, loadCandles]);
 
   // Toggling an EMA on/off just flips series visibility -- no
@@ -221,7 +300,7 @@ export default function StockChart({ symbol }) {
             ))}
           </div>
           <button
-            onClick={() => loadCandles(symbol, timeframe)} disabled={loading}
+            onClick={() => loadCandles(symbol, timeframe, { bypassCache: true })} disabled={loading}
             className="px-2.5 py-1 text-[11px] rounded bg-slate-950/60 border border-slate-700/50 text-slate-300 hover:text-white disabled:opacity-50"
           >
             {loading ? 'Loading…' : 'Refresh'}

@@ -72,6 +72,7 @@ const FINANCIAL_GLOSSARY = {
   promoterHolding: "The percentage of a company's shares held by its promoters.",
   freeCashFlow: "Cash remaining after operating cash flow is reduced by capital expenditure.",
   operatingCashFlow: "The actual cash a company generates from its core, everyday business operations.",
+  operatingProfit: "Profit from a company's core business operations, before interest and taxes are deducted.",
   workingCapital: "Current assets minus current liabilities -- a measure of short-term financial resources.",
 };
 
