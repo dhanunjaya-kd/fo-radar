@@ -117,6 +117,42 @@ class TestAveragingEndpoint(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
+class TestCandlesEndpoint(TestCase):
+    """Real HTTP requests through the actual candles route. Does NOT
+    require a prior research call -- confirmed by not calling
+    self.client.post('.../refresh/') in any of these."""
+
+    def test_invalid_timeframe_400s(self):
+        with patch('screener.fyers_client.is_authenticated', return_value=True):
+            response = self.client.get('/api/research/company/RELIANCE/candles/?timeframe=3m')
+        self.assertEqual(response.status_code, 400)
+
+    def test_not_authenticated_returns_503(self):
+        with patch('screener.fyers_client.is_authenticated', return_value=False):
+            response = self.client.get('/api/research/company/RELIANCE/candles/?timeframe=1d')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()['reason'], 'not_authenticated')
+
+    def test_successful_fetch_returns_real_shaped_candles(self):
+        raw = {'s': 'ok', 'candles': [[1758000000, 100.0, 105.0, 99.0, 103.0, 50000]]}
+        with patch('screener.fyers_client.is_authenticated', return_value=True), \
+             patch('screener.fyers_client._rate_limited_now', return_value=False), \
+             patch('screener.fyers_client.get_history', return_value=raw):
+            response = self.client.get('/api/research/company/RELIANCE/candles/?timeframe=1d')
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(len(data['candles']), 1)
+        self.assertEqual(data['latest_price'], 103.0)
+
+    def test_default_timeframe_is_daily_when_not_specified(self):
+        with patch('screener.fyers_client.is_authenticated', return_value=True), \
+             patch('screener.fyers_client._rate_limited_now', return_value=False), \
+             patch('screener.fyers_client.get_history', return_value=None) as mock_hist:
+            self.client.get('/api/research/company/RELIANCE/candles/')
+        self.assertEqual(mock_hist.call_args.kwargs['resolution'], 'D')
+
+
 class TestTechnicalEndpoint(TestCase):
     def test_technical_404s_when_snapshot_unavailable(self):
         with patch('fundamentals_research.services.technical_analysis.get_technical_snapshot', return_value=None):

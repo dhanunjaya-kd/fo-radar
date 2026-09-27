@@ -77,6 +77,13 @@ class TestGetTechnicalSnapshot(unittest.TestCase):
         # import here makes these tests self-sufficient regardless of
         # what ran before them.
         import screener.views
+        # Sep 26 2026 addition: get_technical_snapshot() now has its
+        # own day-scoped cache (added in a verification pass to stop
+        # redundant Fyers calls) -- multiple tests below reuse the same
+        # symbol name ('SOMESTOCK'), so without clearing this between
+        # tests, one test's cached result would leak into the next and
+        # silently mask whichever mock that later test set up.
+        ta._technical_snapshot_cache.clear()
 
     def _real_shaped_df(self, n_rows=25):
         """Matches screener/views.py's own _fyers_history_df() output
@@ -137,6 +144,28 @@ class TestGetTechnicalSnapshot(unittest.TestCase):
         days_requested = call_kwargs.get('days') or (call_args[1] if len(call_args) > 1 else None)
         self.assertIsNotNone(days_requested)
         self.assertGreaterEqual(days_requested, 200)
+
+    def test_second_call_same_day_uses_cache_not_a_fresh_fyers_call(self):
+        """The actual bug this caching fix addresses: a second call for
+        the same symbol on the same day (e.g. clicking Retry on just
+        the AI summary) must NOT re-hit Fyers."""
+        df = self._real_shaped_df(n_rows=25)
+        fake_indicators = {'rsi': 55.0, 'ema20': 110.0, 'ema50': 108.0, 'ema200': None, 'adx': 22.0, 'plus_di': 25.0, 'minus_di': 15.0}
+        with patch('screener.views._fyers_history_df', return_value=df) as mock_hist, \
+             patch('screener.views._compute_indicators', return_value=dict(fake_indicators)):
+            result1 = ta.get_technical_snapshot('CACHETEST')
+            result2 = ta.get_technical_snapshot('CACHETEST')
+
+        self.assertEqual(mock_hist.call_count, 1)  # only ONE real fetch for two calls
+        self.assertEqual(result1['rsi'], result2['rsi'])
+
+    def test_different_symbols_dont_share_a_cache_entry(self):
+        df = self._real_shaped_df(n_rows=25)
+        with patch('screener.views._fyers_history_df', return_value=df) as mock_hist, \
+             patch('screener.views._compute_indicators', return_value={'rsi': 50.0}):
+            ta.get_technical_snapshot('SYMBOLA')
+            ta.get_technical_snapshot('SYMBOLB')
+        self.assertEqual(mock_hist.call_count, 2)  # two distinct symbols, two real fetches
 
 
 if __name__ == '__main__':
