@@ -232,8 +232,16 @@ class CompanyDecisionSupportView(APIView):
             # explicitly flagged as a problem to fix. ai_reason now
             # comes straight from generate_decision_summary()'s own
             # documented reason codes.
+            # Sep 27 2026: 'no_api_key' message now names the ACTUAL
+            # active provider's key, not a hardcoded ANTHROPIC_API_KEY --
+            # this exact hardcoded message was the real, confirmed bug
+            # report this fix responds to (showing an Anthropic-specific
+            # message when Gemini is the configured provider).
+            from .services.llm_narrative import _get_provider
+            active_provider = _get_provider()
+            missing_key_name = 'GEMINI_API_KEY' if active_provider == 'gemini' else 'ANTHROPIC_API_KEY'
             REASON_MESSAGES = {
-                'no_api_key': 'AI decision summary unavailable -- ANTHROPIC_API_KEY is not set in the backend .env file.',
+                'no_api_key': f'AI decision summary unavailable -- {missing_key_name} is not set in the backend .env file (AI_PROVIDER={active_provider}).',
                 'network_error': 'AI decision summary unavailable -- could not reach the AI service (network error).',
                 'http_error': 'AI decision summary unavailable -- the AI service returned an error.',
                 'parse_error': 'AI decision summary unavailable -- the AI service response was malformed.',
