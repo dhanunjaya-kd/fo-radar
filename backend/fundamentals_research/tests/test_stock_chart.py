@@ -1,7 +1,7 @@
 import os
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -117,23 +117,31 @@ class TestGetCandles(unittest.TestCase):
         """The actual bug this caching fix addresses: repeated
         timeframe clicks or page reloads within the TTL window must
         not re-hit Fyers, reducing pressure on the shared account-wide
-        rate budget."""
+        rate budget. Uses '5m' (single-request intraday) to keep the
+        call-count assertion simple and separate from the batching
+        behavior covered by its own tests below."""
         raw = {'s': 'ok', 'candles': [[_ts(2026, 9, 20), 100.0, 105.0, 99.0, 103.0, 50000]]}
         with patch('screener.fyers_client.is_authenticated', return_value=True), \
              patch('screener.fyers_client._rate_limited_now', return_value=False), \
              patch('screener.fyers_client.get_history', return_value=raw) as mock_hist:
-            sc.get_candles('CACHETEST', timeframe='1d')
-            sc.get_candles('CACHETEST', timeframe='1d')
+            sc.get_candles('CACHETEST', timeframe='5m')
+            sc.get_candles('CACHETEST', timeframe='5m')
         self.assertEqual(mock_hist.call_count, 1)  # only ONE real fetch for two calls
 
     def test_different_timeframes_dont_share_a_cache_entry(self):
+        """'1d' and '1w' both now batch multiple requests (up to ~3
+        for a 3-year span at the 366-day-per-request cap) -- this only
+        needs to confirm they don't share ONE cache entry, not assert
+        an exact call count, so it checks that '1w' triggers at least
+        one more real call after '1d' already ran."""
         raw = {'s': 'ok', 'candles': [[_ts(2026, 9, 20), 100.0, 105.0, 99.0, 103.0, 50000]]}
         with patch('screener.fyers_client.is_authenticated', return_value=True), \
              patch('screener.fyers_client._rate_limited_now', return_value=False), \
              patch('screener.fyers_client.get_history', return_value=raw) as mock_hist:
             sc.get_candles('CACHETEST2', timeframe='1d')
+            calls_after_1d = mock_hist.call_count
             sc.get_candles('CACHETEST2', timeframe='1w')
-        self.assertEqual(mock_hist.call_count, 2)  # different timeframes, two real fetches
+        self.assertGreater(mock_hist.call_count, calls_after_1d)  # '1w' made its OWN fresh call(s), confirming no shared cache entry with '1d'
 
     def test_yfinance_fallback_used_when_fyers_rate_limited(self):
         """Real fallback path: Fyers genuinely rate-limited, yfinance
@@ -164,6 +172,87 @@ class TestGetCandles(unittest.TestCase):
             result = sc.get_candles('PRIMARYTEST', timeframe='1d')
         mock_yf.assert_not_called()
         self.assertNotEqual(result.get('source'), 'yfinance')
+
+
+class TestFetchFyersHistoryBatched(unittest.TestCase):
+    """Real, dedicated coverage for the actual fix in this round:
+    Fyers caps a single request at 366 days for daily resolution (100
+    for intraday) -- confirmed directly from Fyers' own V3 docs, not
+    guessed. Requesting more than that in ONE call (the old behavior
+    for '1w', which asked for 1095 days at once) would exceed the
+    documented cap. This batches multiple requests and stitches them
+    together correctly."""
+
+    def test_single_request_when_total_days_fits_the_cap(self):
+        raw = {'s': 'ok', 'candles': [[1000, 1, 2, 0, 1, 10]]}
+        mock_get_history = MagicMock(return_value=raw)
+        result = sc._fetch_fyers_history_batched(mock_get_history, 'NSE:TEST-EQ', 'D', total_days=100, max_days_per_request=366)
+        self.assertEqual(mock_get_history.call_count, 1)
+        self.assertEqual(len(result), 1)
+
+    def test_multiple_batches_stitched_when_total_exceeds_cap(self):
+        """The actual real-world case: 1095 days (3 years) requested
+        with a 366-day cap needs 3 separate requests."""
+        call_log = []
+
+        def fake_get_history(symbol, resolution, range_from, range_to):
+            call_log.append((range_from, range_to))
+            # Each batch returns one distinct candle, timestamped uniquely per call, so we can verify all 3 made it into the final result.
+            t = 1000000 - len(call_log) * 86400
+            return {'s': 'ok', 'candles': [[t, 1, 2, 0, 1, 10]]}
+
+        result = sc._fetch_fyers_history_batched(fake_get_history, 'NSE:TEST-EQ', 'D', total_days=1000, max_days_per_request=366)
+        self.assertEqual(len(call_log), 3)  # 366 + 366 + 268 = 1000, three batches
+        self.assertEqual(len(result), 3)  # one distinct candle per batch, all present
+
+    def test_overlapping_timestamps_deduplicated(self):
+        """Chunk boundaries can legitimately return the same candle
+        twice (e.g. the boundary date itself) -- confirms it appears
+        only once in the final result, not duplicated on the chart."""
+        responses = [
+            {'s': 'ok', 'candles': [[2000, 1, 2, 0, 1, 10], [1000, 1, 2, 0, 1, 10]]},  # includes timestamp 1000
+            {'s': 'ok', 'candles': [[1000, 1, 2, 0, 1, 10]]},  # same timestamp 1000 again (boundary overlap)
+        ]
+        mock_get_history = MagicMock(side_effect=[responses[0], responses[1], {'s': 'ok', 'candles': []}])
+        result = sc._fetch_fyers_history_batched(mock_get_history, 'NSE:TEST-EQ', 'D', total_days=800, max_days_per_request=366)
+        timestamps = [c[0] for c in result]
+        self.assertEqual(len(timestamps), len(set(timestamps)))  # no duplicate timestamps in the final result
+        self.assertIn(1000, timestamps)
+
+    def test_stops_early_when_a_batch_returns_no_data(self):
+        """Real efficiency requirement: once a batch comes back empty
+        (very likely the symbol's actual listing date has been
+        reached), stop requesting further back instead of continuing
+        to burn API calls for data that will never arrive."""
+        mock_get_history = MagicMock(side_effect=[
+            {'s': 'ok', 'candles': [[3000, 1, 2, 0, 1, 10]]},
+            {'s': 'ok', 'candles': []},  # nothing further back -- should stop here
+        ])
+        result = sc._fetch_fyers_history_batched(mock_get_history, 'NSE:TEST-EQ', 'D', total_days=1000, max_days_per_request=366)
+        self.assertEqual(mock_get_history.call_count, 2)  # NOT 3 -- stopped after the empty batch, didn't try a third
+        self.assertEqual(len(result), 1)
+
+    def test_result_sorted_chronologically(self):
+        """Batches are fetched newest-chunk-first (walking backward
+        from today), so the raw combined dict must be explicitly
+        sorted before returning -- otherwise candles would appear out
+        of order on the chart."""
+        responses = [
+            {'s': 'ok', 'candles': [[3000, 1, 2, 0, 1, 10]]},  # most recent chunk, fetched FIRST
+            {'s': 'ok', 'candles': [[1000, 1, 2, 0, 1, 10]]},  # older chunk, fetched SECOND
+        ]
+        mock_get_history = MagicMock(side_effect=[responses[0], responses[1], {'s': 'ok', 'candles': []}])
+        result = sc._fetch_fyers_history_batched(mock_get_history, 'NSE:TEST-EQ', 'D', total_days=800, max_days_per_request=366)
+        times = [c[0] for c in result]
+        self.assertEqual(times, sorted(times))  # chronological, oldest first, despite being fetched newest-first
+
+    def test_exception_from_underlying_call_propagates(self):
+        """Callers (_get_candles_from_fyers) already have a try/except
+        around this function -- confirms an exception from ANY batch
+        propagates up rather than being silently swallowed here."""
+        mock_get_history = MagicMock(side_effect=RuntimeError("network blew up"))
+        with self.assertRaises(RuntimeError):
+            sc._fetch_fyers_history_batched(mock_get_history, 'NSE:TEST-EQ', 'D', total_days=500, max_days_per_request=366)
 
 
 class TestAggregateToWeekly(unittest.TestCase):
