@@ -71,6 +71,7 @@ const FINANCIAL_GLOSSARY = {
   operatingMargin: "The percentage of revenue remaining after operating expenses.",
   promoterHolding: "The percentage of a company's shares held by its promoters.",
   freeCashFlow: "Cash remaining after operating cash flow is reduced by capital expenditure.",
+  operatingCashFlow: "The actual cash a company generates from its core, everyday business operations.",
   workingCapital: "Current assets minus current liabilities -- a measure of short-term financial resources.",
 };
 
@@ -792,7 +793,7 @@ export default function ResearchDashboard() {
             <SectionCard title="Cash Flow" term="cashFlow">
               {cf ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <StatBox label="Operating CF" value={fmtInr(cf.operating_cash_flow)} source={cf.source} />
+                  <StatBox label="Operating CF" value={fmtInr(cf.operating_cash_flow)} source={cf.source} term="operatingCashFlow" />
                   <StatBox label="Free Cash Flow" value={fmtInr(cf.free_cash_flow)} source="calculated" term="freeCashFlow" />
                   <StatBox label="CFO/PAT" value={formatRatio(cf.cfo_to_pat)} source="calculated" />
                   <StatBox label="Capex Intensity" value={cf.capex_intensity_pct != null ? `${fmtNum(cf.capex_intensity_pct)}%` : '—'} source="calculated" />
