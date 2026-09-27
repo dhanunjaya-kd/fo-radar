@@ -15,9 +15,46 @@ const TIMEFRAMES = [
   { value: '1d', label: '1D' }, { value: '1w', label: '1W' },
 ];
 
+// Sep 27 2026 fix: real, confirmed timezone bug. NSE trades 9:15am -
+// 3:30pm IST. Fyers' Unix timestamps are correct UTC moments (9:15am
+// IST = 03:45 UTC), but lightweight-charts' crosshair and axis labels
+// display raw UTC by default, not IST -- so a real 9:15am market-open
+// candle was showing as "03:45", making it look like the market was
+// open at 3:45am. The underlying data was fine; only the display was
+// wrong. Every time-formatting function below now explicitly forces
+// Asia/Kolkata, so this is correct regardless of the machine's own
+// system timezone rather than assuming it happens to be set to IST.
+const IST_TIMEZONE = 'Asia/Kolkata';
+
 function formatAsOf(unixTimestamp) {
   if (!unixTimestamp) return '—';
-  return new Date(unixTimestamp * 1000).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  return new Date(unixTimestamp * 1000).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: IST_TIMEZONE });
+}
+
+function formatCrosshairTimeIST(time) {
+  // lightweight-charts' Time here is a UTCTimestamp (whole seconds).
+  const date = new Date(time * 1000);
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: IST_TIMEZONE, day: '2-digit', month: 'short', year: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(date).replace(',', '');
+}
+
+function formatTickMarkTimeIST(time, tickMarkType) {
+  const date = new Date(time * 1000);
+  const opts = { timeZone: IST_TIMEZONE };
+  switch (tickMarkType) {
+    case 0: // Year
+      return new Intl.DateTimeFormat('en-GB', { ...opts, year: 'numeric' }).format(date);
+    case 1: // Month
+      return new Intl.DateTimeFormat('en-GB', { ...opts, month: 'short', year: '2-digit' }).format(date);
+    case 2: // DayOfMonth
+      return new Intl.DateTimeFormat('en-GB', { ...opts, day: '2-digit', month: 'short' }).format(date);
+    case 4: // TimeWithSeconds
+      return new Intl.DateTimeFormat('en-GB', { ...opts, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+    default: // Time
+      return new Intl.DateTimeFormat('en-GB', { ...opts, hour: '2-digit', minute: '2-digit', hour12: false }).format(date);
+  }
 }
 
 // Sep 27 2026: standard EMA formula (k = 2/(period+1), seeded with the
@@ -100,7 +137,8 @@ export default function StockChart({ symbol }) {
       grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#334155' },
-      timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false },
+      timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false, tickMarkFormatter: formatTickMarkTimeIST },
+      localization: { timeFormatter: formatCrosshairTimeIST },
       width: containerEl.clientWidth,
       height: 380,
     });
