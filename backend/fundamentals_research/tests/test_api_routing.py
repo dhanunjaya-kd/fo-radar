@@ -205,7 +205,7 @@ class TestDecisionSupportEndpoint(TestCase):
         self.assertEqual(data['ai_decision_summary']['status'], 'Insufficient data')
         self.assertIn('unavailable', data['ai_decision_summary']['note'])
 
-    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-ant-test'})
+    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-ant-test', 'AI_PROVIDER': 'anthropic'})
     def test_full_pipeline_with_real_technicals_and_ai_summary(self):
         self._research_reliance()
         fake_technicals = {'current_price': 110, 'ema20': 105, 'ema50': 100, 'ema200': 95, 'rsi': 58, 'adx': 25, 'plus_di': 28, 'minus_di': 14, 'atr': 4, 'support': 98, 'volume_avg': 500000}
@@ -250,7 +250,7 @@ class TestChatEndpoint(TestCase):
         response = self.client.post('/api/research/company/RELIANCE/chat/', data={}, content_type='application/json')
         self.assertEqual(response.status_code, 400)
 
-    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-ant-test'})
+    @patch.dict('os.environ', {'ANTHROPIC_API_KEY': 'sk-ant-test', 'AI_PROVIDER': 'anthropic'})
     @patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[])
     @patch('fundamentals_research.services.research_engine.bsc.get_stock', return_value=_fake_bharatstock_stock_response())
     def test_chat_answers_grounded_in_real_snapshot_after_research(self, mock_stock, mock_news):
