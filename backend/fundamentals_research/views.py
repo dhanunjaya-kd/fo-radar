@@ -224,8 +224,24 @@ class CompanyDecisionSupportView(APIView):
             language = 'english'
 
         fact_sheet = ln.build_fact_sheet(research_snapshot)
-        ai_summary = ln.generate_decision_summary(fact_sheet, confluence_result, entry, trend, language=language)
+        ai_summary, ai_reason = ln.generate_decision_summary(fact_sheet, confluence_result, entry, trend, language=language)
         if ai_summary is None:
+            # Sep 26 2026: was a single generic message regardless of
+            # WHY -- couldn't tell "no key configured" from "call
+            # failed" apart, which the spec this was built against
+            # explicitly flagged as a problem to fix. ai_reason now
+            # comes straight from generate_decision_summary()'s own
+            # documented reason codes.
+            REASON_MESSAGES = {
+                'no_api_key': 'AI decision summary unavailable -- ANTHROPIC_API_KEY is not set in the backend .env file.',
+                'network_error': 'AI decision summary unavailable -- could not reach the AI service (network error).',
+                'http_error': 'AI decision summary unavailable -- the AI service returned an error.',
+                'parse_error': 'AI decision summary unavailable -- the AI service response was malformed.',
+                'json_parse_error': 'AI decision summary unavailable -- the AI response was not valid JSON.',
+                'missing_keys': 'AI decision summary unavailable -- the AI response was missing required fields.',
+                'invalid_status': 'AI decision summary unavailable -- the AI used a non-standard status value.',
+                'banned_term': 'AI decision summary unavailable -- the AI response contained disallowed recommendation language.',
+            }
             # Honest, deterministic fallback -- built from the SAME data
             # the AI would have used, not a generic placeholder. Never
             # silently claims AI-generated content when the call failed.
@@ -233,7 +249,8 @@ class CompanyDecisionSupportView(APIView):
                 'status': 'Insufficient data',
                 'supporting_evidence': [], 'opposing_evidence': [],
                 'conditions_to_monitor': [], 'invalidation_conditions': [],
-                'note': 'AI decision summary unavailable (not configured or the call failed) -- the technical/confluence/entry-setup data above is unaffected and still real.',
+                'note': REASON_MESSAGES.get(ai_reason, 'AI decision summary unavailable.') + ' The technical/confluence/entry-setup data above is unaffected and still real.',
+                'error_reason': ai_reason,
             }
 
         return Response({
