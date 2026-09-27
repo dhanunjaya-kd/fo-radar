@@ -27,41 +27,52 @@ logger = logging.getLogger('fundamentals_research.technical_analysis')
 
 def get_technical_snapshot(symbol: str) -> Optional[Dict[str, Any]]:
     """
-    Fetches real daily price history for one stock and runs it through
-    the EXISTING, already-proven indicator engine. Returns None (never
-    a fabricated snapshot) if history is unavailable or too short --
-    _compute_indicators() itself already requires >=20 bars and
-    returns None below that; this function passes that through rather
-    than working around it.
+    Sep 26 2026 REWRITE. The original version of this function had
+    THREE real bugs, found by comparing against screener/views.py's
+    own proven, working _fyers_history_df() -- confirmed as the root
+    cause of "No technical data available" showing for every symbol:
+      1. resolution="1D" -- Fyers' API expects exactly "D", not "1D".
+         Every other working caller in this project uses "D".
+      2. range_from/range_to were never supplied (defaulted to None),
+         so the request went out with a null date range -- Fyers'
+         API needs real date strings, and this project's own working
+         callers always compute and pass them explicitly.
+      3. Assumed lowercase DataFrame columns ('close', 'high', ...) --
+         the real, established convention in this codebase
+         (_fyers_history_df) is capitalized ('Close', 'High', ...).
+         Even with bugs 1-2 fixed, this alone would have raised a
+         KeyError on the very next line.
+
+    Fixed by reusing _fyers_history_df() directly instead of
+    reimplementing history-fetching a second, buggier way -- exactly
+    the "reuse existing APIs" instruction this was built against, and
+    the reason this rewrite doesn't reintroduce a fourth version of
+    the same bug class.
     """
     try:
-        from screener.fyers_client import get_history
-        from screener.views import _compute_indicators
-        import pandas as pd
+        from screener.views import _fyers_history_df, _compute_indicators
     except ImportError as e:
         logger.warning(f"Could not import screener's indicator engine: {e}")
         return None
 
-    fyers_symbol = f"NSE:{symbol.upper()}-EQ"
     try:
-        hist = get_history(fyers_symbol, resolution="1D")
+        df = _fyers_history_df(symbol.upper(), days=250)  # 250 calendar days -- enough trading days for EMA200 to compute, matching _compute_indicators' own >=200-bar requirement for that field
     except Exception as e:
         logger.warning(f"Price history fetch failed for {symbol}: {e}")
         return None
 
-    candles = (hist or {}).get('candles')
-    if not candles or len(candles) < 20:
-        logger.info(f"Insufficient price history for {symbol} ({len(candles) if candles else 0} bars) -- technical snapshot unavailable, not fabricated.")
+    if df is None or len(df) < 20:
+        logger.info(f"Insufficient price history for {symbol} ({0 if df is None else len(df)} bars) -- technical snapshot unavailable, not fabricated.")
         return None
 
-    df = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    indicators = _compute_indicators(df['close'], df['high'], df['low'], df['volume'])
+    indicators = _compute_indicators(df['Close'], df['High'], df['Low'], df['Volume'])
     if indicators is None:
+        logger.info(f"_compute_indicators returned None for {symbol} -- likely a NaN in a computed field; not fabricated.")
         return None
 
-    current_price = float(df['close'].iloc[-1])
+    current_price = float(df['Close'].iloc[-1])
     indicators['current_price'] = current_price
-    indicators['as_of_timestamp'] = int(df['timestamp'].iloc[-1])
+    indicators['as_of_timestamp'] = int(df['ts'].iloc[-1])
     return indicators
 
 

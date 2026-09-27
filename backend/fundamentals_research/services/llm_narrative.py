@@ -54,15 +54,23 @@ def _get_api_key() -> Optional[str]:
     return os.environ.get('ANTHROPIC_API_KEY')
 
 
-def _call_claude(system: str, messages: List[Dict[str, str]], max_tokens: int = 1500) -> Optional[str]:
-    """Returns the model's text response, or None on any failure
-    (missing key, network error, malformed response) -- callers fall
-    back to the deterministic template version, never leave a blank
-    section and never raise up into the request that triggered this."""
+def _call_claude(system: str, messages: List[Dict[str, str]], max_tokens: int = 1500) -> tuple:
+    """
+    Returns (text, reason) -- text is None on any failure, reason is
+    always a short machine-readable code so callers (and ultimately
+    the API response) can distinguish WHY, not just THAT it failed.
+    Sep 26 2026 addition: previously returned only Optional[str],
+    which is why "AI decision summary unavailable (not configured or
+    the call failed)" couldn't say which -- this is the actual fix for
+    that, not just a cosmetic detail.
+
+    reason values: 'ok', 'no_api_key', 'network_error', 'http_error',
+    'parse_error'.
+    """
     api_key = _get_api_key()
     if not api_key:
         logger.info("ANTHROPIC_API_KEY not set -- narrative generation skipped, template fallback will be used.")
-        return None
+        return None, 'no_api_key'
 
     try:
         resp = requests.post(
@@ -73,19 +81,20 @@ def _call_claude(system: str, messages: List[Dict[str, str]], max_tokens: int = 
         )
     except requests.exceptions.RequestException as e:
         logger.warning(f"Claude API call failed (network): {e}")
-        return None
+        return None, 'network_error'
 
     if resp.status_code != 200:
         logger.warning(f"Claude API returned HTTP {resp.status_code}: {resp.text[:300]}")
-        return None
+        return None, 'http_error'
 
     try:
         data = resp.json()
         text_blocks = [b['text'] for b in data.get('content', []) if b.get('type') == 'text']
-        return ''.join(text_blocks) if text_blocks else None
+        text = ''.join(text_blocks) if text_blocks else None
+        return (text, 'ok') if text is not None else (None, 'parse_error')
     except (ValueError, KeyError) as e:
         logger.warning(f"Claude API response malformed: {e}")
-        return None
+        return None, 'parse_error'
 
 
 def build_fact_sheet(snapshot) -> Dict[str, Any]:
@@ -164,7 +173,7 @@ Write five short sections analyzing this data. Return ONLY valid JSON, no other 
 }}
 Each value should be 2-4 sentences. If a section's underlying data is null in the fact sheet, that section's text must say the data isn't available -- do not skip the key or invent content for it."""
 
-    raw = _call_claude(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1200)
+    raw, _reason = _call_claude(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1200)
     if raw is None:
         return None
 
@@ -213,7 +222,7 @@ def answer_question(fact_sheet: Dict[str, Any], question: str, conversation_hist
     messages.append({'role': 'user', 'content': question})
 
     system = _SYSTEM_PROMPT + "\n\nYou are now answering a direct follow-up question from the user about this company. If the answer isn't in the fact sheet, say so plainly -- do not guess."
-    answer = _call_claude(system, messages, max_tokens=600)
+    answer, _reason = _call_claude(system, messages, max_tokens=600)
     if answer is None:
         return "Sorry, I couldn't generate an answer right now -- the AI service is unavailable or not configured. The structured data above is still accurate and unaffected."
     return answer
@@ -235,7 +244,7 @@ _ROMAN_TELUGU_INSTRUCTION = (
 def generate_decision_summary(
     fact_sheet: Dict[str, Any], confluence: Dict[str, Any], entry_setup: Dict[str, Any],
     trend_classification: Dict[str, str], language: str = 'english',
-) -> Optional[Dict[str, Any]]:
+) -> tuple:
     """
     Sep 26 2026. Synthesizes the ALREADY-COMPUTED confluence.py,
     entry_setup.py, and technical_analysis.py outputs (passed in, not
@@ -250,10 +259,15 @@ def generate_decision_summary(
     change behavior for existing callers) or 'roman_telugu' (per this
     feature's own spec -- opt-in via this parameter, not forced).
 
-    Returns None on any failure (same fallback contract as
-    generate_narrative_sections) -- caller must have its own fallback
-    (a plain "Insufficient data" summary built from the raw
-    confluence/entry_setup dicts directly, no AI needed for that case).
+    Returns (summary_dict_or_None, reason). reason is always populated,
+    even on success ('ok'), so the caller (ultimately the API response)
+    can show WHY, not just THAT, e.g. "AI not configured" vs "AI call
+    failed" -- previously indistinguishable, which the spec this was
+    built against explicitly asked to fix.
+    Possible reasons: 'ok', 'no_api_key', 'network_error', 'http_error',
+    'parse_error' (the API call's own response wasn't valid), 'json_parse_error'
+    (got text back but it wasn't valid JSON), 'missing_keys', 'invalid_status',
+    'banned_term'.
     """
     combined_input = {
         'fact_sheet': fact_sheet, 'confluence': confluence,
@@ -280,9 +294,9 @@ Write a decision summary. Return ONLY valid JSON, no other text, with exactly th
 Each evidence/condition list: 2-4 short items, each citing a specific number or classification from the data above. If the evidence is genuinely conflicting or data is missing, "status" must be "Insufficient data" or reflect the conflict honestly -- never force a confident status the data doesn't support.
 {language_instruction}"""
 
-    raw = _call_claude(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1000)
+    raw, call_reason = _call_claude(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1000)
     if raw is None:
-        return None
+        return None, call_reason
 
     try:
         cleaned = raw.strip()
@@ -293,22 +307,22 @@ Each evidence/condition list: 2-4 short items, each citing a specific number or 
         summary = json.loads(cleaned.strip())
     except (ValueError, IndexError) as e:
         logger.warning(f"Could not parse decision summary JSON from Claude response: {e}")
-        return None
+        return None, 'json_parse_error'
 
     required_keys = {'status', 'supporting_evidence', 'opposing_evidence', 'conditions_to_monitor', 'invalidation_conditions'}
     if not required_keys.issubset(summary.keys()):
         logger.warning(f"Decision summary missing expected keys: {required_keys - summary.keys()}")
-        return None
+        return None, 'missing_keys'
 
     if summary['status'] not in _DECISION_STATUSES:
         logger.warning(f"Decision summary used a non-standard status '{summary['status']}' -- discarding.")
-        return None
+        return None, 'invalid_status'
 
     full_text = ' '.join(str(v) for v in summary.values() if isinstance(v, (str, list)) for v in ([v] if isinstance(v, str) else v)).lower()
     from .report_builder import _BANNED_TERMS
     for term in _BANNED_TERMS:
         if term in full_text:
             logger.warning(f"Decision summary contained banned term '{term}' -- discarding.")
-            return None
+            return None, 'banned_term'
 
-    return summary
+    return summary, 'ok'
