@@ -26,7 +26,7 @@ def _mock_gemini_response(text):
 class TestApiKeyHandling(unittest.TestCase):
     def test_no_key_returns_none_not_crash(self):
         with patch.dict(os.environ, {}, clear=True):
-            result, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+            result, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
         self.assertIsNone(result)
         self.assertEqual(reason, 'no_api_key')
 
@@ -39,7 +39,7 @@ class TestApiKeyHandling(unittest.TestCase):
 
     def test_gemini_provider_looks_for_gemini_api_key_not_anthropic(self):
         with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key'}, clear=True):
-            result, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+            result, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
         # key IS present, so this should NOT be 'no_api_key' -- it'll
         # genuinely try a network call and fail (no mock here), proving
         # the key was found and used, not skipped
@@ -55,7 +55,7 @@ class TestApiKeyHandling(unittest.TestCase):
         with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key\n', 'AI_PROVIDER': 'gemini'}, clear=True), \
              patch('fundamentals_research.services.llm_narrative.requests.post') as mock_post:
             mock_post.return_value = _mock_gemini_response('ok')
-            text, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+            text, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
         self.assertEqual(reason, 'ok')  # stripped correctly, no crash, real call succeeded
         sent_headers = mock_post.call_args.kwargs['headers']
         self.assertEqual(sent_headers['x-goog-api-key'], 'test-key')  # confirmed stripped, not left with the newline
@@ -68,13 +68,13 @@ class TestApiKeyHandling(unittest.TestCase):
         with patch.dict(os.environ, {'AI_PROVIDER': 'gemini'}, clear=True), \
              patch('fundamentals_research.services.llm_narrative.requests.post', side_effect=ValueError("Invalid header value")):
             with patch('fundamentals_research.services.llm_narrative._get_api_key', return_value='key-with-\x00-null'):
-                text, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+                text, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
         self.assertIsNone(text)
         self.assertEqual(reason, 'network_error')  # graceful, not a crash
 
     def test_anthropic_provider_selected_explicitly_looks_for_anthropic_key(self):
         with patch.dict(os.environ, {'AI_PROVIDER': 'anthropic'}, clear=True):
-            result, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+            result, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
         self.assertEqual(reason, 'no_api_key')  # ANTHROPIC_API_KEY genuinely absent here
 
 
@@ -83,7 +83,7 @@ class TestCallGemini(unittest.TestCase):
     @patch('fundamentals_research.services.llm_narrative.requests.post')
     def test_successful_call_parses_response_correctly(self, mock_post):
         mock_post.return_value = _mock_gemini_response('Hello from Gemini')
-        text, reason = ln._call_llm('system prompt', [{'role': 'user', 'content': 'hi'}])
+        text, reason, detail = ln._call_llm('system prompt', [{'role': 'user', 'content': 'hi'}])
         self.assertEqual(reason, 'ok')
         self.assertEqual(text, 'Hello from Gemini')
 
@@ -140,7 +140,7 @@ class TestCallGemini(unittest.TestCase):
         resp.status_code = 429
         resp.text = '{"error":{"code":429,"message":"Resource exhausted","status":"RESOURCE_EXHAUSTED"}}'
         mock_post.return_value = resp
-        text, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+        text, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
         self.assertIsNone(text)
         self.assertEqual(reason, 'http_error')
 
@@ -148,7 +148,7 @@ class TestCallGemini(unittest.TestCase):
     @patch('fundamentals_research.services.llm_narrative.requests.post')
     def test_network_error_returns_network_error_reason(self, mock_post):
         mock_post.side_effect = requests.exceptions.ConnectionError("down")
-        text, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+        text, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
         self.assertIsNone(text)
         self.assertEqual(reason, 'network_error')
 
@@ -159,7 +159,7 @@ class TestCallGemini(unittest.TestCase):
         resp.status_code = 200
         resp.json.return_value = {'candidates': []}
         mock_post.return_value = resp
-        text, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+        text, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
         self.assertIsNone(text)
         self.assertEqual(reason, 'parse_error')
 
@@ -170,7 +170,7 @@ class TestCallGemini(unittest.TestCase):
         resp.status_code = 200
         resp.json.return_value = {'candidates': [{'content': {}}]}  # missing 'parts' entirely
         mock_post.return_value = resp
-        text, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+        text, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
         self.assertIsNone(text)
         self.assertEqual(reason, 'parse_error')
 
@@ -365,7 +365,7 @@ class TestGenerateDecisionSummary(unittest.TestCase):
             'conditions_to_monitor': ['Watch EMA50'], 'invalidation_conditions': ['Close below support'],
         })
         mock_post.return_value = _mock_claude_response(valid)
-        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        result, reason, detail = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNotNone(result)
         self.assertEqual(reason, 'ok')
         self.assertEqual(result['status'], 'Fundamentals relatively stable, technical trend weak')
@@ -380,7 +380,7 @@ class TestGenerateDecisionSummary(unittest.TestCase):
             'conditions_to_monitor': [], 'invalidation_conditions': [],
         })
         mock_post.return_value = _mock_claude_response(bad)
-        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        result, reason, detail = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNone(result)
         self.assertEqual(reason, 'invalid_status')
 
@@ -392,7 +392,7 @@ class TestGenerateDecisionSummary(unittest.TestCase):
             'opposing_evidence': [], 'conditions_to_monitor': [], 'invalidation_conditions': [],
         })
         mock_post.return_value = _mock_claude_response(bad)
-        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        result, reason, detail = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNone(result)
         self.assertEqual(reason, 'banned_term')
 
@@ -429,7 +429,7 @@ class TestGenerateDecisionSummary(unittest.TestCase):
         unavailable (not configured or the call failed)' -- confirms the
         reason code is specifically 'no_api_key', distinguishable from
         every other failure mode now."""
-        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        result, reason, detail = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNone(result)
         self.assertEqual(reason, 'no_api_key')
 
@@ -438,6 +438,6 @@ class TestGenerateDecisionSummary(unittest.TestCase):
     def test_missing_required_key_discarded(self, mock_post):
         incomplete = json.dumps({'status': 'Insufficient data'})
         mock_post.return_value = _mock_claude_response(incomplete)
-        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        result, reason, detail = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNone(result)
         self.assertEqual(reason, 'missing_keys')

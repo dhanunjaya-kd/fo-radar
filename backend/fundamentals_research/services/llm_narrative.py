@@ -97,15 +97,20 @@ def _call_llm(system: str, messages: List[Dict[str, str]], max_tokens: int = 150
     active, so nothing downstream (JSON parsing, banned-term checks,
     status validation) needs to know or care which provider answered.
 
-    reason values: 'ok', 'no_api_key', 'network_error', 'http_error',
-    'parse_error'.
+    Returns (text, reason, detail). reason values: 'ok', 'no_api_key',
+    'network_error', 'http_error', 'parse_error'. detail is a short,
+    safe (never contains the API key -- confirmed for both providers'
+    real error response shapes), human-readable string explaining WHAT
+    happened, or None on success -- added so a genuine API error isn't
+    silently reduced to a generic label with nothing else shown to the
+    user.
     """
     provider = _get_provider()
     api_key = _get_api_key(provider)
     if not api_key:
         key_name = 'GEMINI_API_KEY' if provider == 'gemini' else 'ANTHROPIC_API_KEY'
         logger.info(f"{key_name} not set (AI_PROVIDER={provider}) -- narrative generation skipped, template fallback will be used.")
-        return None, 'no_api_key'
+        return None, 'no_api_key', f'{key_name} is not set.'
 
     if provider == 'gemini':
         return _call_gemini(system, messages, max_tokens, api_key)
@@ -127,20 +132,21 @@ def _call_anthropic(system: str, messages: List[Dict[str, str]], max_tokens: int
         # without this, that case would crash unhandled instead of
         # degrading gracefully.
         logger.warning(f"Claude API call failed (network): {e}")
-        return None, 'network_error'
+        return None, 'network_error', str(e)[:200]
 
     if resp.status_code != 200:
+        detail = resp.text[:200]
         logger.warning(f"Claude API returned HTTP {resp.status_code}: {resp.text[:300]}")
-        return None, 'http_error'
+        return None, 'http_error', f"HTTP {resp.status_code}: {detail}"
 
     try:
         data = resp.json()
         text_blocks = [b['text'] for b in data.get('content', []) if b.get('type') == 'text']
         text = ''.join(text_blocks) if text_blocks else None
-        return (text, 'ok') if text is not None else (None, 'parse_error')
+        return (text, 'ok', None) if text is not None else (None, 'parse_error', 'Claude returned an empty response.')
     except (ValueError, KeyError) as e:
         logger.warning(f"Claude API response malformed: {e}")
-        return None, 'parse_error'
+        return None, 'parse_error', str(e)[:200]
 
 
 def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str) -> tuple:
@@ -176,7 +182,7 @@ def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, a
         )
     except (requests.exceptions.RequestException, ValueError) as e:
         logger.warning(f"Gemini API call failed (network): {e}")
-        return None, 'network_error'
+        return None, 'network_error', str(e)[:200]
 
     if resp.status_code != 200:
         # Sep 27 2026: never log the api_key itself -- confirmed this
@@ -184,20 +190,28 @@ def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, a
         # like Anthropic's, only describes the error, e.g.
         # {"error":{"code":429,"message":"...","status":"RESOURCE_EXHAUSTED"}}),
         # same safety property already verified for the Anthropic path.
+        #
+        # Sep 27 2026 addition: now ALSO returned as 'detail' (not just
+        # logged), per explicit instruction "do not merely hide the
+        # error or show a generic success message" -- previously the
+        # real Gemini error text only reached the Django console, never
+        # the user. Truncated to 200 chars, safe (confirmed no key
+        # echo), and still never the raw key itself under any path.
+        detail = resp.text[:200]
         logger.warning(f"Gemini API returned HTTP {resp.status_code}: {resp.text[:300]}")
-        return None, 'http_error'
+        return None, 'http_error', f"HTTP {resp.status_code}: {detail}"
 
     try:
         data = resp.json()
         candidates = data.get('candidates') or []
         if not candidates:
-            return None, 'parse_error'
+            return None, 'parse_error', 'Gemini returned no candidates in its response.'
         parts = candidates[0].get('content', {}).get('parts', [])
         text = ''.join(p.get('text', '') for p in parts) or None
-        return (text, 'ok') if text is not None else (None, 'parse_error')
+        return (text, 'ok', None) if text is not None else (None, 'parse_error', 'Gemini returned an empty response.')
     except (ValueError, KeyError, IndexError, AttributeError) as e:
         logger.warning(f"Gemini API response malformed: {e}")
-        return None, 'parse_error'
+        return None, 'parse_error', str(e)[:200]
 
 
 
@@ -277,7 +291,7 @@ Write five short sections analyzing this data. Return ONLY valid JSON, no other 
 }}
 Each value should be 2-4 sentences. If a section's underlying data is null in the fact sheet, that section's text must say the data isn't available -- do not skip the key or invent content for it."""
 
-    raw, _reason = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1200)
+    raw, _reason, _detail = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1200)
     if raw is None:
         return None
 
@@ -326,7 +340,7 @@ def answer_question(fact_sheet: Dict[str, Any], question: str, conversation_hist
     messages.append({'role': 'user', 'content': question})
 
     system = _SYSTEM_PROMPT + "\n\nYou are now answering a direct follow-up question from the user about this company. If the answer isn't in the fact sheet, say so plainly -- do not guess."
-    answer, _reason = _call_llm(system, messages, max_tokens=600)
+    answer, _reason, _detail = _call_llm(system, messages, max_tokens=600)
     if answer is None:
         return "Sorry, I couldn't generate an answer right now -- the AI service is unavailable or not configured. The structured data above is still accurate and unaffected."
     return answer
@@ -363,7 +377,7 @@ def generate_decision_summary(
     change behavior for existing callers) or 'roman_telugu' (per this
     feature's own spec -- opt-in via this parameter, not forced).
 
-    Returns (summary_dict_or_None, reason). reason is always populated,
+    Returns (summary_dict_or_None, reason, detail). reason is always populated,
     even on success ('ok'), so the caller (ultimately the API response)
     can show WHY, not just THAT, e.g. "AI not configured" vs "AI call
     failed" -- previously indistinguishable, which the spec this was
@@ -398,9 +412,9 @@ Write a decision summary. Return ONLY valid JSON, no other text, with exactly th
 Each evidence/condition list: 2-4 short items, each citing a specific number or classification from the data above. If the evidence is genuinely conflicting or data is missing, "status" must be "Insufficient data" or reflect the conflict honestly -- never force a confident status the data doesn't support.
 {language_instruction}"""
 
-    raw, call_reason = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1000)
+    raw, call_reason, call_detail = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1000)
     if raw is None:
-        return None, call_reason
+        return None, call_reason, call_detail
 
     try:
         cleaned = raw.strip()
@@ -411,22 +425,23 @@ Each evidence/condition list: 2-4 short items, each citing a specific number or 
         summary = json.loads(cleaned.strip())
     except (ValueError, IndexError) as e:
         logger.warning(f"Could not parse decision summary JSON from Claude response: {e}")
-        return None, 'json_parse_error'
+        return None, 'json_parse_error', str(e)[:200]
 
     required_keys = {'status', 'supporting_evidence', 'opposing_evidence', 'conditions_to_monitor', 'invalidation_conditions'}
     if not required_keys.issubset(summary.keys()):
-        logger.warning(f"Decision summary missing expected keys: {required_keys - summary.keys()}")
-        return None, 'missing_keys'
+        missing = required_keys - summary.keys()
+        logger.warning(f"Decision summary missing expected keys: {missing}")
+        return None, 'missing_keys', f"Response was missing: {', '.join(missing)}"
 
     if summary['status'] not in _DECISION_STATUSES:
         logger.warning(f"Decision summary used a non-standard status '{summary['status']}' -- discarding.")
-        return None, 'invalid_status'
+        return None, 'invalid_status', f"Model used status '{summary['status']}', not one of the allowed values."
 
     full_text = ' '.join(str(v) for v in summary.values() if isinstance(v, (str, list)) for v in ([v] if isinstance(v, str) else v)).lower()
     from .report_builder import _BANNED_TERMS
     for term in _BANNED_TERMS:
         if term in full_text:
             logger.warning(f"Decision summary contained banned term '{term}' -- discarding.")
-            return None, 'banned_term'
+            return None, 'banned_term', f"Response contained disallowed term '{term}'."
 
-    return summary, 'ok'
+    return summary, 'ok', None
