@@ -224,7 +224,7 @@ class CompanyDecisionSupportView(APIView):
             language = 'english'
 
         fact_sheet = ln.build_fact_sheet(research_snapshot)
-        ai_summary, ai_reason = ln.generate_decision_summary(fact_sheet, confluence_result, entry, trend, language=language)
+        ai_summary, ai_reason, ai_detail = ln.generate_decision_summary(fact_sheet, confluence_result, entry, trend, language=language)
         if ai_summary is None:
             # Sep 26 2026: was a single generic message regardless of
             # WHY -- couldn't tell "no key configured" from "call
@@ -237,6 +237,14 @@ class CompanyDecisionSupportView(APIView):
             # this exact hardcoded message was the real, confirmed bug
             # report this fix responds to (showing an Anthropic-specific
             # message when Gemini is the configured provider).
+            #
+            # Sep 27 2026 addition: ai_detail now appended when present
+            # -- the real error text from the AI provider itself (e.g.
+            # "HTTP 403: {...invalid API key...}"), not just a generic
+            # category label. Per explicit instruction: "do not merely
+            # hide the error or show a generic success message." detail
+            # is already confirmed safe (never the raw API key) by
+            # llm_narrative.py's own construction of it.
             from .services.llm_narrative import _get_provider
             active_provider = _get_provider()
             missing_key_name = 'GEMINI_API_KEY' if active_provider == 'gemini' else 'ANTHROPIC_API_KEY'
@@ -250,6 +258,8 @@ class CompanyDecisionSupportView(APIView):
                 'invalid_status': 'AI decision summary unavailable -- the AI used a non-standard status value.',
                 'banned_term': 'AI decision summary unavailable -- the AI response contained disallowed recommendation language.',
             }
+            base_message = REASON_MESSAGES.get(ai_reason, 'AI decision summary unavailable.')
+            detail_suffix = f" Detail: {ai_detail}" if ai_detail else ""
             # Honest, deterministic fallback -- built from the SAME data
             # the AI would have used, not a generic placeholder. Never
             # silently claims AI-generated content when the call failed.
@@ -257,8 +267,9 @@ class CompanyDecisionSupportView(APIView):
                 'status': 'Insufficient data',
                 'supporting_evidence': [], 'opposing_evidence': [],
                 'conditions_to_monitor': [], 'invalidation_conditions': [],
-                'note': REASON_MESSAGES.get(ai_reason, 'AI decision summary unavailable.') + ' The technical/confluence/entry-setup data above is unaffected and still real.',
+                'note': base_message + detail_suffix + ' The technical/confluence/entry-setup data above is unaffected and still real.',
                 'error_reason': ai_reason,
+                'error_detail': ai_detail,
             }
 
         return Response({
