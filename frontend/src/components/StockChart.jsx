@@ -26,8 +26,19 @@ const TIMEFRAMES = [
 // system timezone rather than assuming it happens to be set to IST.
 const IST_TIMEZONE = 'Asia/Kolkata';
 
-function formatAsOf(unixTimestamp) {
+function formatAsOf(unixTimestamp, timeframe) {
   if (!unixTimestamp) return '—';
+  // Sep 27 2026 fix: real, confirmed cause of a misleading "5:30 AM"
+  // timestamp on daily candles. A daily bar represents an entire
+  // trading day, not one specific moment -- Fyers anchors it at
+  // midnight UTC, which is a pure date marker, not a real trading
+  // time. Converting that to IST (correctly, per the earlier
+  // timezone fix) produces 00:00 UTC + 5:30 = 05:30 IST, a time that
+  // never actually happened on that candle. For 1d/1w, show only the
+  // date -- no time component to misrepresent.
+  if (timeframe === '1d' || timeframe === '1w') {
+    return new Date(unixTimestamp * 1000).toLocaleString('en-IN', { dateStyle: 'medium', timeZone: IST_TIMEZONE });
+  }
   return new Date(unixTimestamp * 1000).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: IST_TIMEZONE });
 }
 
@@ -211,6 +222,7 @@ export default function StockChart({ symbol }) {
   const abortControllerRef = useRef(null);
   const latestRequestIdRef = useRef(0);
   const candleCacheRef = useRef({});  // {[`${symbol}:${timeframe}`]: data} -- in-memory, cleared on full page reload; not persisted (no browser storage per this environment's rules)
+  const lastFitKeyRef = useRef(null);  // which symbol:timeframe key the view has already been auto-fit for
 
   // Extracted so the SAME rendering path is used for both an
   // immediately-shown cached value and a freshly-fetched one --
@@ -227,8 +239,22 @@ export default function StockChart({ symbol }) {
         .filter(Boolean);
       if (emaSeriesRef.current[period]) emaSeriesRef.current[period].setData(emaData);
     }
-    if (chartRef.current) chartRef.current.timeScale().fitContent();
-    setMeta({ latest_price: data.latest_price, as_of: data.as_of, symbol: data.symbol, source: data.source });
+    // Sep 27 2026 fix: real, confirmed cause of chart "shaking" --
+    // stale-while-revalidate calls applyChartData TWICE for the same
+    // symbol/timeframe (once immediately with cached data, once again
+    // moments later with the fresh fetch). fitContent() resetting the
+    // zoom/pan BOTH times produced a visible jump. Now only auto-fits
+    // the FIRST time a given symbol+timeframe is shown -- a routine
+    // background refresh of data the user is already looking at
+    // preserves whatever zoom/scroll position they're on, matching
+    // the explicit "preserve zoom/scroll during routine updates"
+    // requirement.
+    const fitKey = `${data.symbol}:${data.timeframe}`;
+    if (chartRef.current && lastFitKeyRef.current !== fitKey) {
+      chartRef.current.timeScale().fitContent();
+      lastFitKeyRef.current = fitKey;
+    }
+    setMeta({ latest_price: data.latest_price, as_of: data.as_of, symbol: data.symbol, source: data.source, timeframe: data.timeframe });
   }, []);
 
   const loadCandles = useCallback(async (sym, tf, { bypassCache = false } = {}) => {
@@ -333,7 +359,7 @@ export default function StockChart({ symbol }) {
             <>
               <span className="text-base font-bold text-white">₹{meta.latest_price.toFixed(2)}</span>
               <span className="text-[10px] text-slate-500">
-                as of {formatAsOf(meta.as_of)} — historical, not live-streamed
+                as of {formatAsOf(meta.as_of, meta.timeframe)} — historical, not live-streamed
                 {meta.source === 'yfinance' && <span className="text-amber-500/80"> · via Yahoo Finance (Fyers was unavailable)</span>}
               </span>
             </>
