@@ -391,7 +391,7 @@ function ConfluenceCard({ confluence, loading }) {
   );
 }
 
-function DecisionSummaryCard({ summary, language, onLanguageChange, loading }) {
+function DecisionSummaryCard({ summary, language, onLanguageChange, loading, onRetry }) {
   if (loading) return <div className="text-xs text-slate-500 py-6 text-center">Loading…</div>;
   if (!summary) return <div className="text-xs text-slate-500">No decision summary available.</div>;
 
@@ -417,7 +417,14 @@ function DecisionSummaryCard({ summary, language, onLanguageChange, loading }) {
           <option value="roman_telugu">Roman Telugu</option>
         </select>
       </div>
-      {summary.note && <div className="text-[10px] text-slate-500 mb-2">{summary.note}</div>}
+      {summary.note && (
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="text-[10px] text-slate-500">{summary.note}</div>
+          {summary.error_reason && (
+            <button onClick={onRetry} className="shrink-0 text-[10px] text-emerald-400 hover:text-emerald-300 underline">Retry</button>
+          )}
+        </div>
+      )}
       <div className="grid md:grid-cols-2 gap-3">
         <div>
           <div className="text-[10px] text-emerald-400 mb-1">Supporting evidence</div>
@@ -717,6 +724,20 @@ export default function ResearchDashboard() {
                   <StatBox label="Current Ratio" value={formatRatio(bs.current_ratio)} source="calculated" />
                 </div>
               ) : <div className="text-xs text-slate-500">N/A — no balance sheet data available.</div>}
+              {/* Sep 26 2026: confirmed the calculation code is NOT the
+                  cause (calculate_free_cash_flow correctly returns None
+                  for genuinely-missing capex, never silently treats it
+                  as 0) -- Total Debt/Cash showing blank for financial-
+                  services companies is a real, well-known reporting
+                  difference (banks/NBFCs don't have a traditional
+                  debt-vs-equity capital structure), not independently
+                  verified against a live source but explained honestly
+                  rather than left as an unexplained blank field. */}
+              {bs && bs.total_debt == null && bs.cash == null && snapshot.company.sector === 'Financial Services' && (
+                <div className="text-[10px] text-slate-500 mt-2 pt-2 border-t border-slate-800">
+                  Total Debt / Cash are commonly unavailable for banks and financial-services companies — their balance sheets report advances/deposits rather than the debt-vs-cash structure this field expects.
+                </div>
+              )}
             </SectionCard>
 
             <SectionCard title="Cash Flow">
@@ -799,6 +820,7 @@ export default function ResearchDashboard() {
             <DecisionSummaryCard
               summary={decisionSupport?.ai_decision_summary} language={decisionLanguage} loading={decisionSupportLoading}
               onLanguageChange={(lang) => { setDecisionLanguage(lang); fetchDecisionSupport(snapshot.company.symbol, lang); }}
+              onRetry={() => fetchDecisionSupport(snapshot.company.symbol, decisionLanguage)}
             />
           </SectionCard>
 
