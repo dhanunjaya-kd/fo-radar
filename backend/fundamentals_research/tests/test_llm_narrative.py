@@ -18,8 +18,9 @@ def _mock_claude_response(text):
 class TestApiKeyHandling(unittest.TestCase):
     def test_no_key_returns_none_not_crash(self):
         with patch.dict(os.environ, {}, clear=True):
-            result = ln._call_claude('system', [{'role': 'user', 'content': 'hi'}])
+            result, reason = ln._call_claude('system', [{'role': 'user', 'content': 'hi'}])
         self.assertIsNone(result)
+        self.assertEqual(reason, 'no_api_key')
 
 
 class TestGenerateNarrativeSections(unittest.TestCase):
@@ -189,8 +190,9 @@ class TestGenerateDecisionSummary(unittest.TestCase):
             'conditions_to_monitor': ['Watch EMA50'], 'invalidation_conditions': ['Close below support'],
         })
         mock_post.return_value = _mock_claude_response(valid)
-        result = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNotNone(result)
+        self.assertEqual(reason, 'ok')
         self.assertEqual(result['status'], 'Fundamentals relatively stable, technical trend weak')
 
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'})
@@ -203,8 +205,9 @@ class TestGenerateDecisionSummary(unittest.TestCase):
             'conditions_to_monitor': [], 'invalidation_conditions': [],
         })
         mock_post.return_value = _mock_claude_response(bad)
-        result = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNone(result)
+        self.assertEqual(reason, 'invalid_status')
 
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'})
     @patch('fundamentals_research.services.llm_narrative.requests.post')
@@ -214,8 +217,9 @@ class TestGenerateDecisionSummary(unittest.TestCase):
             'opposing_evidence': [], 'conditions_to_monitor': [], 'invalidation_conditions': [],
         })
         mock_post.return_value = _mock_claude_response(bad)
-        result = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNone(result)
+        self.assertEqual(reason, 'banned_term')
 
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'})
     @patch('fundamentals_research.services.llm_narrative.requests.post')
@@ -246,13 +250,19 @@ class TestGenerateDecisionSummary(unittest.TestCase):
 
     @patch.dict(os.environ, {}, clear=True)
     def test_no_api_key_returns_none(self):
-        result = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        """This is the exact real-world case behind 'AI decision summary
+        unavailable (not configured or the call failed)' -- confirms the
+        reason code is specifically 'no_api_key', distinguishable from
+        every other failure mode now."""
+        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNone(result)
+        self.assertEqual(reason, 'no_api_key')
 
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test'})
     @patch('fundamentals_research.services.llm_narrative.requests.post')
     def test_missing_required_key_discarded(self, mock_post):
         incomplete = json.dumps({'status': 'Insufficient data'})
         mock_post.return_value = _mock_claude_response(incomplete)
-        result = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
+        result, reason = ln.generate_decision_summary(self.fact_sheet, self.confluence, self.entry_setup, self.trend)
         self.assertIsNone(result)
+        self.assertEqual(reason, 'missing_keys')

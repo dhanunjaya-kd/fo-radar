@@ -70,32 +70,73 @@ class TestClassifyTrend(unittest.TestCase):
 
 class TestGetTechnicalSnapshot(unittest.TestCase):
     def setUp(self):
-        # Sep 26 2026: unittest.mock.patch('screener.fyers_client.X')
-        # requires 'fyers_client' to already exist as an attribute on
-        # the 'screener' package -- true once Django's app loading has
-        # touched it (e.g. via urls.py importing screener.views), but
+        # Sep 26 2026: unittest.mock.patch('screener.views.X') requires
+        # 'views' to already exist as an attribute on the 'screener'
+        # package -- true once Django's app loading has touched it, but
         # not guaranteed before that in an isolated test run. Explicit
-        # imports here make these tests self-sufficient regardless of
+        # import here makes these tests self-sufficient regardless of
         # what ran before them.
-        import screener.fyers_client
         import screener.views
 
+    def _real_shaped_df(self, n_rows=25):
+        """Matches screener/views.py's own _fyers_history_df() output
+        shape EXACTLY (confirmed by reading that function): columns
+        ['ts', 'Open', 'High', 'Low', 'Close', 'Volume'], capitalized --
+        the exact shape mismatch that was the real bug here."""
+        import pandas as pd
+        rows = [[1700000000 + i * 86400, 100 + i, 101 + i, 99 + i, 100 + i, 1000 + i * 10] for i in range(n_rows)]
+        return pd.DataFrame(rows, columns=['ts', 'Open', 'High', 'Low', 'Close', 'Volume'])
+
     def test_insufficient_history_returns_none_not_crash(self):
-        with patch('screener.fyers_client.get_history', return_value={'candles': [[1, 100, 101, 99, 100, 1000]] * 5}), \
+        with patch('screener.views._fyers_history_df', return_value=self._real_shaped_df(n_rows=5)), \
              patch('screener.views._compute_indicators') as mock_compute:
             result = ta.get_technical_snapshot('SOMESTOCK')
         # too few bars (5 < 20) -- must return None, never call the indicator engine on insufficient data
         self.assertIsNone(result)
+        mock_compute.assert_not_called()
 
     def test_history_fetch_exception_returns_none_not_crash(self):
-        with patch('screener.fyers_client.get_history', side_effect=RuntimeError("network down")):
+        with patch('screener.views._fyers_history_df', side_effect=RuntimeError("network down")):
             result = ta.get_technical_snapshot('SOMESTOCK')
         self.assertIsNone(result)
 
-    def test_none_candles_returns_none_not_crash(self):
-        with patch('screener.fyers_client.get_history', return_value={'candles': None}):
+    def test_none_dataframe_returns_none_not_crash(self):
+        """_fyers_history_df() itself returns None (not an empty
+        DataFrame) when Fyers' response status isn't 'ok' -- confirmed
+        from reading that function directly."""
+        with patch('screener.views._fyers_history_df', return_value=None):
             result = ta.get_technical_snapshot('SOMESTOCK')
         self.assertIsNone(result)
+
+    def test_real_shaped_dataframe_columns_accessed_correctly(self):
+        """The actual bug this rewrite fixes: capitalized column names
+        (Close/High/Low/Volume), not lowercase. This test would have
+        failed with a KeyError against the old implementation."""
+        df = self._real_shaped_df(n_rows=25)
+        fake_indicators = {'rsi': 55.0, 'ema20': 110.0, 'ema50': 108.0, 'ema200': None, 'adx': 22.0, 'plus_di': 25.0, 'minus_di': 15.0, 'macd': 1.2, 'atr': 3.0, 'support': 99.0, 'resistance': 130.0, 'volume_avg': 1200.0, 'macd_signal': 1.0, 'macd_histogram': 0.2, 'bb_width_pct': 5.0, 'hist_vol': 20.0, 'vwap': 112.0}
+        with patch('screener.views._fyers_history_df', return_value=df), \
+             patch('screener.views._compute_indicators', return_value=fake_indicators) as mock_compute:
+            result = ta.get_technical_snapshot('SOMESTOCK')
+
+        self.assertIsNotNone(result)
+        # confirm _compute_indicators was called with the CORRECT
+        # capitalized-column Series, not a KeyError-raising lowercase access
+        call_args = mock_compute.call_args[0]
+        self.assertEqual(len(call_args), 4)  # close, high, low, volume series
+        self.assertEqual(result['current_price'], float(df['Close'].iloc[-1]))
+        self.assertEqual(result['rsi'], 55.0)
+
+    def test_calls_fyers_history_with_enough_days_for_ema200(self):
+        """EMA200 needs >=200 bars per _compute_indicators' own
+        requirement -- confirms this function requests enough calendar
+        days to realistically get there (250 calendar days accounts
+        for weekends/holidays), not an arbitrarily short window."""
+        with patch('screener.views._fyers_history_df', return_value=None) as mock_hist:
+            ta.get_technical_snapshot('SOMESTOCK')
+        call_args, call_kwargs = mock_hist.call_args
+        days_requested = call_kwargs.get('days') or (call_args[1] if len(call_args) > 1 else None)
+        self.assertIsNotNone(days_requested)
+        self.assertGreaterEqual(days_requested, 200)
 
 
 if __name__ == '__main__':
