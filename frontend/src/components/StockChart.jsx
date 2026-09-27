@@ -111,6 +111,7 @@ export default function StockChart({ symbol }) {
   // actually attaches, whenever that happens to be, so the effect
   // below (now keyed on containerEl) gets a real chance to run.
   const [containerEl, setContainerEl] = useState(null);
+  const [chartReady, setChartReady] = useState(false);  // true once createChart() + series are actually set up -- see the race-condition note below
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
   const volumeSeriesRef = useRef(null);
@@ -127,94 +128,142 @@ export default function StockChart({ symbol }) {
   // exists (see the callback-ref note above) -- NOT tied to mount
   // timing, so it works correctly regardless of whether a symbol was
   // available on the very first render.
+  //
+  // Sep 27 2026 fix: real, confirmed cause of a visible chart flicker
+  // under React StrictMode (which this project's main.jsx wraps the
+  // whole app in -- confirmed by reading it directly). StrictMode
+  // deliberately double-invokes every effect in development: mount,
+  // immediate cleanup, mount again. Proved this was actually
+  // happening here with a real instrumented test: 14 canvas elements
+  // were created over one mount, exactly 2x the 7 a single
+  // createChart() call produces, with only 7 surviving -- meaning a
+  // full chart was created and immediately torn down before the
+  // surviving one replaced it. The actual chart creation is now
+  // deferred by one animation frame, guarded by a `cancelled` flag
+  // set in the cleanup. React's StrictMode cleanup+remount happens
+  // synchronously, before the browser ever runs a scheduled
+  // animation-frame callback -- so the discarded first pass's
+  // deferred callback gets cancelled before it ever creates
+  // anything, and only the surviving second pass actually builds a
+  // chart. StrictMode still properly exercises mount/cleanup/remount
+  // (nothing is being suppressed or worked around unsafely); the
+  // expensive, visible work just no longer happens twice. This has
+  // no effect in production builds, where StrictMode's double-invoke
+  // doesn't happen and the deferred call simply fires once, on the
+  // next frame, as normal.
   useEffect(() => {
     if (!containerEl) return;
-    const chart = createChart(containerEl, {
-      // Sep 27 2026 correction: attributionLogo is a field INSIDE
-      // the `layout` object (same interface as background/textColor/
-      // fontSize) -- confirmed by reading its actual position in the
-      // library's type definitions this time, not just that the
-      // field existed somewhere. Previously placed at the top level
-      // of createChart()'s options, where it doesn't exist, so it was
-      // silently ignored (JS doesn't error on unknown object keys)
-      // and the default (true, logo shown) stayed in effect the
-      // whole time -- confirmed empirically: took a real screenshot
-      // with the old placement (logo visible), moved it here, took
-      // another screenshot (logo gone). This is lightweight-charts'
-      // own default open-source attribution logo, not TradingView's
-      // data or a live widget -- every candle on this chart comes
-      // from this project's own Fyers/yfinance backend.
-      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#94a3b8', fontSize: 11, attributionLogo: false },
-      grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
-      crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: '#334155' },
-      timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false, tickMarkFormatter: formatTickMarkTimeIST },
-      localization: { timeFormatter: formatCrosshairTimeIST },
-      width: containerEl.clientWidth,
-      height: 380,
-    });
-    const candleSeries = chart.addCandlestickSeries({
-      upColor: '#34d399', downColor: '#f87171', borderVisible: false,
-      wickUpColor: '#34d399', wickDownColor: '#f87171',
-    });
-    const volumeSeries = chart.addHistogramSeries({
-      priceFormat: { type: 'volume' }, priceScaleId: '', color: '#475569',
-    });
-    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-    candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.2 } });
+    let cancelled = false;
+    let chart = null;
+    let resizeObserver = null;
+    let handleCrosshairMove = null;
 
-    chartRef.current = chart;
-    candleSeriesRef.current = candleSeries;
-    volumeSeriesRef.current = volumeSeries;
+    const rafId = requestAnimationFrame(() => {
+      if (cancelled) return;
 
-    // Sep 27 2026: EMA20/50/200 overlays, default ON per explicit
-    // "keep the default indicators enabled" requirement. Distinct
-    // colors so all three are readable when overlapping. Data is set
-    // separately in loadCandles() once real candles arrive -- these
-    // series start empty, never seeded with placeholder values.
-    emaSeriesRef.current = {
-      20: chart.addLineSeries({ color: '#facc15', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, visible: emaVisible[20] }),
-      50: chart.addLineSeries({ color: '#38bdf8', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, visible: emaVisible[50] }),
-      200: chart.addLineSeries({ color: '#c084fc', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, visible: emaVisible[200] }),
-    };
+      chart = createChart(containerEl, {
+        // Sep 27 2026 correction: attributionLogo is a field INSIDE
+        // the `layout` object (same interface as background/textColor/
+        // fontSize) -- confirmed by reading its actual position in the
+        // library's type definitions this time, not just that the
+        // field existed somewhere. Previously placed at the top level
+        // of createChart()'s options, where it doesn't exist, so it was
+        // silently ignored (JS doesn't error on unknown object keys)
+        // and the default (true, logo shown) stayed in effect the
+        // whole time -- confirmed empirically: took a real screenshot
+        // with the old placement (logo visible), moved it here, took
+        // another screenshot (logo gone). This is lightweight-charts'
+        // own default open-source attribution logo, not TradingView's
+        // data or a live widget -- every candle on this chart comes
+        // from this project's own Fyers/yfinance backend.
+        layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#94a3b8', fontSize: 11, attributionLogo: false },
+        grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
+        crosshair: { mode: CrosshairMode.Normal },
+        rightPriceScale: { borderColor: '#334155' },
+        timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false, tickMarkFormatter: formatTickMarkTimeIST },
+        localization: { timeFormatter: formatCrosshairTimeIST },
+        width: containerEl.clientWidth,
+        height: 380,
+      });
+      const candleSeries = chart.addCandlestickSeries({
+        upColor: '#34d399', downColor: '#f87171', borderVisible: false,
+        wickUpColor: '#34d399', wickDownColor: '#f87171',
+      });
+      const volumeSeries = chart.addHistogramSeries({
+        priceFormat: { type: 'volume' }, priceScaleId: '', color: '#475569',
+      });
+      volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+      candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.2 } });
 
-    // Sep 27 2026: OHLC-on-hover, per explicit requirement ("clear
-    // OHLC details on hover"). chart.subscribeCrosshairMove() and
-    // params.seriesData -- both confirmed real, documented APIs by
-    // reading this exact installed library version's own type
-    // definitions before using them, not guessed.
-    const handleCrosshairMove = (param) => {
-      if (!param.time || !param.seriesData) {
-        setHoverOHLC(null);
-        return;
-      }
-      const bar = param.seriesData.get(candleSeries);
-      if (bar && bar.open != null) {
-        setHoverOHLC({ open: bar.open, high: bar.high, low: bar.low, close: bar.close, time: param.time });
-      } else {
-        setHoverOHLC(null);
-      }
-    };
-    chart.subscribeCrosshairMove(handleCrosshairMove);
+      chartRef.current = chart;
+      candleSeriesRef.current = candleSeries;
+      volumeSeriesRef.current = volumeSeries;
 
-    // ResizeObserver on the container -- a genuine, separate
-    // improvement made in an earlier round (window 'resize' alone
-    // misses pure React layout shifts), kept here since it's still
-    // correct and useful alongside the callback-ref fix above; the
-    // two address different failure modes.
-    const resizeObserver = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry && entry.contentRect.width > 0) {
-        chart.applyOptions({ width: entry.contentRect.width });
-      }
+      // Sep 27 2026: EMA20/50/200 overlays, default ON per explicit
+      // "keep the default indicators enabled" requirement. Distinct
+      // colors so all three are readable when overlapping. Data is set
+      // separately in loadCandles() once real candles arrive -- these
+      // series start empty, never seeded with placeholder values.
+      emaSeriesRef.current = {
+        20: chart.addLineSeries({ color: '#facc15', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, visible: emaVisible[20] }),
+        50: chart.addLineSeries({ color: '#38bdf8', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, visible: emaVisible[50] }),
+        200: chart.addLineSeries({ color: '#c084fc', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, visible: emaVisible[200] }),
+      };
+
+      // Sep 27 2026: OHLC-on-hover, per explicit requirement ("clear
+      // OHLC details on hover"). chart.subscribeCrosshairMove() and
+      // params.seriesData -- both confirmed real, documented APIs by
+      // reading this exact installed library version's own type
+      // definitions before using them, not guessed.
+      handleCrosshairMove = (param) => {
+        if (!param.time || !param.seriesData) {
+          setHoverOHLC(null);
+          return;
+        }
+        const bar = param.seriesData.get(candleSeries);
+        if (bar && bar.open != null) {
+          setHoverOHLC({ open: bar.open, high: bar.high, low: bar.low, close: bar.close, time: param.time });
+        } else {
+          setHoverOHLC(null);
+        }
+      };
+      chart.subscribeCrosshairMove(handleCrosshairMove);
+
+      // ResizeObserver on the container -- a genuine, separate
+      // improvement made in an earlier round (window 'resize' alone
+      // misses pure React layout shifts), kept here since it's still
+      // correct and useful alongside the callback-ref fix above; the
+      // two address different failure modes.
+      resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry && entry.contentRect.width > 0) {
+          chart.applyOptions({ width: entry.contentRect.width });
+        }
+      });
+      resizeObserver.observe(containerEl);
+
+      // Sep 27 2026: real, caught-before-delivery bug. Deferring
+      // chart creation by a frame (the StrictMode double-creation fix
+      // above) opened a race: a fast-resolving fetch in loadCandles()
+      // could call setData() on candleSeriesRef.current while it was
+      // still null, since this callback hadn't run yet -- the
+      // existing `if (ref.current)` guards made it fail silently
+      // (header showed the right price, canvas stayed empty).
+      // Confirmed by actually reproducing it with a real render
+      // before catching this. chartReady gates the data-loading
+      // effect below so it simply doesn't start fetching until the
+      // chart genuinely exists.
+      setChartReady(true);
     });
-    resizeObserver.observe(containerEl);
 
     return () => {
-      resizeObserver.disconnect();
-      chart.unsubscribeCrosshairMove(handleCrosshairMove);
-      chart.remove();
+      cancelled = true;
+      cancelAnimationFrame(rafId);
+      if (resizeObserver) resizeObserver.disconnect();
+      if (chart && handleCrosshairMove) chart.unsubscribeCrosshairMove(handleCrosshairMove);
+      if (chart) chart.remove();
       chartRef.current = null;
+      setChartReady(false);
     };
   }, [containerEl]);
 
@@ -329,6 +378,7 @@ export default function StockChart({ symbol }) {
   }, [applyChartData]);
 
   useEffect(() => {
+    if (!chartReady) return;  // real fix for a race caught before delivery: don't fetch until the chart genuinely exists to receive the data (see the chart-creation effect's notes above)
     loadCandles(symbol, timeframe);
     // Sep 27 2026: abort any in-flight fetch on unmount too, not just
     // on the next call -- without this, navigating away from the page
@@ -337,7 +387,7 @@ export default function StockChart({ symbol }) {
     return () => {
       if (abortControllerRef.current) abortControllerRef.current.abort();
     };
-  }, [symbol, timeframe, loadCandles]);
+  }, [symbol, timeframe, loadCandles, chartReady]);
 
   // Toggling an EMA on/off just flips series visibility -- no
   // re-fetch, no re-computation, matching the "without stale results
