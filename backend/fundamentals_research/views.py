@@ -323,3 +323,26 @@ class CompanyAveragingView(APIView):
         return Response({
             'symbol': symbol.upper(), 'current_position': current_position, 'scenarios': scenarios_out,
         })
+
+
+class CompanyCandlesView(APIView):
+    """
+    GET /api/research/company/{symbol}/candles/?timeframe=5m|15m|1h|1d|1w
+    Real OHLCV candles from Fyers, no fabrication -- see stock_chart.py.
+    Does NOT require a prior /refresh/ research call -- the chart works
+    for any valid NSE symbol independent of the fundamentals pipeline.
+    """
+    def get(self, request, symbol):
+        from .services import stock_chart as sc
+        timeframe = request.query_params.get('timeframe', '1d')
+        result = sc.get_candles(symbol, timeframe=timeframe)
+        if result['status'] == 'error':
+            status_code = {
+                'invalid_timeframe': status.HTTP_400_BAD_REQUEST,
+                'not_authenticated': status.HTTP_503_SERVICE_UNAVAILABLE,
+                'rate_limited': status.HTTP_503_SERVICE_UNAVAILABLE,
+                'fetch_failed': status.HTTP_502_BAD_GATEWAY,
+                'no_data': status.HTTP_404_NOT_FOUND,
+            }.get(result['reason'], status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(result, status=status_code)
+        return Response(result)
