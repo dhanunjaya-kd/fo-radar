@@ -45,6 +45,33 @@ class TestApiKeyHandling(unittest.TestCase):
         # the key was found and used, not skipped
         self.assertNotEqual(reason, 'no_api_key')
 
+    def test_trailing_whitespace_in_env_key_stripped_not_crashed(self):
+        """Real bug found and fixed: a trailing newline/space in a
+        copy-pasted .env value makes the HTTP header invalid, which
+        raises plain ValueError (confirmed by direct reproduction) --
+        not a requests.exceptions subclass. Without stripping AND the
+        broadened except clause, this would crash unhandled instead of
+        degrading gracefully."""
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-key\n', 'AI_PROVIDER': 'gemini'}, clear=True), \
+             patch('fundamentals_research.services.llm_narrative.requests.post') as mock_post:
+            mock_post.return_value = _mock_gemini_response('ok')
+            text, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+        self.assertEqual(reason, 'ok')  # stripped correctly, no crash, real call succeeded
+        sent_headers = mock_post.call_args.kwargs['headers']
+        self.assertEqual(sent_headers['x-goog-api-key'], 'test-key')  # confirmed stripped, not left with the newline
+
+    def test_malformed_header_value_degrades_gracefully_not_unhandled_crash(self):
+        """Defense in depth: even if some OTHER unanticipated invalid
+        character slips through, this must never raise an unhandled
+        500 -- confirmed by directly reproducing the real ValueError
+        requests raises for an invalid header value."""
+        with patch.dict(os.environ, {'AI_PROVIDER': 'gemini'}, clear=True), \
+             patch('fundamentals_research.services.llm_narrative.requests.post', side_effect=ValueError("Invalid header value")):
+            with patch('fundamentals_research.services.llm_narrative._get_api_key', return_value='key-with-\x00-null'):
+                text, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+        self.assertIsNone(text)
+        self.assertEqual(reason, 'network_error')  # graceful, not a crash
+
     def test_anthropic_provider_selected_explicitly_looks_for_anthropic_key(self):
         with patch.dict(os.environ, {'AI_PROVIDER': 'anthropic'}, clear=True):
             result, reason = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])

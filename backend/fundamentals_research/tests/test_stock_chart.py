@@ -77,6 +77,32 @@ class TestGetCandles(unittest.TestCase):
         self.assertEqual(result['latest_price'], 107.0)
         self.assertEqual(result['resolution_used'], 'D')
 
+    def test_as_of_reflects_candle_close_not_open_for_intraday(self):
+        """Real, confirmed bug this fixes: 'as of 3:15pm' for a 15m
+        candle covering 3:15-3:30 understated freshness by a full
+        candle-width. Hand-verified: candle starts at a known
+        timestamp, as_of must be exactly 15 minutes later."""
+        start = _ts(2026, 9, 25)
+        raw = {'s': 'ok', 'candles': [[start, 100.0, 105.0, 99.0, 103.0, 50000]]}
+        with patch('screener.fyers_client.is_authenticated', return_value=True), \
+             patch('screener.fyers_client._rate_limited_now', return_value=False), \
+             patch('screener.fyers_client.get_history', return_value=raw):
+            result = sc.get_candles('RELIANCE', timeframe='15m')
+        self.assertEqual(result['as_of'], start + 15 * 60)
+
+    def test_as_of_unchanged_for_daily_timeframe(self):
+        """Deliberately NOT adjusted for 1d/1w -- Fyers' exact daily
+        timestamp convention was never independently verified, so this
+        confirms the timestamp passes through unmodified rather than
+        guessing an offset."""
+        start = _ts(2026, 9, 25)
+        raw = {'s': 'ok', 'candles': [[start, 100.0, 105.0, 99.0, 103.0, 50000]]}
+        with patch('screener.fyers_client.is_authenticated', return_value=True), \
+             patch('screener.fyers_client._rate_limited_now', return_value=False), \
+             patch('screener.fyers_client.get_history', return_value=raw):
+            result = sc.get_candles('RELIANCE', timeframe='1d')
+        self.assertEqual(result['as_of'], start)
+
     def test_correct_fyers_symbol_and_resolution_sent_for_each_timeframe(self):
         with patch('screener.fyers_client.is_authenticated', return_value=True), \
              patch('screener.fyers_client._rate_limited_now', return_value=False), \
