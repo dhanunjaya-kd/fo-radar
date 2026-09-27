@@ -89,7 +89,7 @@ def _get_api_key(provider: str) -> Optional[str]:
     return raw.strip() if raw else raw
 
 
-def _call_llm(system: str, messages: List[Dict[str, str]], max_tokens: int = 1500) -> tuple:
+def _call_llm(system: str, messages: List[Dict[str, str]], max_tokens: int = 1500, response_schema: Optional[Dict] = None) -> tuple:
     """
     Provider-agnostic entry point -- every caller in this file uses
     THIS, not a provider-specific function directly. Returns (text,
@@ -104,6 +104,17 @@ def _call_llm(system: str, messages: List[Dict[str, str]], max_tokens: int = 150
     happened, or None on success -- added so a genuine API error isn't
     silently reduced to a generic label with nothing else shown to the
     user.
+
+    response_schema: Sep 27 2026 addition. Gemini-only (Anthropic has
+    no equivalent request-level field and ignores this) -- when given
+    a JSON schema dict, Gemini's own schema-constrained decoding
+    guarantees syntactically valid JSON output, confirmed as an
+    officially supported feature for gemini-3-flash-preview via a
+    direct, fresh search (not assumed). Added specifically because a
+    real, confirmed truncated/"Unterminated string" JSON error was
+    seen in production -- schema constraint doesn't fix a genuinely
+    too-small token budget on its own, which is why max_tokens was
+    also substantially raised at every JSON-producing call site.
     """
     provider = _get_provider()
     api_key = _get_api_key(provider)
@@ -113,7 +124,7 @@ def _call_llm(system: str, messages: List[Dict[str, str]], max_tokens: int = 150
         return None, 'no_api_key', f'{key_name} is not set.'
 
     if provider == 'gemini':
-        return _call_gemini(system, messages, max_tokens, api_key)
+        return _call_gemini(system, messages, max_tokens, api_key, response_schema=response_schema)
     return _call_anthropic(system, messages, max_tokens, api_key)
 
 
@@ -149,7 +160,7 @@ def _call_anthropic(system: str, messages: List[Dict[str, str]], max_tokens: int
         return None, 'parse_error', str(e)[:200]
 
 
-def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str) -> tuple:
+def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str, response_schema: Optional[Dict] = None) -> tuple:
     """
     Real Gemini REST call via generateContent -- an officially
     supported API method per Google's own docs (used here directly
@@ -160,6 +171,20 @@ def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, a
     here: role 'assistant' -> 'model' (Gemini's own term), system
     prompt goes in a separate systemInstruction field rather than a
     top-level 'system' key.
+
+    Sep 27 2026: thinkingConfig.thinkingLevel set to 'low' on every
+    call -- confirmed via a direct search that gemini-3-flash-preview
+    is a thinking model (thinking ON by default) whose thinking tokens
+    are drawn from the SAME max_tokens budget as the visible response,
+    and confirmed via a real Google AI Developers Forum bug report
+    that this exact model can consume nearly its entire budget on
+    invisible thinking, leaving too little for the actual output --
+    the direct, evidenced cause of a real "Unterminated string" JSON
+    truncation seen in production. 'low' (not 0/disabled) is used
+    because 'thinkingBudget: 0' disabling thinking entirely was only
+    confirmed for a DIFFERENT Gemini 3 model in the same search, not
+    this one -- 'thinkingLevel' minimal/low/medium/high is the option
+    directly confirmed supported for gemini-3-flash-preview itself.
     """
     model = (os.environ.get('GEMINI_MODEL') or _GEMINI_DEFAULT_MODEL).strip()
     url = _GEMINI_API_URL_TEMPLATE.format(model=model)
@@ -169,6 +194,16 @@ def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, a
         for m in messages
     ]
 
+    generation_config = {'maxOutputTokens': max_tokens, 'thinkingConfig': {'thinkingLevel': 'low'}}
+    if response_schema is not None:
+        # Sep 27 2026: schema-constrained decoding -- confirmed an
+        # officially supported feature for this model via a direct
+        # search. Guarantees syntactically valid JSON at the
+        # generation level, rather than relying solely on prompt
+        # instructions + best-effort string parsing after the fact.
+        generation_config['responseMimeType'] = 'application/json'
+        generation_config['responseSchema'] = response_schema
+
     try:
         resp = requests.post(
             url,
@@ -176,7 +211,7 @@ def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, a
             json={
                 'contents': gemini_contents,
                 'systemInstruction': {'parts': [{'text': system}]},
-                'generationConfig': {'maxOutputTokens': max_tokens},
+                'generationConfig': generation_config,
             },
             timeout=DEFAULT_TIMEOUT,
         )
@@ -291,7 +326,21 @@ Write five short sections analyzing this data. Return ONLY valid JSON, no other 
 }}
 Each value should be 2-4 sentences. If a section's underlying data is null in the fact sheet, that section's text must say the data isn't available -- do not skip the key or invent content for it."""
 
-    raw, _reason, _detail = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1200)
+    # Sep 27 2026: same fix applied here as generate_decision_summary --
+    # max_tokens raised and a schema passed, for the same confirmed
+    # root cause (thinking-token budget consumption on this model).
+    narrative_schema = {
+        'type': 'OBJECT',
+        'properties': {
+            'financial_quality_notes': {'type': 'STRING'},
+            'balance_sheet_notes': {'type': 'STRING'},
+            'cash_flow_notes': {'type': 'STRING'},
+            'ownership_notes': {'type': 'STRING'},
+            'valuation_notes': {'type': 'STRING'},
+        },
+        'required': ['financial_quality_notes', 'balance_sheet_notes', 'cash_flow_notes', 'ownership_notes', 'valuation_notes'],
+    }
+    raw, _reason, _detail = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=3000, response_schema=narrative_schema)
     if raw is None:
         return None
 
@@ -340,7 +389,7 @@ def answer_question(fact_sheet: Dict[str, Any], question: str, conversation_hist
     messages.append({'role': 'user', 'content': question})
 
     system = _SYSTEM_PROMPT + "\n\nYou are now answering a direct follow-up question from the user about this company. If the answer isn't in the fact sheet, say so plainly -- do not guess."
-    answer, _reason, _detail = _call_llm(system, messages, max_tokens=600)
+    answer, _reason, _detail = _call_llm(system, messages, max_tokens=1500)
     if answer is None:
         return "Sorry, I couldn't generate an answer right now -- the AI service is unavailable or not configured. The structured data above is still accurate and unaffected."
     return answer
@@ -412,7 +461,29 @@ Write a decision summary. Return ONLY valid JSON, no other text, with exactly th
 Each evidence/condition list: 2-4 short items, each citing a specific number or classification from the data above. If the evidence is genuinely conflicting or data is missing, "status" must be "Insufficient data" or reflect the conflict honestly -- never force a confident status the data doesn't support.
 {language_instruction}"""
 
-    raw, call_reason, call_detail = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1000)
+    # Sep 27 2026: max_tokens raised 1000 -> 3000, and a strict schema
+    # is now passed -- direct, confirmed fix for a real production
+    # "Unterminated string" JSON truncation, root-caused to
+    # gemini-3-flash-preview's thinking tokens (also reduced via
+    # thinkingConfig inside _call_gemini) consuming most of a too-small
+    # budget. The schema's status enum ALSO makes the existing
+    # 'invalid_status' check below effectively a backstop rather than
+    # the primary defense -- Gemini's own schema-constrained decoding
+    # should refuse to emit anything outside these exact values, but
+    # the check stays since Anthropic's path has no equivalent
+    # guarantee and still needs it.
+    decision_summary_schema = {
+        'type': 'OBJECT',
+        'properties': {
+            'status': {'type': 'STRING', 'enum': _DECISION_STATUSES},
+            'supporting_evidence': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+            'opposing_evidence': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+            'conditions_to_monitor': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+            'invalidation_conditions': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+        },
+        'required': ['status', 'supporting_evidence', 'opposing_evidence', 'conditions_to_monitor', 'invalidation_conditions'],
+    }
+    raw, call_reason, call_detail = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=3000, response_schema=decision_summary_schema)
     if raw is None:
         return None, call_reason, call_detail
 

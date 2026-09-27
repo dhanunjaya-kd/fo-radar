@@ -182,6 +182,65 @@ class TestCallGemini(unittest.TestCase):
         called_url = mock_post.call_args[0][0]
         self.assertIn('gemini-custom-override', called_url)
 
+    @patch.dict(os.environ, {'GEMINI_API_KEY': 'test-gemini-key', 'AI_PROVIDER': 'gemini'})
+    @patch('fundamentals_research.services.llm_narrative.requests.post')
+    def test_thinking_level_always_set_low(self, mock_post):
+        """Real, confirmed fix: gemini-3-flash-preview is a thinking
+        model whose thinking tokens draw from the same budget as the
+        visible output -- confirmed via a real Google AI Developers
+        Forum bug report where this exact model consumed nearly its
+        whole maxOutputTokens on invisible thinking. This must be sent
+        on every call, not just JSON ones."""
+        mock_post.return_value = _mock_gemini_response('ok')
+        ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
+        sent_config = mock_post.call_args.kwargs['json']['generationConfig']
+        self.assertEqual(sent_config['thinkingConfig']['thinkingLevel'], 'low')
+
+    @patch.dict(os.environ, {'GEMINI_API_KEY': 'test-gemini-key', 'AI_PROVIDER': 'gemini'})
+    @patch('fundamentals_research.services.llm_narrative.requests.post')
+    def test_response_schema_included_when_provided(self, mock_post):
+        """The actual fix for a real, confirmed "Unterminated string"
+        JSON truncation -- schema-constrained decoding, confirmed an
+        officially supported Gemini feature via direct search."""
+        mock_post.return_value = _mock_gemini_response('{}')
+        schema = {'type': 'OBJECT', 'properties': {'status': {'type': 'STRING'}}, 'required': ['status']}
+        ln._call_llm('system', [{'role': 'user', 'content': 'hi'}], response_schema=schema)
+        sent_config = mock_post.call_args.kwargs['json']['generationConfig']
+        self.assertEqual(sent_config['responseMimeType'], 'application/json')
+        self.assertEqual(sent_config['responseSchema'], schema)
+
+    @patch.dict(os.environ, {'GEMINI_API_KEY': 'test-gemini-key', 'AI_PROVIDER': 'gemini'})
+    @patch('fundamentals_research.services.llm_narrative.requests.post')
+    def test_no_response_schema_fields_when_not_json(self, mock_post):
+        """answer_question() and any free-text call must NOT send
+        responseMimeType/responseSchema -- confirms this is opt-in per
+        call, not forced onto every request."""
+        mock_post.return_value = _mock_gemini_response('some free text')
+        ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])  # no response_schema passed
+        sent_config = mock_post.call_args.kwargs['json']['generationConfig']
+        self.assertNotIn('responseMimeType', sent_config)
+        self.assertNotIn('responseSchema', sent_config)
+
+    def test_decision_summary_uses_status_enum_schema(self):
+        """Confirms generate_decision_summary() builds a schema with
+        the status field constrained to the EXACT allowed values --
+        Gemini's own schema-constrained decoding should refuse to emit
+        anything else, a stronger guarantee than the after-the-fact
+        'invalid_status' string check alone."""
+        valid_json = json.dumps({
+            'status': 'Insufficient data', 'supporting_evidence': [], 'opposing_evidence': [],
+            'conditions_to_monitor': [], 'invalidation_conditions': [],
+        })
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'test-gemini-key', 'AI_PROVIDER': 'gemini'}), \
+             patch('fundamentals_research.services.llm_narrative.requests.post') as mock_post:
+            mock_post.return_value = _mock_gemini_response(valid_json)
+            ln.generate_decision_summary(
+                {'company': {'name': 'Test', 'symbol': 'TST'}}, {}, {}, {'classification': 'x'},
+            )
+        sent_config = mock_post.call_args.kwargs['json']['generationConfig']
+        self.assertEqual(sent_config['responseSchema']['properties']['status']['enum'], ln._DECISION_STATUSES)
+        self.assertGreaterEqual(sent_config['maxOutputTokens'], 3000)
+
     def test_full_pipeline_generate_narrative_sections_works_with_gemini(self):
         """Confirms the REAL, end-to-end narrative generation function
         (not just the low-level call) works with Gemini -- same JSON
