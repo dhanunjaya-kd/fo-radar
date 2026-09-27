@@ -1,0 +1,139 @@
+"""
+backend/fundamentals_research/services/stock_chart.py
+
+Sep 26 2026. Real OHLCV candle fetching for the Fundamental Research
+page's chart. Reuses the EXACT proven pattern from screener/views.py's
+own OptionHistoryView (auth check, rate-limit check, get_history()
+call, resp['s']=='ok' status check) rather than inventing a new one --
+that endpoint is real, working, tested-in-production code for this
+same underlying Fyers call.
+
+Confirmed real Fyers resolution codes (read directly from
+OptionHistoryView's own docstring, not guessed): "5"/"15"/"30"/"60"
+for minute candles, "D" for daily. No native weekly resolution is used
+anywhere in this project -- "1W" here is built by aggregating daily
+candles, a standard, well-defined technique, rather than risking an
+unverified Fyers resolution string.
+
+No live/streaming data -- confirmed during the earlier Gamma parity
+work that this project has no WebSocket infrastructure anywhere, only
+polling. This module is honest about that: every response carries a
+real `as_of` timestamp from the actual last candle, never a fabricated
+"live" label.
+"""
+import logging
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any, List
+
+logger = logging.getLogger('fundamentals_research.stock_chart')
+
+# timeframe -> (fyers_resolution, calendar_days_lookback)
+# Lookback windows sized so each timeframe returns a reasonable number
+# of candles to actually look like a chart, not sized to Fyers' own
+# limits (which this project's existing callers don't document a
+# fixed cap for either -- these are deliberately conservative).
+_TIMEFRAME_MAP = {
+    '5m': ('5', 5),
+    '15m': ('15', 10),
+    '1h': ('60', 30),
+    '1d': ('D', 250),
+    '1w': ('D', 365 * 3),  # fetch 3 years of daily bars, then aggregate to weekly below
+}
+
+
+def get_candles(symbol: str, timeframe: str = '1d') -> Dict[str, Any]:
+    """
+    Returns {'status': 'ok', 'candles': [...], 'as_of': ..., 'resolution_used': ...}
+    or {'status': 'error', 'reason': <code>, 'message': <human text>}.
+    Never returns fabricated candles -- every error path returns
+    status='error' with no 'candles' key at all, so a caller can't
+    accidentally render a placeholder as if it were real data.
+
+    reason codes: 'invalid_timeframe', 'not_authenticated', 'rate_limited',
+    'fetch_failed', 'no_data'.
+    """
+    if timeframe not in _TIMEFRAME_MAP:
+        return {'status': 'error', 'reason': 'invalid_timeframe', 'message': f"Unsupported timeframe '{timeframe}'. Use one of: {', '.join(_TIMEFRAME_MAP.keys())}."}
+
+    try:
+        from screener.fyers_client import is_authenticated, _rate_limited_now, get_history
+    except ImportError as e:
+        logger.warning(f"Could not import Fyers client: {e}")
+        return {'status': 'error', 'reason': 'fetch_failed', 'message': 'Chart data service unavailable.'}
+
+    if not is_authenticated():
+        return {'status': 'error', 'reason': 'not_authenticated', 'message': 'Not authenticated with Fyers -- no chart data available.'}
+
+    if _rate_limited_now():
+        return {'status': 'error', 'reason': 'rate_limited', 'message': 'Fyers is currently rate-limited (account-wide) -- this recovers on its own, try again shortly.'}
+
+    resolution, days = _TIMEFRAME_MAP[timeframe]
+    range_to = datetime.now().date()
+    range_from = range_to - timedelta(days=days)
+    fyers_symbol = f"NSE:{symbol.upper()}-EQ"
+
+    try:
+        resp = get_history(fyers_symbol, resolution=resolution, range_from=str(range_from), range_to=str(range_to))
+    except Exception as e:
+        logger.warning(f"Candle fetch failed for {symbol} ({timeframe}): {e}")
+        return {'status': 'error', 'reason': 'fetch_failed', 'message': f'History fetch failed: {e}'}
+
+    if not resp or resp.get('s') != 'ok' or not resp.get('candles'):
+        return {'status': 'error', 'reason': 'no_data', 'message': f'No real historical data available for {symbol} right now.'}
+
+    raw_candles = resp['candles']  # each: [timestamp, open, high, low, close, volume]
+    candles = [
+        {'time': int(c[0]), 'open': float(c[1]), 'high': float(c[2]), 'low': float(c[3]), 'close': float(c[4]), 'volume': float(c[5])}
+        for c in raw_candles
+    ]
+
+    if timeframe == '1w':
+        candles = _aggregate_to_weekly(candles)
+        if not candles:
+            return {'status': 'error', 'reason': 'no_data', 'message': f'Not enough daily data to build weekly candles for {symbol}.'}
+
+    latest = candles[-1]
+    return {
+        'status': 'ok',
+        'symbol': symbol.upper(),
+        'timeframe': timeframe,
+        'candles': candles,
+        'as_of': latest['time'],
+        'latest_price': latest['close'],
+        'resolution_used': resolution,
+    }
+
+
+def _aggregate_to_weekly(daily_candles: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Standard OHLCV weekly aggregation from real daily candles:
+    open = first trading day's open, close = last trading day's close,
+    high = max of the week's highs, low = min of the week's lows,
+    volume = sum of the week's volumes. Weeks are grouped by ISO week
+    (Mon-Sun), keyed off each candle's own real timestamp -- no
+    invented calendar assumptions, no fabricated bars for weeks with
+    no trading data (a week simply doesn't appear if no daily candles
+    fall in it).
+    """
+    if not daily_candles:
+        return []
+
+    weeks: Dict[tuple, List[Dict[str, Any]]] = {}
+    for c in daily_candles:
+        dt = datetime.utcfromtimestamp(c['time'])
+        iso_year, iso_week, _ = dt.isocalendar()
+        weeks.setdefault((iso_year, iso_week), []).append(c)
+
+    weekly = []
+    for key in sorted(weeks.keys()):
+        bucket = weeks[key]
+        bucket.sort(key=lambda c: c['time'])
+        weekly.append({
+            'time': bucket[0]['time'],
+            'open': bucket[0]['open'],
+            'high': max(c['high'] for c in bucket),
+            'low': min(c['low'] for c in bucket),
+            'close': bucket[-1]['close'],
+            'volume': sum(c['volume'] for c in bucket),
+        })
+    return weekly

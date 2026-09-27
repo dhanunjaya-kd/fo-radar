@@ -20,9 +20,22 @@ Trend classification below is a fixed, documented rule table -- not an
 LLM guess. Matches spec Section 2's own required categories exactly.
 """
 import logging
+from datetime import datetime
 from typing import Optional, Dict, Any
 
 logger = logging.getLogger('fundamentals_research.technical_analysis')
+
+# Sep 26 2026 addition, found during a verification pass: every call
+# to get_technical_snapshot() was making a fresh, uncached Fyers call
+# -- confirmed by reading _fyers_history_df() directly that it has NO
+# internal caching of its own (the caching lives in ITS callers, e.g.
+# screener/views.py's _calc_tech() and get_52_week_high_low(), each
+# with their own day-scoped cache dict). A UI action as simple as
+# clicking "Retry" on just the AI decision summary was re-fetching the
+# entire technical snapshot needlessly. Fixed using this project's own
+# established convention (a day-scoped {symbol: {'date', 'data'}}
+# cache) rather than inventing a different pattern.
+_technical_snapshot_cache = {}
 
 
 def get_technical_snapshot(symbol: str) -> Optional[Dict[str, Any]]:
@@ -48,7 +61,17 @@ def get_technical_snapshot(symbol: str) -> Optional[Dict[str, Any]]:
     the "reuse existing APIs" instruction this was built against, and
     the reason this rewrite doesn't reintroduce a fourth version of
     the same bug class.
+
+    Day-scoped cached (see _technical_snapshot_cache above) -- added
+    in a later verification pass after confirming this was making a
+    fresh, uncached Fyers call on every invocation, including simple
+    UI actions (a Retry click) that don't need fresh technicals at all.
     """
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    cached = _technical_snapshot_cache.get(symbol.upper())
+    if cached and cached.get('date') == today_str:
+        return cached['data']
+
     try:
         from screener.views import _fyers_history_df, _compute_indicators
     except ImportError as e:
@@ -73,6 +96,7 @@ def get_technical_snapshot(symbol: str) -> Optional[Dict[str, Any]]:
     current_price = float(df['Close'].iloc[-1])
     indicators['current_price'] = current_price
     indicators['as_of_timestamp'] = int(df['ts'].iloc[-1])
+    _technical_snapshot_cache[symbol.upper()] = {'date': today_str, 'data': indicators}
     return indicators
 
 
