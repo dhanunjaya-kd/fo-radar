@@ -22,7 +22,7 @@ real `as_of` timestamp from the actual last candle, never a fabricated
 "live" label.
 """
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger('fundamentals_research.stock_chart')
@@ -41,16 +41,31 @@ logger = logging.getLogger('fundamentals_research.stock_chart')
 _candle_cache = {}  # {(symbol, timeframe): {'expires_at': monotonic_time, 'data': result}}
 _INTRADAY_CACHE_SECONDS = 300  # 5 minutes -- short enough to stay current, long enough to absorb repeated clicks
 
-# timeframe -> (fyers_resolution, calendar_days_lookback)
-# Lookback windows sized so each timeframe returns a reasonable number
-# of candles to actually look like a chart, not sized to Fyers' own
-# limits (which this project's existing callers don't document a
-# fixed cap for either -- these are deliberately conservative).
+# Sep 27 2026: real, confirmed limits from Fyers' own V3 docs (via
+# their community forum quoting the docs directly, not guessed):
+# intraday resolutions cap at 100 days per single request; daily (1D)
+# caps at 366 days per single request. The OLD lookback values below
+# (5/10/30 days intraday, 250 days daily) were copied from
+# technical_analysis.py's narrow "just enough for one EMA200
+# calculation" need, not chosen for a rich, explorable chart -- they
+# left most of what Fyers actually supports on the table. Intraday now
+# requests close to its real 100-day cap in a single call. Daily/weekly
+# target 3 years, which EXCEEDS the 366-day single-request cap, so
+# they're fetched via _fetch_daily_batched() below rather than one
+# call -- a single call for 3 years would have silently failed or been
+# truncated by Fyers' own limit, which is likely why the weekly view
+# was ALSO short despite requesting 1095 days.
+_MAX_DAYS_PER_REQUEST = {'intraday': 100, 'daily': 366}
+
+# timeframe -> (fyers_resolution, total_calendar_days_wanted)
+# total_days here is the OVERALL span wanted, not a per-request size --
+# daily/weekly reach it via batched requests, intraday in one request
+# (100 days is already the provider's own per-request ceiling).
 _TIMEFRAME_MAP = {
-    '5m': ('5', 5),
-    '15m': ('15', 10),
-    '1h': ('60', 30),
-    '1d': ('D', 250),
+    '5m': ('5', 100),
+    '15m': ('15', 100),
+    '1h': ('60', 100),
+    '1d': ('D', 365 * 3),
     '1w': ('D', 365 * 3),  # fetch 3 years of daily bars, then aggregate to weekly below
 }
 
@@ -69,6 +84,42 @@ _INTRADAY_DURATION_SECONDS = {'5m': 5 * 60, '15m': 15 * 60, '1h': 60 * 60}
 
 def _as_of_timestamp(candle_start_time: int, timeframe: str) -> int:
     return candle_start_time + _INTRADAY_DURATION_SECONDS.get(timeframe, 0)
+
+
+def _fetch_fyers_history_batched(get_history_fn, fyers_symbol: str, resolution: str, total_days: int, max_days_per_request: int) -> list:
+    """
+    Fetches up to `total_days` of history by walking backward from
+    today in chunks no larger than `max_days_per_request` (Fyers'
+    documented per-request cap for this resolution class), issuing
+    multiple sequential requests when total_days exceeds that cap.
+    Stops early if a request returns no candles (very likely means
+    the symbol's actual listing/earliest-available date has been
+    reached -- no point requesting further back). Deduplicates by
+    timestamp (chunk boundaries can overlap by a day) and returns
+    candles sorted chronologically.
+
+    Raises on the underlying get_history_fn's own exceptions --
+    callers catch this exactly as the old single-request code did.
+    """
+    all_candles_by_time = {}
+    range_to = datetime.now().date()
+    remaining_days = total_days
+
+    while remaining_days > 0:
+        chunk_days = min(remaining_days, max_days_per_request)
+        range_from = range_to - timedelta(days=chunk_days)
+
+        resp = get_history_fn(fyers_symbol, resolution=resolution, range_from=str(range_from), range_to=str(range_to))
+        if not resp or resp.get('s') != 'ok' or not resp.get('candles'):
+            break  # no more data available further back (e.g. symbol's listing date reached)
+
+        for c in resp['candles']:
+            all_candles_by_time[int(c[0])] = c  # dict keyed by timestamp -- naturally deduplicates any chunk-boundary overlap
+
+        remaining_days -= chunk_days
+        range_to = range_from  # next chunk continues immediately before this one
+
+    return sorted(all_candles_by_time.values(), key=lambda c: c[0])
 
 
 def get_candles(symbol: str, timeframe: str = '1d') -> Dict[str, Any]:
@@ -128,21 +179,20 @@ def _get_candles_from_fyers(symbol: str, timeframe: str) -> Dict[str, Any]:
     if _rate_limited_now():
         return {'status': 'error', 'reason': 'rate_limited', 'message': 'Fyers is currently rate-limited (account-wide) -- this recovers on its own, try again shortly.'}
 
-    resolution, days = _TIMEFRAME_MAP[timeframe]
-    range_to = datetime.now().date()
-    range_from = range_to - timedelta(days=days)
+    resolution, total_days = _TIMEFRAME_MAP[timeframe]
     fyers_symbol = f"NSE:{symbol.upper()}-EQ"
+    is_intraday = timeframe in ('5m', '15m', '1h')
+    max_days_per_request = _MAX_DAYS_PER_REQUEST['intraday' if is_intraday else 'daily']
 
     try:
-        resp = get_history(fyers_symbol, resolution=resolution, range_from=str(range_from), range_to=str(range_to))
+        raw_candles = _fetch_fyers_history_batched(get_history, fyers_symbol, resolution, total_days, max_days_per_request)
     except Exception as e:
         logger.warning(f"Candle fetch failed for {symbol} ({timeframe}): {e}")
         return {'status': 'error', 'reason': 'fetch_failed', 'message': f'History fetch failed: {e}'}
 
-    if not resp or resp.get('s') != 'ok' or not resp.get('candles'):
+    if not raw_candles:
         return {'status': 'error', 'reason': 'no_data', 'message': f'No real historical data available for {symbol} right now.'}
 
-    raw_candles = resp['candles']  # each: [timestamp, open, high, low, close, volume]
     candles = [
         {'time': int(c[0]), 'open': float(c[1]), 'high': float(c[2]), 'low': float(c[3]), 'close': float(c[4]), 'volume': float(c[5])}
         for c in raw_candles
@@ -162,6 +212,8 @@ def _get_candles_from_fyers(symbol: str, timeframe: str) -> Dict[str, Any]:
         'as_of': _as_of_timestamp(latest['time'], timeframe),
         'latest_price': latest['close'],
         'resolution_used': resolution,
+        'earliest_candle_time': candles[0]['time'],
+        'latest_candle_time': latest['time'],
     }
 
 
@@ -209,6 +261,7 @@ def _get_candles_from_yfinance(symbol: str, timeframe: str) -> Optional[Dict[str
     return {
         'status': 'ok', 'symbol': symbol.upper(), 'timeframe': timeframe, 'candles': candles,
         'as_of': _as_of_timestamp(latest['time'], timeframe), 'latest_price': latest['close'], 'resolution_used': f'yfinance:{interval}',
+        'earliest_candle_time': candles[0]['time'], 'latest_candle_time': latest['time'],
         'source': 'yfinance',  # distinct from a Fyers-sourced response -- frontend can label this differently if it chooses to
     }
 
@@ -229,7 +282,7 @@ def _aggregate_to_weekly(daily_candles: List[Dict[str, Any]]) -> List[Dict[str, 
 
     weeks: Dict[tuple, List[Dict[str, Any]]] = {}
     for c in daily_candles:
-        dt = datetime.utcfromtimestamp(c['time'])
+        dt = datetime.fromtimestamp(c['time'], tz=timezone.utc)
         iso_year, iso_week, _ = dt.isocalendar()
         weeks.setdefault((iso_year, iso_week), []).append(c)
 
