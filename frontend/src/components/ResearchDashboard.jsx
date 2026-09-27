@@ -40,11 +40,11 @@ function SourceTag({ source }) {
   return <span className="text-[9px] text-slate-500 bg-slate-800/60 px-1.5 py-0.5 rounded">{SOURCE_LABEL[source] || source}</span>;
 }
 
-function SectionCard({ title, children, right }) {
+function SectionCard({ title, children, right, term }) {
   return (
     <div className="rounded-lg bg-slate-900/40 border border-slate-700/40 p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        <h3 className="text-sm font-semibold text-white flex items-center">{title}{term && <InfoIcon term={term} />}</h3>
         {right}
       </div>
       {children}
@@ -52,10 +52,56 @@ function SectionCard({ title, children, right }) {
   );
 }
 
-function StatBox({ label, value, sub, source }) {
+// Sep 27 2026: reusable financial-term glossary + tooltip icon --
+// per explicit instruction to use one reusable component rather than
+// duplicating tooltip markup at every call site. Definitions kept
+// deliberately short (1-2 lines), plain English, matching the spec's
+// own wording closely since it was written for exactly this purpose.
+const FINANCIAL_GLOSSARY = {
+  pat: "The company's profit remaining after deducting taxes from its earnings.",
+  revenue: "The total money a company earns from selling goods or services before expenses are deducted.",
+  debt: "The money a company has borrowed and must repay.",
+  cashFlow: "The money moving into and out of a company during a specific period.",
+  balanceSheet: "A financial statement showing a company's assets, liabilities, and shareholders' equity.",
+  ebitda: "Earnings before interest, taxes, depreciation, and amortization -- a measure of operating performance.",
+  eps: "The company's profit allocated to each outstanding share.",
+  pe: "A valuation ratio comparing a company's share price with its earnings per share.",
+  roe: "A measure of how efficiently a company generates profit from shareholders' equity.",
+  roce: "A measure of how efficiently a company uses its capital to generate operating profit.",
+  operatingMargin: "The percentage of revenue remaining after operating expenses.",
+  promoterHolding: "The percentage of a company's shares held by its promoters.",
+  freeCashFlow: "Cash remaining after operating cash flow is reduced by capital expenditure.",
+  workingCapital: "Current assets minus current liabilities -- a measure of short-term financial resources.",
+};
+
+function InfoIcon({ term }) {
+  const [open, setOpen] = useState(false);
+  const definition = FINANCIAL_GLOSSARY[term];
+  if (!definition) return null;
+  return (
+    <span className="relative inline-block ml-1 align-middle">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        className="w-3.5 h-3.5 rounded-full bg-slate-700/60 text-slate-400 text-[9px] leading-none flex items-center justify-center hover:bg-slate-600 hover:text-slate-200"
+        aria-label="What does this mean?"
+      >
+        i
+      </button>
+      {open && (
+        <span className="absolute z-20 left-1/2 -translate-x-1/2 top-5 w-48 text-[10px] text-slate-200 bg-slate-800 border border-slate-600 rounded-lg px-2.5 py-2 shadow-lg leading-snug">
+          {definition}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function StatBox({ label, value, sub, source, term }) {
   return (
     <div className="rounded-lg bg-slate-900/60 border border-slate-700/30 p-3">
-      <div className="text-[10px] text-slate-500 mb-1">{label}</div>
+      <div className="text-[10px] text-slate-500 mb-1 flex items-center">{label}{term && <InfoIcon term={term} />}</div>
       <div className="text-base font-semibold text-white">{value}</div>
       {sub && <div className="text-[10px] text-slate-400 mt-0.5">{sub}</div>}
       {source && <div className="mt-1"><SourceTag source={source} /></div>}
@@ -123,7 +169,7 @@ function OwnershipBar({ ownership }) {
         {barData.map(d => (
           <span key={d.name} className="flex items-center gap-1 text-slate-300">
             <span className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
-            {d.name} {d.value.toFixed(1)}%
+            {d.name} {d.value.toFixed(1)}%{d.name === 'Promoter' && <InfoIcon term="promoterHolding" />}
           </span>
         ))}
       </div>
@@ -663,10 +709,10 @@ export default function ResearchDashboard() {
 
           <SectionCard title="Financial Snapshot">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <StatBox label={`Revenue (${latest?.fiscal_year || '—'})`} value={fmtInr(latest?.revenue)} sub={latest?.revenue_growth_yoy_pct != null ? `${fmtPct(latest.revenue_growth_yoy_pct)} YoY` : null} source={latest?.source} />
-              <StatBox label="PAT" value={fmtInr(latest?.pat)} sub={latest?.pat_growth_yoy_pct != null ? `${fmtPct(latest.pat_growth_yoy_pct)} YoY` : null} source={latest?.source} />
-              <StatBox label="EBITDA Margin" value={latest?.ebitda_margin_pct != null ? `${fmtNum(latest.ebitda_margin_pct)}%` : '—'} source="calculated" />
-              <StatBox label="ROE" value={latest?.roe_pct != null ? `${fmtNum(latest.roe_pct)}%` : '—'} source="calculated" />
+              <StatBox label={`Revenue (${latest?.fiscal_year || '—'})`} value={fmtInr(latest?.revenue)} sub={latest?.revenue_growth_yoy_pct != null ? `${fmtPct(latest.revenue_growth_yoy_pct)} YoY` : null} source={latest?.source} term="revenue" />
+              <StatBox label="PAT" value={fmtInr(latest?.pat)} sub={latest?.pat_growth_yoy_pct != null ? `${fmtPct(latest.pat_growth_yoy_pct)} YoY` : null} source={latest?.source} term="pat" />
+              <StatBox label="EBITDA Margin" value={latest?.ebitda_margin_pct != null ? `${fmtNum(latest.ebitda_margin_pct)}%` : '—'} source="calculated" term="ebitda" />
+              <StatBox label="ROE" value={latest?.roe_pct != null ? `${fmtNum(latest.roe_pct)}%` : '—'} source="calculated" term="roe" />
             </div>
             <TrendChart data={chartData} dataKey="revenue" label="Revenue" color="#34d399" />
             <div className="grid md:grid-cols-3 gap-3 mt-4">
@@ -679,7 +725,7 @@ export default function ResearchDashboard() {
                 <TrendChart data={chartData} dataKey="ebitda" label="EBITDA" color="#fbbf24" />
               </div>
               <div>
-                <div className="text-[10px] text-slate-500 mb-1">EPS</div>
+                <div className="text-[10px] text-slate-500 mb-1 flex items-center">EPS<InfoIcon term="eps" /></div>
                 <TrendChart data={chartData} dataKey="eps" label="EPS" color="#a78bfa" />
               </div>
             </div>
@@ -718,10 +764,10 @@ export default function ResearchDashboard() {
           )}
 
           <div className="grid md:grid-cols-2 gap-4">
-            <SectionCard title="Balance Sheet">
+            <SectionCard title="Balance Sheet" term="balanceSheet">
               {bs ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <StatBox label="Total Debt" value={fmtInr(bs.total_debt)} source={bs.source} />
+                  <StatBox label="Total Debt" value={fmtInr(bs.total_debt)} source={bs.source} term="debt" />
                   <StatBox label="Cash" value={fmtInr(bs.cash)} source={bs.source} />
                   <StatBox label="Debt/Equity" value={formatRatio(bs.debt_equity)} source="calculated" />
                   <StatBox label="Current Ratio" value={formatRatio(bs.current_ratio)} source="calculated" />
@@ -743,11 +789,11 @@ export default function ResearchDashboard() {
               )}
             </SectionCard>
 
-            <SectionCard title="Cash Flow">
+            <SectionCard title="Cash Flow" term="cashFlow">
               {cf ? (
                 <div className="grid grid-cols-2 gap-3">
                   <StatBox label="Operating CF" value={fmtInr(cf.operating_cash_flow)} source={cf.source} />
-                  <StatBox label="Free Cash Flow" value={fmtInr(cf.free_cash_flow)} source="calculated" />
+                  <StatBox label="Free Cash Flow" value={fmtInr(cf.free_cash_flow)} source="calculated" term="freeCashFlow" />
                   <StatBox label="CFO/PAT" value={formatRatio(cf.cfo_to_pat)} source="calculated" />
                   <StatBox label="Capex Intensity" value={cf.capex_intensity_pct != null ? `${fmtNum(cf.capex_intensity_pct)}%` : '—'} source="calculated" />
                 </div>
@@ -771,7 +817,7 @@ export default function ResearchDashboard() {
             <SectionCard title="Valuation">
               {snapshot.valuation ? (
                 <div className="grid grid-cols-2 gap-3">
-                  <StatBox label="P/E" value={formatRatio(snapshot.valuation.pe)} source={snapshot.valuation.source} />
+                  <StatBox label="P/E" value={formatRatio(snapshot.valuation.pe)} source={snapshot.valuation.source} term="pe" />
                   <StatBox label="P/B" value={formatRatio(snapshot.valuation.pb)} source={snapshot.valuation.source} />
                   <StatBox label="52W Range" value={`${fmtInr(snapshot.valuation.week_52_low)} – ${fmtInr(snapshot.valuation.week_52_high)}`} />
                   <StatBox label="From 52W High" value={fmtPct(snapshot.valuation.distance_from_52w_high_pct)} />

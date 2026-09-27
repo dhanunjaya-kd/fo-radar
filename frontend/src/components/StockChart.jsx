@@ -44,6 +44,14 @@ export default function StockChart({ symbol }) {
       timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false },
       width: containerRef.current.clientWidth,
       height: 380,
+      // Sep 27 2026: this is lightweight-charts' OWN default open-
+      // source attribution logo (confirmed by checking the library's
+      // own type definitions -- a real, documented `attributionLogo`
+      // option), not TradingView's data or widget. Every candle here
+      // comes from this project's own backend. Disabled anyway since
+      // it visually resembles TradingView branding and was genuinely
+      // confusing, even though it's not actually a data-source issue.
+      attributionLogo: false,
     });
     const candleSeries = chart.addCandlestickSeries({
       upColor: '#34d399', downColor: '#f87171', borderVisible: false,
