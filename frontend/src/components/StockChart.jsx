@@ -82,21 +82,27 @@ export default function StockChart({ symbol }) {
   useEffect(() => {
     if (!containerEl) return;
     const chart = createChart(containerEl, {
-      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#94a3b8', fontSize: 11 },
+      // Sep 27 2026 correction: attributionLogo is a field INSIDE
+      // the `layout` object (same interface as background/textColor/
+      // fontSize) -- confirmed by reading its actual position in the
+      // library's type definitions this time, not just that the
+      // field existed somewhere. Previously placed at the top level
+      // of createChart()'s options, where it doesn't exist, so it was
+      // silently ignored (JS doesn't error on unknown object keys)
+      // and the default (true, logo shown) stayed in effect the
+      // whole time -- confirmed empirically: took a real screenshot
+      // with the old placement (logo visible), moved it here, took
+      // another screenshot (logo gone). This is lightweight-charts'
+      // own default open-source attribution logo, not TradingView's
+      // data or a live widget -- every candle on this chart comes
+      // from this project's own Fyers/yfinance backend.
+      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#94a3b8', fontSize: 11, attributionLogo: false },
       grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#334155' },
       timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false },
       width: containerEl.clientWidth,
       height: 380,
-      // Sep 27 2026: this is lightweight-charts' OWN default open-
-      // source attribution logo (confirmed by checking the library's
-      // own type definitions -- a real, documented `attributionLogo`
-      // option), not TradingView's data or widget. Every candle here
-      // comes from this project's own backend. Disabled anyway since
-      // it visually resembles TradingView branding and was genuinely
-      // confusing, even though it's not actually a data-source issue.
-      attributionLogo: false,
     });
     const candleSeries = chart.addCandlestickSeries({
       upColor: '#34d399', downColor: '#f87171', borderVisible: false,
