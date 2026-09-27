@@ -29,15 +29,30 @@ import requests
 
 logger = logging.getLogger('fundamentals_research.llm_narrative')
 
-API_URL = 'https://api.anthropic.com/v1/messages'
-API_VERSION = '2023-06-01'
-DEFAULT_TIMEOUT = 30
+# --- Anthropic (Claude) provider ---
+_ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
+_ANTHROPIC_API_VERSION = '2023-06-01'
 # Sep 25 2026: Haiku 4.5, confirmed current via live docs search (not
 # memory) -- fast and cheap, appropriate since this runs on every
 # refresh. Configurable via env for anyone who wants richer prose from
 # Sonnet 5 instead -- also confirmed current, no dated suffix (it's an
 # alias). Neither string is guessed.
-DEFAULT_MODEL = os.environ.get('ANTHROPIC_NARRATIVE_MODEL', 'claude-haiku-4-5-20251001')
+_ANTHROPIC_DEFAULT_MODEL = os.environ.get('ANTHROPIC_NARRATIVE_MODEL', 'claude-haiku-4-5-20251001')
+
+# --- Gemini provider ---
+_GEMINI_API_URL_TEMPLATE = 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
+# Sep 27 2026: confirmed directly against Google's own, 4-day-old
+# developer guide (ai.google.dev/gemini-api/docs/gemini-3), not
+# guessed and not taken from third-party summaries (several of which
+# were confirmed stale during this same search -- e.g. gemini-2.0-flash
+# and gemini-2.0-flash-lite were both shut down June 1 2026, per
+# Firebase's own docs). The guide's exact words: "Gemini 3 Flash
+# gemini-3-flash-preview has a free tier in the Gemini API." Overridable
+# via GEMINI_MODEL so this doesn't need a code change if Google renames
+# it again.
+_GEMINI_DEFAULT_MODEL = 'gemini-3-flash-preview'
+
+DEFAULT_TIMEOUT = 30
 
 _SYSTEM_PROMPT = """You are a financial-data narrator for an Indian equity research tool. You will be given a JSON fact sheet of ALREADY-VERIFIED numbers for one company, pulled from structured financial data sources. Your job is to write clear, analytical prose describing what these numbers show.
 
@@ -50,33 +65,53 @@ STRICT RULES, no exceptions:
 6. Cite the specific number when you reference it, so a reader can verify it against the data above your text."""
 
 
-def _get_api_key() -> Optional[str]:
+def _get_provider() -> str:
+    """
+    Sep 27 2026. AI_PROVIDER env var, defaults to 'gemini' -- matching
+    this project's ACTUAL current setup (Gemini credentials already
+    added, no Anthropic key present) rather than defaulting to
+    'anthropic' and leaving the AI summary broken out of the box.
+    Fully overridable: setting AI_PROVIDER=anthropic (with
+    ANTHROPIC_API_KEY present) switches back with no code change.
+    """
+    return os.environ.get('AI_PROVIDER', 'gemini').strip().lower()
+
+
+def _get_api_key(provider: str) -> Optional[str]:
+    if provider == 'gemini':
+        return os.environ.get('GEMINI_API_KEY')
     return os.environ.get('ANTHROPIC_API_KEY')
 
 
-def _call_claude(system: str, messages: List[Dict[str, str]], max_tokens: int = 1500) -> tuple:
+def _call_llm(system: str, messages: List[Dict[str, str]], max_tokens: int = 1500) -> tuple:
     """
-    Returns (text, reason) -- text is None on any failure, reason is
-    always a short machine-readable code so callers (and ultimately
-    the API response) can distinguish WHY, not just THAT it failed.
-    Sep 26 2026 addition: previously returned only Optional[str],
-    which is why "AI decision summary unavailable (not configured or
-    the call failed)" couldn't say which -- this is the actual fix for
-    that, not just a cosmetic detail.
+    Provider-agnostic entry point -- every caller in this file uses
+    THIS, not a provider-specific function directly. Returns (text,
+    reason), exact same contract regardless of which provider is
+    active, so nothing downstream (JSON parsing, banned-term checks,
+    status validation) needs to know or care which provider answered.
 
     reason values: 'ok', 'no_api_key', 'network_error', 'http_error',
     'parse_error'.
     """
-    api_key = _get_api_key()
+    provider = _get_provider()
+    api_key = _get_api_key(provider)
     if not api_key:
-        logger.info("ANTHROPIC_API_KEY not set -- narrative generation skipped, template fallback will be used.")
+        key_name = 'GEMINI_API_KEY' if provider == 'gemini' else 'ANTHROPIC_API_KEY'
+        logger.info(f"{key_name} not set (AI_PROVIDER={provider}) -- narrative generation skipped, template fallback will be used.")
         return None, 'no_api_key'
 
+    if provider == 'gemini':
+        return _call_gemini(system, messages, max_tokens, api_key)
+    return _call_anthropic(system, messages, max_tokens, api_key)
+
+
+def _call_anthropic(system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str) -> tuple:
     try:
         resp = requests.post(
-            API_URL,
-            headers={'x-api-key': api_key, 'anthropic-version': API_VERSION, 'content-type': 'application/json'},
-            json={'model': DEFAULT_MODEL, 'max_tokens': max_tokens, 'system': system, 'messages': messages},
+            _ANTHROPIC_API_URL,
+            headers={'x-api-key': api_key, 'anthropic-version': _ANTHROPIC_API_VERSION, 'content-type': 'application/json'},
+            json={'model': _ANTHROPIC_DEFAULT_MODEL, 'max_tokens': max_tokens, 'system': system, 'messages': messages},
             timeout=DEFAULT_TIMEOUT,
         )
     except requests.exceptions.RequestException as e:
@@ -95,6 +130,64 @@ def _call_claude(system: str, messages: List[Dict[str, str]], max_tokens: int = 
     except (ValueError, KeyError) as e:
         logger.warning(f"Claude API response malformed: {e}")
         return None, 'parse_error'
+
+
+def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str) -> tuple:
+    """
+    Real Gemini REST call via generateContent -- an officially
+    supported API method per Google's own docs (used here directly
+    with `requests`, matching this project's established pattern of
+    plain REST calls over adding a provider SDK as a new dependency).
+
+    Gemini's message shape differs from Anthropic's and is mapped
+    here: role 'assistant' -> 'model' (Gemini's own term), system
+    prompt goes in a separate systemInstruction field rather than a
+    top-level 'system' key.
+    """
+    model = os.environ.get('GEMINI_MODEL', _GEMINI_DEFAULT_MODEL)
+    url = _GEMINI_API_URL_TEMPLATE.format(model=model)
+
+    gemini_contents = [
+        {'role': 'model' if m['role'] == 'assistant' else 'user', 'parts': [{'text': m['content']}]}
+        for m in messages
+    ]
+
+    try:
+        resp = requests.post(
+            url,
+            headers={'x-goog-api-key': api_key, 'content-type': 'application/json'},
+            json={
+                'contents': gemini_contents,
+                'systemInstruction': {'parts': [{'text': system}]},
+                'generationConfig': {'maxOutputTokens': max_tokens},
+            },
+            timeout=DEFAULT_TIMEOUT,
+        )
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Gemini API call failed (network): {e}")
+        return None, 'network_error'
+
+    if resp.status_code != 200:
+        # Sep 27 2026: never log the api_key itself -- confirmed this
+        # response body doesn't echo it back (Gemini's own error shape,
+        # like Anthropic's, only describes the error, e.g.
+        # {"error":{"code":429,"message":"...","status":"RESOURCE_EXHAUSTED"}}),
+        # same safety property already verified for the Anthropic path.
+        logger.warning(f"Gemini API returned HTTP {resp.status_code}: {resp.text[:300]}")
+        return None, 'http_error'
+
+    try:
+        data = resp.json()
+        candidates = data.get('candidates') or []
+        if not candidates:
+            return None, 'parse_error'
+        parts = candidates[0].get('content', {}).get('parts', [])
+        text = ''.join(p.get('text', '') for p in parts) or None
+        return (text, 'ok') if text is not None else (None, 'parse_error')
+    except (ValueError, KeyError, IndexError, AttributeError) as e:
+        logger.warning(f"Gemini API response malformed: {e}")
+        return None, 'parse_error'
+
 
 
 def build_fact_sheet(snapshot) -> Dict[str, Any]:
@@ -173,7 +266,7 @@ Write five short sections analyzing this data. Return ONLY valid JSON, no other 
 }}
 Each value should be 2-4 sentences. If a section's underlying data is null in the fact sheet, that section's text must say the data isn't available -- do not skip the key or invent content for it."""
 
-    raw, _reason = _call_claude(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1200)
+    raw, _reason = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1200)
     if raw is None:
         return None
 
@@ -222,7 +315,7 @@ def answer_question(fact_sheet: Dict[str, Any], question: str, conversation_hist
     messages.append({'role': 'user', 'content': question})
 
     system = _SYSTEM_PROMPT + "\n\nYou are now answering a direct follow-up question from the user about this company. If the answer isn't in the fact sheet, say so plainly -- do not guess."
-    answer, _reason = _call_claude(system, messages, max_tokens=600)
+    answer, _reason = _call_llm(system, messages, max_tokens=600)
     if answer is None:
         return "Sorry, I couldn't generate an answer right now -- the AI service is unavailable or not configured. The structured data above is still accurate and unaffected."
     return answer
@@ -294,7 +387,7 @@ Write a decision summary. Return ONLY valid JSON, no other text, with exactly th
 Each evidence/condition list: 2-4 short items, each citing a specific number or classification from the data above. If the evidence is genuinely conflicting or data is missing, "status" must be "Insufficient data" or reflect the conflict honestly -- never force a confident status the data doesn't support.
 {language_instruction}"""
 
-    raw, call_reason = _call_claude(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1000)
+    raw, call_reason = _call_llm(_SYSTEM_PROMPT, [{'role': 'user', 'content': prompt}], max_tokens=1000)
     if raw is None:
         return None, call_reason
 

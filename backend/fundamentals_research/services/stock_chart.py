@@ -27,6 +27,20 @@ from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger('fundamentals_research.stock_chart')
 
+# Sep 27 2026 addition, from investigating a real rate-limit report:
+# confirmed via _call()'s own code that Fyers' circuit breaker is a
+# genuine, account-wide, shared trip -- not a bug in this file. But
+# this endpoint had NO caching at all (unlike technical_analysis.py's
+# day-scoped cache), meaning every page load AND every timeframe
+# button click fired a fresh Fyers call, adding avoidable pressure on
+# top of this app's already-heavy background workers (breadth
+# snapshots, Gamma zone warmup) competing for the same account-wide
+# budget. Short TTL for intraday timeframes (they genuinely move) and
+# a longer, day-scoped TTL for 1d/1w (matching this project's own
+# established convention for daily bars).
+_candle_cache = {}  # {(symbol, timeframe): {'expires_at': monotonic_time, 'data': result}}
+_INTRADAY_CACHE_SECONDS = 300  # 5 minutes -- short enough to stay current, long enough to absorb repeated clicks
+
 # timeframe -> (fyers_resolution, calendar_days_lookback)
 # Lookback windows sized so each timeframe returns a reasonable number
 # of candles to actually look like a chart, not sized to Fyers' own
@@ -51,10 +65,41 @@ def get_candles(symbol: str, timeframe: str = '1d') -> Dict[str, Any]:
 
     reason codes: 'invalid_timeframe', 'not_authenticated', 'rate_limited',
     'fetch_failed', 'no_data'.
+
+    Sep 27 2026: now cached (see _candle_cache above -- real, confirmed
+    fix for unnecessary repeated Fyers calls), and falls back to
+    yfinance (a genuine, already-proven data source in this project --
+    see yfinance_fallback.py) when Fyers is rate-limited or not
+    authenticated, per explicit instruction to use a legitimate
+    existing alternative source rather than leave the chart blank.
+    Fyers stays PRIMARY -- yfinance is only tried after a real Fyers
+    failure, never preferred over it.
     """
     if timeframe not in _TIMEFRAME_MAP:
         return {'status': 'error', 'reason': 'invalid_timeframe', 'message': f"Unsupported timeframe '{timeframe}'. Use one of: {', '.join(_TIMEFRAME_MAP.keys())}."}
 
+    import time as _time
+    cache_key = (symbol.upper(), timeframe)
+    cached = _candle_cache.get(cache_key)
+    if cached and cached['expires_at'] > _time.monotonic():
+        return cached['data']
+
+    result = _get_candles_from_fyers(symbol, timeframe)
+
+    if result['status'] == 'error' and result['reason'] in ('rate_limited', 'not_authenticated'):
+        logger.info(f"Fyers unavailable for {symbol} chart ({result['reason']}) -- trying yfinance fallback.")
+        yf_result = _get_candles_from_yfinance(symbol, timeframe)
+        if yf_result is not None:
+            result = yf_result
+
+    if result['status'] == 'ok':
+        ttl = _INTRADAY_CACHE_SECONDS if timeframe in ('5m', '15m', '1h') else 24 * 3600
+        _candle_cache[cache_key] = {'expires_at': _time.monotonic() + ttl, 'data': result}
+
+    return result
+
+
+def _get_candles_from_fyers(symbol: str, timeframe: str) -> Dict[str, Any]:
     try:
         from screener.fyers_client import is_authenticated, _rate_limited_now, get_history
     except ImportError as e:
@@ -101,6 +146,54 @@ def get_candles(symbol: str, timeframe: str = '1d') -> Dict[str, Any]:
         'as_of': latest['time'],
         'latest_price': latest['close'],
         'resolution_used': resolution,
+    }
+
+
+# timeframe -> (yfinance_interval, yfinance_period). yfinance's own
+# documented interval/period values -- confirmed via this project's
+# already-working yfinance_fallback.py that the package installs and
+# runs cleanly here; these specific interval strings are yfinance's
+# own standard codes, not guessed.
+_YFINANCE_TIMEFRAME_MAP = {
+    '5m': ('5m', '5d'), '15m': ('15m', '1mo'), '1h': ('60m', '3mo'),
+    '1d': ('1d', '1y'), '1w': ('1wk', '5y'),
+}
+
+
+def _get_candles_from_yfinance(symbol: str, timeframe: str) -> Optional[Dict[str, Any]]:
+    """
+    Real fallback, only tried after a genuine Fyers failure (rate-
+    limited or not authenticated) -- never preferred over Fyers.
+    Returns None (not an error dict) if yfinance itself has no data
+    either, so the caller keeps the ORIGINAL Fyers error message
+    (more specific and more actionable) rather than a generic one.
+    """
+    try:
+        import yfinance as yf
+    except ImportError:
+        return None
+
+    interval, period = _YFINANCE_TIMEFRAME_MAP[timeframe]
+    try:
+        ticker = yf.Ticker(f"{symbol.upper()}.NS")
+        df = ticker.history(period=period, interval=interval)
+    except Exception as e:
+        logger.warning(f"yfinance candle fallback failed for {symbol}: {e}")
+        return None
+
+    if df is None or df.empty:
+        return None
+
+    candles = [
+        {'time': int(idx.timestamp()), 'open': float(row['Open']), 'high': float(row['High']),
+         'low': float(row['Low']), 'close': float(row['Close']), 'volume': float(row['Volume'])}
+        for idx, row in df.iterrows()
+    ]
+    latest = candles[-1]
+    return {
+        'status': 'ok', 'symbol': symbol.upper(), 'timeframe': timeframe, 'candles': candles,
+        'as_of': latest['time'], 'latest_price': latest['close'], 'resolution_used': f'yfinance:{interval}',
+        'source': 'yfinance',  # distinct from a Fyers-sourced response -- frontend can label this differently if it chooses to
     }
 
 

@@ -89,7 +89,7 @@ export default function StockChart({ symbol }) {
       if (candleSeriesRef.current) candleSeriesRef.current.setData(candleData);
       if (volumeSeriesRef.current) volumeSeriesRef.current.setData(volumeData);
       if (chartRef.current) chartRef.current.timeScale().fitContent();
-      setMeta({ latest_price: data.latest_price, as_of: data.as_of, symbol: data.symbol });
+      setMeta({ latest_price: data.latest_price, as_of: data.as_of, symbol: data.symbol, source: data.source });
     } catch (e) {
       setError('Could not reach the chart data service.');
       setMeta(null);
@@ -112,7 +112,10 @@ export default function StockChart({ symbol }) {
           {meta && (
             <>
               <span className="text-base font-bold text-white">₹{meta.latest_price.toFixed(2)}</span>
-              <span className="text-[10px] text-slate-500">as of {formatAsOf(meta.as_of)} — historical, not live-streamed</span>
+              <span className="text-[10px] text-slate-500">
+                as of {formatAsOf(meta.as_of)} — historical, not live-streamed
+                {meta.source === 'yfinance' && <span className="text-amber-500/80"> · via Yahoo Finance (Fyers was unavailable)</span>}
+              </span>
             </>
           )}
         </div>
