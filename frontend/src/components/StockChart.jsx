@@ -46,7 +46,23 @@ function calculateEMA(candles, period) {
 }
 
 export default function StockChart({ symbol }) {
-  const containerRef = useRef(null);
+  // Sep 27 2026 fix: THE actual, confirmed root cause of the
+  // persistent blank chart, found by building a real React
+  // reproduction of this exact pattern and running it in a headless
+  // browser (not guessed). A plain useRef + a chart-creation effect
+  // with an empty [] dependency array is a classic React trap here:
+  // this component mounts with symbol=undefined on the very first
+  // page load (before any search), the `if (!symbol) return null`
+  // below means the container <div> never renders on that first
+  // pass, so containerRef.current is still null when the one-time
+  // effect runs -- and because its deps are [], it NEVER runs again,
+  // even after a real symbol arrives and the container finally
+  // exists. Confirmed empirically: the chart was NEVER created in
+  // this scenario. A callback ref (via useState, not useRef) is the
+  // correct fix -- React invokes it exactly when the DOM node
+  // actually attaches, whenever that happens to be, so the effect
+  // below (now keyed on containerEl) gets a real chance to run.
+  const [containerEl, setContainerEl] = useState(null);
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
   const volumeSeriesRef = useRef(null);
@@ -59,18 +75,19 @@ export default function StockChart({ symbol }) {
   const [hoverOHLC, setHoverOHLC] = useState(null); // {open, high, low, close} at crosshair, or null when not hovering
   const [emaVisible, setEmaVisible] = useState({ 20: true, 50: true, 200: true }); // default ON, per explicit "keep the default indicators enabled" requirement
 
-  // Chart instance created once per mount, data updated in place --
-  // avoids tearing down and rebuilding the whole chart (losing zoom/
-  // pan state) on every timeframe or symbol change.
+  // Chart instance created whenever the container DOM node actually
+  // exists (see the callback-ref note above) -- NOT tied to mount
+  // timing, so it works correctly regardless of whether a symbol was
+  // available on the very first render.
   useEffect(() => {
-    if (!containerRef.current) return;
-    const chart = createChart(containerRef.current, {
+    if (!containerEl) return;
+    const chart = createChart(containerEl, {
       layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#94a3b8', fontSize: 11 },
       grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#334155' },
       timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false },
-      width: containerRef.current.clientWidth,
+      width: containerEl.clientWidth,
       height: 380,
       // Sep 27 2026: this is lightweight-charts' OWN default open-
       // source attribution logo (confirmed by checking the library's
@@ -125,29 +142,18 @@ export default function StockChart({ symbol }) {
     };
     chart.subscribeCrosshairMove(handleCrosshairMove);
 
-    // Sep 27 2026 fix: real, confirmed cause of a genuinely blank
-    // chart (price/EMA legend rendering correctly, canvas area
-    // completely empty). This chart's width was captured ONCE at
-    // creation time from containerRef.current.clientWidth, and the
-    // only resize handling was a window 'resize' listener -- which
-    // only fires on the BROWSER WINDOW changing size, never when the
-    // CONTAINER's own layout settles after React's initial render
-    // (a well-known timing issue with canvas-based chart libraries:
-    // if the container is still 0-width at the instant createChart()
-    // runs, e.g. because a parent flex/grid layout hasn't finished
-    // sizing yet, the chart is created zero-width and NOTHING in the
-    // old code ever corrected it, since no browser window resize
-    // event necessarily follows). Replaced with a ResizeObserver,
-    // which watches the CONTAINER element itself and fires whenever
-    // ITS size changes for any reason, including pure React layout
-    // shifts with no window resize involved.
+    // ResizeObserver on the container -- a genuine, separate
+    // improvement made in an earlier round (window 'resize' alone
+    // misses pure React layout shifts), kept here since it's still
+    // correct and useful alongside the callback-ref fix above; the
+    // two address different failure modes.
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry && entry.contentRect.width > 0) {
         chart.applyOptions({ width: entry.contentRect.width });
       }
     });
-    resizeObserver.observe(containerRef.current);
+    resizeObserver.observe(containerEl);
 
     return () => {
       resizeObserver.disconnect();
@@ -155,7 +161,8 @@ export default function StockChart({ symbol }) {
       chart.remove();
       chartRef.current = null;
     };
-  }, []);
+  }, [containerEl]);
+
 
   const abortControllerRef = useRef(null);
   const latestRequestIdRef = useRef(0);
@@ -333,7 +340,7 @@ export default function StockChart({ symbol }) {
         <div className="text-xs text-rose-400 bg-rose-500/10 rounded px-3 py-2 mb-2">{error}</div>
       )}
 
-      <div ref={containerRef} className="w-full" style={{ minHeight: 380 }} />
+      <div ref={setContainerEl} className="w-full" style={{ minHeight: 380 }} />
     </div>
   );
 }
