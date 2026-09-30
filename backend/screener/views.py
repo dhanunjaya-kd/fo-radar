@@ -6254,7 +6254,15 @@ class SignalExcelExportView(APIView):
         from .excel_logger import get_today_log_path
         path = get_today_log_path()
         if not path:
-            return JsonResponse({"error": "No signals logged yet today."}, status=404)
+            # Sep 30 2026: clearer message -- real, confirmed source of
+            # user confusion. This log only records signals AFTER they
+            # exit (hit target/SL/expired -- see this view's own
+            # docstring), not signals still active. A user can genuinely
+            # see signals live on screen while this file has nothing yet,
+            # if none of today's signals have exited. The old message
+            # ("No signals logged yet today") read as "nothing happened
+            # today," which isn't what's actually true.
+            return JsonResponse({"error": "No signals have exited yet today (this log records completed trades -- entry through exit -- not signals still active)."}, status=404)
         filename = os.path.basename(path)
         return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
 
@@ -6320,7 +6328,8 @@ class SignalExcelExportByDateView(APIView):
         from .excel_logger import get_log_path_for_date
         path = get_log_path_for_date(date_str)
         if not path:
-            return JsonResponse({"error": f"No signals logged for {date_str}."}, status=404)
+            # Sep 30 2026: same clarity fix as SignalExcelExportView above.
+            return JsonResponse({"error": f"No signals exited on {date_str} (this log records completed trades -- entry through exit -- not signals still active that day)."}, status=404)
         filename = os.path.basename(path)
         return FileResponse(open(path, 'rb'), as_attachment=True, filename=filename)
 
