@@ -122,9 +122,15 @@ function AlertRow({ alert }) {
 function WarmingUpSection({ title, note }) {
   return (
     <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-bold text-white">{title}</h3>
-        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-amber-400 bg-amber-500/10">WARMING UP</span>
+      {/* Sep 30 2026 fix: real, confirmed bug found via an actual
+          mobile-width render (375px) -- items-center vertically
+          centers the badge against a title that wraps to 2 lines on
+          narrow screens, causing visual overlap. items-start + flex-
+          wrap + min-w-0 on the title lets it wrap freely without
+          colliding with its sibling, at any width. */}
+      <div className="flex items-start justify-between gap-2 flex-wrap mb-2">
+        <h3 className="text-sm font-bold text-white min-w-0">{title}</h3>
+        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-amber-400 bg-amber-500/10 shrink-0">WARMING UP</span>
       </div>
       <p className="text-xs text-slate-500 italic">{note}</p>
     </div>
@@ -176,8 +182,13 @@ export default function GammaStrategy() {
   return (
     <div className="space-y-3">
       <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
-        <div className="flex items-center justify-between">
-          <div>
+        {/* Sep 30 2026: same fix applied preventatively -- this header
+            happened to avoid visible overlap in the mobile test only
+            because the subtitle's own 3-line wrap height absorbed the
+            sibling's vertical centering; that's fragile, not a real
+            fix, so the same robust pattern is applied here too. */}
+        <div className="flex items-start justify-between gap-2 flex-wrap">
+          <div className="min-w-0">
             <h2 className="text-base font-bold text-white">Gamma Blast Strategy</h2>
             <p className="text-xs text-slate-500 mt-0.5">
               Volatility Supply &amp; Demand zones + 50 EMA macro gate, scanning {data.universe_size} F&amp;O stocks
@@ -185,7 +196,7 @@ export default function GammaStrategy() {
             </p>
           </div>
           {data.updated_at && (
-            <span className="text-[10px] text-slate-500">
+            <span className="text-[10px] text-slate-500 shrink-0">
               Updated {new Date(data.updated_at).toLocaleTimeString('en-IN')}
             </span>
           )}
@@ -227,9 +238,11 @@ export default function GammaStrategy() {
 
       {options.status === 'LIVE' ? (
         <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-white">Options Resolver — {options.items.length}-Contract OTM Watchlist</h3>
-            {options.updated_at && <span className="text-[10px] text-slate-500">Updated {new Date(options.updated_at).toLocaleTimeString('en-IN')}</span>}
+          {/* Sep 30 2026 fix: same real overlap bug, same fix -- see
+              WarmingUpSection's note above for the confirmed cause. */}
+          <div className="flex items-start justify-between gap-2 flex-wrap mb-3">
+            <h3 className="text-sm font-bold text-white min-w-0">Options Resolver — {options.items.length}-Contract OTM Watchlist</h3>
+            {options.updated_at && <span className="text-[10px] text-slate-500 shrink-0">Updated {new Date(options.updated_at).toLocaleTimeString('en-IN')}</span>}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div>

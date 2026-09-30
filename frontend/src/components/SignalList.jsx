@@ -245,6 +245,16 @@ export default function LiveSignals() {
   }, []);
 
   const uniqueSignals = useMemo(() => signals, [signals]);
+  // Sep 30 2026 fix: real, confirmed Rules of Hooks violation, found
+  // via actual React error output (not guessed) -- these two useMemo
+  // calls were below the early-return loading/error checks, so the
+  // loading render called 9 hooks total while the loaded render
+  // called 11, triggering "Rendered more hooks than during the
+  // previous render." Moved above every early return, alongside
+  // uniqueSignals, so the hook count is identical on every render
+  // regardless of which branch below actually returns.
+  const longSignals = useMemo(() => uniqueSignals.filter((s) => s.action === 'BUY'), [uniqueSignals]);
+  const shortSignals = useMemo(() => uniqueSignals.filter((s) => s.action === 'SELL'), [uniqueSignals]);
 
   if (loading && uniqueSignals.length === 0) {
     return (
@@ -262,9 +272,6 @@ export default function LiveSignals() {
       </div>
     );
   }
-
-  const longSignals = useMemo(() => uniqueSignals.filter((s) => s.action === 'BUY'), [uniqueSignals]);
-  const shortSignals = useMemo(() => uniqueSignals.filter((s) => s.action === 'SELL'), [uniqueSignals]);
 
   return (
     <div className="space-y-3">
