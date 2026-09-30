@@ -4768,6 +4768,115 @@ if not _IS_RELOADER_WATCHER_PROCESS:
     _gamma_strategy_worker_thread.start()
 
 
+class GammaStrategyExcelExportView(APIView):
+    """
+    GET /api/gamma-strategy/export/
+
+    Sep 30 2026 addition. Real, on-demand export of Gamma Strategy's
+    CURRENT state -- explicit requirement, distinct from
+    SignalExcelExportView above (which serves a pre-existing,
+    continuously-logged file from disk, not a live snapshot; checked
+    directly before building this, not assumed reusable). Reads the
+    EXACT SAME in-memory caches GammaStrategyView itself reads, under
+    the same lock, so the workbook can never show different data than
+    what's on screen at the moment of download. Uses openpyxl --
+    already a project dependency (requirements.txt), not a new one;
+    excel_logger.py's own different, lower-level zip approach is for
+    its own append-heavy logging use case and isn't reused here since
+    this is a single, one-shot generate-and-serve, not a continuously
+    updated file.
+
+    No new calculation happens here -- every value written is read
+    directly from the same snapshot dicts GammaStrategyView returns.
+    """
+    def get(self, request):
+        from django.http import HttpResponse
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+        import io
+
+        with _gamma_cache_lock:
+            wl_snapshot = dict(_gamma_watchlist_cache)
+            opt_snapshot = dict(_gamma_active_options_cache)
+            alert_snapshot = list(_gamma_alerts_cache.get("items", []))
+
+        resistance = wl_snapshot.get("resistance_watchlist", [])
+        support = wl_snapshot.get("support_watchlist", [])
+        options = opt_snapshot.get("items", [])
+        ce_options = [o for o in options if o.get("option_type") == "CE"]
+        pe_options = [o for o in options if o.get("option_type") == "PE"]
+
+        wb = Workbook()
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+
+        def write_sheet(ws, headers, rows):
+            ws.append(headers)
+            for cell in ws[1]:
+                cell.font = header_font
+                cell.fill = header_fill
+            for row in rows:
+                ws.append(row)
+            for col_cells in ws.columns:
+                max_len = max((len(str(c.value)) for c in col_cells if c.value is not None), default=10)
+                ws.column_dimensions[col_cells[0].column_letter].width = min(max_len + 2, 40)
+
+        # Sheet 1: Gamma Summary
+        ws_summary = wb.active
+        ws_summary.title = "Gamma Summary"
+        write_sheet(ws_summary, ["Field", "Value"], [
+            ["Strategy", "Gamma_Blast_Options_strategy"],
+            ["Universe Size", len(FNO_STOCKS)],
+            ["Zone-Warmed Today", wl_snapshot.get("symbols_with_zones_today", 0)],
+            ["Watchlist Updated At", wl_snapshot.get("updated_at") or "—"],
+            ["Options Resolver Status", "LIVE" if options else "WARMING_UP"],
+            ["Options Resolver Updated At", opt_snapshot.get("updated_at") or "—"],
+            ["Microstructure Status", "LIVE" if alert_snapshot else "WARMING_UP"],
+            ["Resistance Watchlist Count", len(resistance)],
+            ["Support Watchlist Count", len(support)],
+            ["Active Options Count", len(options)],
+            ["Microstructure Alerts Count", len(alert_snapshot)],
+        ])
+
+        # Sheet 2: CE Candidates (resistance watchlist -- same data,
+        # same field names GammaStrategy.jsx's StockRow already reads)
+        write_sheet(wb.create_sheet("CE Candidates"),
+            ["Symbol", "CMP", "Zone Bottom", "Zone Top", "Distance %", "50 EMA Aligned", "Intraday Momentum", "Status"],
+            [[s.get("symbol"), s.get("cmp"), s.get("zone_bottom"), s.get("zone_top"), s.get("distance_pct"),
+              "Yes" if s.get("trend_aligned") else "No", "Yes" if s.get("intraday_momentum") else "No", s.get("status")]
+             for s in resistance])
+
+        # Sheet 3: PE Candidates (support watchlist)
+        write_sheet(wb.create_sheet("PE Candidates"),
+            ["Symbol", "CMP", "Zone Bottom", "Zone Top", "Distance %", "50 EMA Aligned", "Intraday Momentum", "Status"],
+            [[s.get("symbol"), s.get("cmp"), s.get("zone_bottom"), s.get("zone_top"), s.get("distance_pct"),
+              "Yes" if s.get("trend_aligned") else "No", "Yes" if s.get("intraday_momentum") else "No", s.get("status")]
+             for s in support])
+
+        # Sheet 4: Options Resolver (CE and PE contracts, same fields
+        # GammaStrategy.jsx's OptionRow already reads)
+        write_sheet(wb.create_sheet("Options Resolver"),
+            ["Symbol", "Type", "Strike", "Tier", "LTP", "Expiry", "DTE", "Spread %", "Delta", "Gamma Convexity", "OI", "Volume"],
+            [[o.get("symbol"), o.get("option_type"), o.get("strike"), o.get("tier"), o.get("ltp"), o.get("expiry"),
+              o.get("dte"), o.get("spread_pct"), o.get("delta"), o.get("convexity"), o.get("oi"), o.get("volume")]
+             for o in ce_options + pe_options])
+
+        # Sheet 5: Microstructure Alerts (same fields AlertRow reads)
+        write_sheet(wb.create_sheet("Microstructure Alerts"),
+            ["Contract", "Status", "Entry Price", "Stop Loss", "Target 1", "Target 2", "Timestamp (IST)"],
+            [[a.get("contract"), a.get("status"), a.get("entry_price"), a.get("stop_loss"),
+              a.get("target_1"), a.get("target_2"), a.get("timestamp_ist")]
+             for a in alert_snapshot])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        filename = f"gamma_strategy_{datetime.now().strftime('%Y-%m-%d_%H%M')}.xlsx"
+        response = HttpResponse(buffer.read(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        return response
+
+
 class GammaStrategyView(APIView):
     """
     GET /api/gamma-strategy/
