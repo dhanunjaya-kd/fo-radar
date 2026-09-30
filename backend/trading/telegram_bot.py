@@ -98,17 +98,20 @@ class TelegramBot:
         """
         Send a formatted signal alert.
 
-        Sep 24 2026 rewrite: clean plain-text layout (direct request --
-        same visual style just built for the separate Gamma Blast
-        alert: aligned "Label:    Value" lines, plain dividers, no HTML
-        card). Takes the full live signal dict directly now, not a
-        curated set of named params -- the old named-param signature
-        (symbol, signal_type, entry, sl, target, grade, strike) is
-        exactly why Strike needed a whole separate bug-hunt to add on
-        Sep 19; every future field would hit the same wall. The one
-        real call site (views.py) already has the full signal dict in
-        hand, so this just takes it directly.
+        Sep 30 2026 rewrite: "Design 8" (Bloomberg-style market desk),
+        per explicit request with a reference image. Formatting and
+        layout ONLY -- every field below is read from the exact same
+        signal dict keys the Sep 24 plain-text version used, no new
+        fields invented, no value recalculated. html.escape() added on
+        every dynamic string value (symbol, pattern, quality_verdict,
+        etc.) since this version uses real HTML tags for the first time
+        -- the previous plain-text version never needed it, but an
+        unescaped '<' or '&' in a dynamic field could now break
+        Telegram's HTML parsing or render wrong, so this closes that
+        gap rather than carrying it forward unnoticed.
         """
+        import html as _html
+
         symbol = signal.get("symbol", "")
         action = signal.get("action") or signal.get("signal_type", "")
         opt_side = "CE" if action == "BUY" else "PE"
@@ -130,36 +133,65 @@ class TelegramBot:
         risk_reward = signal.get("risk_reward")
         generated_at = signal.get("generated_at")
 
-        divider = "\u2501" * 35
-        instrument_bits = [symbol, expiry_date, str(strike_int) if strike_int else "", opt_side]
+        def esc(value):
+            return _html.escape(str(value)) if value is not None else ""
+
+        def price(value):
+            # Sep 30 2026: formatting-only fallback for a missing price
+            # value -- the Sep 24 version printed Python's literal
+            # "None" string for any unset field (Stop Loss included),
+            # which the reference design's own sample shows as "₹—"
+            # instead. Never touches a REAL value; only changes how a
+            # genuinely absent one is displayed.
+            return f"₹{esc(value)}" if value not in (None, "") else "₹—"
+
+        is_buy = action == "BUY"
+        direction_emoji = "🟢" if is_buy else "🔴"
+        divider = "\u2501" * 24
+
+        instrument_bits = [b for b in [expiry_date, str(strike_int) if strike_int else None, opt_side] if b]
+
         lines = [
-            f"\u26a1 F&O RADAR SIGNAL [{action} {opt_side}] \u26a1",
+            f"{direction_emoji} <b>{esc(action)}</b> · <b>{esc(opt_side)}</b>     ⚡ <b>F&amp;O RADAR SIGNAL</b>",
             divider,
-            f"Instrument:    {' '.join(b for b in instrument_bits if b)}",
+            f"<b>{esc(symbol)}</b>",
         ]
         if option_symbol:
-            lines.append(f"Symbol:        {option_symbol}")
-        lines.append(f"Grade:         {grade} | Confidence: {confidence}")
-        setup_bits = [b for b in [pattern, f"OI: {oi_confirmation}" if oi_confirmation else None] if b]
-        if setup_bits:
-            lines.append(f"Setup:         {' | '.join(setup_bits)}")
+            lines.append(f"<code>{esc(option_symbol)}</code>")
+        if instrument_bits:
+            lines.append(" · ".join(esc(b) for b in instrument_bits))
         lines.append(divider)
-        lines.append(f"Entry LTP:     Rs {entry}")
-        lines.append(f"Stop Loss:     Rs {sl}")
-        lines.append(f"Target 1:      Rs {target1}")
-        if target2 is not None:
-            lines.append(f"Target 2:      Rs {target2}")
-        if target3 is not None:
-            lines.append(f"Target 3:      Rs {target3}")
-        if risk_reward:
-            lines.append(f"Risk:Reward:   {risk_reward}")
-        lines.append(divider)
+
         if quality_verdict:
-            score_bit = f" \u00b7 {quality_score}" if quality_score is not None else ""
-            lines.append(f"Quality:       {quality_verdict}{score_bit}")
-        lines.append(f"Generated:     {generated_at or 'Just now'}")
+            score_bit = f" · {esc(quality_score)}" if quality_score is not None else ""
+            lines.append(f"📊 Quality: <b>{esc(quality_verdict)}</b>{score_bit}")
+        else:
+            lines.append(f"📊 Grade: <b>{esc(grade)}</b>")
+        if confidence:
+            lines.append(f"🎯 Confidence: <b>{esc(confidence)}</b>")
+        if risk_reward:
+            lines.append(f"⚖️ Risk:Reward: <b>{esc(risk_reward)}</b>")
+        lines.append(divider)
+
+        lines.append(f"🔵 Entry (LIMIT): <b>{price(entry)}</b>")
+        lines.append(f"🔴 Stop Loss: <b>{price(sl)}</b>")
+        lines.append(f"🟢 Target 1: <b>{price(target1)}</b>")
+        if target2 is not None:
+            lines.append(f"🟢 Target 2: <b>{price(target2)}</b>")
+        if target3 is not None:
+            lines.append(f"🟢 Target 3: <b>{price(target3)}</b>")
+        lines.append(divider)
+
+        if pattern:
+            lines.append(f"✨ Setup: {esc(pattern)}")
+        if oi_confirmation:
+            lines.append(f"🛡 OI Status: <b>{esc(oi_confirmation)}</b>")
+        lines.append(f"🕐 Generated: {esc(generated_at or 'Just now')}")
+        lines.append(divider)
+
         order_target = option_symbol or (f"{symbol} {strike_int} {opt_side}" if strike_int else f"{symbol} {opt_side}")
-        lines.append(f"Order Copy:    {action} {order_target} LIMIT @ {entry}")
+        lines.append("📋 <b>ORDER COPY</b>")
+        lines.append(f"<code>{esc(action)} {esc(order_target)}\nLIMIT @ {esc(entry)}</code>")
 
         return self.send_message("\n".join(lines))
 
