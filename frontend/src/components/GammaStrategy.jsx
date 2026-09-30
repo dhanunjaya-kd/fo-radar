@@ -141,6 +141,7 @@ export default function GammaStrategy() {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [exportState, setExportState] = useState({ loading: false, error: null });
 
   useEffect(() => {
     let mounted = true;
@@ -172,6 +173,44 @@ export default function GammaStrategy() {
     );
   }
 
+  // Sep 30 2026: same fix as SignalList.jsx's export button -- a plain
+  // <a href=... download> would silently force-download a JSON error
+  // body with no explanation if the export ever failed (network issue,
+  // server down mid-request). This endpoint currently always returns
+  // 200 even with empty sheets, so it's less likely to hit this in
+  // practice, but the same graceful handling is applied for
+  // consistency and to cover a genuine network failure.
+  const handleExport = async () => {
+    setExportState({ loading: true, error: null });
+    try {
+      const res = await fetch(`${API_BASE}/api/gamma-strategy/export/`);
+      if (!res.ok) {
+        let message = `Export failed (HTTP ${res.status}).`;
+        try {
+          const body = await res.json();
+          if (body.error) message = body.error;
+        } catch (e) { /* not JSON -- keep the generic HTTP message */ }
+        setExportState({ loading: false, error: message });
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : 'gamma_strategy.xlsx';
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+      setExportState({ loading: false, error: null });
+    } catch (e) {
+      setExportState({ loading: false, error: 'Could not reach the export service.' });
+    }
+  };
+
   const resWatch = data.resistance_watchlist || [];
   const supWatch = data.support_watchlist || [];
   const options = data.active_options || { status: 'WARMING_UP', items: [] };
@@ -200,16 +239,21 @@ export default function GammaStrategy() {
               Updated {new Date(data.updated_at).toLocaleTimeString('en-IN')}
             </span>
           )}
-          <a
-            href={`${API_BASE}/api/gamma-strategy/export/`}
+          <button
+            onClick={handleExport}
+            disabled={exportState.loading}
             title="Download Excel"
             aria-label="Download Excel"
-            className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors ml-3"
-            download
+            className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors ml-3 disabled:opacity-50"
           >
-            <IconDownload size={16} />
-          </a>
+            {exportState.loading
+              ? <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+              : <IconDownload size={16} />}
+          </button>
         </div>
+        {exportState.error && (
+          <p className="text-[11px] text-amber-400 mt-2">{exportState.error}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

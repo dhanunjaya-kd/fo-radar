@@ -184,6 +184,7 @@ export default function LiveSignals() {
   const [error, setError] = useState(null);
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState('');
+  const [exportState, setExportState] = useState({ loading: false, error: null });
   const knownKeysRef = useRef(null);
 
   useEffect(() => {
@@ -243,6 +244,48 @@ export default function LiveSignals() {
     const interval = setInterval(fetchSignals, 60000);
     return () => { mounted = false; controller.abort(); clearInterval(interval); };
   }, []);
+
+  // Sep 30 2026 fix: real, confirmed bug. A plain <a href=... download>
+  // forces the browser to download WHATEVER comes back, even a JSON
+  // error body -- and since a JSON error response has no
+  // Content-Disposition filename, Chrome falls back to a generic
+  // "download.json" with no visible explanation of what went wrong
+  // (this is exactly what produced the repeated failed "download.json /
+  // Site wasn't available" downloads reported directly). Fetching first
+  // and checking the response lets a real failure show the ACTUAL
+  // reason (e.g. "no signals have exited yet today") instead of a
+  // mysterious failed file.
+  const handleExport = async () => {
+    const url = selectedDate ? `${API_BASE}/api/signals/export/${selectedDate}/` : `${API_BASE}/api/signals/export/`;
+    setExportState({ loading: true, error: null });
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        let message = `Export failed (HTTP ${res.status}).`;
+        try {
+          const body = await res.json();
+          if (body.error) message = body.error;
+        } catch (e) { /* response wasn't JSON -- keep the generic HTTP message */ }
+        setExportState({ loading: false, error: message });
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const filename = match ? match[1] : (selectedDate ? `signals_${selectedDate}.xlsx` : 'signals_today.xlsx');
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+      setExportState({ loading: false, error: null });
+    } catch (e) {
+      setExportState({ loading: false, error: 'Could not reach the export service.' });
+    }
+  };
 
   const uniqueSignals = useMemo(() => signals, [signals]);
   // Sep 30 2026 fix: real, confirmed Rules of Hooks violation, found
@@ -315,17 +358,22 @@ export default function LiveSignals() {
                 {availableDates.map(d => <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</option>)}
               </select>
             )}
-            <a
-              href={selectedDate ? `${API_BASE}/api/signals/export/${selectedDate}/` : `${API_BASE}/api/signals/export/`}
+            <button
+              onClick={handleExport}
+              disabled={exportState.loading}
               title={selectedDate ? `Download ${selectedDate}'s log (Excel)` : "Download today's log (Excel)"}
               aria-label={selectedDate ? `Download ${selectedDate}'s log (Excel)` : "Download today's log (Excel)"}
-              className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
-              download
+              className="w-9 h-9 shrink-0 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors disabled:opacity-50"
             >
-              <IconDownload size={16} />
-            </a>
+              {exportState.loading
+                ? <div className="w-3.5 h-3.5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                : <IconDownload size={16} />}
+            </button>
           </div>
         </div>
+        {exportState.error && (
+          <p className="text-[11px] text-amber-400 mt-2 flex items-center gap-1.5"><IconAlertTriangle size={12} /> {exportState.error}</p>
+        )}
       </div>
 
       {error && <div className="text-xs text-amber-400 bg-amber-500/10 px-3 py-2 rounded-lg border border-amber-500/20 flex items-center gap-1.5"><IconAlertTriangle size={13} /> {error} — Showing cached signals</div>}
