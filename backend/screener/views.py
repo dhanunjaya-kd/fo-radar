@@ -4839,118 +4839,117 @@ class GammaStrategyExcelExportView(APIView):
     """
     GET /api/gamma-strategy/export/
 
-    Sep 30 2026 addition. Real, on-demand export of Gamma Strategy's
-    CURRENT state -- explicit requirement, distinct from
-    SignalExcelExportView above (which serves a pre-existing,
-    continuously-logged file from disk, not a live snapshot; checked
-    directly before building this, not assumed reusable). Reads the
-    EXACT SAME in-memory caches GammaStrategyView itself reads, under
-    the same lock, so the workbook can never show different data than
-    what's on screen at the moment of download. Uses openpyxl --
-    already a project dependency (requirements.txt), not a new one;
-    excel_logger.py's own different, lower-level zip approach is for
-    its own append-heavy logging use case and isn't reused here since
-    this is a single, one-shot generate-and-serve, not a continuously
-    updated file.
-
-    No new calculation happens here -- every value written is read
-    directly from the same snapshot dicts GammaStrategyView returns.
+    Clean trade-tracker export for the Gamma Strategy block.
+    Reporting-only: no watchlist, option-resolution, trigger, or risk logic is
+    changed here. Only contracts that were actually emitted as Gamma
+    microstructure alerts enter this workbook.
     """
     def get(self, request):
+        import io
+        from datetime import datetime
         from django.http import HttpResponse
         from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill
-        import io
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
 
-        with _gamma_cache_lock:
-            wl_snapshot = dict(_gamma_watchlist_cache)
-            opt_snapshot = dict(_gamma_active_options_cache)
-            alert_snapshot = list(_gamma_alerts_cache.get("items", []))
-
-        resistance = wl_snapshot.get("resistance_watchlist", [])
-        support = wl_snapshot.get("support_watchlist", [])
-        options = opt_snapshot.get("items", [])
-        ce_options = [o for o in options if o.get("option_type") == "CE"]
-        pe_options = [o for o in options if o.get("option_type") == "PE"]
+        tracker = _gamma_get_trade_tracker()
+        rows = tracker.get_all_rows()
 
         wb = Workbook()
-        header_font = Font(bold=True, color="FFFFFF")
-        header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+        ws = wb.active
+        ws.title = "Gamma Signals"
 
-        def write_sheet(ws, headers, rows):
-            ws.append(headers)
-            for cell in ws[1]:
-                cell.font = header_font
-                cell.fill = header_fill
-            for row in rows:
-                ws.append(row)
-            for col_cells in ws.columns:
-                max_len = max((len(str(c.value)) for c in col_cells if c.value is not None), default=10)
-                ws.column_dimensions[col_cells[0].column_letter].width = min(max_len + 2, 40)
+        headers = [
+            "Stock Name",
+            "Option Type",
+            "Strike Price",
+            "Entry Price",
+            "Entry Time (IST)",
+            "Stop Loss",
+            "SL Hit Time (IST)",
+            "Target 1",
+            "Target 1 Hit Time (IST)",
+            "Target 2",
+            "Target 2 Hit Time (IST)",
+            "Target 3",
+            "Target 3 Hit Time (IST)",
+            "Status",
+            "Last Checked (IST)",
+        ]
+        ws.append(headers)
 
-        # Sheet 1: Gamma Summary
-        ws_summary = wb.active
-        ws_summary.title = "Gamma Summary"
-        write_sheet(ws_summary, ["Field", "Value"], [
-            ["Strategy", "Gamma_Blast_Options_strategy"],
-            ["Universe Size", len(FNO_STOCKS)],
-            ["Zone-Warmed Today", wl_snapshot.get("symbols_with_zones_today", 0)],
-            ["Watchlist Updated At", wl_snapshot.get("updated_at") or "—"],
-            ["Options Resolver Status", "LIVE" if options else "WARMING_UP"],
-            ["Options Resolver Updated At", opt_snapshot.get("updated_at") or "—"],
-            ["Microstructure Status", "LIVE" if alert_snapshot else "WARMING_UP"],
-            ["Resistance Watchlist Count", len(resistance)],
-            ["Support Watchlist Count", len(support)],
-            ["Active Options Count", len(options)],
-            ["Microstructure Alerts Count", len(alert_snapshot)],
-        ])
+        header_fill = PatternFill("solid", fgColor="111827")
+        header_font = Font(color="FFFFFF", bold=True, size=11)
+        border = Border(
+            left=Side(style="thin", color="D1D5DB"),
+            right=Side(style="thin", color="D1D5DB"),
+            top=Side(style="thin", color="D1D5DB"),
+            bottom=Side(style="thin", color="D1D5DB"),
+        )
 
-        # Sheet 2: CE Candidates (resistance watchlist -- same data,
-        # same field names GammaStrategy.jsx's StockRow already reads)
-        write_sheet(wb.create_sheet("CE Candidates"),
-            ["Symbol", "CMP", "Zone Bottom", "Zone Top", "Distance %", "50 EMA Aligned", "Intraday Momentum", "Status"],
-            [[s.get("symbol"), s.get("cmp"), s.get("zone_bottom"), s.get("zone_top"), s.get("distance_pct"),
-              "Yes" if s.get("trend_aligned") else "No", "Yes" if s.get("intraday_momentum") else "No", s.get("status")]
-             for s in resistance])
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = border
 
-        # Sheet 3: PE Candidates (support watchlist)
-        write_sheet(wb.create_sheet("PE Candidates"),
-            ["Symbol", "CMP", "Zone Bottom", "Zone Top", "Distance %", "50 EMA Aligned", "Intraday Momentum", "Status"],
-            [[s.get("symbol"), s.get("cmp"), s.get("zone_bottom"), s.get("zone_top"), s.get("distance_pct"),
-              "Yes" if s.get("trend_aligned") else "No", "Yes" if s.get("intraday_momentum") else "No", s.get("status")]
-             for s in support])
+        for r_idx, row in enumerate(rows, start=2):
+            target_3 = row.get("target_3")
+            ws.append([
+                row.get("symbol") or "",
+                row.get("option_type") or "",
+                row.get("strike") if row.get("strike") is not None else "",
+                row.get("entry_price") if row.get("entry_price") is not None else "",
+                row.get("timestamp_ist") or "",
+                row.get("stop_loss") if row.get("stop_loss") is not None else "",
+                row.get("sl_hit_at_ist") or "",
+                row.get("target_1") if row.get("target_1") is not None else "",
+                row.get("t1_hit_at_ist") or "",
+                row.get("target_2") if row.get("target_2") is not None else "",
+                row.get("t2_hit_at_ist") or "",
+                target_3 if target_3 is not None else "",
+                row.get("t3_hit_at_ist") or "",
+                row.get("status") or "",
+                row.get("last_checked_at_ist") or "",
+            ])
 
-        # Sheet 4: Options Resolver (CE and PE contracts, same fields
-        # GammaStrategy.jsx's OptionRow already reads)
-        write_sheet(wb.create_sheet("Options Resolver"),
-            ["Symbol", "Type", "Strike", "Tier", "LTP", "Expiry", "DTE", "Spread %", "Delta", "Gamma Convexity", "OI", "Volume"],
-            [[o.get("symbol"), o.get("option_type"), o.get("strike"), o.get("tier"), o.get("ltp"), o.get("expiry"),
-              o.get("dte"), o.get("spread_pct"), o.get("delta"), o.get("convexity"), o.get("oi"), o.get("volume")]
-             for o in ce_options + pe_options])
+            # Light alternating rows for readability.
+            fill = PatternFill("solid", fgColor="F8FAFC" if r_idx % 2 == 0 else "FFFFFF")
+            for cell in ws[r_idx]:
+                cell.fill = fill
+                cell.border = border
+                cell.alignment = Alignment(vertical="center")
 
-        # Sheet 5: Microstructure Alerts -- persistent cross-day lifecycle.
-        tracked_rows = _gamma_get_trade_tracker().get_all_rows()
-        write_sheet(wb.create_sheet("Microstructure Alerts"),
-            ["Contract", "Status", "Entry Price", "Stop Loss", "Target 1", "Target 2",
-             "Timestamp (IST)", "T1 Hit At (IST)", "T2 Hit At (IST)", "SL Hit At (IST)",
-             "Trailing SL", "Current LTP", "Last Checked At (IST)", "MFE %", "MAE %",
-             "Realized R", "Carry Forward", "Closed At (IST)", "Expiry", "Security ID",
-             "Fyers Symbol", "Symbol", "Option Type", "Strike", "Alert ID", "Trigger Candle"],
-            [[a.get("contract"), a.get("status"), a.get("entry_price"), a.get("stop_loss"),
-              a.get("target_1"), a.get("target_2"), a.get("timestamp_ist"),
-              a.get("t1_hit_at_ist"), a.get("t2_hit_at_ist"), a.get("sl_hit_at_ist"),
-              a.get("trailing_sl"), a.get("current_ltp"), a.get("last_checked_at_ist"),
-              a.get("mfe_pct"), a.get("mae_pct"), a.get("realized_r"), a.get("carry_forward"),
-              a.get("closed_at_ist"), a.get("expiry"), a.get("security_id"), a.get("fyers_symbol"),
-              a.get("symbol"), a.get("option_type"), a.get("strike"), a.get("alert_id"),
-              a.get("trigger_candle")]
-             for a in tracked_rows])
+        if not rows:
+            ws.append(["No Gamma Strategy alerts recorded yet."])
+            ws["A2"].font = Font(italic=True, color="6B7280")
+
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        ws.sheet_view.showGridLines = False
+        ws.row_dimensions[1].height = 24
+
+        widths = [18, 12, 14, 13, 23, 13, 23, 13, 23, 13, 23, 13, 23, 18, 23]
+        for col_idx, width in enumerate(widths, start=1):
+            ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+        # Status formatting only; underlying values are unchanged.
+        status_col = 14
+        for row_idx in range(2, ws.max_row + 1):
+            cell = ws.cell(row=row_idx, column=status_col)
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
 
         buffer = io.BytesIO()
         wb.save(buffer)
+        wb.close()
         buffer.seek(0)
-        filename = f"gamma_strategy_{datetime.now().strftime('%Y-%m-%d_%H%M')}.xlsx"
-        response = HttpResponse(buffer.read(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+        filename = f"gamma_strategy_signals_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+        response = HttpResponse(
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
         return response
 

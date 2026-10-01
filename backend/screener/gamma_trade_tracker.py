@@ -14,10 +14,10 @@ from typing import Any, Dict, List, Optional
 IST=timezone(timedelta(hours=5, minutes=30))
 ROOT=Path(__file__).resolve().parents[1]
 SIGNAL_LOGS=ROOT/"signal_logs"
-TRACKER_PATH=SIGNAL_LOGS/"gamma_strategy_trade_tracking.xlsx"
+TRACKER_PATH=SIGNAL_LOGS/"gamma_strategy_signals_clean.xlsx"
 COLUMNS=[
  "Contract","Status","Entry Price","Stop Loss","Target 1","Target 2","Timestamp (IST)",
- "T1 Hit At (IST)","T2 Hit At (IST)","SL Hit At (IST)","Trailing SL","Current LTP",
+ "T1 Hit At (IST)","T2 Hit At (IST)","Target 3","T3 Hit At (IST)","SL Hit At (IST)","Trailing SL","Current LTP",
  "Last Checked At (IST)","MFE %","MAE %","Realized R","Carry Forward","Closed At (IST)",
  "Expiry","Security ID","Fyers Symbol","Symbol","Option Type","Strike","Alert ID","Trigger Candle","Trade Key"
 ]
@@ -101,7 +101,7 @@ class GammaTradeTracker:
  def __init__(self,path:Optional[Path]=None):
   self.path=Path(os.environ.get("GAMMA_TRADE_TRACKER_XLSX",str(path or TRACKER_PATH)))
   SIGNAL_LOGS.mkdir(parents=True,exist_ok=True); self._lock=threading.RLock()
-  self._ensure(); self._bootstrap(); self._migrate_legacy_rows()
+  self._ensure()
  def _style(self,ws):
   for c in ws[1]:
    c.font=Font(bold=True,color="FFFFFF"); c.fill=PatternFill(start_color="1F2937",end_color="1F2937",fill_type="solid"); c.alignment=Alignment(horizontal="center")
