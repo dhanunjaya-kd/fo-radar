@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-IST=timezone(timedelta(hours=5,30))
+IST=timezone(timedelta(hours=5, minutes=30))
 ROOT=Path(__file__).resolve().parents[1]
 SIGNAL_LOGS=ROOT/"signal_logs"
 TRACKER_PATH=SIGNAL_LOGS/"gamma_strategy_trade_tracking.xlsx"
