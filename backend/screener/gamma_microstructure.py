@@ -221,6 +221,7 @@ class MicrostructureDaemon:
         for alert in self.alerts_emitted:
             if alert.get("security_id") != sec_id:
                 continue
+            alert["current_ltp"] = round(ltp, 2)
             if ltp > alert.get("highest_ltp", alert["entry_price"]):
                 alert["highest_ltp"] = round(ltp, 2)
             if ltp < alert.get("lowest_ltp", alert["entry_price"]):
@@ -234,19 +235,19 @@ class MicrostructureDaemon:
             if curr_status in ("ACTIVE", "TRIGGERED_PRE_EXPLOSION"):
                 if ltp >= alert["target_2"]:
                     alert.update(status="TARGET_2_HIT", exit_price=alert["target_2"], exit_time_ist=now_ts,
-                                 realized_r=round((alert["target_2"] - entry_p) / risk, 2))
+                                 t2_hit_at_ist=now_ts, realized_r=round((alert["target_2"] - entry_p) / risk, 2))
                 elif ltp >= alert["target_1"]:
                     alert.update(status="TARGET_1_HIT", exit_price=alert["target_1"], exit_time_ist=now_ts,
-                                 realized_r=round((alert["target_1"] - entry_p) / risk, 2), trailing_sl=entry_p)
+                                 t1_hit_at_ist=now_ts, realized_r=round((alert["target_1"] - entry_p) / risk, 2), trailing_sl=entry_p)
                 elif ltp <= alert["stop_loss"]:
                     alert.update(status="STOPPED_OUT", exit_price=alert["stop_loss"], exit_time_ist=now_ts,
-                                 realized_r=round((alert["stop_loss"] - entry_p) / risk, 2))
+                                 sl_hit_at_ist=now_ts, realized_r=round((alert["stop_loss"] - entry_p) / risk, 2))
             elif curr_status == "TARGET_1_HIT":
                 if ltp >= alert["target_2"]:
                     r_t1 = (alert["target_1"] - entry_p) / risk
                     r_t2 = (alert["target_2"] - entry_p) / risk
                     alert.update(status="TARGET_2_HIT", exit_price=alert["target_2"], exit_time_ist=now_ts,
-                                 realized_r=round(0.50 * r_t1 + 0.50 * r_t2, 2))
+                                 t2_hit_at_ist=now_ts, realized_r=round(0.50 * r_t1 + 0.50 * r_t2, 2))
                 elif ltp <= alert.get("trailing_sl", entry_p):
                     r_t1 = (alert["target_1"] - entry_p) / risk
                     r_be = (alert.get("trailing_sl", entry_p) - entry_p) / risk

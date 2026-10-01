@@ -174,10 +174,10 @@ class GammaTradeTracker:
     t={"contract":row.get("Contract"),"status":status,"entry_price":row.get("Entry Price"),"stop_loss":row.get("Stop Loss"),"target_1":row.get("Target 1"),"target_2":row.get("Target 2"),
        "timestamp_ist":row.get("Timestamp (IST)"),"t1_hit_at_ist":a.get("t1_hit_at_ist") or row.get("T1 Hit At (IST)"),"t2_hit_at_ist":a.get("t2_hit_at_ist") or row.get("T2 Hit At (IST)"),
        "sl_hit_at_ist":a.get("sl_hit_at_ist") or row.get("SL Hit At (IST)"),"trailing_sl":a.get("trailing_sl",row.get("Trailing SL")),
-       "current_ltp":a.get("exit_price") if a.get("exit_price") is not None else (a.get("current_ltp") or a.get("highest_ltp") or row.get("Current LTP")),
+       "current_ltp":a.get("current_ltp") if a.get("current_ltp") is not None else (a.get("exit_price") if a.get("exit_price") is not None else row.get("Current LTP")),
        "last_checked_at_ist":_now_str(),"mfe_pct":a.get("mfe_pct",row.get("MFE %")),"mae_pct":a.get("mae_pct",row.get("MAE %")),
        "realized_r":a.get("realized_r",row.get("Realized R")),"carry_forward":bool(created and created<today and status in ACTIVE),
-       "closed_at_ist":a.get("exit_time_ist") or row.get("Closed At (IST)"),"expiry":a.get("expiry") or row.get("Expiry"),
+       "closed_at_ist":(a.get("exit_time_ist") if status in {"TARGET_2_HIT","STOPPED_OUT","TARGET_1_HIT_TRAILED","EXPIRED"} else row.get("Closed At (IST)")),"expiry":a.get("expiry") or row.get("Expiry"),
        "security_id":a.get("security_id") or row.get("Security ID"),"fyers_symbol":a.get("fyers_symbol") or row.get("Fyers Symbol"),
        "symbol":a.get("symbol") or row.get("Symbol"),"option_type":a.get("option_type") or row.get("Option Type"),"strike":a.get("strike") or row.get("Strike"),
        "alert_id":a.get("alert_id") or row.get("Alert ID"),"trigger_candle":a.get("trigger_candle") or row.get("Trigger Candle"),"_key":key}

@@ -4674,6 +4674,7 @@ def _gamma_feed_microstructure_and_alert(options_list):
         # Persisted exact contracts are lifecycle-only. They can update
         # outcomes, but they can never emit a second trigger.
         if tracker.is_known(opt):
+            tracker.enrich_known_contract(opt)
             if tracker.is_active(opt):
                 daemon.update_lifecycle_from_quote(opt['security_id'], opt['ltp'])
             continue
