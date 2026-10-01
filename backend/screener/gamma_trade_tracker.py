@@ -299,7 +299,7 @@ class GammaTradeTracker:
    for r in rows.values():
     out.append({"contract":r.get("Contract"),"status":r.get("Status"),"entry_price":r.get("Entry Price"),"stop_loss":r.get("Stop Loss"),
       "target_1":r.get("Target 1"),"target_2":r.get("Target 2"),"timestamp_ist":r.get("Timestamp (IST)"),
-      "t1_hit_at_ist":r.get("T1 Hit At (IST)"),"t2_hit_at_ist":r.get("T2 Hit At (IST)"),"sl_hit_at_ist":r.get("SL Hit At (IST)"),
+      "t1_hit_at_ist":r.get("T1 Hit At (IST)"),"t2_hit_at_ist":r.get("T2 Hit At (IST)"),"target_3":r.get("Target 3"),"t3_hit_at_ist":r.get("T3 Hit At (IST)"),"sl_hit_at_ist":r.get("SL Hit At (IST)"),
       "trailing_sl":r.get("Trailing SL"),"current_ltp":r.get("Current LTP"),"last_checked_at_ist":r.get("Last Checked At (IST)"),
       "mfe_pct":r.get("MFE %"),"mae_pct":r.get("MAE %"),"realized_r":r.get("Realized R"),"carry_forward":r.get("Carry Forward"),
       "closed_at_ist":r.get("Closed At (IST)"),"expiry":r.get("Expiry"),"security_id":r.get("Security ID"),"fyers_symbol":r.get("Fyers Symbol"),
