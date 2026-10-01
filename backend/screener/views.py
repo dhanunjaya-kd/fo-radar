@@ -4427,7 +4427,8 @@ _gamma_expiry_cache = {}     # {fyers_symbol: {'date', 'timestamp', 'dte', 'date
 _gamma_options_fetch_time = {}  # {fyers_symbol: monotonic time of last option-chain fetch} -- paces the 75s cadence
 _gamma_active_options_cache = {"items": [], "updated_at": None}
 _gamma_alerts_cache = {"items": []}
-_gamma_microstructure_daemon = None  # lazy-built on first use, see _gamma_get_microstructure_daemon()
+_gamma_microstructure_daemon = None
+_gamma_trade_tracker = None  # lazy-built on first use, see _gamma_get_microstructure_daemon()
 _gamma_state_mgr = None              # lazy-built, see _gamma_get_state_manager()
 _GAMMA_ZONE_HISTORY_DAYS = 250  # enough real bars for ATR(50) to warm up plus a real pivot history
 _GAMMA_OPTIONS_FETCH_INTERVAL_SECONDS = 75.0
@@ -4504,9 +4505,53 @@ def _gamma_get_microstructure_daemon():
         # of its own (see gamma_excel_logger.py's own docstring for
         # why this matters for the month-long observation period this
         # exists for).
-        from .gamma_excel_logger import rebuild_open_alerts_from_log
-        _gamma_microstructure_daemon.alerts_emitted = rebuild_open_alerts_from_log()
+        from .gamma_trade_tracker import GammaTradeTracker
+        _gamma_microstructure_daemon.alerts_emitted = GammaTradeTracker().rebuild_open_alerts()
     return _gamma_microstructure_daemon
+
+def _gamma_get_trade_tracker():
+    global _gamma_trade_tracker
+    if _gamma_trade_tracker is None:
+        from .gamma_trade_tracker import GammaTradeTracker
+        _gamma_trade_tracker = GammaTradeTracker()
+    return _gamma_trade_tracker
+
+def _gamma_refresh_persisted_lifecycles(daemon, current_options):
+    """Lifecycle-only quote refresh for persisted alerts absent from current resolver."""
+    tracker = _gamma_get_trade_tracker()
+    current = {str(o.get("fyers_symbol") or "").strip().upper() for o in (current_options or []) if o.get("fyers_symbol")}
+    missing = [t for t in tracker.get_active_contracts()
+               if t.get("fyers_symbol") and str(t.get("fyers_symbol")).strip().upper() not in current]
+    if not missing:
+        return
+    try:
+        resp = get_quotes(list(dict.fromkeys(str(t["fyers_symbol"]) for t in missing)))
+    except Exception as e:
+        print(f"[GammaLifecycle] carried quote fetch failed: {e}")
+        return
+    if not resp or resp.get("s") != "ok":
+        return
+    by_symbol = {}
+    for item in resp.get("d", []):
+        if item.get("s") != "ok":
+            continue
+        fsym = item.get("n")
+        ltp = (item.get("v") or {}).get("lp")
+        if fsym and ltp is not None:
+            by_symbol[str(fsym).strip().upper()] = float(ltp)
+    for trade in missing:
+        fsym = str(trade.get("fyers_symbol") or "").strip().upper()
+        ltp = by_symbol.get(fsym)
+        if ltp is None:
+            continue
+        sec_id = trade.get("security_id") or fsym
+        daemon.register_contract({
+            "security_id": sec_id, "symbol": trade.get("symbol") or "",
+            "option_type": trade.get("option_type") or "",
+            "strike": trade.get("strike") or 0, "expiry": trade.get("expiry") or "",
+            "lot_size": 1,
+        })
+        daemon.update_lifecycle_from_quote(sec_id, ltp)
 
 
 def _gamma_get_state_manager():
@@ -4616,13 +4661,23 @@ def _gamma_feed_microstructure_and_alert(options_list):
     same format_gamma_alert() text the purchased package uses whenever
     the real 4-phase confluence fires."""
     daemon = _gamma_get_microstructure_daemon()
+    tracker = _gamma_get_trade_tracker()
     new_triggers = []
-    for opt in options_list:
+    for opt in options_list or []:
         contract = {
             "security_id": opt['security_id'], "symbol": opt['symbol'], "option_type": opt['option_type'],
             "strike": opt['strike'], "expiry": opt['expiry'], "lot_size": opt['lot_size'],
+            "fyers_symbol": opt.get('fyers_symbol', ''),
         }
         daemon.register_contract(contract)
+
+        # Persisted exact contracts are lifecycle-only. They can update
+        # outcomes, but they can never emit a second trigger.
+        if tracker.is_known(opt):
+            if tracker.is_active(opt):
+                daemon.update_lifecycle_from_quote(opt['security_id'], opt['ltp'])
+            continue
+
         trigger = daemon.record_tick(
             opt['security_id'], ltp=opt['ltp'], oi=opt['oi'], volume=opt['volume'],
             bid=opt['bid'], ask=opt['ask'],
@@ -4631,7 +4686,10 @@ def _gamma_feed_microstructure_and_alert(options_list):
             trigger['spot_cmp'] = opt.get('spot_cmp', 0.0)
             trigger['dte'] = opt.get('dte', 8)
             trigger['fyers_symbol'] = opt.get('fyers_symbol', '')
-            new_triggers.append(trigger)
+            if tracker.record_alert(trigger, option_meta=opt):
+                new_triggers.append(trigger)
+
+    _gamma_refresh_persisted_lifecycles(daemon, options_list or [])
 
     if new_triggers:
         try:
@@ -4657,19 +4715,20 @@ def _gamma_feed_microstructure_and_alert(options_list):
         except Exception as e:
             print(f"[GammaExcelLog] log_new_trigger failed: {e}")
 
-    # Sync outcome fields for EVERY tracked alert (not just new ones)
-    # on every cycle -- this is what actually makes the log usable for
-    # a real backtest later: status/MFE/MAE/realized_r keep updating
-    # on the same row as a position plays out, not just at entry.
+    # Keep the original daily audit logger. The persistent tracker is the
+    # cross-day source of truth for lifecycle tracking and Excel export.
     if daemon.alerts_emitted:
         try:
             from .gamma_excel_logger import sync_alert_outcomes
             sync_alert_outcomes(daemon.alerts_emitted)
         except Exception as e:
             print(f"[GammaExcelLog] sync_alert_outcomes failed: {e}")
-
+    try:
+        tracker.sync_alerts(daemon.alerts_emitted)
+    except Exception as e:
+        print(f"[GammaTradeTracker] sync failed: {e}")
     with _gamma_cache_lock:
-        _gamma_alerts_cache["items"] = daemon.get_signal_journal()["signals"][-50:]
+        _gamma_alerts_cache["items"] = tracker.get_all_rows()[-50:]
     return new_triggers
 
 
@@ -4757,6 +4816,13 @@ def _gamma_strategy_worker():
                     except Exception as e:
                         print(f"[GammaOptions] resolution/alert cycle error: {e}")
 
+            # Even when the fresh resolver is empty, continue tracking already
+            # triggered contracts. A missing fresh candidate is not an exit.
+            if is_authenticated() and not (res_wl or sup_wl):
+                try:
+                    _gamma_feed_microstructure_and_alert([])
+                except Exception as e:
+                    print(f"[GammaLifecycle] empty-resolver lifecycle refresh failed: {e}")
             time.sleep(20)
         except Exception as e:
             print(f"[{datetime.now()}] Gamma strategy worker error: {e}")
@@ -4861,12 +4927,23 @@ class GammaStrategyExcelExportView(APIView):
               o.get("dte"), o.get("spread_pct"), o.get("delta"), o.get("convexity"), o.get("oi"), o.get("volume")]
              for o in ce_options + pe_options])
 
-        # Sheet 5: Microstructure Alerts (same fields AlertRow reads)
+        # Sheet 5: Microstructure Alerts -- persistent cross-day lifecycle.
+        tracked_rows = _gamma_get_trade_tracker().get_all_rows()
         write_sheet(wb.create_sheet("Microstructure Alerts"),
-            ["Contract", "Status", "Entry Price", "Stop Loss", "Target 1", "Target 2", "Timestamp (IST)"],
+            ["Contract", "Status", "Entry Price", "Stop Loss", "Target 1", "Target 2",
+             "Timestamp (IST)", "T1 Hit At (IST)", "T2 Hit At (IST)", "SL Hit At (IST)",
+             "Trailing SL", "Current LTP", "Last Checked At (IST)", "MFE %", "MAE %",
+             "Realized R", "Carry Forward", "Closed At (IST)", "Expiry", "Security ID",
+             "Fyers Symbol", "Symbol", "Option Type", "Strike", "Alert ID", "Trigger Candle"],
             [[a.get("contract"), a.get("status"), a.get("entry_price"), a.get("stop_loss"),
-              a.get("target_1"), a.get("target_2"), a.get("timestamp_ist")]
-             for a in alert_snapshot])
+              a.get("target_1"), a.get("target_2"), a.get("timestamp_ist"),
+              a.get("t1_hit_at_ist"), a.get("t2_hit_at_ist"), a.get("sl_hit_at_ist"),
+              a.get("trailing_sl"), a.get("current_ltp"), a.get("last_checked_at_ist"),
+              a.get("mfe_pct"), a.get("mae_pct"), a.get("realized_r"), a.get("carry_forward"),
+              a.get("closed_at_ist"), a.get("expiry"), a.get("security_id"), a.get("fyers_symbol"),
+              a.get("symbol"), a.get("option_type"), a.get("strike"), a.get("alert_id"),
+              a.get("trigger_candle")]
+             for a in tracked_rows])
 
         buffer = io.BytesIO()
         wb.save(buffer)

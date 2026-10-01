@@ -89,6 +89,10 @@ class MicrostructureDaemon:
             lot_size=int(contract.get("lot_size", 1)),
         )
 
+    def update_lifecycle_from_quote(self, sec_id: Any, ltp: float):
+        """Update an existing alert lifecycle without evaluating a new trigger."""
+        self._update_alert_lifecycles(sec_id, ltp)
+
     def record_tick(
         self, sec_id: Any, ltp: float, oi: int, volume: int,
         bid: float = 0.0, ask: float = 0.0, tick_time: Optional[float] = None,
