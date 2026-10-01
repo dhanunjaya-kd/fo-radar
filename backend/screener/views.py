@@ -4835,6 +4835,63 @@ if not _IS_RELOADER_WATCHER_PROCESS:
     _gamma_strategy_worker_thread.start()
 
 
+class GammaStrategyHistoryDatesView(APIView):
+    def get(self, request):
+        import os
+        from pathlib import Path
+        from datetime import datetime
+        log_root = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "signal_logs"
+        dates = []
+        if log_root.exists():
+            for day_dir in log_root.iterdir():
+                if not day_dir.is_dir(): continue
+                try: datetime.strptime(day_dir.name, '%Y-%m-%d')
+                except ValueError: continue
+                if any(day_dir.glob("gamma_blast_*.xlsx")): dates.append(day_dir.name)
+        dates.sort(reverse=True)
+        return Response({"dates": dates})
+
+
+class GammaStrategyHistoryView(APIView):
+    def get(self, request):
+        import os
+        from pathlib import Path
+        from datetime import datetime
+        date_str = (request.query_params.get("date") or "").strip()
+        try: datetime.strptime(date_str, '%Y-%m-%d')
+        except ValueError: return Response({"error": "date must be YYYY-MM-DD"}, status=400)
+        log_root = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) / "signal_logs"
+        day_dir = log_root / date_str
+        files = sorted(day_dir.glob("gamma_blast_*.xlsx")) if day_dir.exists() else []
+        if not files: return Response({"date": date_str, "signals": []})
+        try:
+            from openpyxl import load_workbook
+            from .gamma_excel_logger import COLUMNS
+            wb = load_workbook(files[-1], read_only=True, data_only=True)
+            ws = wb["Gamma Signals"]
+            headers = [c.value for c in ws[1]]
+            if headers != COLUMNS:
+                wb.close()
+                return Response({"date": date_str, "signals": []})
+            col = {name: i for i, name in enumerate(headers)}
+            signals = []
+            for values in ws.iter_rows(min_row=2, values_only=True):
+                if not values or not values[col["Contract"]]: continue
+                signals.append({
+                    "symbol": values[col["Symbol"]], "option_type": values[col["Option Type"]],
+                    "strike": values[col["Strike"]], "entry_price": values[col["Entry Premium"]],
+                    "entry_time_ist": values[col["Timestamp"]], "stop_loss": values[col["Stop Loss"]],
+                    "target_1": values[col["Target 1"]], "target_2": values[col["Target 2"]],
+                    "status": values[col["Status"]], "highest_ltp": values[col["Highest LTP"]],
+                    "lowest_ltp": values[col["Lowest LTP"]], "exit_price": values[col["Exit Price"]],
+                    "exit_time_ist": values[col["Exit Time"]], "contract": values[col["Contract"]],
+                })
+            wb.close()
+            return Response({"date": date_str, "signals": signals})
+        except Exception as exc:
+            print(f"[GammaHistory] read failed for {date_str}: {exc}")
+            return Response({"date": date_str, "signals": [], "error": "History read failed"}, status=500)
+
 class GammaStrategyExcelExportView(APIView):
     """
     GET /api/gamma-strategy/export/

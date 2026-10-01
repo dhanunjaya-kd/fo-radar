@@ -142,6 +142,32 @@ export default function GammaStrategy() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [exportState, setExportState] = useState({ loading: false, error: null });
+  const [historyDates, setHistoryDates] = useState([]);
+  const [selectedHistoryDate, setSelectedHistoryDate] = useState('');
+  const [historyRows, setHistoryRows] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+
+  useEffect(() => {
+    fetch(API_BASE + '/api/gamma-strategy/history/dates/')
+      .then(res => res.ok ? res.json() : { dates: [] })
+      .then(json => setHistoryDates(json.dates || []))
+      .catch(() => setHistoryDates([]));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedHistoryDate) {
+      setHistoryRows([]); setHistoryError(null); return;
+    }
+    let mounted = true;
+    setHistoryLoading(true); setHistoryError(null);
+    fetch(API_BASE + '/api/gamma-strategy/history/?date=' + encodeURIComponent(selectedHistoryDate))
+      .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+      .then(json => { if (mounted) setHistoryRows(json.signals || []); })
+      .catch(err => { if (mounted) setHistoryError(err.message); })
+      .finally(() => { if (mounted) setHistoryLoading(false); });
+    return () => { mounted = false; };
+  }, [selectedHistoryDate]);
 
   useEffect(() => {
     let mounted = true;
@@ -239,6 +265,21 @@ export default function GammaStrategy() {
               Updated {new Date(data.updated_at).toLocaleTimeString('en-IN')}
             </span>
           )}
+          {historyDates.length > 0 && (
+            <select
+              value={selectedHistoryDate}
+              onChange={(e) => setSelectedHistoryDate(e.target.value)}
+              title="View Gamma Strategy history by date"
+              className="h-9 text-xs bg-slate-800 border border-slate-700 rounded-lg px-2 text-slate-300 focus:outline-none focus:border-emerald-500"
+            >
+              <option value="">Today</option>
+              {historyDates.filter(d => d !== new Date().toISOString().slice(0, 10)).map(d => (
+                <option key={d} value={d}>
+                  {new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             onClick={handleExport}
             disabled={exportState.loading}
@@ -322,6 +363,47 @@ export default function GammaStrategy() {
           title="Microstructure Alerts — 4-Phase Trigger"
           note="OI dip → inflection → volume expansion → price lift confluence, per contract. Wired and running — no real 4-phase confluence has fired yet on the current watchlist. This is expected most cycles; the trigger is meant to be rare."
         />
+      )}
+      {selectedHistoryDate && (
+        <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
+          <div className="flex items-start justify-between gap-2 flex-wrap mb-3">
+            <h3 className="text-sm font-bold text-white min-w-0">
+              Gamma Strategy History — {new Date(selectedHistoryDate + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </h3>
+            {!historyLoading && !historyError && <span className="text-[10px] text-slate-500 shrink-0">{historyRows.length} signals</span>}
+          </div>
+          {historyLoading ? (
+            <p className="text-xs text-slate-500 italic">Loading historical Gamma signals…</p>
+          ) : historyError ? (
+            <p className="text-xs text-rose-400">History failed: {historyError}</p>
+          ) : historyRows.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">No Gamma signals recorded for this date.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-slate-700/50">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-900/70"><tr>
+                  {['Stock','Type','Strike','Entry','Entry Time','SL','T1','T2','Status','Exit'].map(h => <th key={h} className="text-left px-3 py-2 text-slate-400 font-semibold">{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {historyRows.map((row, idx) => (
+                    <tr key={row.contract + '-' + idx} className="border-t border-slate-700/40">
+                      <td className="px-3 py-2 text-white font-semibold">{row.symbol || '—'}</td>
+                      <td className={row.option_type === 'CE' ? 'px-3 py-2 font-semibold text-emerald-400' : 'px-3 py-2 font-semibold text-rose-400'}>{row.option_type || '—'}</td>
+                      <td className="px-3 py-2 text-slate-300">{row.strike ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-300">₹{row.entry_price ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{row.entry_time_ist || '—'}</td>
+                      <td className="px-3 py-2 text-slate-300">₹{row.stop_loss ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-300">₹{row.target_1 ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-300">₹{row.target_2 ?? '—'}</td>
+                      <td className="px-3 py-2 text-slate-300">{row.status?.replace(/_/g, ' ') || '—'}</td>
+                      <td className="px-3 py-2 text-slate-400 whitespace-nowrap">{row.exit_time_ist || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
