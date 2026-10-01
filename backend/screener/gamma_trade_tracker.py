@@ -150,8 +150,20 @@ class GammaTradeTracker:
      if not key or key in existing: continue
      raw["_key"]=key; raw["entry_price"]=_float(raw.get("entry_price")); raw["stop_loss"]=_float(raw.get("stop_loss"))
      raw["target_1"]=_float(raw.get("target_1")); raw["target_2"]=_float(raw.get("target_2"))
-     raw["current_ltp"]=raw["entry_price"]; raw["trailing_sl"]=raw["stop_loss"]; raw["last_checked_at_ist"]=raw.get("timestamp_ist") or _now_str()
-     raw["carry_forward"]=False; self._write(ws,ws.max_row+1,raw); existing[key]=raw; changed=True
+     raw["current_ltp"]=raw["entry_price"]; raw["trailing_sl"]=raw["stop_loss"]; raw["last_checked_at_ist"]=_now_str()
+     # Legacy daily rows may not have broker identity. Derive the deterministic
+     # FYERS option symbol so active historical rows can continue being tracked.
+     if (not raw.get("fyers_symbol") and raw.get("symbol") and raw.get("expiry")
+         and raw.get("strike") and raw.get("option_type")):
+      try:
+       dt=datetime.strptime(str(raw["expiry"])[:10], "%Y-%m-%d")
+       raw["fyers_symbol"]=f"NSE:{str(raw['symbol']).upper()}{dt.strftime('%y%b').upper()}{int(float(raw['strike']))}{str(raw['option_type']).upper()}"
+       raw["security_id"]=raw["fyers_symbol"]
+      except Exception:
+       pass
+     created=_date(raw.get("timestamp_ist")); today=_now().strftime("%Y-%m-%d")
+     raw["carry_forward"]=bool(created and created<today and str(raw.get("status") or "ACTIVE").upper() in ACTIVE)
+     self._write(ws,ws.max_row+1,raw); existing[key]=raw; changed=True
    if changed: self._save(wb,ws)
    wb.close()
  def record_alert(self,alert,option_meta=None):
