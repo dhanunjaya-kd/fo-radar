@@ -101,7 +101,7 @@ class GammaTradeTracker:
  def __init__(self,path:Optional[Path]=None):
   self.path=Path(os.environ.get("GAMMA_TRADE_TRACKER_XLSX",str(path or TRACKER_PATH)))
   SIGNAL_LOGS.mkdir(parents=True,exist_ok=True); self._lock=threading.RLock()
-  self._ensure(); self._bootstrap()
+  self._ensure(); self._bootstrap(); self._migrate_legacy_rows()
  def _style(self,ws):
   for c in ws[1]:
    c.font=Font(bold=True,color="FFFFFF"); c.fill=PatternFill(start_color="1F2937",end_color="1F2937",fill_type="solid"); c.alignment=Alignment(horizontal="center")
@@ -166,11 +166,77 @@ class GammaTradeTracker:
      self._write(ws,ws.max_row+1,raw); existing[key]=raw; changed=True
    if changed: self._save(wb,ws)
    wb.close()
+ def _human_key(self,value):
+  symbol=str(value.get("symbol") or "").strip().upper()
+  expiry=str(value.get("expiry") or "").strip().upper()
+  strike=str(value.get("strike") or "").strip().upper()
+  option_type=str(value.get("option_type") or "").strip().upper()
+  if symbol and expiry and strike and option_type:
+   return " ".join((symbol,expiry,strike,option_type))
+  contract=str(value.get("contract") or "").strip().upper()
+  return contract or None
+
+ def _find_existing_key(self,option):
+  direct=contract_key(option)
+  with self._lock:
+   rows=self._read_all()
+   if direct and direct in rows:
+    return direct
+   human=self._human_key(option)
+   if human:
+    for key,row in rows.items():
+     row_human=self._human_key({
+      "symbol":row.get("Symbol"), "expiry":row.get("Expiry"),
+      "strike":row.get("Strike"), "option_type":row.get("Option Type"),
+      "contract":row.get("Contract"),
+     })
+     if row_human==human:
+      return key
+   contract=str(option.get("contract") or "").strip().upper()
+   if contract:
+    for key,row in rows.items():
+     if str(row.get("Contract") or "").strip().upper()==contract:
+      return key
+  return direct or None
+
+ def _migrate_legacy_rows(self):
+  with self._lock,_FileLock(self.path):
+   rows=self._read_all()
+   if not rows:
+    return
+   wb,ws=self._open()
+   changed=False
+   today=_now().strftime("%Y-%m-%d")
+   for key,row in rows.items():
+    trade=dict(row); row_changed=False
+    symbol=row.get("Symbol")
+    expiry=row.get("Expiry")
+    strike=row.get("Strike")
+    option_type=row.get("Option Type")
+    if not row.get("Fyers Symbol") and symbol and expiry and strike and option_type:
+     try:
+      dt=datetime.strptime(str(expiry)[:10],"%Y-%m-%d")
+      trade["fyers_symbol"]=f"NSE:{str(symbol).upper()}{dt.strftime('%y%b').upper()}{int(float(strike))}{str(option_type).upper()}"
+      trade["security_id"]=row.get("Security ID") or trade["fyers_symbol"]
+      row_changed=True
+     except Exception:
+      pass
+    created=_date(row.get("Timestamp (IST)"))
+    status=str(row.get("Status") or "").upper()
+    if status in ACTIVE and created and created<today and str(row.get("Carry Forward") or "").upper()!="YES":
+     trade["carry_forward"]=True; row_changed=True
+    trade["_key"]=key
+    if row_changed:
+     self._write(ws,row["_row"],trade); changed=True
+   if changed:
+    self._save(wb,ws)
+   wb.close()
+
  def record_alert(self,alert,option_meta=None):
   merged=dict(option_meta or {}); merged.update(alert); key=contract_key(merged)
   if not key: return False
   with self._lock,_FileLock(self.path):
-   if key in self._read_all(): return False
+   if self._find_existing_key(merged) in self._read_all(): return False
    wb,ws=self._open(); trade=dict(alert); trade["_key"]=key; trade["status"]="ACTIVE"; trade["current_ltp"]=alert.get("entry_price")
    trade["trailing_sl"]=alert.get("trailing_sl",alert.get("stop_loss")); trade["last_checked_at_ist"]=_now_str()
    trade["carry_forward"]=False; trade["closed_at_ist"]=None; trade["t1_hit_at_ist"]=None; trade["t2_hit_at_ist"]=None; trade["sl_hit_at_ist"]=None
@@ -203,10 +269,13 @@ class GammaTradeTracker:
             "symbol":r.get("Symbol"),"option_type":r.get("Option Type"),"strike":r.get("Strike"),"expiry":r.get("Expiry")}
            for k,r in rows.items() if str(r.get("Status") or "").upper() in ACTIVE]
  def is_known(self,option):
-  k=contract_key(option)
-  return bool(k and k in self._read_all())
+  k=self._find_existing_key(option)
+  return bool(k)
  def is_active(self,option):
-  k=contract_key(option); r=self._read_all().get(k) if k else None
+  k=self._find_existing_key(option)
+  if not k: return False
+  with self._lock:
+   r=self._read_all().get(k)
   return bool(r and str(r.get("Status") or "").upper() in ACTIVE)
  def rebuild_open_alerts(self):
   with self._lock:
