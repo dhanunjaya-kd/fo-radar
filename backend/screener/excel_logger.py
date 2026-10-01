@@ -27,8 +27,56 @@ each cross used to log a brand new row, which is why the same symbol
 a dozen near-identical rows a few minutes apart. If a signal exits and
 then reappears (same symbol + same direction) within COOLDOWN_MINUTES,
 it's treated as the SAME signal continuing -- the existing row's
-"Exited At" cell is cleared instead of a new row being created. Only a
-gap longer than the cooldown counts as a genuinely new setup.
+"Exited At" cell is cleared instead of a new row being created.
+
+Sep 30 2026 fix -- real, confirmed duplicate-row bug, found directly in
+a user's actual daily log (multiple near-identical rows, exit
+timestamps seconds to minutes apart, for what was clearly the SAME
+trade). Root-caused to two separate, compounding issues:
+
+1. The row-dedup key was (symbol, action) only -- no strike, no
+   expiry, no option contract. This was fine for the cross-cycle-
+   flicker problem the cooldown was built for, but too coarse for
+   real trade identity: it couldn't distinguish two genuinely
+   different contracts (different strike, different expiry) for the
+   same symbol+direction, and had no way to correctly track more than
+   one such contract's own row at a time. The dedup key is now
+   (option_symbol, action) -- option_symbol already encodes symbol +
+   expiry + strike + CE/PE in one stable string (confirmed the exact
+   format directly from real logged rows, e.g.
+   "NSE:TIINDIA26SEP2450PE"), matching this project's own existing
+   compute_signal_id() approach rather than inventing a new identity
+   scheme. _open_positions (which locks in the CURRENTLY ACTIVE
+   entry/SL/target values so they don't drift while a position is
+   open) intentionally stays keyed by (symbol, action) -- that's a
+   different, correct question ("what contract is currently locked
+   in for this symbol+direction") that this change doesn't touch.
+
+2. The existence check read the in-memory _row_index BEFORE acquiring
+   the cross-process _FileLock below -- so two separate processes
+   (confirmed real risk in this project: Django's own autoreloader
+   watcher+child pattern, the same one _FileLock itself was already
+   built to guard the actual file write against) could each check,
+   each see "not found" using their own, separately-rebuilt in-memory
+   copy, and each proceed to write -- a real TOCTOU race, producing
+   the seconds-apart duplicate rows seen in practice. The check now
+   happens AFTER acquiring _FileLock, re-synced from the file's
+   actual current state at that moment, closing the window.
+
+Per the user's explicit, repeated requirement ("if the same signal
+disappears and later returns, do not log it again" -- stated as
+unconditional, not time-limited), a signal matching an EXACT existing
+contract (same option_symbol) that has already exited today is never
+re-logged, regardless of how much time has passed -- the prior
+COOLDOWN-expiry "allow a fresh row after 30+ minutes" behavior is
+removed for this exact-contract case. The cooldown's original,
+still-valid job (collapsing rapid re-open/re-close flicker within the
+window into the same row) is unchanged. A genuinely DIFFERENT contract
+(different strike or expiry) for the same symbol+direction is always
+treated as its own, separate trade, active position or not -- this
+project's own signal-generation logic (not modified here) decides
+whether that ever actually happens; this file only decides how to log
+it correctly if it does.
 """
 import os
 import threading
@@ -187,9 +235,13 @@ def classify_signal_event(symbol, action, option_symbol):
         SL/Target hit)") -- insufficient evidence for GENUINE_REENTRY,
         and calling it NEW_SETUP would contradict its own history.
     """
+    # Sep 30 2026: existing now looked up by (option_symbol, action),
+    # matching log_new_signal()'s own key -- see this module's
+    # docstring. open_pos stays on (symbol, action); that dict's own
+    # key wasn't changed by this fix.
     with _lock:
         _ensure_fresh()
-        existing = _row_index.get((symbol, action))
+        existing = _row_index.get((option_symbol, action)) if option_symbol else None
         open_pos = _open_positions.get((symbol, action))
 
     if open_pos is not None:
@@ -197,11 +249,13 @@ def classify_signal_event(symbol, action, option_symbol):
 
     if existing is not None:
         if existing["exited_at"] is None:
-            # Row still marked active in today's index but no
-            # _open_positions entry -- e.g. an option_symbol never
-            # resolved to a trackable position. Treat conservatively:
-            # a live row exists, this isn't provably a fresh setup.
-            return 'EXACT_DUPLICATE' if option_symbol == existing.get("option_symbol") else 'UNKNOWN'
+            # Sep 30 2026: the (option_symbol, action) key itself now
+            # guarantees this is the identical contract -- the old
+            # option_symbol-vs-stored comparison was compensating for
+            # the PRIOR coarse (symbol, action) key, where a hit here
+            # could have been a different contract. No longer possible
+            # under the new key, so always a true exact duplicate now.
+            return 'EXACT_DUPLICATE'
         gap_minutes = (datetime.now() - existing["exited_at"]).total_seconds() / 60
         if gap_minutes < COOLDOWN_MINUTES:
             return 'SAME_SETUP_RETRIGGER'
@@ -395,7 +449,12 @@ def _ensure_fresh():
             action = ws.cell(row=row_num, column=col["Action"]).value
             if not symbol or not action:
                 continue
-            key = (symbol, action)
+            # Sep 30 2026 fix: opt_symbol read here (was previously read
+            # further down, after this point) since it's now part of the
+            # row-dedup key itself -- see this module's own docstring for
+            # why (option_symbol, action), not (symbol, action).
+            opt_symbol = ws.cell(row=row_num, column=col["Option Symbol"]).value
+            key = (opt_symbol, action) if opt_symbol else (f"{symbol}|NO_CONTRACT", action)
 
             exited_raw = ws.cell(row=row_num, column=col["Exited At"]).value
             exited_at = None
@@ -404,7 +463,7 @@ def _ensure_fresh():
                     exited_at = datetime.strptime(str(exited_raw), "%Y-%m-%d %H:%M:%S")
                 except Exception:
                     exited_at = None
-            _row_index[key] = {"row": row_num, "exited_at": exited_at}
+            _row_index[key] = {"row": row_num, "exited_at": exited_at, "symbol": symbol, "option_symbol": opt_symbol}
 
             sl_hit_already = bool(ws.cell(row=row_num, column=col["SL Hit At"]).value)
             furthest_target = 0
@@ -415,7 +474,7 @@ def _ensure_fresh():
             if sl_hit_already or furthest_target >= 3:
                 continue
 
-            opt_symbol = ws.cell(row=row_num, column=col["Option Symbol"]).value
+            # opt_symbol already read above, now part of the row-dedup key.
             sl = ws.cell(row=row_num, column=col["SL"]).value
             t1 = ws.cell(row=row_num, column=col["Target 1"]).value
             t2 = ws.cell(row=row_num, column=col["Target 2"]).value
@@ -540,25 +599,78 @@ def get_locked_plan(symbol, action):
         }
 
 
+def _find_row_for_key(ws, option_symbol, action):
+    """
+    Sep 30 2026 addition -- the actual race-condition fix. Scans the
+    CURRENT, just-locked sheet state directly, rather than trusting
+    this process's own in-memory _row_index, which may be stale
+    relative to a row another process wrote moments ago (see this
+    module's own docstring for the confirmed TOCTOU race this closes).
+    Only called from inside an already-acquired _FileLock, so this
+    read is guaranteed to see the true current state.
+    """
+    headers = [c.value for c in ws[1]]
+    if headers != COLUMNS:
+        return None
+    col = {name: i + 1 for i, name in enumerate(headers)}
+    opt_col, action_col, exited_col = col["Option Symbol"], col["Action"], col["Exited At"]
+    for row_num in range(2, ws.max_row + 1):
+        if ws.cell(row=row_num, column=opt_col).value == option_symbol and ws.cell(row=row_num, column=action_col).value == action:
+            exited_raw = ws.cell(row=row_num, column=exited_col).value
+            exited_at = None
+            if exited_raw:
+                try:
+                    exited_at = datetime.strptime(str(exited_raw), "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    exited_at = None
+            return {"row": row_num, "exited_at": exited_at}
+    return None
+
+
 def log_new_signal(signal):
     if not OPENPYXL_AVAILABLE:
         return False
-    key = (signal.get("symbol"), signal.get("action"))
-    if not key[0]:
+    symbol = signal.get("symbol")
+    action = signal.get("action")
+    option_symbol = signal.get("option_symbol")
+    if not symbol or not action:
         return False
+    # Sep 30 2026 fix: real, confirmed dedup-key gap -- (symbol, action)
+    # alone can't distinguish two different contracts (different
+    # strike/expiry) for the same symbol+direction. option_symbol
+    # already encodes symbol+expiry+strike+CE/PE in one stable string
+    # (confirmed against real logged rows), matching this project's own
+    # existing compute_signal_id() identity. A signal with no resolved
+    # option_symbol yet simply isn't logged -- same "never fabricate an
+    # identity for a state that isn't real yet" rule compute_signal_id()
+    # itself already follows.
+    if not option_symbol:
+        return False
+    key = (option_symbol, action)
 
     with _lock:
         path, today = _today_path()
         _ensure_fresh()
 
-        existing = _row_index.get(key)
-        if existing and existing["exited_at"] is None:
-            return False
-
         try:
             with _FileLock(path):
                 wb = _get_workbook(path)
                 ws = wb["Signals"]
+
+                # Sep 30 2026 fix: real, confirmed race condition. The
+                # check used to read this process's own in-memory
+                # _row_index BEFORE this lock was acquired -- two
+                # separate processes could each see "not found" using
+                # their own separately-rebuilt copy and both proceed to
+                # write. Re-checking the sheet's actual current state
+                # HERE, under the lock, closes that window: whichever
+                # process gets here second now sees the row the first
+                # one just wrote and saved.
+                existing = _find_row_for_key(ws, option_symbol, action)
+
+                if existing and existing["exited_at"] is None:
+                    # Exact same contract, still open -- true duplicate.
+                    return False
 
                 if existing and existing["exited_at"] is not None:
                     gap_minutes = (datetime.now() - existing["exited_at"]).total_seconds() / 60
@@ -566,27 +678,48 @@ def log_new_signal(signal):
                         exited_col = COLUMNS.index("Exited At") + 1
                         ws.cell(row=existing["row"], column=exited_col).value = ""
                         wb.save(path)
-                        existing["exited_at"] = None
+                        _row_index[key] = {"row": existing["row"], "exited_at": None, "symbol": symbol, "option_symbol": option_symbol}
                         return False
+                    # Sep 30 2026: per the user's explicit, repeated,
+                    # unconditional requirement -- if this EXACT
+                    # contract already appeared and exited today, it is
+                    # never logged again, regardless of elapsed time.
+                    # The prior "allow a fresh row once the cooldown
+                    # expires" behavior is intentionally removed for
+                    # this exact-contract case (see this module's own
+                    # docstring for the full reasoning and what's
+                    # preserved vs. changed).
+                    return False
 
                 row_num = _write_new_row(ws, signal)
                 wb.save(path)
-            _row_index[key] = {"row": row_num, "exited_at": None}
+            _row_index[key] = {"row": row_num, "exited_at": None, "symbol": symbol, "option_symbol": option_symbol}
             return True
         except Exception as e:
             print(f"[ExcelLog] Failed to log {key}: {e}")
             return False
 
 
-def mark_exited(symbol, action):
+def mark_exited(symbol, action, option_symbol):
+    """
+    Sep 30 2026: now takes option_symbol explicitly -- the _row_index
+    lookup key changed to (option_symbol, action) (see this module's
+    docstring), but _open_positions intentionally stayed keyed by
+    (symbol, action) -- that dict answers a different, still-correct
+    question ("what contract is currently locked in for this
+    symbol+direction"), untouched by this fix. Both keys are needed
+    here since this function updates one row via the first and reads
+    locked MFE/MAE data via the second.
+    """
     if not OPENPYXL_AVAILABLE:
         return
-    key = (symbol, action)
+    row_key = (option_symbol, action)
+    pos_key = (symbol, action)
 
     with _lock:
         path, today = _today_path()
         _ensure_fresh()
-        existing = _row_index.get(key)
+        existing = _row_index.get(row_key)
         if existing is None or existing["exited_at"] is not None:
             return
 
@@ -601,7 +734,7 @@ def mark_exited(symbol, action):
                 existing_outcome = ws.cell(row=existing["row"], column=outcome_col).value
                 if not existing_outcome:
                     ws.cell(row=existing["row"], column=outcome_col).value = "Expired (no SL/Target hit)"
-                pos = _open_positions.get(key)
+                pos = _open_positions.get(pos_key)
                 if pos is not None:
                     mfe_col = COLUMNS.index("MFE Premium") + 1
                     mae_col = COLUMNS.index("MAE Premium") + 1
@@ -610,28 +743,38 @@ def mark_exited(symbol, action):
                 wb.save(path)
             existing["exited_at"] = now
         except Exception as e:
-            print(f"[ExcelLog] Failed to mark exit for {key}: {e}")
+            print(f"[ExcelLog] Failed to mark exit for {row_key}: {e}")
 
 
 def sync_active_signals(current_signals):
+    """
+    Sep 30 2026: current_keys/previously_active now built on
+    (option_symbol, action) -- matching log_new_signal()'s own key --
+    instead of (symbol, action). A signal without a resolved
+    option_symbol yet is excluded from current_keys (same as
+    log_new_signal() itself won't log it), so it's neither
+    double-counted nor prematurely marked exited while still
+    resolving.
+    """
     if not OPENPYXL_AVAILABLE:
         return []
-    current_keys = {(s.get("symbol"), s.get("action")) for s in current_signals if s.get("symbol")}
+    current_keys = {(s.get("option_symbol"), s.get("action")) for s in current_signals if s.get("option_symbol")}
 
     with _lock:
         path, today = _today_path()
         _ensure_fresh()
-        previously_active = {k for k, v in _row_index.items() if v["exited_at"] is None}
+        previously_active = {k: v for k, v in _row_index.items() if v["exited_at"] is None}
 
     newly_logged = []
     for s in current_signals:
-        key = (s.get("symbol"), s.get("action"))
+        key = (s.get("option_symbol"), s.get("action"))
         if key[0] and key not in previously_active:
             if log_new_signal(s):
                 newly_logged.append(s)
 
-    for key in previously_active - current_keys:
-        mark_exited(key[0], key[1])
+    for key in set(previously_active.keys()) - current_keys:
+        row_info = previously_active[key]
+        mark_exited(row_info.get("symbol"), key[1], key[0])
 
     return newly_logged
 
