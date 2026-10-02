@@ -20,6 +20,8 @@ from screener.views import (
     UserWatchlistView,
     ScannerView,
     ScannerCandlesView,
+    ChartPatternsView,
+    ChartPatternsScanView,
     GammaStrategyView,
     GammaStrategyExcelExportView, GammaStrategyHistoryDatesView, GammaStrategyHistoryView,
 )
@@ -88,6 +90,8 @@ urlpatterns = [
     path('api/sector-stocks/<str:sector>/', SectorStocksView.as_view(), name='sector_stocks'),
     path('api/scanner/', ScannerView.as_view(), name='scanner'),
     path('api/scanner/candles/', ScannerCandlesView.as_view(), name='scanner-candles'),
+    path('api/chart-patterns/', ChartPatternsView.as_view(), name='chart-patterns'),
+    path('api/chart-patterns/scan/', ChartPatternsScanView.as_view(), name='chart-patterns-scan'),
     path('api/no-trade-log/', NoTradeLogView.as_view(), name='no_trade_log'),
     path('api/shadow-signals/', ShadowSignalsView.as_view(), name='shadow_signals'),
     path('api/shadow-performance/', ShadowPerformanceView.as_view(), name='shadow_performance'),

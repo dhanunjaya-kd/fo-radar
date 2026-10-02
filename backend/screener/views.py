@@ -6282,6 +6282,104 @@ class ScannerCandlesView(APIView):
             self._lock.release()
 
 
+# =============================================================================
+# CHART PATTERNS (Scanner phase 2, Oct 2 2026) -- see chart_patterns.py (what the
+# detector is and is NOT) and pattern_scanner.py (scan state / queries).
+# =============================================================================
+_pattern_hist_cache = {}  # {symbol: {'date': 'YYYY-MM-DD', 'series': (o, h, l, c, v, ts)}}
+PATTERN_HISTORY_DAYS = 240   # ~165 trading bars: _history_cache's 100 calendar days (~68 bars) is too short for cups/H&S
+PATTERN_BASELINE = {
+    "fair_plus": 0.39, "strong_plus": 0.12, "textbook": 0.03,
+    "basis": "share of 1,500 pure random-walk charts (100 daily bars, 1.8% daily vol) in which the detector still finds a pattern of at least that quality",
+}
+
+
+def _pattern_history_series(symbol):
+    """
+    (open, high, low, close, volume, ts) lists of COMPLETED daily candles, or None. Own cache,
+    own 240-day fetch (the shared _history_cache holds only ~68 bars). A today's candle that is
+    still forming is dropped; after the close it is complete and kept.
+    """
+    today = datetime.now().strftime("%Y-%m-%d")
+    cached = _pattern_hist_cache.get(symbol)
+    if cached and cached['date'] == today:
+        return cached['series']
+    df = _fyers_history_df(symbol, days=PATTERN_HISTORY_DAYS)
+    if df is None or df.empty:
+        return None
+    try:
+        from .market_hours import is_market_hours
+        if is_market_hours() and datetime.fromtimestamp(float(df['ts'].iloc[-1])).strftime("%Y-%m-%d") == today:
+            df = df.iloc[:-1]
+    except Exception:
+        pass
+    series = (df['Open'].tolist(), df['High'].tolist(), df['Low'].tolist(), df['Close'].tolist(), df['Volume'].tolist(), df['ts'].tolist())
+    _pattern_hist_cache[symbol] = {'date': today, 'series': series}
+    return series
+
+
+def _pattern_universe(request_value):
+    key = request_value if request_value in ScannerView.UNIVERSE_MAP else 'nifty500'
+    return key, ScannerView.UNIVERSE_MAP[key]
+
+
+class ChartPatternsView(APIView):
+    """
+    GET /api/chart-patterns/?universe=&family=&direction=&status=&quality=&within=&volume=1&q=&sort=&offset=&limit=
+    Server-side filtering/paging (a full universe is thousands of patterns, each with its own candles).
+    `facets` are counts over the whole unfiltered universe, like the filter chips in the UI.
+    """
+    MAX_LIMIT = 60
+
+    def get(self, request):
+        from . import pattern_scanner as ps
+        g = request.GET
+        universe, symbols = _pattern_universe(g.get('universe', 'nifty500'))
+        items = ps.patterns(universe)
+        text = (g.get('q') or '').strip().lower() or None
+        if text:
+            for p in items:
+                p.setdefault('company', _get_company_name(p['symbol']))
+        try:
+            within = int(g['within']) if g.get('within') not in (None, '', 'any') else None
+            offset = max(0, int(g.get('offset', 0)))
+            limit = min(self.MAX_LIMIT, max(1, int(g.get('limit', 36))))
+        except ValueError:
+            within, offset, limit = None, 0, 36
+        picked = ps.query(
+            items, family=g.get('family') or None, direction=g.get('direction') or None, status=g.get('status') or None,
+            quality=g.get('quality') or None, within=within, volume=g.get('volume') == '1', text=text, sort=g.get('sort', 'composite'),
+        )
+        page = []
+        for p in picked[offset:offset + limit]:
+            sym = p['symbol']
+            page.append({**p, 'company': p.get('company') or _get_company_name(sym),
+                         'sector': SECTORS.get(sym) or NIFTY_500_SECTOR_FALLBACK.get(sym, 'Unknown')})
+        return Response({
+            "universe": universe, "universe_size": len(symbols), "scan": ps.status(universe),
+            "total": len(picked), "all_patterns": len(items), "facets": ps.facets(items),
+            "offset": offset, "limit": limit, "patterns": page, "baseline": PATTERN_BASELINE,
+        })
+
+
+class ChartPatternsScanView(APIView):
+    """POST /api/chart-patterns/scan/ {universe} -- start a paced background scan (one at a time); GET = status."""
+
+    def get(self, request):
+        from . import pattern_scanner as ps
+        universe, _ = _pattern_universe(request.GET.get('universe', 'nifty500'))
+        return Response(ps.status(universe))
+
+    def post(self, request):
+        from . import pattern_scanner as ps
+        from .fyers_client import _rate_limited_now
+        universe, symbols = _pattern_universe((request.data or {}).get('universe', 'nifty500'))
+        if not is_authenticated():
+            return Response({"started": False, "reason": "Fyers is not connected -- connect it first, history can't be fetched without it.", **ps.status(universe)}, status=409)
+        started, reason = ps.start_scan(universe, list(symbols), _pattern_history_series, _rate_limited_now)
+        return Response({"started": started, "reason": reason, **ps.status(universe)}, status=202 if started else 409)
+
+
 class NoTradeLogView(APIView):
     """
     Aug 31 2026: P0-6 from the UI Corrections checklist -- exposes
