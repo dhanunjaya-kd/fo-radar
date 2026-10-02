@@ -87,6 +87,7 @@ function mergeOIRows(ceData, peData) {
     byStrike[c.strike].ce_volume = c.volume ?? null;
     byStrike[c.strike].ce_ltp = c.ltp ?? null;
     byStrike[c.strike].ce_oi_chg = c.oi_chg_pct ?? null;
+    byStrike[c.strike].ce_oi_chg_abs = c.oi_chg ?? null;
     byStrike[c.strike].ce_iv = c.iv ?? null;
     byStrike[c.strike].ce_delta = c.delta ?? null;
     totalCeOi += c.oi || 0;
@@ -97,6 +98,7 @@ function mergeOIRows(ceData, peData) {
     byStrike[p.strike].pe_volume = p.volume ?? null;
     byStrike[p.strike].pe_ltp = p.ltp ?? null;
     byStrike[p.strike].pe_oi_chg = p.oi_chg_pct ?? null;
+    byStrike[p.strike].pe_oi_chg_abs = p.oi_chg ?? null;
     byStrike[p.strike].pe_iv = p.iv ?? null;
     byStrike[p.strike].pe_delta = p.delta ?? null;
     totalPeOi += p.oi || 0;
@@ -105,9 +107,68 @@ function mergeOIRows(ceData, peData) {
   return { rows, totalCeOi, totalPeOi };
 }
 
+const INDICES = ['NIFTY', 'BANKNIFTY', 'SENSEX'];
+const EXPIRIES = [['current', 'Nearest'], ['next', 'Next'], ['monthly', 'Monthly']];
+const fmtPrice = (n, d = 0) => (n == null ? '—' : Number(n).toLocaleString('en-IN', { maximumFractionDigits: d }));
+const fmtSigned = (n) => (n == null ? '—' : `${n >= 0 ? '+' : '−'}${fmtOi(Math.abs(n))}`);
+
+// What the chain itself says -- every number below is computed from the strikes already on screen
+// (nothing is forecast): the biggest OI strikes on each side are the "walls", the biggest fresh additions
+// are where writers are adding today, and the ATM straddle is the market's priced-in move to expiry.
+function computeInsights(rows, data) {
+  const top = (key, n = 3) => [...rows].filter((r) => r[key] > 0).sort((a, b) => b[key] - a[key]).slice(0, n);
+  const fresh = (key) => [...rows].filter((r) => (r[key] ?? 0) > 0).sort((a, b) => b[key] - a[key])[0] || null;
+  const spot = data?.spot ?? null;
+  const straddle = data?.atmStraddlePrice ?? null;
+  return {
+    callWalls: top('ce_oi'),
+    putWalls: top('pe_oi'),
+    freshCall: fresh('ce_oi_chg_abs'),
+    freshPut: fresh('pe_oi_chg_abs'),
+    expectedMove: straddle != null ? straddle : null,
+    expectedMovePct: straddle != null && spot ? (straddle / spot) * 100 : null,
+  };
+}
+
+function Tile({ label, value, sub, tone }) {
+  return (
+    <div className="rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2 min-w-0">
+      <div className="text-[9px] tracking-wide text-slate-500 uppercase">{label}</div>
+      <div className={`text-base font-bold tabular-nums ${tone || 'text-white'}`}>{value}</div>
+      {sub && <div className="text-[10px] text-slate-500 truncate">{sub}</div>}
+    </div>
+  );
+}
+
+function WallList({ title, tone, rows, valueKey, chgKey, spot }) {
+  const max = Math.max(...rows.map((r) => r[valueKey]), 1);
+  return (
+    <div>
+      <div className={`text-[10px] font-semibold uppercase tracking-wide mb-1.5 ${tone}`}>{title}</div>
+      {rows.length === 0 && <div className="text-[11px] text-slate-500">No data</div>}
+      <div className="space-y-1.5">
+        {rows.map((r, i) => {
+          const chg = r[chgKey];
+          return (
+            <div key={r.strike} className="flex items-center gap-2 text-[11px]">
+              <span className="w-5 text-slate-500">#{i + 1}</span>
+              <span className="w-16 font-semibold text-white tabular-nums">{r.strike.toLocaleString('en-IN')}</span>
+              <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden"><div className={`h-full rounded-full ${tone.includes('rose') ? 'bg-rose-400' : 'bg-emerald-400'}`} style={{ width: `${(r[valueKey] / max) * 100}%` }} /></div>
+              <span className="w-12 text-right text-slate-300 tabular-nums">{fmtOi(r[valueKey])}</span>
+              <span className={`w-14 text-right tabular-nums ${chg == null ? 'text-slate-500' : chg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{fmtSigned(chg)}</span>
+              {spot != null && <span className="hidden sm:block w-14 text-right text-slate-500 tabular-nums">{(((r.strike - spot) / spot) * 100).toFixed(1)}%</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function OIDistribution() {
   const t = useTone();
   const [selected, setSelected] = useState('NIFTY');
+  const [expiry, setExpiry] = useState('current');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -122,7 +183,7 @@ export default function OIDistribution() {
         // Same /api/option-analytics/<symbol>/ endpoint already fixed
         // earlier tonight to support NIFTY/BANKNIFTY -- no new backend
         // work needed for this panel at all.
-        const res = await fetch(`${API_BASE}/api/option-analytics/${selected}/`);
+        const res = await fetch(`${API_BASE}/api/option-analytics/${selected}/?expiry=${expiry}`);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const json = await res.json();
         if (mounted) {
@@ -142,7 +203,7 @@ export default function OIDistribution() {
     fetchData();
     const interval = setInterval(fetchData, 30000);
     return () => { mounted = false; clearInterval(interval); };
-  }, [selected]);
+  }, [selected, expiry]);
 
   const WIDTH = 700, HEIGHT = 220;
 
@@ -166,23 +227,29 @@ export default function OIDistribution() {
   const atmStrike = data?.atmStrike ?? data?.atm_strike ?? data?.atm ?? null;
   const layout = rows.length > 0 ? computeOIDistributionLayout(rows, data?.maxPain, atmStrike, WIDTH, HEIGHT) : null;
   const totalOi = totalCeOi + totalPeOi;
+  const insights = rows.length ? computeInsights(rows, data) : null;
+  const pcrInfo = pcrSentimentLabel(data?.pcr ?? null);
 
   return (
     <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-bold text-white">OI Distribution</h3>
-        <div className="flex gap-1 bg-slate-900/50 p-0.5 rounded-lg">
-          {['NIFTY', 'BANKNIFTY'].map(idx => (
-            <button
-              key={idx}
-              onClick={() => setSelected(idx)}
-              className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${
-                selected === idx ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {idx}
-            </button>
-          ))}
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+        <div>
+          <h3 className="text-sm font-bold text-white">OI Distribution</h3>
+          {data?.resolvedExpiryDate && <p className="text-[10px] text-slate-500 mt-0.5">Expiry {data.resolvedExpiryDate}{data.days_to_expiry != null ? ` · ${data.days_to_expiry}d` : ''} · 10 strikes either side of ATM</p>}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex gap-1 bg-slate-900/50 p-0.5 rounded-lg">
+            {EXPIRIES.map(([k, label]) => (
+              <button key={k} onClick={() => setExpiry(k)}
+                className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${expiry === k ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{label}</button>
+            ))}
+          </div>
+          <div className="flex gap-1 bg-slate-900/50 p-0.5 rounded-lg">
+            {INDICES.map((idx) => (
+              <button key={idx} onClick={() => setSelected(idx)}
+                className={`text-[11px] font-medium px-2.5 py-1 rounded-md transition-colors ${selected === idx ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{idx}</button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -194,6 +261,18 @@ export default function OIDistribution() {
         </div>
       ) : (
         <>
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2 mb-4">
+            <Tile label="Spot" value={fmtPrice(data.spot, 2)} sub={selected} />
+            <Tile label="PCR (OI)" value={data.pcr != null ? Number(data.pcr).toFixed(2) : '—'} sub={`${pcrInfo.label}${data.pcrVolume != null ? ` · vol ${Number(data.pcrVolume).toFixed(2)}` : ''}`} tone={pcrInfo.color} />
+            <Tile label="Max pain" value={fmtPrice(data.maxPain)} sub={data.maxPainDistPct != null ? `spot ${data.maxPainDistPct >= 0 ? '+' : ''}${data.maxPainDistPct}% from it` : null} tone="text-amber-400" />
+            <Tile label="ATM IV" value={data.atmIv != null ? `${data.atmIv}%` : '—'} sub={atmStrike != null ? `strike ${fmtPrice(atmStrike)}` : null} />
+            <Tile label="ATM straddle" value={data.atmStraddlePrice != null ? `₹${fmtPrice(data.atmStraddlePrice, 1)}` : '—'} sub={insights?.expectedMovePct != null ? `priced-in move ±${insights.expectedMovePct.toFixed(2)}%` : null} />
+            <Tile label="Put wall (support)" value={fmtPrice(data.support)} sub={data.support != null && data.spot ? `${(((data.support - data.spot) / data.spot) * 100).toFixed(1)}% from spot` : null} tone="text-rose-400" />
+            <Tile label="Call wall (resistance)" value={fmtPrice(data.resistance)} sub={data.resistance != null && data.spot ? `+${(((data.resistance - data.spot) / data.spot) * 100).toFixed(1)}% from spot` : null} tone="text-emerald-400" />
+            <Tile label="OI change today" value={`CE ${fmtSigned(data.ceOiChg)}`} sub={`PE ${fmtSigned(data.peOiChg)}`} tone={data.peOiChg > data.ceOiChg ? 'text-emerald-400' : 'text-rose-400'} />
+          </div>
+          {data.oiBuildup && <p className="text-[11px] text-slate-400 mb-3">Positioning: <span className="font-semibold text-slate-200">{data.oiBuildup}</span></p>}
+
           <div className="flex items-center justify-center gap-6 mb-2 text-xs">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
@@ -291,6 +370,28 @@ export default function OIDistribution() {
             <span>{layout.bars[0]?.strike.toLocaleString('en-IN')}</span>
             <span>{layout.bars[layout.bars.length - 1]?.strike.toLocaleString('en-IN')}</span>
           </div>
+
+          {insights && (
+            <div className="mt-5 pt-4 border-t border-slate-700/50">
+              <div className="flex items-baseline justify-between mb-3">
+                <h4 className="text-xs font-bold text-white">OI walls &amp; fresh positioning</h4>
+                <span className="text-[10px] text-slate-500">colours match the chart: green = calls, red = puts · strike · OI · change today · distance from spot</span>
+              </div>
+              <div className="grid md:grid-cols-2 gap-x-8 gap-y-5">
+                <WallList title="Call walls — resistance" tone="text-emerald-400" rows={insights.callWalls} valueKey="ce_oi" chgKey="ce_oi_chg_abs" spot={data.spot} />
+                <WallList title="Put walls — support" tone="text-rose-400" rows={insights.putWalls} valueKey="pe_oi" chgKey="pe_oi_chg_abs" spot={data.spot} />
+              </div>
+              <div className="grid md:grid-cols-2 gap-3 mt-4">
+                <div className="rounded-lg bg-slate-900/40 border border-slate-700/40 px-3 py-2 text-[11px] text-slate-400">
+                  Biggest fresh <b className="text-emerald-400">call</b> addition: {insights.freshCall ? <span className="text-slate-200"><b>{insights.freshCall.strike.toLocaleString('en-IN')}</b> ({fmtSigned(insights.freshCall.ce_oi_chg_abs)}) — new writing caps the upside there</span> : <span className="text-slate-500">none today</span>}
+                </div>
+                <div className="rounded-lg bg-slate-900/40 border border-slate-700/40 px-3 py-2 text-[11px] text-slate-400">
+                  Biggest fresh <b className="text-rose-400">put</b> addition: {insights.freshPut ? <span className="text-slate-200"><b>{insights.freshPut.strike.toLocaleString('en-IN')}</b> ({fmtSigned(insights.freshPut.pe_oi_chg_abs)}) — new writing supports the downside there</span> : <span className="text-slate-500">none today</span>}
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-600 mt-3">Read from the option chain on screen: walls are the strikes holding the most open interest, not predictions. The ATM straddle is what the market is pricing as the move to expiry.</p>
+            </div>
+          )}
         </>
       )}
     </div>
