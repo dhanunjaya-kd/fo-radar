@@ -183,9 +183,18 @@ export default function OIDistribution() {
         // Same /api/option-analytics/<symbol>/ endpoint already fixed
         // earlier tonight to support NIFTY/BANKNIFTY -- no new backend
         // work needed for this panel at all.
-        const res = await fetch(`${API_BASE}/api/option-analytics/${selected}/?expiry=${expiry}`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const json = await res.json();
+        // 'current' is the endpoint's default, so it is requested WITHOUT a query string: after the close the
+        // server replays the last session's snapshot keyed by the exact URL, and the plain URL is the one that
+        // has always been saved (adding ?expiry=current made after-hours requests miss it).
+        const qs = expiry === 'current' ? '' : `?expiry=${expiry}`;
+        const res = await fetch(`${API_BASE}/api/option-analytics/${selected}/${qs}`);
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          if (json.error === 'market_closed_no_snapshot') {
+            throw new Error(`Market is closed and there is no saved snapshot for ${selected}${expiry === 'current' ? '' : ` (${expiry} expiry)`} from the last session. Open this view once while the market is live and it will be available after the close.`);
+          }
+          throw new Error(json.error || json.message || 'HTTP ' + res.status);
+        }
         if (mounted) {
           if (json.live === false) {
             setError(json.error || 'No live data available right now.');
