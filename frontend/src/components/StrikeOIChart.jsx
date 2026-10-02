@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTone } from './ThemeContext';
 
 // Sep 3 2026: built for the "NIFTY OI Positioning" -> full OI Analytics
 // page, styled after an Opstra-style strike-by-strike OI chart. Pure
@@ -107,6 +108,7 @@ function pcrSentimentLabel(pcr) {
 }
 
 export default function StrikeOIChart({ ceData, peData, atmStrike }) {
+  const t = useTone();
   const [hoverIdx, setHoverIdx] = useState(null);
 
   const WIDTH = 700, HEIGHT = 260, LABEL_ROW_HEIGHT = 18;
@@ -144,12 +146,12 @@ export default function StrikeOIChart({ ceData, peData, atmStrike }) {
                  style={{ cursor: 'pointer' }}>
                 {isATM && (
                   <rect x={bar.centerX - layout.slotWidth / 2} y={0} width={layout.slotWidth} height={HEIGHT}
-                        fill="#3b82f6" opacity={hoverIdx === i ? 0.12 : 0.06} />
+                        fill={t('#3b82f6')} opacity={hoverIdx === i ? 0.12 : 0.06} />
                 )}
                 <rect x={bar.ceX} y={bar.ceY} width={bar.barWidth} height={bar.ceH}
-                      fill="#34d399" opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.35} />
+                      fill={t('#34d399')} opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.35} />
                 <rect x={bar.peX} y={bar.peY} width={bar.barWidth} height={bar.peH}
-                      fill="#fb7185" opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.35} />
+                      fill={t('#fb7185')} opacity={hoverIdx === null || hoverIdx === i ? 1 : 0.35} />
                 {/* Sep 3 2026: x-axis strike labels -- only every Nth
                     strike (computeLabelStride) so this stays readable
                     regardless of how many strikes are in view. Was
@@ -157,7 +159,7 @@ export default function StrikeOIChart({ ceData, peData, atmStrike }) {
                     unreadable without hovering every single bar. */}
                 {i % labelStride === 0 && (
                   <text x={bar.centerX} y={HEIGHT + 13} textAnchor="middle" fontSize="9"
-                        fill={isATM ? '#60a5fa' : '#64748b'} fontWeight={isATM ? 'bold' : 'normal'}>
+                        fill={t(isATM ? '#60a5fa' : '#64748b')} fontWeight={isATM ? 'bold' : 'normal'}>
                     {bar.strike}
                   </text>
                 )}
@@ -167,7 +169,7 @@ export default function StrikeOIChart({ ceData, peData, atmStrike }) {
             );
           })}
           {pcrLine && (
-            <path d={pcrLine.path} fill="none" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+            <path d={pcrLine.path} fill="none" stroke={t('#fbbf24')} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
           )}
         </svg>
 

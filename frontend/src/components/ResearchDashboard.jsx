@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatIndianCurrency, pickSeriesUnit, formatAxisTick, formatPercent, formatRatio } from '../utils/indianNumberFormat';
 import ChartWorkspace from './ChartWorkspace';
+import { useChartChrome } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -112,6 +113,7 @@ function StatBox({ label, value, sub, source, term }) {
 }
 
 function TrendChart({ data, dataKey, label, color = '#34d399' }) {
+  const ch = useChartChrome();
   if (!data || data.length < 2) {
     return <div className="text-xs text-slate-500 py-8 text-center">Not enough periods to chart a trend yet.</div>;
   }
@@ -126,21 +128,22 @@ function TrendChart({ data, dataKey, label, color = '#34d399' }) {
   return (
     <ResponsiveContainer width="100%" height={180}>
       <LineChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
-        <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => formatAxisTick(v, unit)} width={56} />
+        <CartesianGrid strokeDasharray="3 3" stroke={ch.gridStroke} opacity={ch.gridOpacity} />
+        <XAxis dataKey="period" tick={{ fontSize: 10, fill: ch.tick }} />
+        <YAxis tick={{ fontSize: 10, fill: ch.tick }} tickFormatter={v => formatAxisTick(v, unit)} width={56} />
         <Tooltip
-          contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
-          labelStyle={{ color: '#e2e8f0' }}
+          contentStyle={ch.tooltip}
+          labelStyle={{ color: ch.tooltipLabel }}
           formatter={(value) => [formatIndianCurrency(value), label]}
         />
-        <Line type="monotone" dataKey={dataKey} name={label} stroke={color} strokeWidth={2} dot={{ r: 3 }} />
+        <Line type="monotone" dataKey={dataKey} name={label} stroke={ch.t(color)} strokeWidth={2} dot={{ r: 3 }} />
       </LineChart>
     </ResponsiveContainer>
   );
 }
 
 function OwnershipBar({ ownership }) {
+  const ch = useChartChrome();
   const promoter = parseFloat(ownership.promoter_pct) || 0;
   const fii = parseFloat(ownership.fii_pct) || 0;
   const dii = parseFloat(ownership.dii_pct) || 0;
@@ -157,8 +160,8 @@ function OwnershipBar({ ownership }) {
   const publicOther = Math.max(0, publicTotal - fii - dii - mf);
 
   const barData = [
-    { name: 'Promoter', value: promoter, color: '#34d399' },
-    { name: 'Public', value: publicTotal, color: '#475569' },
+    { name: 'Promoter', value: promoter, color: ch.t('#34d399') },
+    { name: 'Public', value: publicTotal, color: ch.t('#475569') },
   ].filter(d => d.value > 0);
   if (!barData.length) return <div className="text-xs text-slate-500">No shareholding data available.</div>;
 
@@ -234,6 +237,7 @@ function WhatChanged({ data }) {
 }
 
 function TwoSeriesBarChart({ data, keyA, labelA, colorA, keyB, labelB, colorB }) {
+  const ch = useChartChrome();
   if (!data || data.length < 1) {
     return <div className="text-xs text-slate-500 py-8 text-center">Not enough periods to chart yet.</div>;
   }
@@ -241,16 +245,16 @@ function TwoSeriesBarChart({ data, keyA, labelA, colorA, keyB, labelB, colorB })
   return (
     <ResponsiveContainer width="100%" height={180}>
       <BarChart data={data} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
-        <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-        <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => formatAxisTick(v, unit)} width={56} />
+        <CartesianGrid strokeDasharray="3 3" stroke={ch.gridStroke} opacity={ch.gridOpacity} />
+        <XAxis dataKey="period" tick={{ fontSize: 10, fill: ch.tick }} />
+        <YAxis tick={{ fontSize: 10, fill: ch.tick }} tickFormatter={v => formatAxisTick(v, unit)} width={56} />
         <Tooltip
-          contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
-          labelStyle={{ color: '#e2e8f0' }}
+          contentStyle={ch.tooltip}
+          labelStyle={{ color: ch.tooltipLabel }}
           formatter={(value, name) => [formatIndianCurrency(value), name]}
         />
-        <Bar dataKey={keyA} name={labelA} fill={colorA} radius={[3, 3, 0, 0]} />
-        <Bar dataKey={keyB} name={labelB} fill={colorB} radius={[3, 3, 0, 0]} />
+        <Bar dataKey={keyA} name={labelA} fill={ch.t(colorA)} radius={[3, 3, 0, 0]} />
+        <Bar dataKey={keyB} name={labelB} fill={ch.t(colorB)} radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -562,6 +566,7 @@ function AveragingCalculator({ inputs, onChange, onCalculate, result, error, loa
 // Oct 2 2026: `request` = { symbol, n } -- another tab (Chart Patterns' "Stock page") asks for a stock to be
 // researched on arrival. `n` is a counter so asking for the SAME symbol twice still re-runs it.
 export default function ResearchDashboard({ request }) {
+  const ch = useChartChrome();
   const [query, setQuery] = useState(request?.symbol || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -782,16 +787,16 @@ export default function ResearchDashboard({ request }) {
               <div className="text-[10px] text-slate-500 mb-1">Margin Trend</div>
               <ResponsiveContainer width="100%" height={160}>
                 <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
-                  <XAxis dataKey="period" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                  <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={v => `${v}%`} width={40} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={ch.gridStroke} opacity={ch.gridOpacity} />
+                  <XAxis dataKey="period" tick={{ fontSize: 10, fill: ch.tick }} />
+                  <YAxis tick={{ fontSize: 10, fill: ch.tick }} tickFormatter={v => `${v}%`} width={40} />
                   <Tooltip
-                    contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
-                    labelStyle={{ color: '#e2e8f0' }}
+                    contentStyle={ch.tooltip}
+                    labelStyle={{ color: ch.tooltipLabel }}
                     formatter={(value, name) => [`${value.toFixed(2)}%`, name]}
                   />
-                  <Line type="monotone" dataKey="ebitda_margin_pct" name="EBITDA Margin %" stroke="#fbbf24" strokeWidth={2} dot={{ r: 3 }} />
-                  <Line type="monotone" dataKey="pat_margin_pct" name="PAT Margin %" stroke="#60a5fa" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="ebitda_margin_pct" name="EBITDA Margin %" stroke={ch.t('#fbbf24')} strokeWidth={2} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="pat_margin_pct" name="PAT Margin %" stroke={ch.t('#60a5fa')} strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

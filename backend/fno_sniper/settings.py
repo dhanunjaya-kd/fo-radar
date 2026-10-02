@@ -84,6 +84,11 @@ CELERY_TIMEZONE = 'Asia/Kolkata'
 DATABASES = {
     'default': env.db('DATABASE_URL', default=f'sqlite:///{BASE_DIR / "db.sqlite3"}')
 }
+if DATABASES['default']['ENGINE'].endswith('sqlite3'):
+    # Oct 2 2026: "database is locked" on Research. SQLite lets one writer in at a time and Django's
+    # default wait is 5s; wait longer, and (see fundamentals_research.apps) run in WAL mode so readers
+    # never block the writer.
+    DATABASES['default'].setdefault('OPTIONS', {})['timeout'] = 30
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTone } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -48,6 +49,7 @@ function MetricCard({ label, value, tone }) {
 }
 
 export default function StrategyBacktest() {
+  const t = useTone();
   const [rsiMin, setRsiMin] = useState(40);
   const [rsiMax, setRsiMax] = useState(65);
   const [adxMin, setAdxMin] = useState(25);
@@ -174,7 +176,7 @@ export default function StrategyBacktest() {
                 <div className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4">
                   <h4 className="text-xs font-bold text-white mb-2">Equity Curve</h4>
                   <svg viewBox="0 0 700 180" className="w-full h-auto" style={{ maxHeight: 180 }}>
-                    <path d={chart.path} fill="none" stroke={metrics.net_pnl_pct >= 0 ? '#34d399' : '#fb7185'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d={chart.path} fill="none" stroke={t(metrics.net_pnl_pct >= 0 ? '#34d399' : '#fb7185')} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
               )}

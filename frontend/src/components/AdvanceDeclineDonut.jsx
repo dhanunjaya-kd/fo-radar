@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTone } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -46,6 +47,7 @@ function computeDonutSegments(advances, declines, unchanged) {
 }
 
 export default function AdvanceDeclineDonut({ compact = false }) {
+  const t = useTone();
   const [breadth, setBreadth] = useState(null);
   const [loading, setLoading] = useState(true);
   const rootRef = useRef(null);
@@ -106,19 +108,19 @@ export default function AdvanceDeclineDonut({ compact = false }) {
               key={seg.label}
               d={arcPolylinePath(cx, cy, r, seg.startAngle, seg.endAngle)}
               fill="none"
-              stroke={SEGMENT_COLOR[seg.label]}
+              stroke={t(SEGMENT_COLOR[seg.label])}
               strokeWidth={strokeWidth}
               strokeLinecap="butt"
             />
           ))}
-          <text x={cx} y={cy + 6} textAnchor="middle" fill="#f1f5f9" style={{ fontSize: '25px', fontWeight: 'bold' }}>
+          <text x={cx} y={cy + 6} textAnchor="middle" fill={t('#f1f5f9')} style={{ fontSize: '25px', fontWeight: 'bold' }}>
             {breadth.total}
           </text>
         </svg>
         <div className="flex flex-col gap-0.5 leading-tight">
           {segments.map(seg => (
             <div key={seg.label} className="flex items-center gap-1 text-[9px] whitespace-nowrap">
-              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: SEGMENT_COLOR[seg.label] }} />
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: t(SEGMENT_COLOR[seg.label]) }} />
               <span className="text-slate-400">{seg.label === 'Advances' ? 'Adv' : seg.label === 'Declines' ? 'Dec' : 'Unch'}</span>
               <span className="text-white font-semibold tabular-nums">{seg.value}</span>
               <span className="text-slate-600">{seg.pct.toFixed(0)}%</span>
@@ -137,22 +139,22 @@ export default function AdvanceDeclineDonut({ compact = false }) {
             key={seg.label}
             d={arcPolylinePath(cx, cy, r, seg.startAngle, seg.endAngle)}
             fill="none"
-            stroke={SEGMENT_COLOR[seg.label]}
+            stroke={t(SEGMENT_COLOR[seg.label])}
             strokeWidth="24"
             strokeLinecap="butt"
           />
         ))}
-        <text x={cx} y={cy - 6} textAnchor="middle" fill="#f1f5f9" style={{ fontSize: '28px', fontWeight: 'bold' }}>
+        <text x={cx} y={cy - 6} textAnchor="middle" fill={t('#f1f5f9')} style={{ fontSize: '28px', fontWeight: 'bold' }}>
           {breadth.total}
         </text>
-        <text x={cx} y={cy + 16} textAnchor="middle" fill="#64748b" style={{ fontSize: '11px' }}>
+        <text x={cx} y={cy + 16} textAnchor="middle" fill={t('#64748b')} style={{ fontSize: '11px' }}>
           F&O stocks
         </text>
       </svg>
       <div className="space-y-1.5">
         {segments.map(seg => (
           <div key={seg.label} className="flex items-center gap-2 text-xs">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: SEGMENT_COLOR[seg.label] }} />
+            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t(SEGMENT_COLOR[seg.label]) }} />
             <span className="text-slate-400 w-20">{seg.label}</span>
             <span className="text-white font-medium tabular-nums">{seg.value}</span>
             <span className="text-slate-500 text-[10px]">({seg.pct.toFixed(1)}%)</span>

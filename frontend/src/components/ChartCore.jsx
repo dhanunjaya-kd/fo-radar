@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTone } from './ThemeContext';
 import {
   ComposedChart, LineChart, Bar, Line, XAxis, YAxis,
   ResponsiveContainer, ReferenceLine, Tooltip, CartesianGrid, Cell,
@@ -17,6 +18,7 @@ const EMA_COLORS = { ema10: '#2dd4bf', ema20: '#f59e0b', ema50: '#3b82f6', ema20
 const EMA_LABELS = { ema10: '10', ema20: '20', ema50: '50', ema200: '200' };
 
 function Candle(props) {
+  const t = useTone();
   const { x, y, width, height, payload } = props;
   const { open, close, high, low } = payload;
   if ([open, close, high, low].some((v) => v == null) || high === low) return null;
@@ -27,7 +29,7 @@ function Candle(props) {
   const bodyHeight = Math.max(1, Math.abs(closeY - openY));
   const bodyWidth = Math.max(2, width * 0.6);
   const bodyX = x + (width - bodyWidth) / 2;
-  const color = close >= open ? '#34d399' : '#fb7185';
+  const color = close >= open ? t('#34d399') : t('#fb7185');
   return (
     <g>
       <line x1={x + width / 2} x2={x + width / 2} y1={y} y2={y + height} stroke={color} strokeWidth={1} />
@@ -41,9 +43,10 @@ function fmtDate(epochSeconds) {
 }
 
 function PsarDot(props) {
+  const t = useTone();
   const { cx, cy, payload } = props;
   if (cx == null || cy == null || payload.psar == null) return null;
-  const color = payload.psar_trend === 1 ? '#34d399' : '#fb7185';
+  const color = payload.psar_trend === 1 ? t('#34d399') : t('#fb7185');
   return <circle cx={cx} cy={cy} r={1.6} fill={color} />;
 }
 
@@ -67,6 +70,7 @@ function ChartTooltip({ active, payload, isIntraday }) {
 // priceHeight/rsiHeight let the full-page version render noticeably
 // bigger than the modal's compact 280/100 -- same component either way.
 export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, priceOverlay = null }) {
+  const t = useTone();
   const [intervalType, setIntervalType] = useState('D');
   const [range, setRange] = useState('6M');
   const [showEma, setShowEma] = useState({ ema10: true, ema20: true, ema50: true, ema200: true });
@@ -156,41 +160,41 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
                 type="checkbox"
                 checked={showEma[k]}
                 onChange={() => setShowEma((s) => ({ ...s, [k]: !s[k] }))}
-                style={{ accentColor: EMA_COLORS[k] }}
+                style={{ accentColor: t(EMA_COLORS[k]) }}
               />
               {EMA_LABELS[k]}
             </label>
           ))}
           <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
-            <input type="checkbox" checked={showBB} onChange={() => setShowBB(v => !v)} style={{ accentColor: '#94a3b8' }} />
+            <input type="checkbox" checked={showBB} onChange={() => setShowBB(v => !v)} style={{ accentColor: t('#94a3b8') }} />
             BB
           </label>
           <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
-            <input type="checkbox" checked={showMACD} onChange={() => setShowMACD(v => !v)} style={{ accentColor: '#38bdf8' }} />
+            <input type="checkbox" checked={showMACD} onChange={() => setShowMACD(v => !v)} style={{ accentColor: t('#38bdf8') }} />
             MACD
           </label>
           <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
-            <input type="checkbox" checked={showADX} onChange={() => setShowADX(v => !v)} style={{ accentColor: '#f472b6' }} />
+            <input type="checkbox" checked={showADX} onChange={() => setShowADX(v => !v)} style={{ accentColor: t('#f472b6') }} />
             ADX
           </label>
           <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
-            <input type="checkbox" checked={showStochRSI} onChange={() => setShowStochRSI(v => !v)} style={{ accentColor: '#a3e635' }} />
+            <input type="checkbox" checked={showStochRSI} onChange={() => setShowStochRSI(v => !v)} style={{ accentColor: t('#a3e635') }} />
             StochRSI
           </label>
           <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
-            <input type="checkbox" checked={showCCI} onChange={() => setShowCCI(v => !v)} style={{ accentColor: '#fb923c' }} />
+            <input type="checkbox" checked={showCCI} onChange={() => setShowCCI(v => !v)} style={{ accentColor: t('#fb923c') }} />
             CCI
           </label>
           <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
-            <input type="checkbox" checked={showPSAR} onChange={() => setShowPSAR(v => !v)} style={{ accentColor: '#facc15' }} />
+            <input type="checkbox" checked={showPSAR} onChange={() => setShowPSAR(v => !v)} style={{ accentColor: t('#facc15') }} />
             PSAR
           </label>
           <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
-            <input type="checkbox" checked={showMFI} onChange={() => setShowMFI(v => !v)} style={{ accentColor: '#22d3ee' }} />
+            <input type="checkbox" checked={showMFI} onChange={() => setShowMFI(v => !v)} style={{ accentColor: t('#22d3ee') }} />
             MFI
           </label>
           <label className="flex items-center gap-1 text-xs text-slate-400 cursor-pointer">
-            <input type="checkbox" checked={showAroon} onChange={() => setShowAroon(v => !v)} style={{ accentColor: '#c084fc' }} />
+            <input type="checkbox" checked={showAroon} onChange={() => setShowAroon(v => !v)} style={{ accentColor: t('#c084fc') }} />
             Aroon
           </label>
         </div>
@@ -205,17 +209,17 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
             <ResponsiveContainer width="100%" height={priceHeight}>
               <ComposedChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid stroke="var(--chart-grid-line)" strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
-                <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
+                <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: t('#64748b'), fontSize: 11 }} minTickGap={30} />
+                <YAxis domain={['auto', 'auto']} tick={{ fill: t('#64748b'), fontSize: 11 }} width={55} />
                 <Tooltip content={<ChartTooltip isIntraday={isIntraday} />} />
                 <Bar dataKey="range" shape={<Candle />} isAnimationActive={false} />
-                {showEma.ema10 && <Line type="monotone" dataKey="ema10" stroke={EMA_COLORS.ema10} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
-                {showEma.ema20 && <Line type="monotone" dataKey="ema20" stroke={EMA_COLORS.ema20} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
-                {showEma.ema50 && <Line type="monotone" dataKey="ema50" stroke={EMA_COLORS.ema50} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
-                {showEma.ema200 && <Line type="monotone" dataKey="ema200" stroke={EMA_COLORS.ema200} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
-                {showBB && <Line type="monotone" dataKey="bb_upper" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
-                {showBB && <Line type="monotone" dataKey="bb_mid" stroke="#94a3b8" dot={false} strokeWidth={1} isAnimationActive={false} />}
-                {showBB && <Line type="monotone" dataKey="bb_lower" stroke="#94a3b8" strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
+                {showEma.ema10 && <Line type="monotone" dataKey="ema10" stroke={t(EMA_COLORS.ema10)} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
+                {showEma.ema20 && <Line type="monotone" dataKey="ema20" stroke={t(EMA_COLORS.ema20)} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
+                {showEma.ema50 && <Line type="monotone" dataKey="ema50" stroke={t(EMA_COLORS.ema50)} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
+                {showEma.ema200 && <Line type="monotone" dataKey="ema200" stroke={t(EMA_COLORS.ema200)} dot={false} strokeWidth={1.4} isAnimationActive={false} />}
+                {showBB && <Line type="monotone" dataKey="bb_upper" stroke={t("#94a3b8")} strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
+                {showBB && <Line type="monotone" dataKey="bb_mid" stroke={t("#94a3b8")} dot={false} strokeWidth={1} isAnimationActive={false} />}
+                {showBB && <Line type="monotone" dataKey="bb_lower" stroke={t("#94a3b8")} strokeDasharray="3 3" dot={false} strokeWidth={1} isAnimationActive={false} />}
                 {showPSAR && <Line dataKey="psar" stroke="none" dot={<PsarDot />} isAnimationActive={false} />}
               </ComposedChart>
             </ResponsiveContainer>
@@ -228,11 +232,11 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
           </div>
           <ResponsiveContainer width="100%" height={rsiHeight}>
             <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-              <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
-              <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[30, 70]} />
+              <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: t('#64748b'), fontSize: 11 }} minTickGap={30} />
+              <YAxis domain={[0, 100]} tick={{ fill: t('#64748b'), fontSize: 11 }} width={55} ticks={[30, 70]} />
               <ReferenceLine y={70} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
               <ReferenceLine y={30} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
-              <Line type="monotone" dataKey="rsi14" stroke="#38bdf8" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+              <Line type="monotone" dataKey="rsi14" stroke={t("#38bdf8")} dot={false} strokeWidth={1.4} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
 
@@ -248,16 +252,16 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
               </div>
               <ResponsiveContainer width="100%" height={rsiHeight}>
                 <ComposedChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
-                  <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: t('#64748b'), fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={['auto', 'auto']} tick={{ fill: t('#64748b'), fontSize: 11 }} width={55} />
                   <ReferenceLine y={0} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
                   <Bar dataKey="macd_hist" isAnimationActive={false}>
                     {chartData.map((d, i) => (
-                      <Cell key={i} fill={(d.macd_hist ?? 0) >= 0 ? '#34d399' : '#fb7185'} />
+                      <Cell key={i} fill={(d.macd_hist ?? 0) >= 0 ? t('#34d399') : t('#fb7185')} />
                     ))}
                   </Bar>
-                  <Line type="monotone" dataKey="macd_line" stroke="#38bdf8" dot={false} strokeWidth={1.4} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="macd_signal" stroke="#f59e0b" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="macd_line" stroke={t("#38bdf8")} dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="macd_signal" stroke={t("#f59e0b")} dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </ComposedChart>
               </ResponsiveContainer>
             </>
@@ -271,12 +275,12 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
               </div>
               <ResponsiveContainer width="100%" height={rsiHeight}>
                 <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
-                  <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[25]} />
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: t('#64748b'), fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={[0, 100]} tick={{ fill: t('#64748b'), fontSize: 11 }} width={55} ticks={[25]} />
                   <ReferenceLine y={25} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
-                  <Line type="monotone" dataKey="adx14" stroke="#f472b6" dot={false} strokeWidth={1.6} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="plus_di" stroke="#34d399" dot={false} strokeWidth={1} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="minus_di" stroke="#fb7185" dot={false} strokeWidth={1} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="adx14" stroke={t("#f472b6")} dot={false} strokeWidth={1.6} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="plus_di" stroke={t("#34d399")} dot={false} strokeWidth={1} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="minus_di" stroke={t("#fb7185")} dot={false} strokeWidth={1} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </>
@@ -290,12 +294,12 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
               </div>
               <ResponsiveContainer width="100%" height={rsiHeight}>
                 <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
-                  <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[20, 80]} />
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: t('#64748b'), fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={[0, 100]} tick={{ fill: t('#64748b'), fontSize: 11 }} width={55} ticks={[20, 80]} />
                   <ReferenceLine y={80} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
                   <ReferenceLine y={20} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
-                  <Line type="monotone" dataKey="stochrsi_k" stroke="#a3e635" dot={false} strokeWidth={1.4} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="stochrsi_d" stroke="#f59e0b" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="stochrsi_k" stroke={t("#a3e635")} dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="stochrsi_d" stroke={t("#f59e0b")} dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </>
@@ -309,11 +313,11 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
               </div>
               <ResponsiveContainer width="100%" height={rsiHeight}>
                 <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
-                  <YAxis domain={['auto', 'auto']} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: t('#64748b'), fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={['auto', 'auto']} tick={{ fill: t('#64748b'), fontSize: 11 }} width={55} />
                   <ReferenceLine y={100} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
                   <ReferenceLine y={-100} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
-                  <Line type="monotone" dataKey="cci20" stroke="#fb923c" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="cci20" stroke={t("#fb923c")} dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </>
@@ -327,11 +331,11 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
               </div>
               <ResponsiveContainer width="100%" height={rsiHeight}>
                 <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
-                  <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} ticks={[20, 80]} />
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: t('#64748b'), fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={[0, 100]} tick={{ fill: t('#64748b'), fontSize: 11 }} width={55} ticks={[20, 80]} />
                   <ReferenceLine y={80} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
                   <ReferenceLine y={20} stroke="var(--chart-reference-line)" strokeDasharray="3 3" />
-                  <Line type="monotone" dataKey="mfi14" stroke="#22d3ee" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="mfi14" stroke={t("#22d3ee")} dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </>
@@ -349,10 +353,10 @@ export default function ChartCore({ symbol, priceHeight = 280, rsiHeight = 100, 
               </div>
               <ResponsiveContainer width="100%" height={rsiHeight}>
                 <LineChart data={chartData} syncId={`chart-${symbol}`} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: '#64748b', fontSize: 11 }} minTickGap={30} />
-                  <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} width={55} />
-                  <Line type="monotone" dataKey="aroon_up" stroke="#34d399" dot={false} strokeWidth={1.4} isAnimationActive={false} />
-                  <Line type="monotone" dataKey="aroon_down" stroke="#fb7185" dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <XAxis dataKey="time" tickFormatter={fmtTick} tick={{ fill: t('#64748b'), fontSize: 11 }} minTickGap={30} />
+                  <YAxis domain={[0, 100]} tick={{ fill: t('#64748b'), fontSize: 11 }} width={55} />
+                  <Line type="monotone" dataKey="aroon_up" stroke={t("#34d399")} dot={false} strokeWidth={1.4} isAnimationActive={false} />
+                  <Line type="monotone" dataKey="aroon_down" stroke={t("#fb7185")} dot={false} strokeWidth={1.4} isAnimationActive={false} />
                 </LineChart>
               </ResponsiveContainer>
             </>

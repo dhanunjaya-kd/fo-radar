@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTone } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -24,6 +25,7 @@ function formatSparklineDate(dateStr) {
 }
 
 function Sparkline({ values, dates, positive }) {
+  const t = useTone();
   const [hoverIdx, setHoverIdx] = useState(null);
   if (!values || values.length < 2) return <div className="h-16" />;
   const w = 280, h = 64, pad = 2;
@@ -34,7 +36,7 @@ function Sparkline({ values, dates, positive }) {
     y: pad + (1 - (v - min) / range) * (h - pad * 2),
   }));
   const points = coords.map(c => `${c.x},${c.y}`);
-  const color = positive ? '#34d399' : '#ef4444';
+  const color = t(positive ? '#34d399' : '#ef4444');
   const fillPoints = `${pad},${h} ${points.join(' ')} ${w - pad},${h}`;
 
   // Sep 19 2026: hover-to-see-price-and-date, matching the reference
@@ -108,11 +110,12 @@ const VIX_BANDS = ['Calm', 'Normal', 'Elevated', 'High'];
 const VIX_COLORS = ['#34d399', '#fbbf24', '#fb923c', '#ef4444'];
 
 function VixGauge({ label }) {
+  const t = useTone();
   const idx = VIX_BANDS.indexOf(label);
   return (
     <div>
       <div className="flex h-1.5 rounded-full overflow-hidden mb-1">
-        {VIX_COLORS.map((c, i) => <div key={i} className="flex-1" style={{ backgroundColor: c, opacity: i === idx ? 1 : 0.25 }} />)}
+        {VIX_COLORS.map((c, i) => <div key={i} className="flex-1" style={{ backgroundColor: t(c), opacity: i === idx ? 1 : 0.25 }} />)}
       </div>
       <div className="flex justify-between text-[9px] text-slate-500 uppercase">
         {VIX_BANDS.map(b => <span key={b} className={b === label ? 'text-white font-semibold' : ''}>{b}</span>)}

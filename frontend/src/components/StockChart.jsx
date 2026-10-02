@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useTheme, toneFor } from './ThemeContext';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { ema, bollinger, psar } from '../utils/indicators';
 import IndicatorPane, { PANE_DEFS } from './IndicatorPane';
@@ -101,7 +102,9 @@ function loadPrefs() {
   return { overlays: DEFAULT_OVERLAYS, panes: [] };
 }
 
-export default function StockChart({ symbol, compact = false }) {
+function StockChartInner({ symbol, compact = false }) {
+  const { theme } = useTheme();
+  const T = (hex) => toneFor(theme, hex);
   // Sep 27 2026 fix: THE actual, confirmed root cause of the
   // persistent blank chart, found by building a real React
   // reproduction of this exact pattern and running it in a headless
@@ -192,21 +195,21 @@ export default function StockChart({ symbol, compact = false }) {
         // own default open-source attribution logo, not TradingView's
         // data or a live widget -- every candle on this chart comes
         // from this project's own Fyers/yfinance backend.
-        layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#94a3b8', fontSize: 11, attributionLogo: false },
-        grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
+        layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: T('#94a3b8'), fontSize: 11, attributionLogo: false },
+        grid: { vertLines: { color: T('#1e293b') }, horzLines: { color: T('#1e293b') } },
         crosshair: { mode: CrosshairMode.Normal },
-        rightPriceScale: { borderColor: '#334155', minimumWidth: 72 },   // fixed width so indicator strips below line up with it exactly
-        timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false, tickMarkFormatter: formatTickMarkTimeIST },
+        rightPriceScale: { borderColor: T('#334155'), minimumWidth: 72 },   // fixed width so indicator strips below line up with it exactly
+        timeScale: { borderColor: T('#334155'), timeVisible: true, secondsVisible: false, tickMarkFormatter: formatTickMarkTimeIST },
         localization: { timeFormatter: formatCrosshairTimeIST },
         width: containerEl.clientWidth,
         height: compact ? 300 : 380,
       });
       const candleSeries = chart.addCandlestickSeries({
-        upColor: '#34d399', downColor: '#f87171', borderVisible: false,
-        wickUpColor: '#34d399', wickDownColor: '#f87171',
+        upColor: T('#34d399'), downColor: T('#f87171'), borderVisible: false,
+        wickUpColor: T('#34d399'), wickDownColor: T('#f87171'),
       });
       const volumeSeries = chart.addHistogramSeries({
-        priceFormat: { type: 'volume' }, priceScaleId: '', color: '#475569',
+        priceFormat: { type: 'volume' }, priceScaleId: '', color: T('#475569'),
       });
       volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
       candleSeries.priceScale().applyOptions({ scaleMargins: { top: 0.05, bottom: 0.2 } });
@@ -290,7 +293,7 @@ export default function StockChart({ symbol, compact = false }) {
   // avoids two subtly-diverging copies of this logic.
   const applyChartData = useCallback((data) => {
     const candleData = data.candles.map(c => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }));
-    const volumeData = data.candles.map(c => ({ time: c.time, value: c.volume, color: c.close >= c.open ? '#34d39980' : '#f8717180' }));
+    const volumeData = data.candles.map(c => ({ time: c.time, value: c.volume, color: (c.close >= c.open ? T('#34d399') : T('#f87171')) + '80' }));
     if (candleSeriesRef.current) candleSeriesRef.current.setData(candleData);
     if (volumeSeriesRef.current) volumeSeriesRef.current.setData(volumeData);
     setCandles(data.candles);   // overlays and indicator strips compute from this
@@ -412,7 +415,7 @@ export default function StockChart({ symbol, compact = false }) {
       let list = existing;
       if (!list) {
         list = specs.map((sp) => chart.addLineSeries({
-          color: sp.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          color: T(sp.color), lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
           lineStyle: sp.dashed ? 2 : 0,
           ...(sp.dots ? { lineVisible: false, pointMarkersVisible: true, pointMarkersRadius: 1.6 } : {}),
         }));
@@ -463,7 +466,7 @@ export default function StockChart({ symbol, compact = false }) {
         <span className="text-[9px] text-slate-600 uppercase tracking-wide">Overlays</span>
         {Object.entries(OVERLAYS).map(([key, def]) => (
           <button key={key} onClick={() => toggleOverlay(key)} className={`flex items-center gap-1 text-[10px] ${overlays[key] ? 'text-slate-300' : 'text-slate-600 hover:text-slate-400'}`}>
-            <span className="w-2.5 h-0.5" style={{ backgroundColor: overlays[key] ? def.color : '#475569' }} />
+            <span className="w-2.5 h-0.5" style={{ backgroundColor: overlays[key] ? T(def.color) : T('#475569') }} />
             {def.label}
           </button>
         ))}
@@ -498,4 +501,12 @@ export default function StockChart({ symbol, compact = false }) {
       ))}
     </div>
   );
+}
+
+
+// The lightweight-charts canvases take their colours as plain options, so a theme switch simply remounts
+// the chart (one candle refetch) -- far more robust than re-colouring every series in place.
+export default function StockChart(props) {
+  const { theme } = useTheme();
+  return <StockChartInner key={theme} {...props} />;
 }
