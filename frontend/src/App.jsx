@@ -36,7 +36,7 @@ const IconBellOff = ({ size = 16 }) => (<svg xmlns="http://www.w3.org/2000/svg" 
 const IconMaximize = ({ size = 17 }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>);
 const IconLogOut = ({ size = 16 }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>);
 
-const VALID_TABS = ['dashboard', 'scanner', 'patterns', 'charts', 'signals', 'oi', 'index', 'cas', 'market', 'heatmap', 'nextday', 'backtest', 'shadow', 'settings', 'strategy'];
+const VALID_TABS = ['dashboard', 'scanner', 'patterns', 'research', 'charts', 'signals', 'oi', 'index', 'cas', 'market', 'heatmap', 'nextday', 'backtest', 'shadow', 'settings', 'strategy'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -54,6 +54,10 @@ function AppShell() {
   // the current popup").
   const [chartsSymbol, setChartsSymbol] = useState(null);
   const openChartsTab = (symbol) => { setChartsSymbol(symbol); setActiveTab('charts'); };
+  // Oct 2 2026: Chart Patterns' "Stock page" opens the Fundamental Research tab and researches the stock
+  // automatically (n makes a repeat click on the same symbol run again).
+  const [researchRequest, setResearchRequest] = useState(null);
+  const openResearchTab = (symbol) => { setResearchRequest((prev) => ({ symbol, n: (prev?.n || 0) + 1 })); setActiveTab('research'); };
 
   const enableAlerts = async () => {
     if (typeof Notification === 'undefined') { alert("Your browser doesn't support notifications."); return; }
@@ -179,7 +183,7 @@ function AppShell() {
               of the original's Dhan wiring) gets its own tab, not
               folded into Sniper Signals. */}
           {activeTab === 'gamma' && <GammaStrategy />}
-          {activeTab === 'research' && <ResearchDashboard />}
+          {activeTab === 'research' && <ResearchDashboard request={researchRequest} />}
           {activeTab === 'index' && <IndexTracker />}
           {activeTab === 'cas' && <CASRadar />}
           {activeTab === 'market' && <MarketView />}
@@ -196,7 +200,7 @@ function AppShell() {
             </div>
           )}
           {activeTab === 'scanner' && <Scanner onOpenChart={openChartsTab} />}
-          {activeTab === 'patterns' && <ChartPatterns onOpenChart={openChartsTab} />}
+          {activeTab === 'patterns' && <ChartPatterns onOpenChart={openChartsTab} onOpenStock={openResearchTab} />}
           {activeTab === 'charts' && <ChartsPage initialSymbol={chartsSymbol} />}
           {activeTab === 'nextday' && <NextDayWatchlist />}
           {activeTab === 'backtest' && <DailyBacktestTab />}
