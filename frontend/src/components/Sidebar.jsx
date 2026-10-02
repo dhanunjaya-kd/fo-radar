@@ -21,9 +21,12 @@ const IconFlame = ({ size = 18 }) => (<svg xmlns="http://www.w3.org/2000/svg" wi
 const IconChartLine = ({ size = 18 }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>);
 const IconScan = ({ size = 18 }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="3" y1="12" x2="21" y2="12"/></svg>);
 
+const IconPattern = ({ size = 18 }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 17 8 9 12 14 16 6 21 13"/><line x1="3" y1="20" x2="21" y2="20"/></svg>);
+
 const TAB_ICONS = {
   dashboard: IconGrid,
   scanner: IconScan,
+  patterns: IconPattern,
   signals: IconTarget,
   oi: IconBarChart,
   index: IconActivity,
@@ -45,7 +48,7 @@ const TAB_ICONS = {
 // tabs array this file hasn't been updated for yet) still renders,
 // just falls into the final unlabeled group rather than disappearing.
 const NAV_SECTIONS = [
-  { label: 'SYSTEM', tabIds: ['dashboard', 'scanner'] },
+  { label: 'SYSTEM', tabIds: ['dashboard', 'scanner', 'patterns'] },
   { label: 'ANALYSIS', tabIds: ['signals', 'gamma', 'research', 'oi', 'oidist', 'index', 'cas', 'market', 'heatmap', 'charts'] },
   { label: 'PLANNING', tabIds: ['nextday', 'backtest', 'shadow'] },
 ];

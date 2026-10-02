@@ -47,3 +47,5 @@ Thumbs.db
 backend/signal_logs/
 backend/fundamentals_data.json
 backend/runtime/market_close_snapshots.json
+backend/runtime/chart_patterns_*.json
+backend/runtime/chart_patterns_*.json.tmp

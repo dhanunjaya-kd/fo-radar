@@ -130,7 +130,20 @@ Replay on the repo's logs + Oct 1: 358 calls → 152 with the structural rules a
 
 Each Scanner card now draws a mini daily-candlestick chart (last 60 candles + today's live candle, plain SVG, drawn only when the card scrolls into view) with a 20-day range box and, when the card has a clear bullish/bearish lean, **Breakout / Target / Stop** tags, R:R, and a status (*Broke out* / *Near trigger* / *Watching*). Filter chips: Bullish, Bearish, Broke out, Near trigger.
 
-This is a **20-day range breakout setup** (`backend/screener/scanner_levels.py`: target = measured move of the range, stop = max(1 ATR, 35% of range height)), not chart-pattern detection. Wedge/flag/channel detection and a dedicated Chart Patterns tab are phase 2. Charts need the daily-history cache, which is cold for a few minutes after a backend restart — the page keeps quietly re-polling until most cards have candles.
+This is a **20-day range breakout setup** (`backend/screener/scanner_levels.py`: target = measured move of the range, stop = max(1 ATR, 35% of range height)), not chart-pattern detection. Cards without cached history are filled in as they scroll into view via `GET /api/scanner/candles/?symbols=…` (≤12 symbols per call, one call at a time, still paced by the Fyers governor), so charts work for All Stocks and outside market hours. Pattern detection lives in the separate Chart Patterns tab below.
+
+## Chart Patterns tab (phase 2)
+
+A reference-style pattern scanner: filters (family, direction, status, shape quality, formed-within, volume-confirmed), pattern cards with the fitted trendlines drawn on daily candles plus Breakout / Target / Stop / R:R, and a detail panel with a large chart and the pattern's definition.
+
+- **Detector** (`backend/screener/chart_patterns.py`): ATR-scaled swing pivots, then double/triple top & bottom, head & shoulders (+inverse), rising/falling wedge, ascending/descending/symmetrical triangle, rectangle, ascending/descending channel, bull/bear flag & pennant, rounded top/bottom, cup & handle. Bearish shapes are detected once and the bullish ones by mirroring the price series, so the two sides are exactly symmetric. Pivots must be *confirmed*, so a pattern shows up a few bars after a human might call it (no repainting).
+- **Scan** (`pattern_scanner.py`): press *Scan now / Scan again* for a universe. It fetches ~240 days of daily candles per stock from Fyers, **one paced call per symbol, one scan at a time**, and waits while the rate-limit breaker is open. A cold Nifty 500 scan takes a few minutes; All stocks (~2,400) much longer. Results persist to `backend/runtime/chart_patterns_<universe>.json` (git-ignored) so the tab works immediately after a restart.
+- **API**: `GET /api/chart-patterns/` (server-side filter / sort / paging), `POST /api/chart-patterns/scan/`, `GET /api/chart-patterns/scan/?universe=`.
+- **Honest limits**: daily timeframe only (weekly/monthly need multi-year history that isn't fetched). Detection on closes is subjective, and **no success rate is implied — these shapes are not back-tested here**. As a sanity check, `test_chart_patterns.py` runs the detector on pure random walks: it still flags a Fair-or-better shape in ~39% of them (Strong-or-better ~12%, Textbook ~3%) and fails if a future change makes it noisier. The UI shows this baseline in the detail panel. Treat a card as a chart worth looking at, not a signal.
+
+```bash
+cd backend && python -m unittest screener.tests.test_chart_patterns screener.tests.test_pattern_scanner
+```
 
 ## Shadow Candidate Testing (A–J)
 Ten pass/reject filters run silently alongside every live signal, purely observational — none of them gate a real trade. Each is a hypothesis about a possible future improvement to the live Sniper logic (a faster trend check, a liquidity gate, re-validating an existing scoring component against fresh data, etc.), logged to its own Excel columns per signal. A candidate is only ever considered for promotion to a real, live gate once it clears an explicit evidence bar — 30+ resolved signals, 10+ real wins *and* 10+ real losses in its PASS subset, and a proven 1+ percentage point improvement in win rate over the baseline — checked automatically, never eyeballed. As of today, none have cleared that bar.

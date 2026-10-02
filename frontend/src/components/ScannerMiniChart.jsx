@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 // purpose (no chart library): a scanner grid shows hundreds of these, and
 // a lightweight-charts instance per card would be far too heavy. Candles
 // only draw once the card scrolls into view (IntersectionObserver) and
-// stay drawn afterwards.
+// stay drawn afterwards. `onVisibility(symbol, inView)` tells the Scanner
+// which cards are on screen so it can fetch missing history for exactly
+// those (see /api/scanner/candles/); `status` is 'loading' | 'unavailable'.
 //
 // `candles` is [[open, high, low, close], ...] oldest -> newest (the last
 // one is today's still-forming candle). `setup` is the backend's
@@ -19,25 +21,38 @@ const W = 300, H = 132, PAD_T = 14, PAD_B = 8, PAD_L = 4, AXIS_W = 58;
 
 const fmt = (v) => (v >= 1000 ? Math.round(v).toLocaleString('en-IN') : v.toFixed(1));
 
-export default function ScannerMiniChart({ candles, setup }) {
+export default function ScannerMiniChart({ symbol, candles, setup, status, onVisibility }) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
+  const cb = useRef(onVisibility);
+  cb.current = onVisibility;
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return undefined;
-    if (typeof IntersectionObserver === 'undefined') { setVisible(true); return undefined; }
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true);
+      if (cb.current) cb.current(symbol, true);
+      return undefined;
+    }
     const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) { setVisible(true); io.disconnect(); }
-    }, { rootMargin: '200px' });
+      const inView = entries.some((e) => e.isIntersecting);
+      if (inView) setVisible(true);
+      if (cb.current) cb.current(symbol, inView);
+    }, { rootMargin: '150px' });
     io.observe(el);
-    return () => io.disconnect();
-  }, []);
+    return () => { io.disconnect(); if (cb.current) cb.current(symbol, false); };
+  }, [symbol]);
 
   if (!candles || candles.length < 5) {
     return (
       <div ref={ref} className="aspect-[300/132] w-full rounded-lg bg-slate-950/50 border border-slate-800 flex items-center justify-center text-[10px] text-slate-600">
-        chart loads as history warms up…
+        {status === 'unavailable' ? 'no daily history available' : (
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block w-2.5 h-2.5 rounded-full border border-slate-600 border-t-slate-300 animate-spin" />
+            loading chart…
+          </span>
+        )}
       </div>
     );
   }
