@@ -193,7 +193,7 @@ function BaseRates({ p, rates, universeLabel }) {
   );
 }
 
-function DetailPanel({ p, onOpenStock, baseline, rates, universeLabel }) {
+function DetailPanel({ p, onOpenStock, baseline, rates, universeLabel, embedded = false }) {
   const light = useTheme().theme === 'light';
   if (!p) {
     return <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">Select a pattern card to see its chart, levels, how it is defined and how similar breaks played out.</div>;
@@ -213,7 +213,7 @@ function DetailPanel({ p, onOpenStock, baseline, rates, universeLabel }) {
   const pctTxt = p.pct_vs_trigger != null ? `${p.pct_vs_trigger >= 0 ? '+' : '−'}${Math.abs(p.pct_vs_trigger).toFixed(1)}% vs ${bear ? 'breakdown' : 'breakout'}` : '';
   const title = p.direction === 'Neutral' ? p.name : `${p.direction} ${p.name}`;
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 space-y-3 max-h-[calc(100vh-1rem)] overflow-y-auto">
+    <div className={embedded ? 'space-y-3' : 'rounded-xl border border-slate-800 bg-slate-900/50 p-3 space-y-3 max-h-[calc(100vh-1rem)] overflow-y-auto'}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 text-[11px] font-bold text-slate-300 flex items-center justify-center shrink-0">{p.symbol.slice(0, 2)}</span>
@@ -329,6 +329,32 @@ function DetailPanel({ p, onOpenStock, baseline, rates, universeLabel }) {
   );
 }
 
+// Right-hand slide-over for the selected pattern (replaces the old squeezed third column, so the card
+// grid keeps the full width). Click the backdrop, the X, or press Esc to close.
+function PatternDrawer({ p, onClose, children }) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!p) { setShown(false); return undefined; }
+    const raf = requestAnimationFrame(() => setShown(true));
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); };
+  }, [p, onClose]);
+  if (!p) return null;
+  return (
+    <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Pattern detail">
+      <div onClick={onClose} className={`absolute inset-0 bg-black/50 transition-opacity duration-200 ${shown ? 'opacity-100' : 'opacity-0'}`} />
+      <div className={`absolute right-0 top-0 h-full w-full sm:w-[560px] max-w-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col transition-transform duration-200 ease-out ${shown ? 'translate-x-0' : 'translate-x-full'}`}>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 shrink-0">
+          <h3 className="text-base font-bold text-white">Pattern detail</h3>
+          <button onClick={onClose} aria-label="Close" title="Close (Esc)" className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 text-lg leading-none">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChartPatterns({ onOpenStock }) {
   const [universe, setUniverse] = useState(() => { try { return localStorage.getItem('fo-radar-pattern-universe') || 'nifty500'; } catch { return 'nifty500'; } });
   const [filters, setFilters] = useState({ family: null, direction: null, status: null, quality: null, within: null, volume: false, sort: 'composite', q: '' });
@@ -341,6 +367,7 @@ export default function ChartPatterns({ onOpenStock }) {
   const [scanMsg, setScanMsg] = useState(null);
   const [analysis, setAnalysis] = useState(null);   // { sym, loading, error, data } -- single-stock, relaxed, on demand
   const reqId = useRef(0);
+  const closeDrawer = useCallback(() => setSelected(null), []);
 
   const setF = (patch) => setFilters((f) => ({ ...f, ...patch }));
   const toggle = (key, val) => setFilters((f) => ({ ...f, [key]: f[key] === val ? null : val }));
@@ -475,7 +502,7 @@ export default function ChartPatterns({ onOpenStock }) {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[230px_minmax(0,1fr)_400px] 2xl:grid-cols-[230px_minmax(0,1fr)_470px]">
+      <div className="grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)]">
         {/* filters */}
         <aside className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 space-y-4 self-start">
           <div className="flex items-center justify-between">
@@ -542,7 +569,7 @@ export default function ChartPatterns({ onOpenStock }) {
               ))}
             </div>
           </div>
-          {loading && <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-72 rounded-xl bg-slate-800/30 animate-pulse border border-slate-700/30" />)}</div>}
+          {loading && <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-72 rounded-xl bg-slate-800/30 animate-pulse border border-slate-700/30" />)}</div>}
           {error && <div className="text-center text-rose-400 text-sm py-8">⚠ {error}</div>}
           {!loading && !error && items.length === 0 && !filters.q.trim() && (
             <div className="text-center text-slate-500 text-sm py-12">
@@ -572,7 +599,7 @@ export default function ChartPatterns({ onOpenStock }) {
                 {analysis?.data && (
                   <>
                     <div className="text-[11px] text-slate-400">{analysis.data.analysis.message} <span className="text-slate-600">({analysis.data.history_bars} daily candles fetched)</span></div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                       {analysis.data.patterns.map((p) => (
                         <div key={p.id} className="relative">
                           {p.below_bar && <span className="absolute -top-2 left-3 z-10 text-[9px] px-2 py-0.5 rounded-full border border-amber-500/50 bg-slate-900 text-amber-300">Below the quality bar</span>}
@@ -587,7 +614,7 @@ export default function ChartPatterns({ onOpenStock }) {
           })()}
           {!loading && !error && items.length > 0 && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {items.map((p) => <PatternCard key={p.id} p={p} selected={selected?.id === p.id} onSelect={setSelected} />)}
               </div>
               {items.length < (data?.total ?? 0) && (
@@ -600,15 +627,11 @@ export default function ChartPatterns({ onOpenStock }) {
             </>
           )}
         </section>
-
-        {/* detail */}
-        <aside className="hidden xl:block self-start sticky top-2">
-          <DetailPanel p={selected} onOpenStock={onOpenStock} baseline={data?.baseline} rates={data?.base_rates} universeLabel={universeLabel} />
-        </aside>
       </div>
 
-      {/* below xl the detail panel sits under the grid when something is selected */}
-      {selected && <div className="xl:hidden"><DetailPanel p={selected} onOpenStock={onOpenStock} baseline={data?.baseline} rates={data?.base_rates} universeLabel={universeLabel} /></div>}
+      <PatternDrawer p={selected} onClose={closeDrawer}>
+        <DetailPanel p={selected} embedded onOpenStock={onOpenStock} baseline={data?.baseline} rates={data?.base_rates} universeLabel={universeLabel} />
+      </PatternDrawer>
     </div>
   );
 }
