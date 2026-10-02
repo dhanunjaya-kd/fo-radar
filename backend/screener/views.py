@@ -5997,6 +5997,28 @@ class SectorStocksView(APIView):
         return Response({"sector": sector, "stocks": results, "authenticated": authed, "fast": fast, "oi_deadline_hit": deadline_hit})
 
 
+def _build_card_chart(hist, quote, tech, quality):
+    """
+    Oct 2 2026: (candles, setup) for a Scanner card from a daily-history
+    DataFrame (completed candles only -- see _cached_history_df). Shared by
+    ScannerView (cache-only) and ScannerCandlesView (fetches on demand).
+    Today's live candle is appended for DRAWING only; the range maths uses
+    completed candles. Returns (None, None) when there is nothing to draw.
+    """
+    if hist is None or not len(hist):
+        return None, None
+    from .scanner_levels import range_setup
+    tail = hist.tail(60)
+    done = [(float(o), float(h), float(l), float(c)) for o, h, l, c in
+            zip(tail['Open'], tail['High'], tail['Low'], tail['Close'])]
+    price = quote.get('price')
+    setup = range_setup(done, price, quality["direction"] if quality else "NEUTRAL",
+                        tech.get('atr') if tech else None)
+    live = [quote.get('open'), quote.get('high'), quote.get('low'), price]
+    drawn = done + ([tuple(float(x) for x in live)] if all(x is not None for x in live) else [])
+    return [[round(x, 2) for x in c] for c in drawn], setup
+
+
 class ScannerView(APIView):
     """
     Sep 19 2026: new Scanner tab -- universe dropdown (Nifty 50/100/
@@ -6144,20 +6166,11 @@ class ScannerView(APIView):
                         closes = hist['Close'].tolist()
                         sparkline = [round(c, 2) for c in closes[-18:]]
                         # Oct 2 2026: mini candlestick chart + 20-day-range
-                        # levels for the card (see scanner_levels.py for
-                        # exactly what that does and does not claim). Same
-                        # cache read as the sparkline above -- zero extra
-                        # Fyers calls. Completed candles only for the range
-                        # maths; today's live candle is appended for DRAWING.
-                        tail = hist.tail(60)
-                        done = [(float(o), float(h), float(l), float(c)) for o, h, l, c in
-                                zip(tail['Open'], tail['High'], tail['Low'], tail['Close'])]
-                        from .scanner_levels import range_setup
-                        setup = range_setup(done, price, quality["direction"] if quality else "NEUTRAL",
-                                            tech.get('atr') if tech else None)
-                        live = [quote.get('open'), quote.get('high'), quote.get('low'), price]
-                        drawn = done + ([tuple(float(x) for x in live)] if all(x is not None for x in live) else [])
-                        candles = [[round(x, 2) for x in c] for c in drawn]
+                        # levels -- same cache read as the sparkline above
+                        # (zero extra Fyers calls). Symbols whose history
+                        # isn't cached yet are filled in by the frontend via
+                        # ScannerCandlesView as each card scrolls into view.
+                        candles, setup = _build_card_chart(hist, quote, tech, quality)
                         # Reads off the last COMPLETE candle (this
                         # DataFrame deliberately excludes today's
                         # still-forming one -- see _cached_history_df's
@@ -6203,6 +6216,70 @@ class ScannerView(APIView):
             "fetch_deadline_hit": fetch_deadline_hit,
             "stocks": results,
         })
+
+
+class ScannerCandlesView(APIView):
+    """
+    Oct 2 2026: on-demand mini-chart data for Scanner cards that scrolled into
+    view without candles. Root cause this exists: ScannerView only READS the
+    daily-history cache, and nothing warms it for a symbol whose quote/tech were
+    restored from the breadth snapshot file (restart) or that isn't in the
+    Nifty 500 (All Stocks), especially outside market hours -- so those cards
+    stayed "loading" forever.
+
+    GET /api/scanner/candles/?symbols=A,B,C -> {"charts": {SYM: {candles, setup} | null}}
+
+    Bounded on purpose, given this project's Fyers 429 history: at most
+    MAX_SYMBOLS per call, one call at a time process-wide (a second concurrent
+    call gets busy=true), a hard time budget, and every history fetch still goes
+    through fyers_client's own paced governor. The frontend only asks for cards
+    currently on screen.
+    """
+    MAX_SYMBOLS = 12
+    DEADLINE_SECONDS = 14.0
+    _lock = threading.Lock()
+
+    def get(self, request):
+        raw = [x.strip().upper() for x in request.GET.get('symbols', '').split(',') if x.strip()]
+        allowed = set(ALL_NSE_STOCKS) | set(NIFTY_500_STOCKS) | set(FNO_STOCKS)
+        symbols = [x for x in dict.fromkeys(raw) if x in allowed][:self.MAX_SYMBOLS]
+        if not symbols:
+            return Response({"charts": {}, "authenticated": is_authenticated(), "busy": False})
+        if not self._lock.acquire(timeout=2.0):
+            return Response({"charts": {}, "authenticated": is_authenticated(), "busy": True})
+        try:
+            deadline = time.monotonic() + self.DEADLINE_SECONDS
+            authed = is_authenticated()
+            with _breadth_cache_lock:
+                quotes = dict(_breadth_quote_cache)
+                techs = dict(_breadth_tech_cache)
+            with _cache_lock:
+                for k, q in _stock_cache.items():
+                    quotes.setdefault(k, q)
+            charts = {}
+            need_quote = [x for x in symbols if x not in quotes]
+            if need_quote and authed:
+                try:
+                    quotes.update(_fetch_all_stocks(need_quote) or {})
+                except Exception as e:
+                    print(f"[ScannerCandles] quote fetch failed: {e}")
+            for sym in symbols:
+                charts[sym] = None
+                quote = quotes.get(sym)
+                if not quote or not authed or time.monotonic() >= deadline:
+                    continue
+                try:
+                    tech = techs.get(sym) or _calc_tech(sym, live_quote=quote)
+                    hist = _cached_history_df(sym)  # fetches once per symbol per day if cold
+                    quality = _technical_quality_score(tech, quote.get('price'), quote.get('volume')) if tech else None
+                    candles, setup = _build_card_chart(hist, quote, tech, quality)
+                    if candles:
+                        charts[sym] = {"candles": candles, "setup": setup}
+                except Exception as e:
+                    print(f"[ScannerCandles] {sym} failed: {e}")
+            return Response({"charts": charts, "authenticated": authed, "busy": False})
+        finally:
+            self._lock.release()
 
 
 class NoTradeLogView(APIView):

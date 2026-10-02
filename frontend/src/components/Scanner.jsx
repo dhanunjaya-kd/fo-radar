@@ -184,7 +184,9 @@ function ExplainPanel({ explain }) {
   );
 }
 
-function StockCard({ stock, onOpenChart, isWatchlisted, onToggleWatchlist }) {
+function StockCard({ stock, chartStatus, onChartVisibility, onOpenChart, isWatchlisted, onToggleWatchlist }) {
+  const candles = stock.candles || null;
+  const setup = stock.setup || null;
   const positive = (stock.change_percent || 0) >= 0;
   const [showExplain, setShowExplain] = useState(false);
   return (
@@ -225,16 +227,14 @@ function StockCard({ stock, onOpenChart, isWatchlisted, onToggleWatchlist }) {
           to a placeholder, while the daily-history cache is still warming).
           Whole card still opens the full chart. */}
       <div className="relative my-2">
-        {stock.candles ? (
-          <ScannerMiniChart candles={stock.candles} setup={stock.setup} />
-        ) : stock.sparkline ? (
-          <MiniSparkline values={stock.sparkline} positive={positive} />
+        {candles || chartStatus ? (
+          <ScannerMiniChart symbol={stock.symbol} candles={candles} setup={setup} status={chartStatus} onVisibility={onChartVisibility} />
         ) : (
-          <ScannerMiniChart candles={null} setup={null} />
+          <ScannerMiniChart symbol={stock.symbol} candles={null} setup={null} status="loading" onVisibility={onChartVisibility} />
         )}
       </div>
-      <SetupHeader setup={stock.setup} />
-      <SetupLevels setup={stock.setup} price={stock.price} />
+      <SetupHeader setup={setup} />
+      <SetupLevels setup={setup} price={stock.price} />
       <div className="mb-2" />
 
       <div className="grid grid-cols-4 gap-2 text-center text-[10px] pt-2 border-t border-slate-800">
@@ -299,6 +299,81 @@ export default function Scanner({ onOpenChart }) {
   const [watchlisted, setWatchlisted] = useState(new Set());
   const dropdownRef = useRef(null);
 
+  // Oct 2 2026: on-demand mini-chart data. The scanner response only carries
+  // candles for symbols whose daily history was already cached server-side;
+  // everything else is fetched here, in small batches, for the cards that are
+  // actually on screen (newest-visible first, one request at a time -- the
+  // backend serializes them too, since each cold symbol is a paced Fyers call).
+  const [charts, setCharts] = useState({});          // { SYMBOL: { candles, setup } | 'unavailable' }
+  const visibleRef = useRef(new Set());
+  const queueRef = useRef([]);
+  const requestedRef = useRef(new Map());            // symbol -> { attempts, state: 'queued' | 'wait' | 'done' }
+  const inFlightRef = useRef(false);
+  const aliveRef = useRef(true);
+  useEffect(() => () => { aliveRef.current = false; }, []);
+
+  const enqueue = (sym) => {
+    const e = requestedRef.current.get(sym) || { attempts: 0, state: 'done-none' };
+    e.attempts += 1;
+    e.state = 'queued';
+    requestedRef.current.set(sym, e);
+    queueRef.current.push(sym);
+  };
+
+  const pump = () => {
+    if (inFlightRef.current || !aliveRef.current) return;
+    const batch = [];
+    while (batch.length < 12 && queueRef.current.length) {
+      const sym = queueRef.current.pop();           // most recently seen first
+      if (visibleRef.current.has(sym)) batch.push(sym);
+      else { const e = requestedRef.current.get(sym); if (e) { e.attempts -= 1; e.state = 'done-none'; } }  // scrolled past before we got to it
+    }
+    if (!batch.length) return;
+    inFlightRef.current = true;
+    fetch(`${API_BASE}/api/scanner/candles/?symbols=${batch.join(',')}`)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(json => {
+        if (!aliveRef.current) return;
+        const got = json.charts || {};
+        const next = {};
+        batch.forEach(sym => {
+          const e = requestedRef.current.get(sym);
+          if (got[sym]) { e.state = 'done'; next[sym] = got[sym]; return; }
+          if (json.busy) { e.attempts -= 1; retryLater(sym, 3000); return; }       // server busy isn't a failure
+          if (e.attempts >= 2) { e.state = 'done'; next[sym] = 'unavailable'; return; }
+          retryLater(sym, 15000);                                                    // one more try later
+        });
+        if (Object.keys(next).length) setCharts(prev => ({ ...prev, ...next }));
+      })
+      .catch(() => batch.forEach(sym => { const e = requestedRef.current.get(sym); if (e) { e.attempts -= 1; retryLater(sym, 5000); } }))
+      .finally(() => {
+        inFlightRef.current = false;
+        setTimeout(pump, 300);
+      });
+  };
+
+  function retryLater(sym, ms) {
+    const e = requestedRef.current.get(sym);
+    if (e) e.state = 'wait';
+    setTimeout(() => {
+      if (!aliveRef.current) return;
+      const cur = requestedRef.current.get(sym);
+      if (cur && cur.state === 'wait') {
+        if (visibleRef.current.has(sym)) { enqueue(sym); pump(); } else { cur.state = 'done-none'; }
+      }
+    }, ms);
+  }
+
+  const onChartVisibility = (symbol, inView) => {
+    if (inView) {
+      visibleRef.current.add(symbol);
+      const e = requestedRef.current.get(symbol);
+      if (!e || e.state === 'done-none') { enqueue(symbol); setTimeout(pump, 150); }
+    } else {
+      visibleRef.current.delete(symbol);
+    }
+  };
+
   // Sep 19 2026: fetched once here (not per-card) so 200+ cards on
   // screen don't mean 200+ separate "am I watchlisted" requests --
   // one fetch, a Set every card checks against.
@@ -342,9 +417,9 @@ export default function Scanner({ onOpenChart }) {
     let cancelled = false;
     let retries = 0;
     const MAX_RETRIES = 6;
-    const MAX_CHART_RETRIES = 24;  // ~4 minutes of 10s polls
     setDirFilter(null);
     setStatusFilter(null);
+    queueRef.current = [];
     setSelectedPattern(null);  // patterns differ per universe -- a filter picked for one shouldn't silently carry into another
     setSearchQuery('');
 
@@ -360,15 +435,6 @@ export default function Scanner({ onOpenChart }) {
           if (json.covered < json.universe_size && retries < MAX_RETRIES) {
             retries += 1;
             setTimeout(() => { if (!cancelled) load(true); }, 4000);
-          } else if (json.covered > 0 && retries < MAX_CHART_RETRIES) {
-            // Oct 2 2026: quotes can be fully covered while the daily-history cache
-            // (what the mini charts draw from) is still cold after a restart.
-            // Keep quietly re-polling until most cards have candles.
-            const withCandles = (json.stocks || []).filter(s => s.candles).length;
-            if (withCandles < json.covered * 0.85) {
-              retries += 1;
-              setTimeout(() => { if (!cancelled) load(true); }, 10000);
-            }
           }
         })
         .catch(e => {
@@ -397,20 +463,26 @@ export default function Scanner({ onOpenChart }) {
   // stock.patterns array, same data the tags on each card already
   // show), not a second backend call. Clicking a chip filters the
   // grid client-side; clicking the same chip again clears it.
+  // Oct 2 2026: fold on-demand chart data into the stock objects so cards,
+  // setup counts and the Setup filters all see one consistent shape.
+  const stocks = (data?.stocks || []).map(s => {
+    const c = charts[s.symbol];
+    return (!s.candles && c && c !== 'unavailable') ? { ...s, candles: c.candles, setup: c.setup } : s;
+  });
   const patternCounts = {};
-  (data?.stocks || []).forEach(s => (s.patterns || []).forEach(p => {
+  stocks.forEach(s => (s.patterns || []).forEach(p => {
     patternCounts[p] = (patternCounts[p] || 0) + 1;
   }));
   const sortedPatterns = Object.entries(patternCounts).sort((a, b) => b[1] - a[1]);
   const setupCounts = { BULLISH: 0, BEARISH: 0, BROKE_OUT: 0, NEAR: 0 };
-  (data?.stocks || []).forEach(s => {
+  stocks.forEach(s => {
     if (s.setup?.direction === 'BULLISH') setupCounts.BULLISH += 1;
     if (s.setup?.direction === 'BEARISH') setupCounts.BEARISH += 1;
     if (s.setup?.breakout != null && s.setup.status === 'BROKE_OUT') setupCounts.BROKE_OUT += 1;
     if (s.setup?.breakout != null && s.setup.status === 'NEAR') setupCounts.NEAR += 1;
   });
   const visibleStocks = data
-    ? data.stocks
+    ? stocks
         .filter(s => !selectedPattern || (s.patterns || []).includes(selectedPattern))
         .filter(s => !dirFilter || s.setup?.direction === dirFilter)
         .filter(s => !statusFilter || s.setup?.status === statusFilter)
@@ -489,7 +561,7 @@ export default function Scanner({ onOpenChart }) {
 
           {(setupCounts.BULLISH + setupCounts.BEARISH) > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] text-slate-500">SETUP</span>
+              <span className="text-[11px] text-slate-500" title="Counts cover the cards whose chart has loaded so far">SETUP</span>
               {[
                 ['BULLISH', 'Bullish', 'dir', 'emerald'],
                 ['BEARISH', 'Bearish', 'dir', 'rose'],
@@ -550,6 +622,8 @@ export default function Scanner({ onOpenChart }) {
                 <StockCard
                   key={s.symbol}
                   stock={s}
+                  chartStatus={charts[s.symbol] === 'unavailable' ? 'unavailable' : undefined}
+                  onChartVisibility={onChartVisibility}
                   onOpenChart={onOpenChart}
                   isWatchlisted={watchlisted.has(s.symbol)}
                   onToggleWatchlist={toggleWatchlist}
