@@ -82,7 +82,7 @@ function Levels({ p }) {
 
 function PatternCard({ p, selected, onSelect }) {
   return (
-    <div onClick={() => onSelect(p)}
+    <div onClick={() => onSelect(p)} data-dir={p.direction}
       className={`rounded-xl border p-3 cursor-pointer transition-colors bg-gradient-to-b from-slate-900/80 to-slate-900/40 ${selected ? 'border-emerald-500/60 shadow-lg shadow-emerald-500/5' : 'border-slate-800 hover:border-slate-600'}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">

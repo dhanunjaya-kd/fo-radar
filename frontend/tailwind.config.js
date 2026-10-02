@@ -19,8 +19,8 @@ const rgb = (hex) => {
 
 // light neutrals: near-black text steps, hairline borders, white cards on a soft grey page
 const SLATE_LIGHT = {
-  50: '#0f172a', 100: '#111827', 200: '#1f2937', 300: '#374151', 400: '#4b5563', 500: '#6b7280',
-  600: '#9ca3af', 700: '#cfd5dc', 800: '#e3e7ec', 900: '#ffffff', 950: '#f4f5f7',
+  50: '#0b1730', 100: '#0f1f3d', 200: '#16294a', 300: '#2a3b5c', 400: '#475a7a', 500: '#64748f',
+  600: '#97a3b8', 700: '#cdd5e2', 800: '#e1e7f0', 900: '#ffffff', 950: '#eef1f6',
 };
 
 // accents: 300/400 are "bright on dark" text/fill shades -> deepen them for white. Pale hues need to
@@ -49,13 +49,13 @@ const themeVars = plugin(({ addBase }) => {
       light[colorVarName(fam, s)] = rgb(lightScale[s]);
     }
   }
-  dark['--c-white'] = '255 255 255';  light['--c-white'] = '17 24 39';
-  dark['--c-sniper-bg'] = '10 15 10';      light['--c-sniper-bg'] = '244 245 247';
+  dark['--c-white'] = '255 255 255';  light['--c-white'] = '15 31 61';
+  dark['--c-sniper-bg'] = '10 15 10';      light['--c-sniper-bg'] = '238 241 246';
   dark['--c-sniper-card'] = '15 26 15';    light['--c-sniper-card'] = '255 255 255';
-  dark['--c-sniper-border'] = '26 42 26';  light['--c-sniper-border'] = '227 231 236';
-  dark['--c-sniper-borderHover'] = '42 74 42'; light['--c-sniper-borderHover'] = '207 213 220';
-  dark['--c-sniper-muted'] = '74 106 74';  light['--c-sniper-muted'] = '107 114 128';
-  dark['--c-sniper-text'] = '232 245 232'; light['--c-sniper-text'] = '17 24 39';
+  dark['--c-sniper-border'] = '26 42 26';  light['--c-sniper-border'] = '225 231 240';
+  dark['--c-sniper-borderHover'] = '42 74 42'; light['--c-sniper-borderHover'] = '205 213 226';
+  dark['--c-sniper-muted'] = '74 106 74';  light['--c-sniper-muted'] = '100 116 143';
+  dark['--c-sniper-text'] = '232 245 232'; light['--c-sniper-text'] = '15 31 61';
   addBase({ ':root': dark, ':root.light, .light': light });
 });
 

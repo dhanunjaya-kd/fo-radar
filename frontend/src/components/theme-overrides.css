@@ -36,23 +36,23 @@
   --gauge-needle: #334155;
   --gauge-score-text: #0f172a;
   --mood-gauge-track: #e5e7eb;
-  --sparkline-label-fill: #111827;
+  --sparkline-label-fill: #0f1f3d;
   --sparkline-label-halo: #ffffff;
-  --chart-grid-line: #eceff3;
+  --chart-grid-line: #e8edf4;
   --chart-reference-line: #cfd5dc;
   --muted-slate-400: #4b5563;
   --surface-card: #ffffff;
-  --surface-well: #f6f7f9;
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.04);
-  --shadow-pop: 0 12px 32px rgba(16, 24, 40, 0.14), 0 2px 6px rgba(16, 24, 40, 0.06);
-  --pill-active-bg: #111827;
+  --surface-well: #f4f6fa;
+  --shadow-card: 0 1px 2px rgba(15, 31, 61, 0.06), 0 1px 3px rgba(15, 31, 61, 0.05);
+  --shadow-pop: 0 12px 32px rgba(15, 31, 61, 0.16), 0 2px 6px rgba(15, 31, 61, 0.07);
+  --pill-active-bg: #0f1f3d;
   --pill-active-fg: #ffffff;
 }
 
 /* ---- page ---- */
 html.light { color-scheme: light; }
-html.light body { background: #f4f5f7; color: #111827; }
-.light ::-webkit-scrollbar-track { background: #f4f5f7; }
+html.light body { background: #eef1f6; color: #0f1f3d; }
+.light ::-webkit-scrollbar-track { background: #eef1f6; }
 .light ::-webkit-scrollbar-thumb { background: #d4d9e0; }
 .light ::-webkit-scrollbar-thumb:hover { background: #b6bdc8; }
 .light ::selection { background: rgba(37, 99, 235, 0.18); }
@@ -85,40 +85,49 @@ html.light body { background: #f4f5f7; color: #111827; }
 .light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .light select,
 .light textarea { background-color: #ffffff; }
-.light input::placeholder, .light textarea::placeholder { color: #9ca3af; }
+.light input::placeholder, .light textarea::placeholder { color: #97a3b8; }
 /* overlays, tooltips, dropdowns */
 .light .shadow-xl, .light .shadow-2xl, .light .shadow-lg { box-shadow: var(--shadow-pop); }
-.light [class*="bg-black/"] { background-color: rgba(17, 24, 39, 0.35); }
+.light [class*="bg-black/"] { background-color: rgba(11, 23, 48, 0.45); }
 
 /* active "pill" (selected tab / segment): dark pill with white text, as in the reference */
-.light :is(button, a, span, div)[class~="bg-slate-700"][class~="text-white"]:not(.sidebar-nav *) { background-color: #111827; color: #ffffff; box-shadow: none; }
+.light :is(button, a, span, div)[class~="bg-slate-700"][class~="text-white"]:not(.sidebar-nav *) { background-color: #12294d; color: #ffffff; box-shadow: none; }
 
-/* sidebar: white panel, soft-blue selected row (reference), flat hover */
-.light .sidebar-nav { background-color: #ffffff; border-right-color: #e3e7ec; }
-.light .sidebar-nav button[class~="bg-slate-700"] { background-color: #eaf1ff; color: #1d4ed8; box-shadow: none; font-weight: 500; }
-.light .sidebar-nav button[class~="bg-slate-700"] .bg-blue-500 { color: #ffffff; }
-.light .sidebar-nav button:not([class~="bg-slate-700"]):hover { background-color: #f3f4f6; }
+/* sidebar: deep-navy rail beside the light workspace (our own look: navy rail, teal marker on the
+   selected row), every colour set explicitly because the palette's light slate steps are dark ink */
+.light .sidebar-nav.sidebar-nav.sidebar-nav { background-color: #0f1c33; border-right: 0; box-shadow: 1px 0 0 rgba(15, 31, 61, 0.4); }
+.light .sidebar-nav .text-white { color: #ffffff; }
+.light .sidebar-nav .text-blue-400 { color: #7fb0ff; }
+.light .sidebar-nav .text-slate-500 { color: #7f8fae; }
+.light .sidebar-nav .text-slate-600 { color: #6a7b9c; }
+.light .sidebar-nav .text-slate-400 { color: #b4c0d6; }
+.light .sidebar-nav .text-slate-300 { color: #d3dbea; }
+.light .sidebar-nav .border-slate-700\/60, .light .sidebar-nav .border-slate-800\/60 { border-color: rgba(255, 255, 255, 0.14); }
+.light .sidebar-nav > div > button { color: #b4c0d6; }
+.light .sidebar-nav > div > button:hover { background-color: rgba(255, 255, 255, 0.08); color: #ffffff; }
+.light .sidebar-nav nav button { color: #b4c0d6; }
+.light .sidebar-nav nav button:hover { background-color: rgba(255, 255, 255, 0.07); color: #ffffff; }
+.light .sidebar-nav nav button[class~="bg-slate-700"] { background-color: rgba(255, 255, 255, 0.11); color: #ffffff; box-shadow: inset 3px 0 0 #2dd4bf; font-weight: 500; }
+.light .sidebar-nav nav button .bg-slate-700 { background-color: rgba(255, 255, 255, 0.14); color: #e6ecf7; }
+.light .sidebar-nav nav button .bg-blue-500 { background-color: #3b82f6; color: #ffffff; }
 
-/* ---- 2. white text that sits on a solid accent fill must stay white ---- */
-.light :is(
-  [class~="bg-emerald-400"], [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-emerald-700"],
-  [class~="bg-rose-400"], [class~="bg-rose-500"], [class~="bg-rose-600"], [class~="bg-rose-700"],
-  [class~="bg-red-500"], [class~="bg-red-600"], [class~="bg-red-700"],
-  [class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-blue-700"],
-  [class~="bg-indigo-500"], [class~="bg-indigo-600"], [class~="bg-purple-500"], [class~="bg-purple-600"],
-  [class~="bg-green-500"], [class~="bg-green-600"], [class~="bg-amber-600"], [class~="bg-lime-600"],
-  [class~="bg-sky-600"], [class~="bg-teal-600"]
-).text-white { color: #ffffff; }
+/* pattern cards: a coloured edge for the direction (our own touch), light theme only */
+.light div[data-dir="Bullish"][data-dir] { box-shadow: inset 3px 0 0 #059669, var(--shadow-card); }
+.light div[data-dir="Bearish"][data-dir] { box-shadow: inset 3px 0 0 #e11d48, var(--shadow-card); }
+.light div[data-dir="Neutral"][data-dir] { box-shadow: inset 3px 0 0 #97a3b8, var(--shadow-card); }
+
+/* section headings inside cards: ink + a short accent underline for hierarchy */
+.light h2.text-lg { letter-spacing: -0.01em; }
 
 /* ---- 3. bespoke css ---- */
-.light .market-banner { background: #ffffff; border-bottom-color: #e3e7ec; }
-.light .banner-item .label { color: #6b7280; }
-.light .banner-item .value { color: #111827; }
-.light .banner-divider { background: #e3e7ec; }
-.light .banner-time { color: #6b7280; }
-.light .marquee-wrapper { background: #ffffff; border-bottom-color: #e3e7ec; border-radius: 12px; border: 1px solid #e3e7ec; box-shadow: var(--shadow-card); }
-.light .ticker-symbol { color: #111827; }
-.light .ticker-price { color: #374151; }
+.light .market-banner { background: #ffffff; border-bottom-color: #e1e7f0; }
+.light .banner-item .label { color: #64748f; }
+.light .banner-item .value { color: #0f1f3d; }
+.light .banner-divider { background: #e1e7f0; }
+.light .banner-time { color: #64748f; }
+.light .marquee-wrapper { background: #ffffff; border-bottom-color: #e1e7f0; border-radius: 12px; border: 1px solid #e1e7f0; box-shadow: var(--shadow-card); }
+.light .ticker-symbol { color: #0f1f3d; }
+.light .ticker-price { color: #2a3b5c; }
 .light .ticker-change.up, .light .ticker-gap.up { color: #059669; }
 .light .ticker-change.down, .light .ticker-gap.down { color: #e11d48; }
 
