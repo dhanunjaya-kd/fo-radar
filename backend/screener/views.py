@@ -6133,6 +6133,8 @@ class ScannerView(APIView):
             # fetching it right now regardless of budget.
             sparkline = None
             patterns = []
+            candles = None
+            setup = None
             try:
                 today_str = datetime.now().strftime("%Y-%m-%d")
                 cached_hist = _history_cache.get(sym)
@@ -6141,6 +6143,21 @@ class ScannerView(APIView):
                     if hist is not None and len(hist):
                         closes = hist['Close'].tolist()
                         sparkline = [round(c, 2) for c in closes[-18:]]
+                        # Oct 2 2026: mini candlestick chart + 20-day-range
+                        # levels for the card (see scanner_levels.py for
+                        # exactly what that does and does not claim). Same
+                        # cache read as the sparkline above -- zero extra
+                        # Fyers calls. Completed candles only for the range
+                        # maths; today's live candle is appended for DRAWING.
+                        tail = hist.tail(60)
+                        done = [(float(o), float(h), float(l), float(c)) for o, h, l, c in
+                                zip(tail['Open'], tail['High'], tail['Low'], tail['Close'])]
+                        from .scanner_levels import range_setup
+                        setup = range_setup(done, price, quality["direction"] if quality else "NEUTRAL",
+                                            tech.get('atr') if tech else None)
+                        live = [quote.get('open'), quote.get('high'), quote.get('low'), price]
+                        drawn = done + ([tuple(float(x) for x in live)] if all(x is not None for x in live) else [])
+                        candles = [[round(x, 2) for x in c] for c in drawn]
                         # Reads off the last COMPLETE candle (this
                         # DataFrame deliberately excludes today's
                         # still-forming one -- see _cached_history_df's
@@ -6160,6 +6177,8 @@ class ScannerView(APIView):
                 "change_percent": quote.get('change_percent'),
                 "volume": quote.get('volume'),
                 "sparkline": sparkline,
+                "candles": candles,
+                "setup": setup,
                 "patterns": patterns,
                 "rsi": tech.get('rsi') if tech else None,
                 "macd_bias": (
