@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTheme } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -43,14 +44,25 @@ function treemapLayout(items, x, y, width, height, direction = 'horizontal') {
 // Sector Performance's bars and the volume formatter) rather than a
 // fixed +-5% assumption that would make a quiet day look uniformly
 // gray and a wild day clip to solid colors everywhere.
-function colorForChange(changePercent, maxAbs) {
+function colorForChange(changePercent, maxAbs, light = false) {
   const intensity = Math.min(1, Math.abs(changePercent) / Math.max(maxAbs, 0.1));
+  if (light) {
+    // on a white card the dark-theme tints (25-80% alpha) wash out; use deeper base colours and let
+    // the label flip to dark text on the pale tiles (see tileTextColor)
+    const a = (0.16 + intensity * 0.84).toFixed(2);
+    return changePercent >= 0 ? `rgba(5, 150, 105, ${a})` : `rgba(225, 29, 72, ${a})`;
+  }
   if (changePercent >= 0) {
     // emerald-500 at full intensity, fading toward slate-800 at zero
-    const g = Math.round(30 + intensity * 100);
     return `rgba(16, ${129 + Math.round(intensity * 30)}, 90, ${0.25 + intensity * 0.55})`;
   }
   return `rgba(244, 63, 94, ${0.25 + intensity * 0.55})`;
+}
+
+function tileTextColor(changePercent, maxAbs, light) {
+  if (!light) return '#fff';
+  const intensity = Math.min(1, Math.abs(changePercent) / Math.max(maxAbs, 0.1));
+  return intensity > 0.45 ? '#fff' : '#111827';
 }
 
 function fmtPrice(n) {
@@ -255,6 +267,7 @@ function layoutFits(items, width, height) {
 }
 
 export default function MarketHeatmap({ width = 900, height = 420 }) {
+  const light = useTheme().theme === 'light';
   const [sectors, setSectors] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedSector, setSelectedSector] = useState(null);
@@ -332,18 +345,18 @@ export default function MarketHeatmap({ width = 900, height = 420 }) {
               >
                 <rect
                   x={tile.x} y={tile.y} width={tile.width} height={tile.height}
-                  fill={colorForChange(tile.changePercent, maxAbsChange)}
-                  stroke="#0f172a" strokeWidth="2"
+                  fill={colorForChange(tile.changePercent, maxAbsChange, light)}
+                  stroke={light ? '#ffffff' : '#0f172a'} strokeWidth="2"
                 />
                 {showName && (
                   <text x={tile.x + tile.width / 2} y={tile.y + tile.height / 2 - (showDetail ? 6 : 0)}
-                    textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize={fontSize} fontWeight="700">
+                    textAnchor="middle" dominantBaseline="middle" fill={tileTextColor(tile.changePercent, maxAbsChange, light)} fontSize={fontSize} fontWeight="700">
                     {tile.name}
                   </text>
                 )}
                 {showDetail && (
                   <text x={tile.x + tile.width / 2} y={tile.y + tile.height / 2 + 12}
-                    textAnchor="middle" dominantBaseline="middle" fill="#fff" fontSize={Math.max(9, fontSize * 0.7)} opacity="0.9">
+                    textAnchor="middle" dominantBaseline="middle" fill={tileTextColor(tile.changePercent, maxAbsChange, light)} fontSize={Math.max(9, fontSize * 0.7)} opacity="0.9">
                     {tile.changePercent >= 0 ? '+' : ''}{tile.changePercent.toFixed(2)}%
                   </text>
                 )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTone } from './ThemeContext';
 import TabInfoBanner from './TabInfoBanner';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -20,6 +21,7 @@ const IconCalendar = ({ size = 13, className = '' }) => (
 );
 
 function EquityCurveChart({ points, width = 280, height = 100 }) {
+  const t = useTone();
   if (!points || points.length < 2) {
     return (
       <div className="h-[100px] flex items-center justify-center text-[10px] text-slate-600">
@@ -42,7 +44,7 @@ function EquityCurveChart({ points, width = 280, height = 100 }) {
   const linePath = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
   const areaPath = `${linePath} L ${coords[coords.length - 1][0].toFixed(1)} ${height} L 0 ${height} Z`;
   const isUp = points[points.length - 1].cumulative_pnl >= 0;
-  const strokeColor = isUp ? '#34d399' : '#fb7185';
+  const strokeColor = t(isUp ? '#34d399' : '#fb7185');
   const fillId = `eq-fill-${isUp ? 'up' : 'down'}-${Math.round(minEq)}`;
   const firstDate = new Date(points[0].date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   const lastDate = new Date(points[points.length - 1].date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });

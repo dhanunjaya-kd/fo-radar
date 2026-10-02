@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTone } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -105,6 +106,7 @@ function mergeOIRows(ceData, peData) {
 }
 
 export default function OIDistribution() {
+  const t = useTone();
   const [selected, setSelected] = useState('NIFTY');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -214,9 +216,9 @@ export default function OIDistribution() {
                    onMouseEnter={() => setHoverIdx(i)}
                    onMouseLeave={() => setHoverIdx(null)}
                    style={{ cursor: 'pointer' }}>
-                  <rect x={b.ceX} y={b.ceY} width={b.barWidth} height={b.ceHeight} fill="#34d399"
+                  <rect x={b.ceX} y={b.ceY} width={b.barWidth} height={b.ceHeight} fill={t('#34d399')}
                         opacity={hoverIdx === null || hoverIdx === i ? 0.85 : 0.3} />
-                  <rect x={b.peX} y={b.peY} width={b.barWidth} height={b.peHeight} fill="#fb7185"
+                  <rect x={b.peX} y={b.peY} width={b.barWidth} height={b.peHeight} fill={t('#fb7185')}
                         opacity={hoverIdx === null || hoverIdx === i ? 0.85 : 0.3} />
                   {/* invisible full-height hit area -- easier to hover accurately than the thin bars alone */}
                   <rect x={b.groupX} y="0" width={b.groupWidth} height={HEIGHT} fill="transparent" />
@@ -224,16 +226,16 @@ export default function OIDistribution() {
               ))}
               {layout.maxPainX != null && (
                 <>
-                  <line x1={layout.maxPainX} y1="0" x2={layout.maxPainX} y2={HEIGHT} stroke="#fbbf24" strokeWidth="1.5" strokeDasharray="4,3" />
-                  <text x={layout.maxPainX} y={HEIGHT + 14} textAnchor="middle" fill="#fbbf24" fontSize="10">
+                  <line x1={layout.maxPainX} y1="0" x2={layout.maxPainX} y2={HEIGHT} stroke={t('#fbbf24')} strokeWidth="1.5" strokeDasharray="4,3" />
+                  <text x={layout.maxPainX} y={HEIGHT + 14} textAnchor="middle" fill={t('#fbbf24')} fontSize="10">
                     Max Pain {data.maxPain?.toLocaleString('en-IN')}
                   </text>
                 </>
               )}
               {layout.atmX != null && (
                 <>
-                  <line x1={layout.atmX} y1="0" x2={layout.atmX} y2={HEIGHT} stroke="#818cf8" strokeWidth="1.5" strokeDasharray="4,3" />
-                  <text x={layout.atmX} y="10" textAnchor="middle" fill="#818cf8" fontSize="10">
+                  <line x1={layout.atmX} y1="0" x2={layout.atmX} y2={HEIGHT} stroke={t('#818cf8')} strokeWidth="1.5" strokeDasharray="4,3" />
+                  <text x={layout.atmX} y="10" textAnchor="middle" fill={t('#818cf8')} fontSize="10">
                     ATM {atmStrike?.toLocaleString('en-IN')}
                   </text>
                 </>

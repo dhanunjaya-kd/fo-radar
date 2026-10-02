@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTheme, toneFor } from './ThemeContext';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 import { rsi, macd, adx, stochRsi, cci, mfi, aroon } from '../utils/indicators';
 
@@ -65,6 +66,8 @@ export const PANE_DEFS = {
 const fmt = (v) => (v == null ? '—' : Math.abs(v) >= 1000 ? v.toFixed(0) : v.toFixed(2));
 
 export default function IndicatorPane({ id, candles, mainChart, hoverTime, onHoverTime, onClose, height = 120 }) {
+  const { theme } = useTheme();   // StockChart remounts on a theme switch, so this is stable for the pane's life
+  const T = (hex) => toneFor(theme, hex);
   const def = PANE_DEFS[id];
   const [el, setEl] = useState(null);
   const [chart, setChart] = useState(null);   // state, not a ref: the effects below must re-run when it appears
@@ -78,11 +81,11 @@ export default function IndicatorPane({ id, candles, mainChart, hoverTime, onHov
   useEffect(() => {
     if (!el) return undefined;
     const chart = createChart(el, {
-      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#94a3b8', fontSize: 10, attributionLogo: false },
-      grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
+      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: T('#94a3b8'), fontSize: 10, attributionLogo: false },
+      grid: { vertLines: { color: T('#1e293b') }, horzLines: { color: T('#1e293b') } },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: '#334155', minimumWidth: 72, scaleMargins: { top: 0.12, bottom: 0.12 } },
-      timeScale: { borderColor: '#334155', visible: false },
+      rightPriceScale: { borderColor: T('#334155'), minimumWidth: 72, scaleMargins: { top: 0.12, bottom: 0.12 } },
+      timeScale: { borderColor: T('#334155'), visible: false },
       handleScroll: { mouseWheel: true, pressedMouseMove: true },
       width: el.clientWidth, height,
     });
@@ -99,13 +102,13 @@ export default function IndicatorPane({ id, candles, mainChart, hoverTime, onHov
     seriesRef.current = specs.map((spec, idx) => {
       const series = spec.kind === 'hist'
         ? chart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false, priceScaleId: 'right' })
-        : chart.addLineSeries({ color: spec.color, lineWidth: spec.width || 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+        : chart.addLineSeries({ color: T(spec.color), lineWidth: spec.width || 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
       series.setData(spec.data.map((v, i) => {
         if (v == null) return { time: candles[i].time };
-        return spec.kind === 'hist' ? { time: candles[i].time, value: v, color: v >= 0 ? '#34d39988' : '#f8717188' } : { time: candles[i].time, value: v };
+        return spec.kind === 'hist' ? { time: candles[i].time, value: v, color: (v >= 0 ? T('#34d399') : T('#f87171')) + '88' } : { time: candles[i].time, value: v };
       }));
       if (idx === 0 && def?.levels) {
-        def.levels.forEach((price) => series.createPriceLine({ price, color: '#475569', lineWidth: 1, lineStyle: 2, axisLabelVisible: false }));
+        def.levels.forEach((price) => series.createPriceLine({ price, color: T('#475569'), lineWidth: 1, lineStyle: 2, axisLabelVisible: false }));
       }
       return { spec, series };
     });
@@ -146,7 +149,7 @@ export default function IndicatorPane({ id, candles, mainChart, hoverTime, onHov
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-slate-300 font-semibold">{def.label}</span>
           {!noVolume && specs.map((sp) => (
-            <span key={sp.id} className="text-slate-500">{sp.name} <span style={{ color: sp.color || SLATE }} className="font-medium">{fmt(sp.data[at])}</span></span>
+            <span key={sp.id} className="text-slate-500">{sp.name} <span style={{ color: T(sp.color || SLATE) }} className="font-medium">{fmt(sp.data[at])}</span></span>
           ))}
           {noVolume && <span className="text-amber-500/80">needs volume — this instrument has none</span>}
         </div>

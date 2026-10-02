@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTone } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -97,6 +98,7 @@ function buildChartPath(values, width, height, padding = 4) {
 const DISPLAY_NAME = { NIFTY: 'NIFTY', BANKNIFTY: 'BANKNIFTY' };
 
 export default function IndexPriceChart({ indexName }) {
+  const t = useTone();
   const [range, setRange] = useState('1D');
   const [marketStatus, setMarketStatus] = useState(null);
   useEffect(() => {
@@ -228,7 +230,7 @@ export default function IndexPriceChart({ indexName }) {
       ) : (
         <div>
           <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" style={{ maxHeight: HEIGHT }}>
-            <path d={chart.path} fill="none" stroke={isPos ? '#34d399' : '#fb7185'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={chart.path} fill="none" stroke={t(isPos ? '#34d399' : '#fb7185')} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
             <span>{points[0]?.label}</span>

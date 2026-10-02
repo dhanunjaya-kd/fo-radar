@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 // Aug 21 2026: theme infrastructure. Deliberately does NOT rely on
 // Tailwind's built-in dark: variant system (which needs darkMode:
@@ -75,6 +75,12 @@ export function ThemeProvider({ children }) {
     return () => mql.removeEventListener?.('change', handler);
   }, [themeMode]);
 
+  // `light` goes on <html> as well as on the app root: the page background (body) sits outside the
+  // React root, and the Tailwind palette variables are defined on :root.light.
+  useEffect(() => {
+    document.documentElement.classList.toggle('light', theme === 'light');
+  }, [theme]);
+
   const setThemeMode = (mode) => setThemeModeState(mode);
 
   return (
@@ -88,4 +94,41 @@ export function useTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx) throw new Error('useTheme() must be called inside a <ThemeProvider>');
   return ctx;
+}
+
+// Oct 2 2026: colours that have to be hex strings -- SVG/canvas drawing code, recharts props, chart
+// libraries -- can't read the CSS palette, so they map through here. DARK returns the colour
+// unchanged (dark rendering is exactly what it always was); LIGHT swaps the bright-on-dark hues for
+// deeper ones that hold up on white, and the dark "chrome" greys for light ones. Anything not in the
+// table passes through untouched.
+const LIGHT_TONES = {
+  // accents
+  '#34d399': '#059669', '#10b981': '#059669', '#4ade80': '#16a34a', '#a3e635': '#65a30d',
+  '#fb7185': '#e11d48', '#f87171': '#dc2626', '#ef4444': '#dc2626',
+  '#fbbf24': '#d97706', '#facc15': '#ca8a04', '#fb923c': '#ea580c',
+  '#60a5fa': '#2563eb', '#3b82f6': '#2563eb', '#38bdf8': '#0284c7', '#22d3ee': '#0891b2',
+  '#818cf8': '#4f46e5', '#a78bfa': '#7c3aed', '#c084fc': '#9333ea', '#f472b6': '#db2777', '#2dd4bf': '#0d9488',
+  // neutrals (text / lines / surfaces)
+  '#f1f5f9': '#111827', '#e2e8f0': '#1f2937', '#cbd5e1': '#374151', '#94a3b8': '#6b7280',
+  '#64748b': '#6b7280', '#475569': '#9ca3af', '#334155': '#e3e7ec', '#1e293b': '#eceff3',
+  '#0f172a': '#ffffff', '#0b1220': '#ffffff', '#020617': '#f4f5f7',
+};
+export const toneFor = (theme, hex) => (theme === 'light' && hex ? (LIGHT_TONES[String(hex).toLowerCase()] ?? hex) : hex);
+export function useTone() {
+  const { theme } = useTheme();
+  return useCallback((hex) => toneFor(theme, hex), [theme]);
+}
+
+// Shared look for recharts / SVG chart chrome (grid, axis text, tooltip) in both themes.
+export function useChartChrome() {
+  const { theme } = useTheme();
+  const L = theme === 'light';
+  return {
+    t: (hex) => toneFor(theme, hex),
+    gridStroke: L ? '#e3e7ec' : '#334155',
+    gridOpacity: L ? 1 : 0.3,
+    tick: L ? '#6b7280' : '#94a3b8',
+    tooltip: { background: L ? '#ffffff' : '#0f172a', border: `1px solid ${L ? '#e3e7ec' : '#334155'}`, borderRadius: 6, fontSize: 11, boxShadow: L ? '0 8px 24px rgba(16,24,40,0.12)' : undefined },
+    tooltipLabel: L ? '#111827' : '#e2e8f0',
+  };
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTone } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -43,6 +44,7 @@ function arcPolylinePath(cx, cy, r, startAngle, endAngle, segments = 20) {
 }
 
 export default function MarketSentimentGauge() {
+  const t = useTone();
   const [sentiment, setSentiment] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -90,7 +92,7 @@ export default function MarketSentimentGauge() {
               key={label}
               d={arcPolylinePath(cx, cy, r, bandAngleRanges[i][0], bandAngleRanges[i][1])}
               fill="none"
-              stroke={BAND_COLORS[label]}
+              stroke={t(BAND_COLORS[label])}
               strokeWidth="14"
               strokeLinecap="butt"
             />
@@ -106,7 +108,7 @@ export default function MarketSentimentGauge() {
             const band = sentiment.bands.find(b => b.label === label);
             return (
               <div key={label} className="flex items-center gap-2 text-[11px]">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: BAND_COLORS[label] }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: t(BAND_COLORS[label]) }} />
                 <span className="text-slate-400 flex-1">{label}</span>
                 <span className="text-white font-medium tabular-nums">{band ? band.pct : 0}%</span>
               </div>
@@ -114,7 +116,7 @@ export default function MarketSentimentGauge() {
           })}
         </div>
       </div>
-      <p className="text-center text-xs font-semibold mt-1" style={{ color: BAND_COLORS[sentiment.label] }}>
+      <p className="text-center text-xs font-semibold mt-1" style={{ color: t(BAND_COLORS[sentiment.label]) }}>
         {sentiment.label}
       </p>
       <p className="text-[10px] text-slate-500 text-center mt-1">

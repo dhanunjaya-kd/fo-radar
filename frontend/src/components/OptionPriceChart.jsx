@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTone } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -54,6 +55,7 @@ function fmtTime(unixSeconds) {
 // separate, real Fyers limitation that doesn't apply here since every
 // live signal is always for a currently-active contract).
 export default function OptionPriceChart({ optionSymbol }) {
+  const t = useTone();
   const [candles, setCandles] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -113,7 +115,7 @@ export default function OptionPriceChart({ optionSymbol }) {
       ) : (
         <div>
           <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" style={{ maxHeight: HEIGHT }}>
-            <path d={chart.path} fill="none" stroke={isPos ? '#34d399' : '#fb7185'} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+            <path d={chart.path} fill="none" stroke={t(isPos ? '#34d399' : '#fb7185')} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <div className="flex items-center justify-between text-[9px] text-slate-500 mt-1">
             <span>{fmtTime(points[0].time)}</span>

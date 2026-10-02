@@ -279,3 +279,62 @@ class TestRunResearchYfinancePrimary(TestCase):
         # confirms the real, documented tradeoff of yfinance-as-primary in practice
         own = OwnershipSnapshot.objects.get(snapshot=snapshot)
         self.assertEqual(float(own.promoter_pct), 50.3)
+
+
+class TestResearchDoesNotHoldDbLockDuringNetwork(TestCase):
+    """Oct 2 2026: "database is locked" -- the news/financial HTTP calls used to run inside the write
+    transaction, so concurrent requests timed out waiting for the single SQLite writer."""
+
+    def test_network_calls_happen_before_the_write_lock_is_taken(self):
+        held_during_fetch = []
+
+        def spy_news(symbol, name):
+            held_during_fetch.append(re._PERSIST_LOCK.locked())
+            return []
+
+        def spy_yf(symbol):
+            held_during_fetch.append(re._PERSIST_LOCK.locked())
+            return None
+
+        with patch('fundamentals_research.services.research_engine.na.get_company_news', side_effect=spy_news), \
+             patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', side_effect=spy_yf), \
+             patch('fundamentals_research.services.research_engine.bsc.get_stock', return_value=_fake_bharatstock_stock_response()), \
+             patch('fundamentals_research.services.research_engine.bsc.get_financials') as mock_fin, \
+             patch('fundamentals_research.services.research_engine.bsc.get_insider_trades', return_value={'trades': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_bulk_deals', return_value={'deals': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_block_deals', return_value={'deals': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_corporate_actions', return_value={'actions': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_mf_holdings', return_value={}):
+            mock_fin.side_effect = lambda symbol, period_type: _fake_financials_annual() if period_type == 'annual' else _fake_financials_quarterly()
+            re.run_research('RELIANCE')
+
+        self.assertEqual(held_during_fetch, [False, False])
+        self.assertFalse(re._PERSIST_LOCK.locked())
+
+    def test_locked_database_is_retried_then_succeeds(self):
+        from django.db import OperationalError
+        calls = {'n': 0}
+        real = re._persist_research
+
+        def flaky(*a, **k):
+            calls['n'] += 1
+            if calls['n'] < 3:
+                raise OperationalError('database is locked')
+            return real(*a, **k)
+
+        with patch('fundamentals_research.services.research_engine.time.sleep'), \
+             patch('fundamentals_research.services.research_engine._persist_research', side_effect=flaky), \
+             patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[]), \
+             patch('fundamentals_research.services.research_engine.yff.get_yfinance_fundamentals', return_value=None), \
+             patch('fundamentals_research.services.research_engine.bsc.get_stock', return_value=_fake_bharatstock_stock_response()), \
+             patch('fundamentals_research.services.research_engine.bsc.get_financials') as mock_fin, \
+             patch('fundamentals_research.services.research_engine.bsc.get_insider_trades', return_value={'trades': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_bulk_deals', return_value={'deals': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_block_deals', return_value={'deals': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_corporate_actions', return_value={'actions': []}), \
+             patch('fundamentals_research.services.research_engine.bsc.get_mf_holdings', return_value={}):
+            mock_fin.side_effect = lambda symbol, period_type: _fake_financials_annual() if period_type == 'annual' else _fake_financials_quarterly()
+            snapshot, _, _ = re.run_research('RELIANCE')
+
+        self.assertEqual(calls['n'], 3)
+        self.assertIsNotNone(snapshot.pk)

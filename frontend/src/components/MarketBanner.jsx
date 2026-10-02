@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTone } from './ThemeContext';
 
 // Relative on purpose -- see the same note in SignalList.jsx. Routes
 // through Vite's dev-server proxy so this works from any host the page
@@ -129,6 +130,7 @@ function computeMcxStatus(day, totalMinutes) {
 // redesign's "keep sparklines subtle and compact" request -- purely a
 // size change, same math, same real-data-only behavior.
 function Sparkline({ values, width = 44, height = 18 }) {
+  const t = useTone();
   const clean = (values || []).filter(v => v != null && !isNaN(v));
   if (clean.length < 2) return null;
 
@@ -143,7 +145,7 @@ function Sparkline({ values, width = 44, height = 18 }) {
   });
   const path = coords.map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
   const isUp = clean[clean.length - 1] >= clean[0];
-  const color = isUp ? '#34d399' : '#fb7185'; // emerald-400 / rose-400 -- same palette as EquityCurveChart
+  const color = t(isUp ? '#34d399' : '#fb7185'); // emerald-400 / rose-400 -- same palette as EquityCurveChart
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="overflow-visible shrink-0">

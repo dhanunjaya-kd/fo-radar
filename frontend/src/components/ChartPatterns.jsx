@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import PatternChart, { legendFor } from './PatternChart';
+import { useTheme } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -70,9 +71,9 @@ function Levels({ p }) {
   return (
     <div className="grid grid-cols-3 gap-1.5 text-center">
       {[['Breakout', p.direction === 'Bearish' ? 'Breakdown' : 'Breakout', p.trigger, 'text-amber-400'], ['Target', 'Target', p.target, 'text-emerald-400'], ['Stop', 'Stop', p.stop, 'text-rose-400']].map(([k, label, val, cls]) => (
-        <div key={k} className="rounded-lg bg-slate-800/50 border border-slate-700/60 py-1.5">
+        <div key={k} className="rounded-lg bg-slate-800/50 border border-slate-700/60 py-1.5 px-0.5 min-w-0">
           <div className="text-[9px] tracking-wide text-slate-500 uppercase">{label}</div>
-          <div className={`text-xs font-bold ${hasLevels || k === 'Breakout' ? cls : 'text-slate-500'}`}>{hasLevels || k === 'Breakout' ? fmtPrice(val) : '—'}</div>
+          <div className={`text-[10.5px] font-bold tabular-nums ${hasLevels || k === 'Breakout' ? cls : 'text-slate-500'}`}>{hasLevels || k === 'Breakout' ? fmtPrice(val) : '—'}</div>
         </div>
       ))}
     </div>
@@ -106,9 +107,9 @@ function PatternCard({ p, selected, onSelect }) {
         <span>⏱ {ago(p.bars_ago)}</span>
         <span>R:R <span className="text-slate-300 font-semibold">{p.rr != null ? `1 : ${p.rr}` : '—'}</span></span>
       </div>
-      <div className="flex items-center justify-between mt-1 text-[10px]">
-        <span className={`font-semibold ${QUALITY_CLS[p.quality]}`}>{p.quality}</span>
-        <span className="text-slate-500">
+      <div className="flex items-center justify-between gap-2 mt-1 text-[10px]">
+        <span className={`font-semibold shrink-0 ${QUALITY_CLS[p.quality]}`}>{p.quality}</span>
+        <span className="text-slate-500 text-right min-w-0">
           Close {fmtPrice(p.last_close)}
           {p.pct_vs_trigger != null && <span className="text-slate-400"> · {p.pct_vs_trigger >= 0 ? '+' : ''}{p.pct_vs_trigger}% vs trigger</span>}
         </span>
@@ -193,6 +194,7 @@ function BaseRates({ p, rates, universeLabel }) {
 }
 
 function DetailPanel({ p, onOpenStock, baseline, rates, universeLabel }) {
+  const light = useTheme().theme === 'light';
   if (!p) {
     return <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">Select a pattern card to see its chart, levels, how it is defined and how similar breaks played out.</div>;
   }
@@ -205,7 +207,7 @@ function DetailPanel({ p, onOpenStock, baseline, rates, universeLabel }) {
   );
   const bear = p.direction === 'Bearish';
   const yrs = p.history_bars ? (p.history_bars / 250).toFixed(1) : null;
-  const legend = legendFor(p);
+  const legend = legendFor(p, light);
   const hasLevels = p.target != null && p.stop != null;
   const volLine = p.broke_date == null ? 'Not broken out yet' : p.volume_confirmed ? 'Broke out on above-average volume' : 'No volume expansion on the break';
   const pctTxt = p.pct_vs_trigger != null ? `${p.pct_vs_trigger >= 0 ? '+' : '−'}${Math.abs(p.pct_vs_trigger).toFixed(1)}% vs ${bear ? 'breakdown' : 'breakout'}` : '';

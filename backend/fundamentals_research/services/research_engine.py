@@ -13,12 +13,14 @@ below tags source + retrieved_at, because the models themselves
 require it (non-nullable on every fact table).
 """
 import logging
+import threading
+import time
 from datetime import datetime, date, timezone as dt_timezone
 from decimal import Decimal
 from typing import Optional
 
 from django.utils import timezone as django_timezone
-from django.db import transaction
+from django.db import transaction, OperationalError
 
 from . import bharatstock_client as bsc
 from . import screener_fallback as sf
@@ -83,23 +85,11 @@ def _fetch_bharatstock_bundle(symbol: str) -> Optional[dict]:
     return bundle
 
 
-@transaction.atomic
-def run_research(symbol: str, triggered_by: str = 'refresh'):
-    """
-    Returns the newly-created ResearchSnapshot. Raises
-    ResearchUnavailableError only if there's nothing at all to work
-    with. Import of models is deferred to inside the function so this
-    module (and everything it imports) can still be unit-tested
-    without Django's app registry being fully loaded, matching how the
-    other services/*.py files in this app are structured.
-    """
-    from ..models import (
-        ResearchCompany, ResearchSnapshot, FinancialSnapshot, QuarterlyFinancialSnapshot,
-        BalanceSheetSnapshot, CashFlowSnapshot, ValuationSnapshot, OwnershipSnapshot,
-        SegmentSnapshot, CorporateActivity, ResearchNewsItem, ResearchMetric,
-    )
-
-    symbol = symbol.upper().strip()
+def _fetch_research_inputs(symbol: str):
+    """Everything that talks to the network (yfinance / BharatStock / Screener / news). Deliberately
+    runs BEFORE and OUTSIDE the DB transaction: SQLite allows one writer at a time, and holding the
+    write lock across multi-second HTTP calls made every concurrent request fail with
+    "database is locked" (Oct 2 2026)."""
     # Sep 26 2026: reordered so yfinance is tried FIRST, per explicit
     # request -- was BharatStock -> Screener -> yfinance, now yfinance
     # -> BharatStock -> Screener. The persistence branches below
@@ -137,6 +127,51 @@ def run_research(symbol: str, triggered_by: str = 'refresh'):
                     f"yfinance, BharatStock, and Screener all returned no data for {symbol}. "
                     f"No snapshot created -- per spec Section 7/27, this is reported as unavailable, not fabricated."
                 )
+
+
+    company_name_for_news = (
+        bundle['stock'].get('company_name') if bundle
+        else (screener_data['company_name'].value if screener_data
+        else (yfinance_bundle.get('company', {}).get('company_name') if yfinance_bundle else ''))
+    ) or ''
+    news_items = list(na.get_company_news(symbol, company_name_for_news))
+    return bundle, screener_data, yfinance_bundle, primary_source, news_items
+
+
+# SQLite takes one writer at a time; serialising our own writers in-process means two research
+# requests (e.g. an auto-research and a manual click) queue instead of colliding.
+_PERSIST_LOCK = threading.Lock()
+
+
+def run_research(symbol: str, triggered_by: str = 'refresh'):
+    """
+    Returns the newly-created ResearchSnapshot. Raises
+    ResearchUnavailableError only if there's nothing at all to work
+    with. Network first (no DB lock held), then one short write transaction.
+    """
+    symbol = symbol.upper().strip()
+    inputs = _fetch_research_inputs(symbol)
+    last_err = None
+    for attempt in range(4):
+        try:
+            with _PERSIST_LOCK:
+                return _persist_research(symbol, triggered_by, *inputs)
+        except OperationalError as e:  # another process (auto_sync, a scan) held the write lock past the timeout
+            if 'locked' not in str(e).lower():
+                raise
+            last_err = e
+            logger.warning(f"research persist for {symbol}: database locked (attempt {attempt + 1}/4)")
+            time.sleep(1.5 * (attempt + 1))
+    raise last_err
+
+
+@transaction.atomic
+def _persist_research(symbol, triggered_by, bundle, screener_data, yfinance_bundle, primary_source, news_items):
+    from ..models import (
+        ResearchCompany, ResearchSnapshot, FinancialSnapshot, QuarterlyFinancialSnapshot,
+        BalanceSheetSnapshot, CashFlowSnapshot, ValuationSnapshot, OwnershipSnapshot,
+        SegmentSnapshot, CorporateActivity, ResearchNewsItem, ResearchMetric,
+    )
 
     company, _ = ResearchCompany.objects.get_or_create(
         symbol=symbol,
@@ -252,12 +287,7 @@ def run_research(symbol: str, triggered_by: str = 'refresh'):
             ValuationSnapshot, metrics_to_record, now,
         )
 
-    company_name_for_news = (
-        bundle['stock'].get('company_name') if bundle
-        else (screener_data['company_name'].value if screener_data
-        else (yfinance_bundle.get('company', {}).get('company_name') if yfinance_bundle else ''))
-    ) or ''
-    for item in na.get_company_news(symbol, company_name_for_news):
+    for item in news_items:
         ResearchNewsItem.objects.create(snapshot=snapshot, **item)
 
     what_changed = _diff_metrics(previous_metrics, metrics_to_record) if previous_snapshot else None

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTone } from './ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -18,9 +19,10 @@ const MOOD_COLORS = {
 };
 
 function MoodGauge({ score, label }) {
+  const t = useTone();
   const size = 96, stroke = 8, r = (size - stroke) / 2, c = 2 * Math.PI * r;
   const pct = score == null ? 0 : Math.max(0, Math.min(100, score)) / 100;
-  const color = MOOD_COLORS[label] || '#64748b';
+  const color = t(MOOD_COLORS[label] || '#64748b');
   return (
     <div className="relative shrink-0" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -76,6 +78,7 @@ function InfoTooltip({ text, children }) {
 }
 
 function ProgressTile({ title, icon, value, valueLabel, subLabel, pct, barColor, footer, tooltip }) {
+  const t = useTone();
   return (
     <InfoTooltip text={tooltip}>
       <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-3">
@@ -89,7 +92,7 @@ function ProgressTile({ title, icon, value, valueLabel, subLabel, pct, barColor,
         </div>
         {pct != null && (
           <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mb-1.5">
-            <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, backgroundColor: barColor }} />
+            <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, backgroundColor: t(barColor) }} />
           </div>
         )}
         <div className="text-[11px] text-slate-500">{subLabel}</div>
