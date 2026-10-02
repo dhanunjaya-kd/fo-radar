@@ -9,6 +9,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from fundamentals_research.services import llm_narrative as ln
 
 
+class _Isolated(unittest.TestCase):
+    """Oct 2 2026: llm_narrative now retries transient errors (with sleeps) and caches decision
+    summaries by input hash. Tests must not actually sleep, and must not see each other's cache."""
+
+    def setUp(self):
+        super().setUp()
+        self._sleep_patch = patch.object(ln, '_sleep', lambda s: None)
+        self._sleep_patch.start()
+        self.addCleanup(self._sleep_patch.stop)
+        ln._FRESH.clear()
+        ln._LAST_GOOD.clear()
+
+
 def _mock_claude_response(text):
     resp = MagicMock()
     resp.status_code = 200
@@ -23,7 +36,7 @@ def _mock_gemini_response(text):
     return resp
 
 
-class TestApiKeyHandling(unittest.TestCase):
+class TestApiKeyHandling(_Isolated):
     def test_no_key_returns_none_not_crash(self):
         with patch.dict(os.environ, {}, clear=True):
             result, reason, detail = ln._call_llm('system', [{'role': 'user', 'content': 'hi'}])
@@ -78,7 +91,7 @@ class TestApiKeyHandling(unittest.TestCase):
         self.assertEqual(reason, 'no_api_key')  # ANTHROPIC_API_KEY genuinely absent here
 
 
-class TestCallGemini(unittest.TestCase):
+class TestCallGemini(_Isolated):
     @patch.dict(os.environ, {'GEMINI_API_KEY': 'test-gemini-key', 'AI_PROVIDER': 'gemini'})
     @patch('fundamentals_research.services.llm_narrative.requests.post')
     def test_successful_call_parses_response_correctly(self, mock_post):
@@ -257,8 +270,9 @@ class TestCallGemini(unittest.TestCase):
         self.assertIn('grew', result['financial_quality_notes'])
 
 
-class TestGenerateNarrativeSections(unittest.TestCase):
+class TestGenerateNarrativeSections(_Isolated):
     def setUp(self):
+        super().setUp()
         self.fact_sheet = {
             'company': {'name': 'Test Corp', 'symbol': 'TEST', 'sector': 'IT', 'industry': 'Software'},
             'financials_by_year': [{'year': '2025-26', 'revenue': 1000.0, 'revenue_growth_yoy_pct': 12.0}],
@@ -346,7 +360,7 @@ class TestGenerateNarrativeSections(unittest.TestCase):
         self.assertIsNone(result)
 
 
-class TestAnswerQuestion(unittest.TestCase):
+class TestAnswerQuestion(_Isolated):
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'sk-ant-test', 'AI_PROVIDER': 'anthropic'})
     @patch('fundamentals_research.services.llm_narrative.requests.post')
     def test_answers_using_fact_sheet_context(self, mock_post):
@@ -381,7 +395,7 @@ class TestAnswerQuestion(unittest.TestCase):
         self.assertIn('Second question', contents)
 
 
-class TestBuildFactSheetNeverCrashes(unittest.TestCase):
+class TestBuildFactSheetNeverCrashes(_Isolated):
     def test_none_related_objects_handled(self):
         """A snapshot with no valuation/ownership rows yet (a genuine,
         valid partial state) must produce None for those keys, not crash."""
@@ -408,8 +422,9 @@ if __name__ == '__main__':
     unittest.main(verbosity=2)
 
 
-class TestGenerateDecisionSummary(unittest.TestCase):
+class TestGenerateDecisionSummary(_Isolated):
     def setUp(self):
+        super().setUp()
         self.fact_sheet = {'company': {'name': 'Test Corp', 'symbol': 'TEST'}}
         self.confluence = {'fundamental_quality': {'assessment': 'Strong'}}
         self.entry_setup = {'status': 'no_setup'}

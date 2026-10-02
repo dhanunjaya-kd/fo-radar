@@ -271,6 +271,13 @@ class CompanyDecisionSupportView(APIView):
                 'error_reason': ai_reason,
                 'error_detail': ai_detail,
             }
+            # Oct 2 2026: if an EARLIER summary for this stock succeeded, show that -- clearly labelled
+            # stale, with the current failure still attached -- rather than an empty box. It was built
+            # from the numbers of its time, so it carries its own generated_at.
+            earlier = ln.get_last_good_summary(symbol, language)
+            if earlier:
+                ai_summary = {**earlier, 'stale': True, 'error_reason': ai_reason, 'error_detail': ai_detail,
+                              'note': f"Showing the summary generated at {earlier.get('generated_at', 'an earlier time')}: the AI service could not produce a fresh one just now ({ai_detail or ai_reason}). The numbers it was based on may have moved since."}
 
         return Response({
             'symbol': symbol.upper(),

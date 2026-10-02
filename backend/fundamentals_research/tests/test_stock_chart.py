@@ -294,3 +294,23 @@ class TestAggregateToWeekly(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
+
+
+class TestIndexSymbolMapping(unittest.TestCase):
+    """Oct 2 2026: the compare panes put NIFTY/BANKNIFTY next to a stock -- indices are not NSE:XXX-EQ."""
+
+    def test_indices_map_to_fyers_index_symbols(self):
+        from fundamentals_research.services import stock_chart as sc
+        self.assertEqual(sc.fyers_symbol_for('nifty'), 'NSE:NIFTY50-INDEX')
+        self.assertEqual(sc.fyers_symbol_for('BANKNIFTY'), 'NSE:NIFTYBANK-INDEX')
+        self.assertEqual(sc.fyers_symbol_for('SENSEX'), 'BSE:SENSEX-INDEX')
+
+    def test_stocks_are_unchanged(self):
+        from fundamentals_research.services import stock_chart as sc
+        self.assertEqual(sc.fyers_symbol_for(' reliance '), 'NSE:RELIANCE-EQ')
+        self.assertEqual(sc.yfinance_symbol_for('tcs'), 'TCS.NS')
+
+    def test_yfinance_index_tickers(self):
+        from fundamentals_research.services import stock_chart as sc
+        self.assertEqual(sc.yfinance_symbol_for('NIFTY'), '^NSEI')
+        self.assertEqual(sc.yfinance_symbol_for('BANKNIFTY'), '^NSEBANK')

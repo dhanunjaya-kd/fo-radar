@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatIndianCurrency, pickSeriesUnit, formatAxisTick, formatPercent, formatRatio } from '../utils/indianNumberFormat';
-import StockChart from './StockChart';
+import ChartWorkspace from './ChartWorkspace';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -440,7 +440,7 @@ function ConfluenceCard({ confluence, loading }) {
   );
 }
 
-function DecisionSummaryCard({ summary, language, onLanguageChange, loading, onRetry }) {
+function DecisionSummaryCard({ summary, language, onLanguageChange, loading, onRetry, autoRetry }) {
   if (loading) return <div className="text-xs text-slate-500 py-6 text-center">Loading…</div>;
   if (!summary) return <div className="text-xs text-slate-500">No decision summary available.</div>;
 
@@ -466,14 +466,23 @@ function DecisionSummaryCard({ summary, language, onLanguageChange, loading, onR
           <option value="roman_telugu">Roman Telugu</option>
         </select>
       </div>
+      {summary.stale && (
+        <div className="mb-2 rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-300">
+          Earlier summary — not a fresh one. The AI service is busy; it was generated at {summary.generated_at || 'an earlier time'}.
+        </div>
+      )}
       {summary.note && (
         <div className="flex items-center justify-between gap-2 mb-2">
           <div className="text-[10px] text-slate-500">{summary.note}</div>
           {summary.error_reason && (
-            <button onClick={onRetry} className="shrink-0 text-[10px] text-emerald-400 hover:text-emerald-300 underline">Retry</button>
+            <div className="shrink-0 text-right">
+              <button onClick={onRetry} className="text-[10px] text-emerald-400 hover:text-emerald-300 underline">Retry now</button>
+              {autoRetry && <div className="text-[9px] text-slate-500">retrying automatically in {autoRetry.seconds}s (try {autoRetry.attempt} of {autoRetry.of})</div>}
+            </div>
           )}
         </div>
       )}
+      {!summary.note && summary.generated_at && <div className="mb-2 text-[9px] text-slate-600">Generated {summary.generated_at}</div>}
       <div className="grid md:grid-cols-2 gap-3">
         <div>
           <div className="text-[10px] text-emerald-400 mb-1">Supporting evidence</div>
@@ -566,25 +575,53 @@ export default function ResearchDashboard({ request }) {
   const [averagingError, setAveragingError] = useState(null);
   const [averagingLoading, setAveragingLoading] = useState(false);
 
-  const fetchDecisionSupport = async (symbol, language) => {
-    setDecisionSupportLoading(true);
+  // Oct 2 2026: the AI provider sometimes answers "503: model is currently experiencing high demand".
+  // The backend already retries a few times; if it still fails with a TRANSIENT error, this keeps
+  // trying in the background (15s, 30s, 60s) while whatever is on screen stays visible, instead of
+  // leaving the user to hammer Retry. Anything else (bad key, malformed answer) is not retried.
+  const decisionRetryTimer = useRef(null);
+  const decisionSymbolRef = useRef(null);
+  const [decisionAutoRetry, setDecisionAutoRetry] = useState(null);   // { attempt, of, seconds } while waiting
+  useEffect(() => () => clearTimeout(decisionRetryTimer.current), []);
+
+  const isTransientAiFailure = (ai) =>
+    !!ai?.error_reason && (ai.error_reason === 'network_error' || /HTTP (429|5\d\d)/.test(ai.error_detail || ''));
+
+  const fetchDecisionSupport = async (symbol, language, attempt = 0) => {
+    clearTimeout(decisionRetryTimer.current);
+    decisionSymbolRef.current = symbol;
+    if (attempt === 0) { setDecisionSupportLoading(true); setDecisionAutoRetry(null); }
     try {
       const res = await fetch(`${API_BASE}/api/research/company/${symbol}/decision-support/?language=${language}`);
+      if (decisionSymbolRef.current !== symbol) return;          // the user moved on to another stock
       if (res.ok) {
-        setDecisionSupport(await res.json());
-      } else {
+        const json = await res.json();
+        if (decisionSymbolRef.current !== symbol) return;
+        setDecisionSupport(json);
+        const ai = json.ai_decision_summary;
+        if (isTransientAiFailure(ai) && attempt < 3) {
+          const seconds = [15, 30, 60][attempt];
+          setDecisionAutoRetry({ attempt: attempt + 1, of: 3, seconds });
+          decisionRetryTimer.current = setTimeout(() => fetchDecisionSupport(symbol, language, attempt + 1), seconds * 1000);
+        } else {
+          setDecisionAutoRetry(null);
+        }
+      } else if (attempt === 0) {
         setDecisionSupport(null);
       }
     } catch {
-      setDecisionSupport(null);
+      if (attempt === 0) setDecisionSupport(null);
     } finally {
-      setDecisionSupportLoading(false);
+      if (decisionSymbolRef.current === symbol) setDecisionSupportLoading(false);
     }
   };
 
   const runResearch = async (symbol, forceRefresh) => {
     if (!symbol.trim()) return;
     const upperSymbol = symbol.trim().toUpperCase();
+    clearTimeout(decisionRetryTimer.current);   // a pending auto-retry belongs to the previous stock
+    decisionSymbolRef.current = null;
+    setDecisionAutoRetry(null);
     setLoading(true);
     setError(null);
     // Sep 26 2026: clear ALL previously-selected-stock state up front,
@@ -677,7 +714,7 @@ export default function ResearchDashboard({ request }) {
 
   return (
     <div className="space-y-4">
-      <StockChart symbol={snapshot?.company?.symbol} />
+      <ChartWorkspace symbol={snapshot?.company?.symbol} />
 
       <div className="rounded-lg bg-slate-900/40 border border-slate-700/40 p-4">
         <h2 className="text-base font-semibold text-white mb-3">Fundamental Research</h2>
@@ -882,6 +919,7 @@ export default function ResearchDashboard({ request }) {
               summary={decisionSupport?.ai_decision_summary} language={decisionLanguage} loading={decisionSupportLoading}
               onLanguageChange={(lang) => { setDecisionLanguage(lang); fetchDecisionSupport(snapshot.company.symbol, lang); }}
               onRetry={() => fetchDecisionSupport(snapshot.company.symbol, decisionLanguage)}
+              autoRetry={decisionAutoRetry}
             />
           </SectionCard>
 
