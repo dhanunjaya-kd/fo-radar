@@ -96,6 +96,36 @@ signal_logs/<date>/oi_live_dashboard_<date>.xlsx
 - Colour-coded by real movement (green/red on genuine up/down vs. the previous row), not a static palette.
 - Requires `xlwings` and a real Excel install (Windows) — silently disabled with a one-time log line if either isn't available, never a fake/empty dashboard.
 
+## Sniper v3 — noise control + intraday trigger (Oct 2 2026)
+
+Oct 1 2026 produced 38 live calls in one session. Root causes found by analysing the repo's own logs (364 logged calls, 18 days, 165 resolved to Target/SL — see the docstring of `backend/screener/sniper_v3.py` for the numbers):
+
+- **There was no intraday timing.** RSI/MACD/ADX/"VWAP" are all computed on *daily* candles (VWAP is a 100-day average), so the same stocks re-qualified every cycle and calls arrived in bursts.
+- **Churn was logged as new calls.** The old `[:8]` slice re-sorted on near-tied confidence; stocks rotated in/out and each rotation became a row (11 of Oct 1's 38 rows are "Expired" for that reason alone).
+- **RSI was rewarded in 40–65 for both directions.** SELL calls with RSI ≥ 50 won 35% vs 79% below 50. BUY calls with ADX ≤ 35 had −0.12R gross expectancy vs +0.50R above 35.
+- **Cost, not signal quality, was the biggest unmodelled drag.** Option R:R is ~0.89 and the spread gate allowed 15% of premium (~0.6R round trip) against a measured +0.19R gross edge.
+
+What changed (all reversible by env var — see `backend/.env.example`):
+
+| Layer | Behaviour | Default |
+|---|---|---|
+| Directional RSI, BUY-ADX | entry gates (never remove an already-active call) | enforced |
+| Cost-to-risk | reject legs whose round-trip spread > 0.30R | enforced |
+| SignalBook | sticky slots, 1 call/symbol/day, ≤2 per sector, ≤3 new per 30 min, entries 09:15–14:00, 150-min hold cap | enforced |
+| Intraday trigger | session-VWAP + opening-range events on completed 5m candles, fetched only for shortlisted names | **shadow** |
+
+Check it against your own logs (no network needed):
+
+```bash
+cd backend
+python -m screener.sniper_replay                          # all logged days: legacy vs v3 call counts / outcomes
+python -m screener.sniper_replay --file <signals_xxx.xlsx>
+python -m screener.sniper_replay --trigger-report         # after a few shadow sessions: TRIGGERED vs NO_TRIGGER outcomes
+python -m unittest screener.tests.test_sniper_v3
+```
+
+Replay on the repo's logs + Oct 1: 358 calls → 152 with the structural rules alone, → 81 with the RSI/BUY-ADX gates (those two were fitted on the same data, so treat that last step as in-sample). Oct 1 alone: 38 → 14. The intraday trigger, cost gate and relative-RVOL cannot be replayed (5m history and bid/ask are not logged); `sniper_v3_trigger_<date>.csv` and the new per-signal fields (`trigger_state`, `cost_to_risk`, `rvol_relative`, `rank_score`) collect that evidence going forward. Flip `SNIPER_TRIGGER_MODE=enforce` only once `--trigger-report` shows TRIGGERED beating NO_TRIGGER across several *days* — calls inside one day are strongly correlated.
+
 ## Shadow Candidate Testing (A–J)
 Ten pass/reject filters run silently alongside every live signal, purely observational — none of them gate a real trade. Each is a hypothesis about a possible future improvement to the live Sniper logic (a faster trend check, a liquidity gate, re-validating an existing scoring component against fresh data, etc.), logged to its own Excel columns per signal. A candidate is only ever considered for promotion to a real, live gate once it clears an explicit evidence bar — 30+ resolved signals, 10+ real wins *and* 10+ real losses in its PASS subset, and a proven 1+ percentage point improvement in win rate over the baseline — checked automatically, never eyeballed. As of today, none have cleared that bar.
 
