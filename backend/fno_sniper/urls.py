@@ -22,6 +22,7 @@ from screener.views import (
     ScannerCandlesView,
     ChartPatternsView,
     ChartPatternsScanView,
+    ChartPatternSymbolView,
     GammaStrategyView,
     GammaStrategyExcelExportView, GammaStrategyHistoryDatesView, GammaStrategyHistoryView,
 )
@@ -92,6 +93,7 @@ urlpatterns = [
     path('api/scanner/candles/', ScannerCandlesView.as_view(), name='scanner-candles'),
     path('api/chart-patterns/', ChartPatternsView.as_view(), name='chart-patterns'),
     path('api/chart-patterns/scan/', ChartPatternsScanView.as_view(), name='chart-patterns-scan'),
+    path('api/chart-patterns/symbol/<str:symbol>/', ChartPatternSymbolView.as_view(), name='chart-patterns-symbol'),
     path('api/no-trade-log/', NoTradeLogView.as_view(), name='no_trade_log'),
     path('api/shadow-signals/', ShadowSignalsView.as_view(), name='shadow_signals'),
     path('api/shadow-performance/', ShadowPerformanceView.as_view(), name='shadow_performance'),

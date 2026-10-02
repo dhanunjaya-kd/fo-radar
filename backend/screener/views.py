@@ -6287,10 +6287,10 @@ class ScannerCandlesView(APIView):
 # detector is and is NOT) and pattern_scanner.py (scan state / queries).
 # =============================================================================
 _pattern_hist_cache = {}  # {symbol: {'date': 'YYYY-MM-DD', 'series': (o, h, l, c, v, ts)}}
-PATTERN_HISTORY_DAYS = 240   # ~165 trading bars: _history_cache's 100 calendar days (~68 bars) is too short for cups/H&S
+PATTERN_HISTORY_DAYS = 365   # ~250 trading bars (Fyers' daily limit per call is ~366 days): _history_cache's 100 calendar days (~68 bars) is far too short for 4-6 month rectangles, cups and H&S
 PATTERN_BASELINE = {
-    "fair_plus": 0.39, "strong_plus": 0.12, "textbook": 0.03,
-    "basis": "share of 1,500 pure random-walk charts (100 daily bars, 1.8% daily vol) in which the detector still finds a pattern of at least that quality",
+    "fair_plus": 0.30, "strong_plus": 0.17, "textbook": 0.03,
+    "basis": "share of 500 pure random-walk charts (250 daily bars, 1.8% daily vol) in which the detector still finds a pattern of at least that quality",
 }
 
 
@@ -6350,15 +6350,65 @@ class ChartPatternsView(APIView):
             items, family=g.get('family') or None, direction=g.get('direction') or None, status=g.get('status') or None,
             quality=g.get('quality') or None, within=within, volume=g.get('volume') == '1', text=text, sort=g.get('sort', 'composite'),
         )
+        by_symbol = {}
+        for p in items:
+            by_symbol.setdefault(p['symbol'], []).append(p)
         page = []
         for p in picked[offset:offset + limit]:
             sym = p['symbol']
             page.append({**p, 'company': p.get('company') or _get_company_name(sym),
-                         'sector': SECTORS.get(sym) or NIFTY_500_SECTOR_FALLBACK.get(sym, 'Unknown')})
+                         'sector': SECTORS.get(sym) or NIFTY_500_SECTOR_FALLBACK.get(sym, 'Unknown'),
+                         'stock': _pattern_stock_summary(by_symbol.get(sym, [])), 'past': ps.past(universe, sym)})
         return Response({
             "universe": universe, "universe_size": len(symbols), "scan": ps.status(universe),
             "total": len(picked), "all_patterns": len(items), "facets": ps.facets(items),
             "offset": offset, "limit": limit, "patterns": page, "baseline": PATTERN_BASELINE,
+            "base_rates": ps.rates(universe),
+        })
+
+
+def _pattern_stock_summary(stock_patterns):
+    """Counts shown in the detail panel header: how many patterns this stock has in the scan and their status mix."""
+    return {"patterns": len(stock_patterns),
+            "confirmed": sum(1 for p in stock_patterns if p['status'] == 'Confirmed'),
+            "forming": sum(1 for p in stock_patterns if p['status'] == 'Forming'),
+            "names": [p['name'] for p in stock_patterns][:6]}
+
+
+class ChartPatternSymbolView(APIView):
+    """
+    GET /api/chart-patterns/symbol/<SYMBOL>/?universe=
+    One stock, on demand -- for the search box when a stock has no pattern in the scan. Fetches (or reuses)
+    its daily history and runs the detector in RELAXED mode, so weaker candidates are returned too, each
+    flagged `below_bar`. `analysis` says plainly what was and wasn't found.
+    """
+
+    def get(self, request, symbol):
+        from . import pattern_scanner as ps
+        sym = symbol.strip().upper()
+        allowed = set(ALL_NSE_STOCKS) | set(NIFTY_500_STOCKS) | set(FNO_STOCKS)
+        if sym not in allowed:
+            return Response({"error": f"{sym} is not in this app's stock universe."}, status=404)
+        if not is_authenticated() and sym not in _pattern_hist_cache:
+            return Response({"error": "Fyers is not connected, and this stock's history isn't cached."}, status=409)
+        universe, _ = _pattern_universe(request.GET.get('universe', 'nifty500'))
+        series = _pattern_history_series(sym)
+        if series is None:
+            return Response({"error": f"No daily history came back for {sym}."}, status=502)
+        found = ps.payloads_for_symbol(sym, *series, relaxed=True)
+        if found is None:
+            return Response({"error": f"{sym} has fewer than {ps.MIN_HISTORY} daily candles -- too little to analyse."}, status=422)
+        company, sector = _get_company_name(sym), SECTORS.get(sym) or NIFTY_500_SECTOR_FALLBACK.get(sym, 'Unknown')
+        strict = [p for p in found if not p['below_bar']]
+        for p in found:
+            p.update({'company': company, 'sector': sector, 'stock': _pattern_stock_summary(strict), 'past': ps.past(universe, sym)})
+        found.sort(key=lambda p: -ps.composite(p))
+        return Response({
+            "symbol": sym, "company": company, "history_bars": len(series[3]),
+            "analysis": {"strict": len(strict), "weaker": len(found) - len(strict),
+                         "message": (f"{len(strict)} pattern(s) met the quality bar." if strict else
+                                     f"No pattern met the quality bar on {len(series[3])} daily candles" + (f"; {len(found)} weaker candidate(s) are shown below it." if found else " and no weaker candidate either."))},
+            "patterns": found, "baseline": PATTERN_BASELINE, "base_rates": ps.rates(universe),
         })
 
 

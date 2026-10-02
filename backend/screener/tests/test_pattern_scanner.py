@@ -60,6 +60,28 @@ class ScannerTests(unittest.TestCase):
         self.assertTrue(any(p["symbol"] == "AAA" for p in ps.patterns("test")))
         self.assertNotIn("patterns", ps.status("test"))               # status stays small
 
+    def test_scan_measures_base_rates_and_past_instances(self):
+        from screener import pattern_backtest as pb
+        pts = [(0, 60), (80, 80), (115, 100), (127, 90), (139, 100), (150, 85), (185, 70), (230, 66)]
+        data = {"AAA": series(pts)}
+        st = ps.run_scan("br", ["AAA"], lambda s: data[s])
+        self.assertGreaterEqual(st["instance_count"], 1)
+        self.assertIn("Double Top|Bearish", ps.rates("br"))
+        self.assertEqual(ps.rates("br")["Double Top|Bearish"]["hit_target"], 1.0)
+        self.assertTrue(any(x["name"] == "Double Top" and x["outcome"] == "target" for x in ps.past("br", "AAA")))
+        self.assertNotIn("instances", ps.status("br"))
+        self.assertNotIn("rates", ps.status("br"))
+        ps._state.clear()                                             # and it survives a restart
+        self.assertIn("Double Top|Bearish", ps.rates("br"))
+        self.assertEqual(ps.past("br", "ZZZ"), [])
+
+    def test_relaxed_returns_weaker_candidates_flagged_below_bar(self):
+        s = series([(0, 80), (35, 100), (47, 91), (59, 98.4), (70, 88)], noise=0.7)
+        strict = ps.payloads_for_symbol("T", *s) or []
+        relaxed = ps.payloads_for_symbol("T", *s, relaxed=True) or []
+        self.assertGreaterEqual(len(relaxed), len(strict))
+        self.assertTrue(all(not p["below_bar"] for p in strict))
+
     def test_history_exception_counts_as_failed_not_crash(self):
         def boom(sym):
             raise RuntimeError("429")

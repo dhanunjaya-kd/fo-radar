@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import PatternChart from './PatternChart';
+import PatternChart, { legendFor } from './PatternChart';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -49,7 +49,7 @@ const STATUS_CLS = {
   Forming: 'text-slate-300 border-slate-600 bg-slate-800/60',
   Failed: 'text-rose-300 border-rose-500/50 bg-rose-500/10',
 };
-const QUALITY_CLS = { Textbook: 'text-emerald-300', Strong: 'text-sky-300', Fair: 'text-slate-400' };
+const QUALITY_CLS = { Textbook: 'text-emerald-300', Strong: 'text-sky-300', Fair: 'text-slate-400', Weak: 'text-amber-400' };
 
 function DirIcon({ direction }) {
   const cls = direction === 'Bullish' ? 'bg-emerald-500/15 text-emerald-400' : direction === 'Bearish' ? 'bg-rose-500/15 text-rose-400' : 'bg-slate-700/40 text-slate-400';
@@ -117,55 +117,210 @@ function PatternCard({ p, selected, onSelect }) {
   );
 }
 
-function DetailPanel({ p, onOpenChart, baseline }) {
-  if (!p) {
-    return <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">Select a pattern card to see its chart, levels and how it is defined.</div>;
+const STOP_RULE = {
+  'Double Top': 'above the tops + 0.25 ATR', 'Double Bottom': 'below the lows − 0.25 ATR',
+  'Triple Top': 'above the tops + 0.25 ATR', 'Triple Bottom': 'below the lows − 0.25 ATR',
+  'Head & Shoulders': 'above the right shoulder + 0.25 ATR', 'Inverse Head & Shoulders': 'below the right shoulder − 0.25 ATR',
+  'Rectangle': 'the opposite side of the box ± 0.25 ATR',
+  'Bull Flag': 'below the flag + 0.25 ATR', 'Bear Flag': 'above the flag + 0.25 ATR',
+  'Bull Pennant': 'below the pennant + 0.25 ATR', 'Bear Pennant': 'above the pennant + 0.25 ATR',
+  'Rounded Top': 'above the apex + 0.25 ATR', 'Rounded Bottom': 'below the apex − 0.25 ATR',
+  'Cup & Handle': 'below the handle low − 0.25 ATR',
+};
+const STOP_RULE_DEFAULT = 'beyond the far trendline, at least 1 ATR (and 35% of the pattern width) from the trigger';
+const TARGET_RULE = {
+  'Bull Flag': 'pole height', 'Bear Flag': 'pole height', 'Bull Pennant': 'pole height', 'Bear Pennant': 'pole height',
+  'Cup & Handle': 'cup depth', 'Rounded Top': 'curve height', 'Rounded Bottom': 'curve height',
+};
+
+function familyBlurb(p) {
+  const lead = p.prior_trend === 'up' ? 'up' : p.prior_trend === 'down' ? 'down' : null;
+  if (p.family === 'Reversal') return lead ? `Price was moving ${lead} into this pattern, and it points the other way. It is a turn against that move.` : 'It points against the move that led into it: a turn, not a pause.';
+  if (p.family === 'Continuation') return lead ? `Price was moving ${lead} into this pattern, and it points the same way: the move pauses, then resumes.` : 'It points the same way as the move that led into it: a pause, then a resume.';
+  if (p.family === 'Range') return 'Price is boxed inside a channel or range. No trend is being claimed: it only matters if price leaves the box.';
+  return 'A rounded turn rather than a sharp one — price curves from one side to the other.';
+}
+
+function whyItReads(p) {
+  if (p.status === 'Forming' || p.broke_date == null) {
+    return p.trigger != null ? `No decisive close beyond ${fmtPrice(p.trigger)} yet — it is still forming. ${p.direction === 'Bearish' ? 'A daily close below' : 'A daily close above'} that level, by at least 0.15 ATR, would confirm it.` : 'It is a range with no trigger: it only matters if price leaves the box.';
   }
-  const stat = (label, value, sub) => (
-    <div className="rounded-lg bg-slate-800/40 border border-slate-700/50 p-2">
-      <div className="text-[9px] tracking-wide text-slate-500 uppercase">{label}</div>
-      <div className="text-xs font-semibold text-white">{value}</div>
-      {sub && <div className="text-[9px] text-slate-500">{sub}</div>}
+  const dir = p.direction === 'Bearish' ? 'below' : 'above';
+  const vol = p.volume_confirmed ? 'on above-average volume' : 'on ordinary volume';
+  if (p.status === 'Confirmed') {
+    return `Price closed decisively beyond the level, stayed beyond it ${p.bars_since_break > 0 ? 'in the bars after' : 'on the latest close'}, ${p.volume_confirmed ? 'and volume expanded on the break' : 'but volume did not expand on the break'}. Closed ${dir} ${fmtPrice(p.trigger)}, on ${p.broke_date}, ${vol}${p.bars_since_break > 0 ? ', and held for the sessions right after' : ''}.`;
+  }
+  return `Price broke ${dir} ${fmtPrice(p.trigger)} on ${p.broke_date}, ${vol}, but has since closed back inside (or hit the stop), so the pattern is marked Failed.`;
+}
+
+function pastText(x) {
+  const res = x.outcome === 'target' ? `reached its target in ${x.bars} sessions` : x.outcome === 'stop' ? `hit its stop after ${x.bars} sessions` : 'did neither within 40 sessions';
+  return `${x.break_date} · ${x.name} (${x.direction}) — ${res}`;
+}
+
+function BaseRates({ p, rates, universeLabel }) {
+  const own = rates?.[`${p.name}|${p.direction}`];
+  const fam = rates?.[`family:${p.family}|${p.direction}`];
+  const MIN_N = 15;
+  const r = own && own.n >= MIN_N ? own : fam && fam.n >= MIN_N ? fam : null;
+  const scope = r === own ? `${r.n} confirmed ${p.name} (${p.direction.toLowerCase()}) breaks` : r ? `${r.n} confirmed ${p.family.toLowerCase()} ${p.direction.toLowerCase()} breaks (all pattern types — too few of this exact one)` : null;
+  const pct = (v) => `${Math.round(v * 100)}%`;
+  if (!r) {
+    return (
+      <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-2.5 text-[11px] text-slate-500">
+        Not enough comparable breaks in this scan to quote a rate{own ? ` (only ${own.n} ${p.name} so far)` : ''}. Rates come from this app’s own scans (about a year of daily candles per stock) and need at least {MIN_N} instances; scan a bigger universe such as Nifty 500 to build the sample.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-1.5">
+      <div className="grid grid-cols-4 gap-1.5">
+        {[['Hit target', pct(r.hit_target), `before stop · ${r.horizon} sessions`], ['Hit 2× height', pct(r.double), 'ran twice the pattern height'],
+          ['Typical time', r.median_bars_to_target != null ? `~${r.median_bars_to_target}` : '—', 'sessions to target'], ['Stopped first', pct(r.hit_stop), 'touched the stop first']].map(([k, v, sub]) => (
+          <div key={k} className="rounded-lg bg-slate-800/40 border border-slate-700/50 p-2">
+            <div className="text-[9px] tracking-wide text-slate-500 uppercase leading-tight">{k}</div>
+            <div className="text-sm font-bold text-white">{v}</div>
+            <div className="text-[9px] text-slate-500 leading-tight">{sub}</div>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] leading-relaxed text-slate-500">
+        {pct(r.pullback)} pulled back to the breakout level within 10 sessions, so a retest is normal rather than a failed break. Based on {scope} found in {universeLabel} over roughly the last year,
+        measured walk-forward without hindsight (entry at the close of the break bar), gross of costs. A small, one-regime sample — not a forecast for this stock.
+      </p>
     </div>
   );
+}
+
+function DetailPanel({ p, onOpenChart, baseline, rates, universeLabel }) {
+  if (!p) {
+    return <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">Select a pattern card to see its chart, levels, how it is defined and how similar breaks played out.</div>;
+  }
+  const stat = (label, value, sub) => (
+    <div className="rounded-lg bg-slate-800/40 border border-slate-700/50 p-2 min-w-0">
+      <div className="text-[9px] tracking-wide text-slate-500 uppercase">{label}</div>
+      <div className="text-xs font-semibold text-white break-words">{value}</div>
+      {sub && <div className="text-[9px] text-slate-500 break-words">{sub}</div>}
+    </div>
+  );
+  const bear = p.direction === 'Bearish';
+  const yrs = p.history_bars ? (p.history_bars / 250).toFixed(1) : null;
+  const legend = legendFor(p);
+  const hasLevels = p.target != null && p.stop != null;
+  const volLine = p.broke_date == null ? 'Not broken out yet' : p.volume_confirmed ? 'Broke out on above-average volume' : 'No volume expansion on the break';
+  const pctTxt = p.pct_vs_trigger != null ? `${p.pct_vs_trigger >= 0 ? '+' : '−'}${Math.abs(p.pct_vs_trigger).toFixed(1)}% vs ${bear ? 'breakdown' : 'breakout'}` : '';
+  const title = p.direction === 'Neutral' ? p.name : `${p.direction} ${p.name}`;
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 space-y-3">
+    <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 space-y-3 max-h-[calc(100vh-1rem)] overflow-y-auto">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-sm font-bold text-white">{p.symbol}</div>
-          <div className="text-[11px] text-slate-500 truncate">{p.company}</div>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 text-[11px] font-bold text-slate-300 flex items-center justify-center shrink-0">{p.symbol.slice(0, 2)}</span>
+          <div className="min-w-0">
+            <div className="text-sm font-bold text-white">{p.symbol}</div>
+            <div className="text-[11px] text-slate-500 truncate">{p.company}</div>
+          </div>
         </div>
-        <button onClick={() => onOpenChart(p.symbol)} className="text-[11px] px-2.5 py-1 rounded-lg border border-slate-600 text-slate-300 hover:border-slate-400 shrink-0">Stock page ↗</button>
+        <button onClick={() => onOpenChart(p.symbol)} className="text-[11px] px-2.5 py-1 rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 shrink-0">Stock page ↗</button>
       </div>
+
       <div className="grid grid-cols-3 gap-1.5">
         {stat('Last close', fmtPrice(p.last_close), p.data_through)}
-        {stat('Pattern spans', `${p.span_bars} candles`, '1D')}
-        {stat('Sector', p.sector || '—')}
+        {stat('History', yrs ? `${yrs}y` : '—', `${p.history_bars || '—'} daily candles`)}
+        {stat('Patterns', p.stock?.patterns ?? '—', 'in this scan')}
+        {stat('Confirmed', <span className="text-emerald-400">{p.stock?.confirmed ?? '—'}</span>, 'held the break')}
+        {stat('Forming', p.stock?.forming ?? '—', 'not yet broken out')}
+        {stat('Timeframe', 'Daily', 'only')}
       </div>
+
       <div>
         <div className="flex items-center gap-1.5 flex-wrap">
           <DirIcon direction={p.direction} />
-          <span className="text-sm font-bold text-white">{p.name}</span>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${STATUS_CLS[p.status]}`}>{p.status}</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 text-slate-400">{p.direction}</span>
+          <span className="text-sm font-bold text-white">{title}{p.unresolved ? ' (unresolved range)' : ''}</span>
         </div>
-        <div className="mt-2 rounded-lg bg-slate-950/50 border border-slate-800 overflow-hidden" style={{ aspectRatio: '560 / 300' }}>
+        <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+          <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 text-slate-400">{p.direction}</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 text-slate-400">1D</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full border ${STATUS_CLS[p.status]}`}>{p.status}</span>
+          {p.below_bar && <span className="text-[10px] px-2 py-0.5 rounded-full border border-amber-500/50 text-amber-300 bg-amber-500/10">Below the quality bar</span>}
+        </div>
+        <div className="mt-2 rounded-lg bg-slate-950/50 border border-slate-800 overflow-hidden" style={{ aspectRatio: '600 / 330' }}>
           <PatternChart pattern={p} large />
         </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+          {legend.map((it) => (
+            <span key={it.label} className="inline-flex items-center gap-1.5 text-[10px] text-slate-400">
+              <svg width="18" height="6"><line x1="0" y1="3" x2="18" y2="3" stroke={it.color} strokeWidth="2" strokeDasharray={it.dash || undefined} /></svg>{it.label}
+            </span>
+          ))}
+        </div>
+        <p className="text-[10px] text-slate-600 mt-1">Lines are fitted through swing highs and lows (the candle wicks) — judged by the detector, not drawn by hand.</p>
       </div>
-      <p className="text-[11px] leading-relaxed text-slate-400">{DESCRIPTIONS[p.name] || ''}</p>
-      <Levels p={p} />
+
       <div className="grid grid-cols-2 gap-1.5">
         {stat('Completed', ago(p.bars_ago), p.end_date)}
-        {stat('R:R', p.rr != null ? `1 : ${p.rr}` : '—', p.volume_confirmed ? 'breakout on ≥1.5× volume' : 'no volume confirmation')}
-        {stat('Shape quality', <span className={QUALITY_CLS[p.quality]}>{p.quality} · {p.score}</span>, 'fit to the textbook shape — not a success rate')}
-        {stat('Family', p.family)}
+        {stat('Spans', `${p.span_bars} daily candles`)}
+        {stat('Broke out', p.broke_date ? (p.bars_since_break === 0 ? 'on the latest candle' : `${p.bars_since_break} daily candle${p.bars_since_break === 1 ? '' : 's'} ago`) : 'Not yet', p.broke_date)}
+        {stat('Last close', `${fmtPrice(p.last_close)}`, pctTxt)}
+        {stat('Shape quality', <span className={QUALITY_CLS[p.quality]}>{p.quality} · {p.score}</span>, '(not a success rate)')}
+        {stat('Volume', volLine)}
       </div>
+
+      <div>
+        <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1">{p.family}</div>
+        <p className="text-[11px] leading-relaxed text-slate-300">{familyBlurb(p)}</p>
+      </div>
+
+      <div>
+        <div className="grid grid-cols-4 gap-1.5 text-center">
+          {[[bear ? 'Breakdown' : 'Breakout', p.trigger, 'text-amber-400', bear ? 'close below' : 'close above', true],
+            ['Target', p.target, 'text-emerald-400', TARGET_RULE[p.name] || 'measured move', hasLevels],
+            ['Stop', p.stop, 'text-rose-400', 'family rule', hasLevels],
+            ['R : R', p.rr != null ? `1 : ${p.rr}` : null, 'text-slate-200', 'geometry only', hasLevels]].map(([k, v, cls, sub, show]) => (
+            <div key={k} className="rounded-lg bg-slate-800/50 border border-slate-700/60 py-1.5 px-1">
+              <div className="text-[9px] tracking-wide text-slate-500 uppercase">{k}</div>
+              <div className={`text-xs font-bold ${show ? cls : 'text-slate-500'}`}>{show && v != null ? (typeof v === 'number' ? fmtPrice(v) : v) : '—'}</div>
+              <div className="text-[9px] text-slate-500">{show ? sub : ''}</div>
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] leading-relaxed text-slate-500 mt-1.5">
+          Levels are the detector’s own output as of {p.data_through || 'the latest candle'} — not a live price and not a recommendation. R:R describes the structure’s geometry, not a fill.
+          {hasLevels && ` Stop: ${STOP_RULE[p.name] || STOP_RULE_DEFAULT}; never closer than 1 ATR to the trigger.`}
+          {!hasLevels && ' Channels are ranges, so no target or stop is drawn.'}
+        </p>
+      </div>
+
+      <div>
+        <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1">Why it reads this way</div>
+        <p className="text-[11px] leading-relaxed text-slate-400">{DESCRIPTIONS[p.name] || ''}</p>
+        <p className="text-[11px] leading-relaxed text-slate-300 mt-1.5">{whyItReads(p)}</p>
+      </div>
+
+      {p.confluence && p.confluence.length > 0 && (
+        <div>
+          <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1">Confluence · candle {p.broke_date ? 'on the break' : 'today'}</div>
+          <div className="flex flex-wrap gap-1.5">{p.confluence.map((c) => <span key={c} className="text-[10px] px-2 py-0.5 rounded-full border border-slate-700 text-slate-300">{c}</span>)}</div>
+        </div>
+      )}
+
+      <div>
+        <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1">What usually happens next · base rates</div>
+        <BaseRates p={p} rates={rates} universeLabel={universeLabel} />
+      </div>
+
+      <div>
+        <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1">Earlier patterns on {p.symbol}</div>
+        {p.past && p.past.length > 0 ? (
+          <ul className="space-y-1">{p.past.map((x, i) => <li key={i} className="text-[11px] text-slate-400">• {pastText(x)}</li>)}</ul>
+        ) : (
+          <p className="text-[11px] text-slate-500">No earlier confirmed pattern on this stock in the history scanned.</p>
+        )}
+      </div>
+
       {baseline && (
         <p className="text-[10px] leading-relaxed text-slate-500 border-t border-slate-800 pt-2">
           Reality check: this detector also finds a Fair-or-better shape in {Math.round(baseline.fair_plus * 100)}% of <em>random-walk</em> charts
-          ({Math.round(baseline.strong_plus * 100)}% Strong-or-better, {Math.round(baseline.textbook * 100)}% Textbook). These patterns have not been back-tested here.
-          Treat a card as a chart worth looking at, not a signal.
+          ({Math.round(baseline.strong_plus * 100)}% Strong-or-better, {Math.round(baseline.textbook * 100)}% Textbook). Treat a card as a chart worth looking at, not a signal.
         </p>
       )}
     </div>
@@ -182,6 +337,7 @@ export default function ChartPatterns({ onOpenChart }) {
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [scanMsg, setScanMsg] = useState(null);
+  const [analysis, setAnalysis] = useState(null);   // { sym, loading, error, data } -- single-stock, relaxed, on demand
   const reqId = useRef(0);
 
   const setF = (patch) => setFilters((f) => ({ ...f, ...patch }));
@@ -215,6 +371,7 @@ export default function ChartPatterns({ onOpenChart }) {
   }, [load, filters.q]);
 
   useEffect(() => { try { localStorage.setItem('fo-radar-pattern-universe', universe); } catch { /* ignore */ } setSelected(null); }, [universe]);
+  useEffect(() => { setAnalysis(null); }, [filters.q, universe]);
 
   const scanState = data?.scan?.state;
   const running = scanState === 'running';
@@ -234,6 +391,14 @@ export default function ChartPatterns({ onOpenChart }) {
       .catch((e) => setScanMsg(e.message));
   };
 
+  const analyze = (sym) => {
+    setAnalysis({ sym, loading: true });
+    fetch(`${API_BASE}/api/chart-patterns/symbol/${encodeURIComponent(sym)}/?universe=${universe}`)
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => setAnalysis(ok ? { sym, data: j } : { sym, error: j.error || 'Could not analyze this stock.' }))
+      .catch((e) => setAnalysis({ sym, error: e.message }));
+  };
+
   const loadMore = () => {
     setLoadingMore(true);
     fetch(buildUrl(items.length))
@@ -243,6 +408,7 @@ export default function ChartPatterns({ onOpenChart }) {
   };
 
   const scan = data?.scan || {};
+  const universeLabel = (UNIVERSES.find((u) => u.key === universe) || {}).label || universe;
   const fac = data?.facets || { family: {}, direction: {}, status: {}, quality: {} };
   const pct = scan.total ? Math.min(100, Math.round((scan.scanned / scan.total) * 100)) : 0;
   const q = filters.quality;
@@ -307,7 +473,7 @@ export default function ChartPatterns({ onOpenChart }) {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[230px_minmax(0,1fr)_340px]">
+      <div className="grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[230px_minmax(0,1fr)_400px] 2xl:grid-cols-[230px_minmax(0,1fr)_470px]">
         {/* filters */}
         <aside className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 space-y-4 self-start">
           <div className="flex items-center justify-between">
@@ -376,11 +542,47 @@ export default function ChartPatterns({ onOpenChart }) {
           </div>
           {loading && <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-72 rounded-xl bg-slate-800/30 animate-pulse border border-slate-700/30" />)}</div>}
           {error && <div className="text-center text-rose-400 text-sm py-8">⚠ {error}</div>}
-          {!loading && !error && items.length === 0 && (
+          {!loading && !error && items.length === 0 && !filters.q.trim() && (
             <div className="text-center text-slate-500 text-sm py-12">
               {data?.all_patterns ? 'No patterns match these filters.' : scanState === 'running' ? 'Scanning — patterns appear here as they are found.' : 'Nothing here yet — press “Scan now” above.'}
             </div>
           )}
+          {!loading && !error && items.length === 0 && filters.q.trim() && (() => {
+            const sym = filters.q.trim().toUpperCase().replace(/[^A-Z0-9&-]/g, '');
+            const filtered = filters.family || filters.direction || filters.status || filters.quality || filters.within || filters.volume;
+            return (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-2">
+                  <div className="text-sm text-white font-semibold">No “{filters.q.trim()}” pattern in the {universeLabel} scan{filtered ? ' with these filters' : ''}.</div>
+                  <p className="text-[11px] leading-relaxed text-slate-400">
+                    {filtered ? 'Your filters may be hiding it — try Reset. Otherwise, the' : 'The'} stock was either scanned and nothing met the quality bar, is not in this universe, or the scan hasn’t reached it yet.
+                    The scan only keeps Fair-or-better shapes; you can analyze this one stock now, including weaker candidates.
+                  </p>
+                  {sym && (
+                    <button onClick={() => analyze(sym)} disabled={analysis?.loading}
+                      className="text-[11px] px-3 py-1.5 rounded-lg border border-sky-500/50 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 disabled:opacity-50 flex items-center gap-1.5">
+                      {analysis?.loading && <span className="inline-block w-2.5 h-2.5 rounded-full border border-sky-400 border-t-white animate-spin" />}
+                      Analyze {sym} now
+                    </button>
+                  )}
+                </div>
+                {analysis?.error && <div className="text-[11px] text-amber-400">{analysis.error}</div>}
+                {analysis?.data && (
+                  <>
+                    <div className="text-[11px] text-slate-400">{analysis.data.analysis.message} <span className="text-slate-600">({analysis.data.history_bars} daily candles fetched)</span></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">
+                      {analysis.data.patterns.map((p) => (
+                        <div key={p.id} className="relative">
+                          {p.below_bar && <span className="absolute -top-2 left-3 z-10 text-[9px] px-2 py-0.5 rounded-full border border-amber-500/50 bg-slate-900 text-amber-300">Below the quality bar</span>}
+                          <PatternCard p={p} selected={selected?.id === p.id} onSelect={setSelected} />
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
           {!loading && !error && items.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3">
@@ -399,12 +601,12 @@ export default function ChartPatterns({ onOpenChart }) {
 
         {/* detail */}
         <aside className="hidden xl:block self-start sticky top-2">
-          <DetailPanel p={selected} onOpenChart={onOpenChart} baseline={data?.baseline} />
+          <DetailPanel p={selected} onOpenChart={onOpenChart} baseline={data?.baseline} rates={data?.base_rates} universeLabel={universeLabel} />
         </aside>
       </div>
 
       {/* below xl the detail panel sits under the grid when something is selected */}
-      {selected && <div className="xl:hidden"><DetailPanel p={selected} onOpenChart={onOpenChart} baseline={data?.baseline} /></div>}
+      {selected && <div className="xl:hidden"><DetailPanel p={selected} onOpenChart={onOpenChart} baseline={data?.baseline} rates={data?.base_rates} universeLabel={universeLabel} /></div>}
     </div>
   );
 }

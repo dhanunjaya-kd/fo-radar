@@ -19,6 +19,7 @@ import time
 from datetime import datetime
 
 from . import chart_patterns as cp
+from . import pattern_backtest as pb
 
 RUNTIME_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "runtime")
 CONTEXT_BARS = 8          # candles of context drawn before a pattern starts
@@ -40,11 +41,26 @@ def _date(ts):
         return None
 
 
-def payloads_for_symbol(symbol, o, h, l, c, v, ts):
-    """Detect and return drawable pattern payloads for one symbol (completed daily candles, oldest first)."""
+def _confluence(o, h, l, c, idx):
+    """Single/multi-candle candlestick patterns on candle `idx` (the break candle, else the latest)."""
+    try:
+        import pandas as pd
+        from .candlestick_patterns import detect_patterns
+        lo = max(0, idx - 7)
+        df = pd.DataFrame({"Open": o[lo:idx + 1], "High": h[lo:idx + 1], "Low": l[lo:idx + 1], "Close": c[lo:idx + 1]})
+        return list(detect_patterns(df))
+    except Exception:
+        return []
+
+
+def payloads_for_symbol(symbol, o, h, l, c, v, ts, relaxed=False):
+    """
+    Detect and return drawable pattern payloads for one symbol (completed daily candles, oldest first).
+    relaxed=True also returns weaker candidates (flagged below_bar) for an explicit single-stock look.
+    """
     if len(c) < MIN_HISTORY:
         return None  # not enough history -- distinct from "scanned, nothing found" ([])
-    found = cp.detect(o, h, l, c, v)
+    found = cp.detect(o, h, l, c, v, relaxed=relaxed)
     n = len(c)
     out = []
     for p in found:
@@ -62,15 +78,25 @@ def payloads_for_symbol(symbol, o, h, l, c, v, ts):
             "end_date": _date(ts[p["end_i"]]) if ts else None, "data_through": _date(ts[-1]) if ts else None,
             "window_start": _date(ts[w0]) if ts else None,
             "candles": [[r2(o[i]), r2(h[i]), r2(l[i]), r2(c[i])] for i in range(w0, n)],
+            "start_x": p["start_i"] - w0, "end_x": p["end_i"] - w0,
+            "volumes": [int(v[i]) for i in range(w0, n)] if v else None,
+            "history_bars": n, "prior_trend": p.get("prior_trend"), "touches": p.get("touches"),
+            "below_bar": p["score"] < (cp.MIN_SCORE if p["name"] not in cp.LINE_NAMES else cp.LINE_MIN_SCORE),
+            "confluence": _confluence(o, h, l, c, p["broke_i"] if p.get("broke_i") is not None else n - 1),
             "lines": [{"kind": ln["kind"], "x1": ln["x1"] - w0, "y1": r2(ln["y1"]), "x2": ln["x2"] - w0, "y2": r2(ln["y2"])} for ln in p["lines"]],
-            "markers": [{"x": m["x"] - w0, "y": r2(m["y"]), "label": m["label"]} for m in p["markers"]],
+            "markers": [{"x": m["x"] - w0, "y": r2(m["y"]), "label": m["label"], "side": m.get("side")} for m in p["markers"]],
         }
         if p.get("curve"):
             item["curve"] = [{"x": pt["x"] - w0, "y": r2(pt["y"])} for pt in p["curve"]]
         if p.get("broke_i") is not None:
             item["broke_x"] = p["broke_i"] - w0
+            item["broke_date"] = _date(ts[p["broke_i"]]) if ts else None
+            item["bars_since_break"] = n - 1 - p["broke_i"]
         out.append(item)
     return out
+
+
+_BULKY = ("patterns", "rates", "past", "instances")
 
 
 def status(universe):
@@ -78,7 +104,21 @@ def status(universe):
         st = _state.get(universe)
         if st is None:
             st = _load_locked(universe)
-        return {k: v for k, v in (st or {}).items() if k != "patterns"} or {"universe": universe, "state": "never", "scanned": 0, "total": 0}
+        return {k: v for k, v in (st or {}).items() if k not in _BULKY} or {"universe": universe, "state": "never", "scanned": 0, "total": 0}
+
+
+def rates(universe):
+    """Walk-forward base rates measured on this universe's own history (see pattern_backtest.py)."""
+    with _lock:
+        st = _state.get(universe) or _load_locked(universe)
+        return dict((st or {}).get("rates", {}))
+
+
+def past(universe, symbol):
+    """Earlier confirmed instances of any pattern on this symbol, newest first, with how each one played out."""
+    with _lock:
+        st = _state.get(universe) or _load_locked(universe)
+        return list(((st or {}).get("past") or {}).get(symbol, []))
 
 
 def patterns(universe):
@@ -109,7 +149,7 @@ def _save(universe, st):
         print(f"[PatternScan] could not persist {universe}: {exc}")
 
 
-def run_scan(universe, symbols, history_fn, should_pause=None, sleep=time.sleep, max_pause_s=120):
+def run_scan(universe, symbols, history_fn, should_pause=None, sleep=time.sleep, max_pause_s=120, backtest=True):
     """
     Synchronous scan body (the thread wraps this). history_fn(symbol) -> (o,h,l,c,v,ts) lists or None.
     should_pause() -> True while the data source is rate-limited; the scan waits instead of burning calls.
@@ -117,7 +157,7 @@ def run_scan(universe, symbols, history_fn, should_pause=None, sleep=time.sleep,
     started = time.time()
     st = {"universe": universe, "state": "running", "total": len(symbols), "scanned": 0, "with_patterns": 0,
           "failed": 0, "skipped_short": 0, "started_at": datetime.now().isoformat(timespec="seconds"),
-          "finished_at": None, "elapsed_s": 0, "data_through": None, "patterns": []}
+          "finished_at": None, "elapsed_s": 0, "data_through": None, "patterns": [], "instances": []}
     with _lock:
         _state[universe] = st
     for k, sym in enumerate(symbols):
@@ -130,34 +170,48 @@ def run_scan(universe, symbols, history_fn, should_pause=None, sleep=time.sleep,
         except Exception as exc:
             print(f"[PatternScan] {sym} history failed: {exc}")
             series = None
+        found, inst, failed = None, [], series is None
+        if series is not None:
+            try:
+                found = payloads_for_symbol(sym, *series)          # CPU work happens outside the lock
+            except Exception as exc:
+                print(f"[PatternScan] {sym} detection failed: {exc}")
+                failed = True
+            if backtest and found is not None and not failed:
+                try:
+                    inst = pb.instances(sym, *series)
+                except Exception as exc:
+                    print(f"[PatternScan] {sym} walk-forward failed: {exc}")
         with _lock:
             st["scanned"] = k + 1
             st["elapsed_s"] = int(time.time() - started)
-            if series is None:
+            if failed:
                 st["failed"] += 1
-                continue
-            try:
-                found = payloads_for_symbol(sym, *series)
-            except Exception as exc:
-                print(f"[PatternScan] {sym} detection failed: {exc}")
-                st["failed"] += 1
-                continue
-            if found is None:
+            elif found is None:
                 st["skipped_short"] += 1
-                continue
-            if found:
-                st["with_patterns"] += 1
-                st["patterns"].extend(found)
-                st["data_through"] = max(filter(None, [st["data_through"], found[0]["data_through"]]), default=None)
+            else:
+                st["instances"].extend(inst)
+                if found:
+                    st["with_patterns"] += 1
+                    st["patterns"].extend(found)
+                    st["data_through"] = max(filter(None, [st["data_through"], found[0]["data_through"]]), default=None)
         if (k + 1) % 150 == 0:
             with _lock:
-                snap = dict(st, state="partial")
+                snap = {**st, "state": "partial", "patterns": list(st["patterns"]), "instances": []}
             _save(universe, snap)
     with _lock:
+        instances = st.pop("instances", [])
+        st["instance_count"] = len(instances)
+        st["rates"] = pb.aggregate(instances)
+        by_sym = {}
+        for x in sorted(instances, key=lambda x: x.get("break_date") or "", reverse=True):
+            by_sym.setdefault(x["symbol"], []).append(
+                {k2: x.get(k2) for k2 in ("name", "direction", "break_date", "outcome", "bars", "family")})
+        st["past"] = {k2: v2[:6] for k2, v2 in by_sym.items()}
         st["state"] = "done"
         st["finished_at"] = datetime.now().isoformat(timespec="seconds")
         st["elapsed_s"] = int(time.time() - started)
-        snap = dict(st)
+        snap = {**st, "patterns": list(st["patterns"])}
     _save(universe, snap)
     return st
 

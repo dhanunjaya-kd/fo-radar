@@ -31,7 +31,7 @@ METHOD NOTES
   price-inverted series; the inverted hits are mapped back (Double Top ->
   Double Bottom, Rising Wedge -> Falling Wedge, ...). One set of detectors,
   guaranteed mirror symmetry.
-* Pivots must be CONFIRMED (price moved >= PIVOT_ATR x ATR away from them),
+* Pivots must be CONFIRMED (price moved >= the pivot scale x ATR away from them),
   so a pattern appears a few bars later than a human might call it. That
   lag is the price of not repainting.
 * Status follows the usual definitions: Forming = no decisive close beyond
@@ -39,12 +39,28 @@ METHOD NOTES
   still holds on the latest close; Failed = it broke out then closed back
   inside, or price hit the stop first.
 """
+import contextvars
 import math
 
-PIVOT_ATR = 2.0          # swing must retrace this many ATRs to count as a pivot
+PIVOT_ATRS = (2.0, 3.0)  # swing scales: a swing must retrace this many ATRs to count as a pivot (the wider
+                         # scale hides micro-wiggles so long, slow patterns -- 6-month rectangles -- become visible)
 MIN_SCORE = 60           # below this a candidate is not reported
+LINE_MIN_SCORE = 70      # trendline shapes (triangles, wedges, channels, rectangles) get a higher floor: with
+                         # 3-4 pivots per line there are many ways to fit a line, so lucky fits are common in noise
 BREAK_ATR = 0.15         # close beyond trigger by this many ATRs = decisive
 LABELS = ((88, "Textbook"), (75, "Strong"), (60, "Fair"))
+RELAXED = (50, 58)       # (min score, line-pattern min score) when a user explicitly asks for weaker candidates
+_THRESH = contextvars.ContextVar("chart_pattern_thresholds", default=None)
+
+
+def _min_score():
+    t = _THRESH.get()
+    return t[0] if t else MIN_SCORE
+
+
+def _line_min():
+    t = _THRESH.get()
+    return t[1] if t else LINE_MIN_SCORE
 
 # bearish-frame name -> bullish-frame name (used when detecting on the inverted series)
 _MIRROR = {
@@ -54,6 +70,8 @@ _MIRROR = {
     "Bear Pennant": "Bull Pennant", "Rounded Top": "Rounded Bottom",
     "Symmetrical Triangle": "Symmetrical Triangle", "Ascending Channel": "Descending Channel",
 }
+LINE_NAMES = {"Descending Triangle", "Ascending Triangle", "Symmetrical Triangle", "Rising Wedge", "Falling Wedge",
+              "Rectangle", "Ascending Channel", "Descending Channel"}
 _FAMILY = {
     "Double Top": "Reversal", "Double Bottom": "Reversal", "Triple Top": "Reversal", "Triple Bottom": "Reversal",
     "Head & Shoulders": "Reversal", "Inverse Head & Shoulders": "Reversal",
@@ -180,7 +198,7 @@ def _label(score):
     for floor, name in LABELS:
         if score >= floor:
             return name
-    return None
+    return "Weak" if _THRESH.get() else None
 
 
 def _mk(name, direction, score, a, c, end_i, start_i, trig, stop, target_fn, lines, markers, v=None, vol_avg=None, extra=None):
@@ -210,7 +228,7 @@ def _mk(name, direction, score, a, c, end_i, start_i, trig, stop, target_fn, lin
         "target": round(target, 2) if target is not None else None,
         "rr": rr, "pct_vs_trigger": round((c[-1] / trig_now - 1) * 100, 1) if trig_now else None,
         "volume_confirmed": vol_ok, "broke_i": broke,
-        "lines": lines, "markers": markers,
+        "lines": lines, "markers": markers, "prior_trend": _prior_trend(c, start_i, a),
     }
     if extra:
         out.update(extra)
@@ -221,7 +239,7 @@ def _mk(name, direction, score, a, c, end_i, start_i, trig, stop, target_fn, lin
 # detectors -- all written for the "bearish / neutral" frame
 # ---------------------------------------------------------------------------
 def _peak_tol(a, price):
-    return max(0.7 * a, 0.010 * price)
+    return max(0.6 * a, 0.009 * price)
 
 
 def _double_top(P, h, l, c, v, a, n, vol_avg):
@@ -234,7 +252,7 @@ def _double_top(P, h, l, c, v, a, n, vol_avg):
         tol = _peak_tol(a, (h1 + h2) / 2)
         depth = (h1 + h2) / 2 - neck
         sep = p2["i"] - p0["i"]
-        if abs(h1 - h2) > tol or depth < 3.0 * a or not (10 <= sep <= 80) or n - 1 - p2["i"] > 30:
+        if abs(h1 - h2) > tol or depth < 3.5 * a or not (10 <= sep <= 120) or n - 1 - p2["i"] > 30:
             continue
         if _prior_trend(c, p0["i"], a) != "up":
             continue
@@ -266,7 +284,7 @@ def _triple_top(P, h, l, c, v, a, n, vol_avg):
             continue
         neck = min(ls)
         depth = sum(hs) / 3 - neck
-        if depth < 2.0 * a or q[4]["i"] - q[0]["i"] > 100 or n - 1 - q[4]["i"] > 30:
+        if depth < 2.0 * a or q[4]["i"] - q[0]["i"] > 150 or n - 1 - q[4]["i"] > 30:
             continue
         if _prior_trend(c, q[0]["i"], a) != "up":
             continue
@@ -295,7 +313,7 @@ def _head_shoulders(P, h, l, c, v, a, n, vol_avg):
             continue
         if abs(ls_ - rs) > 0.35 * height or abs(n1["p"] - n2["p"]) > 0.4 * height:
             continue
-        if q[4]["i"] - q[0]["i"] > 110 or n - 1 - q[4]["i"] > 30 or _prior_trend(c, q[0]["i"], a) != "up":
+        if q[4]["i"] - q[0]["i"] > 160 or n - 1 - q[4]["i"] > 30 or _prior_trend(c, q[0]["i"], a) != "up":
             continue
         m, b, _ = _fit([(n1["i"], n1["p"]), (n2["i"], n2["p"])])
         neckline = lambda j, m=m, b=b: m * j + b
@@ -318,7 +336,7 @@ def _line_patterns(P, h, l, c, v, a, n, vol_avg, original_frame):
     if len(P) < 5:
         return out
     seen = set()
-    windows = [(st, en) for en in (len(P), len(P) - 1, len(P) - 2) for st in range(max(0, en - 9), en - 4)]
+    windows = [(st, en) for en in (len(P), len(P) - 1, len(P) - 2) for st in range(max(0, en - 13), en - 4)]
     for start, end in windows:
         sub = P[start:end]
         if len(sub) < 5:
@@ -328,26 +346,35 @@ def _line_patterns(P, h, l, c, v, a, n, vol_avg, original_frame):
         if len(Hs) < 2 or len(Ls) < 2:
             continue
         i0, i1 = sub[0]["i"], sub[-1]["i"]
-        span = i1 - i0
-        if not (15 <= span <= 90) or n - 1 - i1 > 20:
-            continue
         mu, bu, ru = _fit(Hs)
         ml, bl, rl = _fit(Ls)
         upper = lambda j, mu=mu, bu=bu: mu * j + bu
         lower = lambda j, ml=ml, bl=bl: ml * j + bl
+        # Price often sits ON a line for weeks without bouncing far enough to confirm another
+        # pivot (e.g. pinned on support before a break). Extend the pattern's end through bars that
+        # touch a line while closing inside the band; stop at the first decisive close beyond it
+        # so the break itself is still seen by the status logic.
+        for j in range(i1 + 1, n):
+            if c[j] > upper(j) + BREAK_ATR * a or c[j] < lower(j) - BREAK_ATR * a:
+                break
+            if h[j] >= upper(j) - 0.35 * a or l[j] <= lower(j) + 0.35 * a:
+                i1 = j
+        span = i1 - i0
+        if not (15 <= span <= 220) or n - 1 - i1 > 40:
+            continue
         w0, w1 = upper(i0) - lower(i0), upper(i1) - lower(i1)
         if w0 <= 0.5 * a or w1 <= 0.3 * a:
             continue
         su, sl = mu * span / a, ml * span / a          # total drift over the span, in ATRs
         r = w1 / w0
         frac_out = _frac_outside(c, i0, min(n - 1, i1), upper, lower, 0.3 * a)
-        if frac_out > 0.15:
+        if frac_out > 0.12:
             continue
         if w0 < 3 * a:
             continue                                   # too small to be a pattern rather than noise
         # fit is judged against the band's own width (a 0.5 ATR scatter is fine in a 6 ATR band, not in a 2 ATR one)
         fit_rel = (ru + rl) / 2 / ((w0 + w1) / 2)
-        fit_q = 1 - _clamp01(fit_rel / 0.08)
+        fit_q = 1 - _clamp01(fit_rel / 0.06)
         cont_q = 1 - _clamp01(frac_out / 0.15)
         touch_q = _clamp01((len(Hs) + len(Ls) - 4) / 3)   # 5 pivots -> 0.33, 7+ -> 1.0
         dur_q = _clamp01(span / 40)
@@ -361,12 +388,11 @@ def _line_patterns(P, h, l, c, v, a, n, vol_avg, original_frame):
                 name = "Rising Wedge"
             elif su < -1.5 and sl > 1.5 and _prior_trend(c, i0, a) == "down":
                 name = "Symmetrical Triangle"
-        elif 0.85 < r < 1.15 and len(Hs) >= 3 and len(Ls) >= 3:
-            if su > 2.0 and sl > 2.0:
-                name = "Ascending Channel"
-            elif original_frame and flat(su) and flat(sl):
-                name = "Rectangle"
-        if not name or score < MIN_SCORE:
+        elif 0.85 < r < 1.15 and len(Hs) >= 3 and len(Ls) >= 3 and su > 2.0 and sl > 2.0:
+            name = "Ascending Channel"
+        if name is None and original_frame and 0.7 < r < 1.3 and len(Hs) >= 3 and len(Ls) >= 3 and flat(su) and flat(sl):
+            name = "Rectangle"
+        if not name or score < _line_min():
             continue
         key = (name, i0 // 5, i1 // 5)
         if key in seen:
@@ -374,27 +400,55 @@ def _line_patterns(P, h, l, c, v, a, n, vol_avg, original_frame):
         seen.add(key)
         lines = [{"kind": "upper", "x1": i0, "y1": upper(i0), "x2": n - 1, "y2": upper(n - 1)},
                  {"kind": "lower", "x1": i0, "y1": lower(i0), "x2": n - 1, "y2": lower(n - 1)}]
-        markers = [{"x": x, "y": y, "label": ""} for x, y in Hs + Ls]
+        markers = [{"x": x, "y": y, "label": str(k + 1), "side": "upper"} for k, (x, y) in enumerate(Hs)]
+        markers += [{"x": x, "y": y, "label": str(k + 1), "side": "lower"} for k, (x, y) in enumerate(Ls)]
+        # touches after the last confirmed pivot (bars that reached a line without a confirmed bounce)
+        nu, nl, last_u, last_l = len(Hs), len(Ls), Hs[-1][0], Ls[-1][0]
+        for j in range(max(last_u, last_l) + 1, i1 + 1):
+            if h[j] >= upper(j) - 0.35 * a and j - last_u > 4:
+                nu += 1
+                last_u = j
+                markers.append({"x": j, "y": h[j], "label": str(nu), "side": "upper"})
+            if l[j] <= lower(j) + 0.35 * a and j - last_l > 4:
+                nl += 1
+                last_l = j
+                markers.append({"x": j, "y": l[j], "label": str(nl), "side": "lower"})
         if name in ("Ascending Channel", "Rectangle"):
             if name == "Rectangle":
-                # bias: prior trend decides; flat -> side of the range price is nearer to
+                # Bias: a decisive close beyond a side wins (that IS the resolution); otherwise the prior
+                # trend decides, or -- if flat -- the side of the range price is nearer to.
                 pt = _prior_trend(c, i0, a)
-                bear = pt == "down" or (pt == "flat" and c[-1] < (upper(n - 1) + lower(n - 1)) / 2)
+                broke_side = None
+                for j in range(i1 + 1, n):
+                    if c[j] > upper(j) + BREAK_ATR * a:
+                        broke_side = "up"
+                        break
+                    if c[j] < lower(j) - BREAK_ATR * a:
+                        broke_side = "down"
+                        break
+                if broke_side:
+                    bear = broke_side == "down"
+                else:
+                    bear = pt == "down" or (pt == "flat" and c[-1] < (upper(n - 1) + lower(n - 1)) / 2)
                 trig = lower if bear else upper
                 stop = upper if bear else lower
                 sgn = -1 if bear else 1
                 stop_off = (0.25 * a) * (1 if bear else -1)
+                if broke_side:     # resolved: reversal if it breaks against the trend that led into it
+                    family = "Reversal" if ((pt == "up" and bear) or (pt == "down" and not bear)) else "Continuation"
+                else:
+                    family = "Range"
                 pat = _mk("Rectangle", "bearish" if bear else "bullish", score, a, c, i1, i0, trig, lambda j, stop=stop, so=stop_off: stop(j) + so,
-                          lambda t, w=w0, s=sgn: t + s * w, lines, markers, v, vol_avg, {"unresolved": True})
+                          lambda t, w=w0, s=sgn: t + s * w, lines, markers, v, vol_avg, {"unresolved": broke_side is None, "family": family, "touches": {"upper": nu, "lower": nl}})
             else:
-                pat = _mk(name, "neutral", score, a, c, i1, i0, lower, None, None, lines, markers, v, vol_avg)
+                pat = _mk(name, "neutral", score, a, c, i1, i0, lower, None, None, lines, markers, v, vol_avg, {"touches": {"upper": nu, "lower": nl}})
                 pat["status"] = "Forming"
             out.append(pat)
             continue
         tgt = lambda t, w=w0: t - w   # wedges and triangles alike: measure the widest part of the pattern
         # stop: beyond the far line, at least max(1 ATR, 35% of the widest width) away, at most 60% of it
         stop_fn = lambda j, upper=upper, lower=lower, w0=w0: lower(j) + min(0.6 * w0, max(1.0 * a, 0.35 * w0, upper(j) - lower(j) + 0.25 * a))
-        out.append(_mk(name, "bearish", score, a, c, i1, i0, lower, stop_fn, tgt, lines, markers, v, vol_avg))
+        out.append(_mk(name, "bearish", score, a, c, i1, i0, lower, stop_fn, tgt, lines, markers, v, vol_avg, {"touches": {"upper": nu, "lower": nl}}))
     return out
 
 
@@ -443,7 +497,7 @@ def _flag(P, h, l, c, v, a, n, vol_avg):
             continue
         resid = (ru + rl) / 2 / a
         score = 100 * (0.35 * _clamp01(drop / (7 * a)) + 0.3 * (1 - _clamp01(resid / 0.6)) + 0.2 * (1 - _clamp01(frac_out / 0.2)) + 0.15 * _clamp01(L / 10))
-        if score < MIN_SCORE:
+        if score < _min_score():
             continue
         out.append(_mk(name, "bearish", score, a, c, n - 1, s, lower, lambda j, upper=upper: upper(j) + 0.25 * a,
                        lambda t, d=drop: t - d,
@@ -511,7 +565,7 @@ def _rounded_top(P, h, l, c, v, a, n, vol_avg):
                 continue
             score = 100 * (0.55 * _clamp01((r2 - 0.82) / 0.15) + 0.25 * _clamp01(height / (6 * a)) + 0.2 * (1 - _clamp01(abs(rim_l - rim_r) / (0.5 * height))))
             score = max(score, MIN_SCORE) if score >= MIN_SCORE - 10 and r2 >= 0.9 else score
-            if score < MIN_SCORE:
+            if score < _min_score():
                 continue
             curve = [{"x": s + i, "y": (qa * (i / (W - 1)) ** 2 + qb * (i / (W - 1)) + qc)} for i in range(0, W, max(1, W // 12))]
             curve.append({"x": e, "y": qa + qb + qc})
@@ -551,7 +605,7 @@ def _cup_handle(P, h, l, c, v, a, n, vol_avg):
             if not (1.0 * a <= pull <= 0.5 * depth) or c[-1] < low + 0.5 * depth or max(h[e + 1:]) > rim + 2.5 * a:
                 continue
             score = 100 * (0.5 * _clamp01((r2 - 0.8) / 0.15) + 0.25 * _clamp01(depth / (6 * a)) + 0.25 * (1 - _clamp01(abs(rim_l - rim_r) / (0.25 * depth))))
-            if score < MIN_SCORE:
+            if score < _min_score():
                 continue
             W1 = W - 1
             curve = [{"x": s + i, "y": (qa * (i / W1) ** 2 + qb * (i / W1) + qc)} for i in range(0, W, max(1, W // 12))]
@@ -581,7 +635,12 @@ def _mirror_pattern(p):
         if q.get(k) is not None:
             q[k] = round(-q[k], 2)
     q["lines"] = [{**ln, "y1": -ln["y1"], "y2": -ln["y2"]} for ln in p["lines"]]
-    q["markers"] = [{**m, "y": -m["y"], "label": {"Top": "Bottom"}.get(m["label"], m["label"])} for m in p["markers"]]
+    flip = {"upper": "lower", "lower": "upper"}
+    q["markers"] = [{**m, "y": -m["y"], "label": {"Top": "Bottom"}.get(m["label"], m["label"]),
+                     **({"side": flip[m["side"]]} if m.get("side") else {})} for m in p["markers"]]
+    q["prior_trend"] = {"up": "down", "down": "up", "flat": "flat"}[p["prior_trend"]]
+    if p.get("touches"):               # a bearish-frame "upper" line is the real lower line
+        q["touches"] = {"upper": p["touches"]["lower"], "lower": p["touches"]["upper"]}
     if p.get("curve"):
         q["curve"] = [{"x": pt["x"], "y": -pt["y"]} for pt in p["curve"]]
     return q
@@ -594,11 +653,20 @@ def _overlap(a_, b_):
     return (hi - lo) / max(1, min(a_["end_i"] - a_["start_i"], b_["end_i"] - b_["start_i"]))
 
 
-def detect(o, h, l, c, v=None, min_bars=60):
+def detect(o, h, l, c, v=None, min_bars=60, relaxed=False):
     """
     All patterns on one daily series (completed candles, oldest first). Returns a list of
     pattern dicts, best first. Geometry is in absolute bar indices of the input series.
     """
+    token = _THRESH.set(RELAXED) if relaxed else None
+    try:
+        return _detect(o, h, l, c, v, min_bars)
+    finally:
+        if token is not None:
+            _THRESH.reset(token)
+
+
+def _detect(o, h, l, c, v, min_bars):
     n = len(c)
     if n < min_bars:
         return []
@@ -610,11 +678,12 @@ def detect(o, h, l, c, v=None, min_bars=60):
 
     for frame_inverted in (False, True):
         oo, hh, ll, cc = _invert(o, h, l, c) if frame_inverted else (o, h, l, c)
-        P = zigzag(hh, ll, PIVOT_ATR * a)
         pats = []
-        for det in _BEAR_DETECTORS:
-            pats += det(P, hh, ll, cc, v, a, n, vol_avg)
-        pats += _line_patterns(P, hh, ll, cc, v, a, n, vol_avg, original_frame=not frame_inverted)
+        for scale in PIVOT_ATRS:
+            P = zigzag(hh, ll, scale * a)
+            for det in _BEAR_DETECTORS:
+                pats += det(P, hh, ll, cc, v, a, n, vol_avg)
+            pats += _line_patterns(P, hh, ll, cc, v, a, n, vol_avg, original_frame=not frame_inverted)
         for p in pats:
             found.append(_mirror_pattern(p) if frame_inverted else p)
 
@@ -626,7 +695,7 @@ def detect(o, h, l, c, v=None, min_bars=60):
     if cups:
         found = [p for p in found if not (p["name"] in ("Rounded Bottom", "Double Top") and any(_overlap(cp_, p) > 0.5 for cp_ in cups))]
 
-    found = [p for p in found if p["score"] >= MIN_SCORE]
+    found = [p for p in found if p["score"] >= _min_score()]
     found.sort(key=lambda p: -p["score"])
     # a Rectangle/Channel (Range) over bars that already form a reversal pattern is the same
     # prices read twice -- keep the reversal reading
@@ -637,9 +706,13 @@ def detect(o, h, l, c, v=None, min_bars=60):
              and not (p["name"] in ("Double Top", "Double Bottom") and any(_overlap(r_, p) > 0.6 for r_ in rects))]
     kept = []
     for p in found:
-        if any(_overlap(k, p) > 0.6 for k in kept):   # one best reading per stretch of bars
+        if any(_overlap(k, p) > 0.6 or (k["name"] == p["name"] and abs(k["end_i"] - p["end_i"]) <= 3) for k in kept):   # one best reading per stretch of bars
             continue
         kept.append(p)
     for p in kept:
         p["atr"] = round(a, 3)
+        for m in p["markers"]:
+            if not m.get("side"):      # a marker sits on the side of the candle it was taken from
+                x = m["x"]
+                m["side"] = "upper" if abs(m["y"] - h[x]) <= abs(m["y"] - l[x]) else "lower"
     return kept

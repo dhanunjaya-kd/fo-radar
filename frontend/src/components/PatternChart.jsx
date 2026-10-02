@@ -1,34 +1,58 @@
 // Oct 2 2026: draws one detected chart pattern -- candles, the pattern's own fitted lines
-// (trendlines / neckline / curve), labelled pivots, and trigger / target / stop tags.
-// Plain SVG, no chart library: the Chart Patterns tab shows dozens of these at once.
-// Nothing here computes geometry; it draws exactly what backend chart_patterns.py fitted.
+// (trendlines / neckline / curve), numbered touches, labelled pivots, the break, and
+// trigger / target / stop tags. Plain SVG, no chart library: the Chart Patterns tab shows
+// dozens of these at once. Nothing here computes geometry; it draws exactly what backend
+// chart_patterns.py fitted. `large` adds the volume strip, span bracket, dates and target zone.
 
-const UP = '#34d399';
-const DOWN = '#f87171';
-const LINE = '#f0b27a';          // pattern lines (trendlines, neckline, curve) -- warm tan like the reference
-const TRIGGER = '#f59e0b';
-const TARGET = '#34d399';
-const STOP = '#f87171';
+export const COLORS = {
+  up: '#34d399',
+  down: '#f87171',
+  resistance: '#fb923c',   // upper trendline
+  support: '#34d399',      // lower trendline
+  line: '#f0b27a',         // necklines, curves, poles
+  trigger: '#f59e0b',
+  target: '#34d399',
+  stop: '#f87171',
+};
 
 const fmt = (v) => (v == null ? '' : v >= 1000 ? Math.round(v).toLocaleString('en-IN') : v >= 100 ? v.toFixed(1) : v.toFixed(2));
 
+// What each drawn line kind is called in the legend
+export function legendFor(pattern) {
+  const items = [];
+  const t = pattern.touches || {};
+  const kinds = new Set((pattern.lines || []).map((l) => l.kind));
+  if (kinds.has('upper')) items.push({ color: COLORS.resistance, label: `Resistance${t.upper ? ` · ${t.upper} touches` : ''}` });
+  if (kinds.has('lower')) items.push({ color: COLORS.support, label: `Support${t.lower ? ` · ${t.lower} touches` : ''}` });
+  if (kinds.has('pole')) items.push({ color: COLORS.line, label: 'Pole', dash: '2 3' });
+  if (pattern.curve) items.push({ color: COLORS.line, label: 'Rounded shape' });
+  if (kinds.has('trigger') && pattern.trigger != null) items.push({ color: COLORS.trigger, label: 'Neckline / rim', dash: '5 3' });
+  if (kinds.has('resistance')) items.push({ color: '#94a3b8', label: 'Tops level', dash: '3 3' });
+  if (pattern.trigger != null) items.push({ color: COLORS.trigger, label: pattern.direction === 'Bearish' ? 'Breakdown trigger' : 'Breakout trigger', dash: '5 3' });
+  if (pattern.target != null) items.push({ color: COLORS.target, label: 'Target', dash: '4 3' });
+  if (pattern.stop != null) items.push({ color: COLORS.stop, label: 'Stop', dash: '4 3' });
+  return items;
+}
+
 export default function PatternChart({ pattern, large = false }) {
-  const { candles, lines = [], markers = [], curve, trigger, stop, target, direction } = pattern;
+  const { candles, lines = [], markers = [], curve, trigger, stop, target, direction, volumes } = pattern;
   if (!candles || candles.length < 3) return null;
 
-  const W = large ? 560 : 300;
-  const H = large ? 300 : 132;
-  const AXIS = large ? 74 : 56;
-  const PAD_T = large ? 22 : 14;
-  const PAD_B = large ? 24 : 8;
+  const n = candles.length;
+  const W = large ? 600 : 300;
+  const H = large ? 330 : 132;
+  const AXIS = large ? 78 : 56;
+  const PAD_T = large ? 36 : 14;
+  const volH = large && volumes ? 38 : 0;
+  const PAD_B = (large ? 20 : 8) + volH;
   const PAD_L = 4;
-  const fs = large ? 11 : 8.5;      // tag font
-  const tagH = large ? 16 : 12;
+  const fs = large ? 11 : 8.5;
+  const tagH = large ? 17 : 12;
 
   const levels = [];
-  if (trigger != null) levels.push({ key: 'trigger', v: trigger, color: TRIGGER });
-  if (target != null) levels.push({ key: 'target', v: target, color: TARGET });
-  if (stop != null) levels.push({ key: 'stop', v: stop, color: STOP });
+  if (trigger != null) levels.push({ key: 'trigger', v: trigger, color: COLORS.trigger });
+  if (target != null) levels.push({ key: 'target', v: target, color: COLORS.target });
+  if (stop != null) levels.push({ key: 'stop', v: stop, color: COLORS.stop });
 
   const lo = Math.min(...candles.map((c) => c[2]));
   const hi = Math.max(...candles.map((c) => c[1]));
@@ -44,33 +68,52 @@ export default function PatternChart({ pattern, large = false }) {
   const yMax = Math.max(hi, ...geom);
   const range = yMax - yMin || 1;
 
-  const n = candles.length;
   const plotW = W - AXIS - PAD_L;
   const step = plotW / n;
   const bw = Math.max(1.2, step * 0.62);
   const x = (i) => PAD_L + step * i + step / 2;
-  const y = (v) => PAD_T + (1 - (Math.min(yMax, Math.max(yMin, v)) - yMin) / range) * (H - PAD_T - PAD_B);
+  const plotBottom = H - PAD_B;
+  const y = (v) => PAD_T + (1 - (Math.min(yMax, Math.max(yMin, v)) - yMin) / range) * (plotBottom - PAD_T);
 
-  // right-edge tags: keep them from overlapping
   const tags = levels.map((l) => ({ ...l, ty: y(l.v) })).sort((a, b) => a.ty - b.ty);
   for (let i = 1; i < tags.length; i += 1) if (tags[i].ty - tags[i - 1].ty < tagH) tags[i].ty = tags[i - 1].ty + tagH;
 
   const bear = direction === 'Bearish';
   const lineStyle = (kind) => {
-    if (kind === 'trigger') return { stroke: TRIGGER, dash: '5 3', w: 1.2 };
+    if (kind === 'upper') return { stroke: COLORS.resistance, dash: null, w: large ? 2 : 1.5 };
+    if (kind === 'lower') return { stroke: COLORS.support, dash: null, w: large ? 2 : 1.5 };
+    if (kind === 'trigger') return { stroke: COLORS.trigger, dash: '5 3', w: 1.2 };
     if (kind === 'resistance' || kind === 'support') return { stroke: '#94a3b8', dash: '3 3', w: 1 };
-    if (kind === 'pole') return { stroke: LINE, dash: '2 3', w: 1.2 };
-    return { stroke: LINE, dash: null, w: large ? 1.8 : 1.4 };
+    if (kind === 'pole') return { stroke: COLORS.line, dash: '2 3', w: 1.2 };
+    return { stroke: COLORS.line, dash: null, w: large ? 1.8 : 1.4 };
   };
+
+  const maxVol = volumes ? Math.max(...volumes) || 1 : 1;
+  const startX = pattern.start_x != null ? Math.max(0, pattern.start_x) : null;
+  const endX = pattern.end_x != null ? Math.min(n - 1, pattern.end_x) : null;
+  const brokeX = pattern.broke_x != null && pattern.broke_x >= 0 ? pattern.broke_x : null;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full block" role="img" aria-label={`${pattern.name} on daily candles`}>
       {large && [0.25, 0.5, 0.75].map((f) => (
-        <line key={f} x1={PAD_L} x2={W - AXIS} y1={PAD_T + f * (H - PAD_T - PAD_B)} y2={PAD_T + f * (H - PAD_T - PAD_B)} stroke="#1e293b" strokeWidth="1" />
+        <line key={f} x1={PAD_L} x2={W - AXIS} y1={PAD_T + f * (plotBottom - PAD_T)} y2={PAD_T + f * (plotBottom - PAD_T)} stroke="#1e293b" strokeWidth="1" />
       ))}
+
+      {/* target zone: from the break (or pattern end) out to the target */}
+      {large && trigger != null && target != null && (
+        <rect x={x(brokeX ?? endX ?? n - 1)} y={Math.min(y(trigger), y(target))} width={Math.max(2, W - AXIS - x(brokeX ?? endX ?? n - 1))}
+              height={Math.abs(y(target) - y(trigger))} fill={COLORS.target} opacity="0.07" />
+      )}
+
+      {/* volume strip */}
+      {large && volumes && volumes.map((vv, i) => (
+        <rect key={`v${i}`} x={x(i) - bw / 2} y={H - 20 - (vv / maxVol) * (volH - 4)} width={bw} height={(vv / maxVol) * (volH - 4)}
+              fill={candles[i][3] >= candles[i][0] ? COLORS.up : COLORS.down} opacity="0.35" />
+      ))}
+
       {candles.map((c, i) => {
         const [o, h, l, cl] = c;
-        const color = cl >= o ? UP : DOWN;
+        const color = cl >= o ? COLORS.up : COLORS.down;
         const top = y(Math.max(o, cl)), bot = y(Math.min(o, cl));
         return (
           <g key={i}>
@@ -79,34 +122,73 @@ export default function PatternChart({ pattern, large = false }) {
           </g>
         );
       })}
+
       {levels.map((l) => (
         <line key={l.key} x1={PAD_L} x2={W - AXIS} y1={y(l.v)} y2={y(l.v)} stroke={l.color} strokeWidth="1" strokeDasharray="4 3" opacity="0.7" />
       ))}
       {curve && curve.length > 1 && (
-        <polyline fill="none" stroke={LINE} strokeWidth={large ? 1.8 : 1.4} points={curve.map((p) => `${x(p.x)},${y(p.y)}`).join(' ')} />
+        <polyline fill="none" stroke={COLORS.line} strokeWidth={large ? 1.8 : 1.4} points={curve.map((p) => `${x(p.x)},${y(p.y)}`).join(' ')} />
       )}
       {lines.map((l, i) => {
         const st = lineStyle(l.kind);
         return <line key={i} x1={x(l.x1)} y1={y(l.y1)} x2={x(Math.min(l.x2, n - 1))} y2={y(l.y2)} stroke={st.stroke} strokeWidth={st.w} strokeDasharray={st.dash || undefined} />;
       })}
-      {markers.map((m, i) => (
-        <g key={i}>
-          <circle cx={x(m.x)} cy={y(m.y)} r={large ? 3.4 : 2.4} fill="#0f172a" stroke={LINE} strokeWidth="1.4" />
-          {m.label && (
-            <text x={x(m.x)} y={y(m.y) + (bear ? -(large ? 8 : 6) : (large ? 15 : 11))} textAnchor="middle" fontSize={large ? 10 : 7.5} fill="#cbd5e1" fontWeight="600">{m.label}</text>
-          )}
+
+      {/* pivots: numbered touches get a numbered disc, named pivots keep their text label */}
+      {markers.map((m, i) => {
+        const numeric = /^\d+$/.test(m.label || '');
+        const upper = m.side ? m.side === 'upper' : bear;
+        const color = numeric ? (upper ? COLORS.resistance : COLORS.support) : COLORS.line;
+        const r = large ? 3.4 : 2.4;
+        if (numeric && large) {
+          const cy = y(m.y) + (upper ? -14 : 14);
+          return (
+            <g key={i}>
+              <circle cx={x(m.x)} cy={y(m.y)} r={r} fill="#0f172a" stroke={color} strokeWidth="1.6" />
+              <circle cx={x(m.x)} cy={cy} r="7" fill="#f8fafc" stroke={color} strokeWidth="1.4" />
+              <text x={x(m.x)} y={cy + 3.4} textAnchor="middle" fontSize="9.5" fontWeight="700" fill="#0f172a">{m.label}</text>
+            </g>
+          );
+        }
+        return (
+          <g key={i}>
+            <circle cx={x(m.x)} cy={y(m.y)} r={r} fill="#0f172a" stroke={color} strokeWidth="1.4" />
+            {m.label && !numeric && (
+              <text x={x(m.x)} y={y(m.y) + (upper ? -(large ? 8 : 6) : (large ? 15 : 11))} textAnchor="middle" fontSize={large ? 10 : 7.5} fill="#cbd5e1" fontWeight="600">{m.label}</text>
+            )}
+          </g>
+        );
+      })}
+
+      {/* the break itself */}
+      {large && brokeX != null && (
+        <g>
+          <circle cx={x(brokeX)} cy={y(candles[brokeX][3])} r="3.4" fill="#f8fafc" stroke={bear ? COLORS.stop : COLORS.up} strokeWidth="1.6" />
+          <rect x={x(brokeX) - 28} y={y(Math.max(candles[brokeX][1], candles[brokeX][3])) - 24} width="56" height="15" rx="7.5" fill="#1f1411" stroke={bear ? COLORS.stop : COLORS.up} strokeWidth="1" />
+          <text x={x(brokeX)} y={y(Math.max(candles[brokeX][1], candles[brokeX][3])) - 13.5} textAnchor="middle" fontSize="9" fontWeight="700" fill={bear ? '#fca5a5' : '#86efac'}>{bear ? 'Breakdown' : 'Breakout'}</text>
+          <text x={x(brokeX)} y={y(Math.max(candles[brokeX][1], candles[brokeX][3])) - 4} textAnchor="middle" fontSize="8" fill={bear ? COLORS.stop : COLORS.up}>{bear ? '▼' : '▲'}</text>
         </g>
-      ))}
+      )}
+
+      {/* span bracket */}
+      {large && startX != null && endX != null && endX > startX && (
+        <g>
+          <path d={`M ${x(startX)} 24 L ${x(startX)} 18 L ${x(endX)} 18 L ${x(endX)} 24`} fill="none" stroke="#94a3b8" strokeWidth="1" />
+          <text x={(x(startX) + x(endX)) / 2} y="13" textAnchor="middle" fontSize="10.5" fontWeight="600" fill="#cbd5e1">{pattern.span_bars} daily candles</text>
+        </g>
+      )}
+
       {tags.map((l) => (
         <g key={`t-${l.key}`}>
-          <rect x={W - AXIS + 2} y={l.ty - tagH / 2} width={AXIS - 4} height={tagH} rx="2" fill={l.color} />
+          <rect x={W - AXIS + 2} y={l.ty - tagH / 2} width={AXIS - 4} height={tagH} rx="3" fill={l.color} />
           <text x={W - AXIS / 2} y={l.ty + fs / 3} textAnchor="middle" fontSize={fs} fontWeight="700" fill="#0b1220">₹{fmt(l.v)}</text>
         </g>
       ))}
+
       {large && pattern.window_start && (
         <>
-          <text x={PAD_L + 2} y={H - 6} fontSize="10" fill="#64748b">{pattern.window_start}</text>
-          <text x={W - AXIS - 2} y={H - 6} fontSize="10" fill="#64748b" textAnchor="end">{pattern.data_through}</text>
+          <text x={PAD_L + 2} y={H - 5} fontSize="10" fill="#64748b">{pattern.window_start}</text>
+          <text x={W - AXIS - 2} y={H - 5} fontSize="10" fill="#64748b" textAnchor="end">{pattern.data_through}</text>
         </>
       )}
     </svg>
