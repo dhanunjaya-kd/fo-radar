@@ -599,6 +599,44 @@ def get_locked_plan(symbol, action):
         }
 
 
+def is_signal_resolved(symbol, action):
+    """
+    Oct 2 2026 (Sniper v3 SignalBook): True once today's row for (symbol,
+    action) exists but its position is no longer being watched --
+    check_outcomes() deletes the _open_positions entry exactly when SL or
+    Target 3 is hit, and nothing else does. get_locked_plan() cannot answer
+    this (its returned dict has no sl_hit/furthest_target keys, and a
+    resolved plan simply returns None, which also means "never existed").
+    Read-only.
+    """
+    with _lock:
+        _ensure_fresh()
+        if (symbol, action) in _open_positions:
+            return False
+        return any(v.get("symbol") == symbol and k[1] == action for k, v in _row_index.items())
+
+
+def get_today_book_rows():
+    """
+    Oct 2 2026 (Sniper v3 SignalBook): today's logged calls as plain dicts,
+    so the in-memory book can be rebuilt after a restart instead of
+    forgetting which stocks already had a call (and re-issuing them).
+    Read-only; {symbol, action, exited_at, created_at, resolved}.
+    """
+    with _lock:
+        _ensure_fresh()
+        rows = []
+        for (opt_symbol, action), info in _row_index.items():
+            sym = info.get("symbol")
+            pos = _open_positions.get((sym, action))
+            rows.append({
+                "symbol": sym, "action": action, "exited_at": info.get("exited_at"),
+                "created_at": (pos or {}).get("created_at"),
+                "resolved": pos is None,
+            })
+        return rows
+
+
 def _find_row_for_key(ws, option_symbol, action):
     """
     Sep 30 2026 addition -- the actual race-condition fix. Scans the

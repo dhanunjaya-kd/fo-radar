@@ -54,6 +54,10 @@ try:
 except ImportError:
     detect_patterns = lambda df: []
 
+# Oct 2 2026: Sniper v3 -- see sniper_v3.py's module docstring for the
+# evidence behind every gate below. Pure module, safe to import anywhere.
+from . import sniper_v3
+
 try:
     from .gamma_config import GAMMA_BLAST_CONFIG
 except ImportError:
@@ -99,7 +103,7 @@ _signal_cache = []
 # archaeology. Persisted per-signal below, not just held in this one
 # global -- a global alone would only tell you TODAY's version, not
 # which version generated a signal logged weeks ago.
-SIGNAL_LOGIC_VERSION = "v1 (2026-09-02)"
+SIGNAL_LOGIC_VERSION = "v2 (2026-10-02)"  # Sniper v3: directional RSI, BUY-ADX, cost-to-risk, sticky SignalBook, shadow intraday trigger
 
 # Sep 2 2026: Section 9's "position sizing from real risk," done
 # correctly this time -- adds a lot-count MULTIPLIER on top of the
@@ -2540,6 +2544,50 @@ def _resolve_sniper_strike_via_gamma_criteria(sym, action, opt_side, price, oi):
     return best["strike"], greeks, oi, None
 
 
+_v3_seeded_day = None
+_SNIPER_V3_LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "signal_logs")  # same dir excel_logger.LOG_DIR uses
+
+
+def _v3_get_book():
+    """
+    Oct 2 2026: the Sniper v3 SignalBook, rebuilt once per process-day from
+    today's persisted Excel rows so a restart never forgets which stocks
+    already had a call (and never re-issues them).
+    """
+    global _v3_seeded_day
+    book = sniper_v3.get_book()
+    today = datetime.now().strftime("%Y-%m-%d")
+    if _v3_seeded_day != today:
+        try:
+            from .excel_logger import get_today_book_rows
+            book.seed(get_today_book_rows())
+        except Exception as e:
+            print(f"[SniperV3] book seed from Excel failed (starting empty): {e}")
+        _v3_seeded_day = today
+    return book
+
+
+def _v3_universe_volume_median(results):
+    """
+    Median of (today's cumulative volume / 20-day average daily volume) across
+    every stock already history-warmed this session -- the empirical intraday
+    volume curve for RIGHT NOW. No extra Fyers traffic: both inputs are already
+    in memory (this cycle's quotes + the once-a-day history cache).
+    """
+    ratios = []
+    for q in results.values():
+        cached = _history_cache.get(q.get('symbol'))
+        if not cached or cached.get('date') != datetime.now().strftime("%Y-%m-%d"):
+            continue
+        try:
+            avg20 = float(cached['df']['Volume'].tail(20).mean())
+        except Exception:
+            continue
+        if avg20 > 0 and q.get('volume'):
+            ratios.append(q['volume'] / avg20)
+    return sniper_v3.median(ratios)
+
+
 def _build_all():
     """Fetch everything: indices, stocks, signals. Cache all."""
     global _stock_cache, _index_cache, _index_cache_updated_at, _signal_cache, _tech_cache, _last_fetch, _no_trade_cache
@@ -2766,6 +2814,10 @@ def _build_all():
 
     with _cache_lock:
         cycle_vix = _index_cache.get("india_vix")
+
+    # Oct 2 2026: Sniper v3 -- once per cycle, not per stock.
+    _v3_volume_median = _v3_universe_volume_median(results) if sniper_v3.CONFIG["ENABLED"] else None
+    _v3_book = _v3_get_book() if sniper_v3.CONFIG["ENABLED"] else None
     # Aug 31 2026: P0-6 from the UI Corrections checklist -- these
     # rejection points already existed (every `continue` below), they
     # just discarded the candidate silently. This makes each one an
@@ -2891,7 +2943,32 @@ def _build_all():
                 v3_reason="Technical score below hysteresis threshold",
             )
             continue
-        
+
+        # Oct 2 2026: Sniper v3 ENTRY gates -- all of these decide whether a
+        # NEW call may start; none of them can remove a call that is already
+        # active (an entry condition is not a hold condition). Placed before
+        # the option-chain / MTF / futures-OI fetches on purpose: a candidate
+        # rejected here costs zero further Fyers calls, which also relieves
+        # the rate-limit pressure those fetches have caused in the past.
+        _v3_held = False
+        _v3_trigger = None
+        if _v3_book is not None:
+            _v3_held = _v3_book.is_active(sym, action)
+            if not _v3_held:
+                _v3_reason = _v3_book.precheck(sym, action)
+                if _v3_reason is None and not sniper_v3.rsi_direction_ok(action, rsi):
+                    _v3_reason = f"RSI {rsi:.1f} is on the wrong side of 50 for {action} (directional RSI gate)"
+                if _v3_reason is None and not sniper_v3.adx_gate_ok(action, adx):
+                    _v3_reason = f"BUY needs ADX >= {sniper_v3.CONFIG['BUY_MIN_ADX']:.0f} (ADX {adx:.1f}) -- BUY without a strong trend had no edge in logged history"
+                if _v3_reason is None and sniper_v3.trigger_enforced():
+                    _v3_trigger = sniper_v3.trigger_for(sym, action, tech.get('atr'))
+                    sniper_v3.log_trigger_evidence(_SNIPER_V3_LOG_DIR, sym, action, _v3_trigger)
+                    if sniper_v3.trigger_blocks(_v3_trigger, _v3_held):
+                        _v3_reason = f"Waiting for an intraday trigger ({_v3_trigger.get('reason')})"
+                if _v3_reason is not None:
+                    no_trade_log.append({"symbol": sym, "reason": f"Sniper v3: {_v3_reason}"})
+                    continue
+
         atr = tech['atr']
         # These used to be atr*2/3/4 for targets and atr*1.5 for SL -- that's
         # sized for a multi-day swing, not an intraday option trade. One ATR
@@ -3265,6 +3342,10 @@ def _build_all():
         # data -- None here is honest, not a bug. Only the fresh-
         # computation branch below overwrites this with a real dict.
         shadow_option_leg = None
+        # Oct 2 2026: Sniper v3 -- round-trip spread as a fraction of 1R.
+        # Only knowable on a freshly-resolved leg (a reused locked plan has
+        # no fresh bid/ask), so None there.
+        _v3_ctr = None
 
         if locked:
             entry, strike = locked['entry'], locked['strike'] or strike
@@ -3408,6 +3489,26 @@ def _build_all():
                 )
                 continue
             sl = round(raw_sl, 2)
+
+            # Oct 2 2026: Sniper v3 cost-to-risk gate. The legacy gate above
+            # allows a 15%-of-premium spread, but this engine's stop sits only
+            # ~22-28% of premium away (R:R ~0.89, break-even win rate ~53%), so
+            # a 15% spread is ~0.6R of round-trip cost against a measured
+            # +0.19R gross expectancy. Normalizing the spread by the actual
+            # risk distance rejects exactly the contracts where cost, not the
+            # thesis, decides the outcome.
+            if sniper_v3.CONFIG["ENABLED"]:
+                _v3_ctr = sniper_v3.cost_to_risk(bid, ask, premium_entry, sl)
+                if not sniper_v3.cost_to_risk_ok(_v3_ctr):
+                    no_trade_log.append({"symbol": sym, "reason": f"Sniper v3: spread costs {_v3_ctr:.2f}R round-trip on {strike} {opt_side} (limit {sniper_v3.CONFIG['MAX_COST_TO_RISK']:.2f}R) -- bid {bid}, ask {ask}, stop distance {abs(premium_entry - sl):.2f}"})
+                    _evaluate_and_log_shadow(
+                        sym, action, price, tech, stock, sector_change_map, nifty_change_pct,
+                        v3_decision="NO_TRADE", v3_score=score, v3_grade=None,
+                        v3_reason=f"Spread costs {_v3_ctr:.2f}R round-trip",
+                        oi=oi, signal_extra=signal_extra, option_leg=shadow_option_leg,
+                        mtf_data=mtf_data, futures_oi_data=futures_oi_data,
+                    )
+                    continue
             t1 = round(premium_entry + d * abs(stock_t1 - price), 2)
             t2 = round(premium_entry + d * abs(stock_t2 - price), 2)
             t3 = round(premium_entry + d * abs(stock_t3 - price), 2)
@@ -3653,6 +3754,23 @@ def _build_all():
         if quality_confirmed and quality_verdict_display == "IGNORE":
             quality_verdict_display = "CONFIRMED"
 
+        # Oct 2 2026: Sniper v3 -- shadow-mode trigger evidence (enforce mode
+        # already evaluated it above, before any option-chain call) and the
+        # continuous rank used to allocate the book's scarce slots.
+        if _v3_book is not None:
+            if _v3_trigger is None:
+                if _v3_held:
+                    _v3_trigger = {"state": "HELD", "type": None, "reason": "call already active"}
+                elif sniper_v3.trigger_active():
+                    _v3_trigger = sniper_v3.trigger_for(sym, action, tech.get('atr'))
+                    sniper_v3.log_trigger_evidence(_SNIPER_V3_LOG_DIR, sym, action, _v3_trigger)
+                else:
+                    _v3_trigger = {"state": "OFF", "type": None, "reason": "trigger disabled"}
+            _v3_rvol_rel = sniper_v3.relative_rvol((vol / vol_avg) if vol_avg else None, _v3_volume_median)
+            _v3_rank, _v3_rank_components = sniper_v3.rank_score(action, adx, _v3_rvol_rel, _v3_ctr, _v3_trigger.get("type"), rsi)
+        else:
+            _v3_trigger, _v3_rvol_rel, _v3_rank, _v3_rank_components = {}, None, None, None
+
         signals.append({
             "symbol": sym, "name": sym, "price": price,
             "change": stock['change'], "change_percent": stock['change_percent'],
@@ -3749,6 +3867,13 @@ def _build_all():
             # signals" principle as audit_snapshot below, and stay
             # visible even if the gate itself is toggled off, so its
             # would-be effect on the list can be watched before trusting it.
+            # Oct 2 2026: Sniper v3 fields -- rank_score orders the book's scarce
+            # slots; trigger_* is the intraday-event evidence (informational in
+            # shadow mode); cost_to_risk/rvol_relative explain the gates.
+            "rank_score": _v3_rank, "rank_components": _v3_rank_components,
+            "trigger_state": _v3_trigger.get("state"), "trigger_type": _v3_trigger.get("type"),
+            "trigger_reason": _v3_trigger.get("reason"),
+            "cost_to_risk": _v3_ctr, "rvol_relative": _v3_rvol_rel,
             "quality_confirmed": quality_confirmed,
             "quality_score": (quality_result or {}).get("score"),
             "quality_verdict": quality_verdict_display,
@@ -3864,10 +3989,42 @@ def _build_all():
     # trims which of the ALREADY-qualified signals get shown, keeping
     # the highest-confidence ones (signals.sort() above already ranks
     # by confidence descending before this slice runs).
-    quality_signals = [
+    quality_candidates = [
         s for s in signals
         if (not _QUALITY_GATE_ENABLED or s.get('quality_confirmed'))
-    ][:8]
+    ]
+    # Oct 2 2026: Sniper v3 -- replaces the blunt `[:8]` slice. That slice
+    # re-ranked every cycle on a near-tied confidence value, so stocks rotated
+    # in and out and each rotation was logged as a fresh call (11 of Oct 1's
+    # 38 rows were "Expired" purely from falling out of the list). The book
+    # keeps an active call until it resolves/times out/is invalidated, admits
+    # new ones by rank under sector/direction/new-call caps, and locks a
+    # symbol for the day once it has had a call. SNIPER_V3_ENABLED=false
+    # restores the legacy slice exactly.
+    if sniper_v3.CONFIG["ENABLED"] and _v3_book is not None:
+        try:
+            from .excel_logger import is_signal_resolved
+            quality_signals, _v3_decisions = _v3_book.select(
+                quality_candidates, trigger_required=sniper_v3.trigger_enforced(),
+                is_resolved=is_signal_resolved,
+            )
+            quality_signals.sort(key=lambda s: (s.get('rank_score') or 0), reverse=True)
+            _v3_held_n = sum(1 for s in quality_signals if s.get('trigger_state') == 'HELD')
+            _v3_not_admitted = dict(list(_v3_decisions.items())[:12])
+            print(
+                f"[SniperV3] candidates={len(quality_candidates)} shown={len(quality_signals)} "
+                f"(held {_v3_held_n}, new {len(quality_signals) - _v3_held_n}) "
+                f"universe_vol_median={_v3_volume_median if _v3_volume_median is None else round(_v3_volume_median, 3)} "
+                f"trigger_mode={sniper_v3.CONFIG['TRIGGER_MODE']} -- not admitted: "
+                f"{_v3_not_admitted}"
+            )
+        except Exception as e:
+            import traceback
+            print(f"[SniperV3] book selection failed -- falling back to legacy slice this cycle: {e}")
+            print(traceback.format_exc())
+            quality_signals = quality_candidates[:8]
+    else:
+        quality_signals = quality_candidates[:8]
 
     # Sep 21 2026: prints once per cycle, real numbers only -- if this
     # is empty, nothing scored at all this cycle (a real, different
