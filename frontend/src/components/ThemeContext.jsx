@@ -109,9 +109,9 @@ const LIGHT_TONES = {
   '#60a5fa': '#2563eb', '#3b82f6': '#2563eb', '#38bdf8': '#0284c7', '#22d3ee': '#0891b2',
   '#818cf8': '#4f46e5', '#a78bfa': '#7c3aed', '#c084fc': '#9333ea', '#f472b6': '#db2777', '#2dd4bf': '#0d9488',
   // neutrals (text / lines / surfaces)
-  '#f1f5f9': '#111827', '#e2e8f0': '#1f2937', '#cbd5e1': '#374151', '#94a3b8': '#6b7280',
-  '#64748b': '#6b7280', '#475569': '#9ca3af', '#334155': '#e3e7ec', '#1e293b': '#eceff3',
-  '#0f172a': '#ffffff', '#0b1220': '#ffffff', '#020617': '#f4f5f7',
+  '#f1f5f9': '#0f1f3d', '#e2e8f0': '#16294a', '#cbd5e1': '#2a3b5c', '#94a3b8': '#64748f',
+  '#64748b': '#64748f', '#475569': '#97a3b8', '#334155': '#dfe5ee', '#1e293b': '#e8edf4',
+  '#0f172a': '#ffffff', '#0b1220': '#ffffff', '#020617': '#eef1f6',
 };
 export const toneFor = (theme, hex) => (theme === 'light' && hex ? (LIGHT_TONES[String(hex).toLowerCase()] ?? hex) : hex);
 export function useTone() {
@@ -125,10 +125,10 @@ export function useChartChrome() {
   const L = theme === 'light';
   return {
     t: (hex) => toneFor(theme, hex),
-    gridStroke: L ? '#e3e7ec' : '#334155',
+    gridStroke: L ? '#dfe5ee' : '#334155',
     gridOpacity: L ? 1 : 0.3,
-    tick: L ? '#6b7280' : '#94a3b8',
-    tooltip: { background: L ? '#ffffff' : '#0f172a', border: `1px solid ${L ? '#e3e7ec' : '#334155'}`, borderRadius: 6, fontSize: 11, boxShadow: L ? '0 8px 24px rgba(16,24,40,0.12)' : undefined },
-    tooltipLabel: L ? '#111827' : '#e2e8f0',
+    tick: L ? '#64748f' : '#94a3b8',
+    tooltip: { background: L ? '#ffffff' : '#0f172a', border: `1px solid ${L ? '#dfe5ee' : '#334155'}`, borderRadius: 6, fontSize: 11, boxShadow: L ? '0 8px 24px rgba(15,31,61,0.14)' : undefined },
+    tooltipLabel: L ? '#0f1f3d' : '#e2e8f0',
   };
 }

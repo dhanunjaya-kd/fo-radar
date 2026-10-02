@@ -24,7 +24,7 @@ const COLORS_LIGHT = {
 export const paletteFor = (light) => (light ? COLORS_LIGHT : COLORS);
 // chart chrome that is neither a pattern line nor a candle
 const chromeFor = (light) => (light
-  ? { grid: '#eceff3', disc: '#ffffff', discInk: '#111827', numberFill: '#ffffff', tagInk: '#ffffff', muted: '#6b7280', bracket: '#9ca3af', bracketInk: '#374151', badge: '#ffffff', level: '#9ca3af' }
+  ? { grid: '#e8edf4', disc: '#ffffff', discInk: '#0f1f3d', numberFill: '#ffffff', tagInk: '#ffffff', muted: '#64748f', bracket: '#97a3b8', bracketInk: '#2a3b5c', badge: '#ffffff', level: '#97a3b8' }
   : { grid: '#1e293b', disc: '#0f172a', discInk: '#0f172a', numberFill: '#f8fafc', tagInk: '#0b1220', muted: '#64748b', bracket: '#94a3b8', bracketInk: '#cbd5e1', badge: '#1f1411', level: '#94a3b8' });
 
 const fmt = (v) => (v == null ? '' : v >= 1000 ? Math.round(v).toLocaleString('en-IN') : v >= 100 ? v.toFixed(1) : v.toFixed(2));
@@ -40,7 +40,7 @@ export function legendFor(pattern, light = false) {
   if (kinds.has('pole')) items.push({ color: COLORS.line, label: 'Pole', dash: '2 3' });
   if (pattern.curve) items.push({ color: COLORS.line, label: 'Rounded shape' });
   if (kinds.has('trigger') && pattern.trigger != null) items.push({ color: COLORS.trigger, label: 'Neckline / rim', dash: '5 3' });
-  if (kinds.has('resistance')) items.push({ color: light ? '#9ca3af' : '#94a3b8', label: 'Tops level', dash: '3 3' });
+  if (kinds.has('resistance')) items.push({ color: light ? '#97a3b8' : '#94a3b8', label: 'Tops level', dash: '3 3' });
   if (pattern.trigger != null) items.push({ color: COLORS.trigger, label: pattern.direction === 'Bearish' ? 'Breakdown trigger' : 'Breakout trigger', dash: '5 3' });
   if (pattern.target != null) items.push({ color: COLORS.target, label: 'Target', dash: '4 3' });
   if (pattern.stop != null) items.push({ color: COLORS.stop, label: 'Stop', dash: '4 3' });
