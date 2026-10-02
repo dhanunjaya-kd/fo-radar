@@ -8,8 +8,10 @@ MCX session even after NSE has closed.
 import base64
 import json
 import os
+import sys
 import tempfile
 import threading
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -155,6 +157,7 @@ class MarketCloseFreezeMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
+        start_option_snapshot_worker(self)
 
     def __call__(self, request):
         path = request.path
@@ -202,6 +205,10 @@ class MarketCloseFreezeMiddleware:
                 if not content:
                     return response
                 content_type = response.get("Content-Type", "application/json")
+                # A 200 whose body says {"live": false, "error": ...} is a failed fetch (Fyers logged out,
+                # no chain yet), not market state: never let it replace a good last-session snapshot.
+                if path.startswith("/api/option-analytics/") and (b'"live":false' in content or b'"live": false' in content):
+                    return response
                 snapshot = {
                     "content": content,
                     "content_type": content_type,
@@ -216,3 +223,59 @@ class MarketCloseFreezeMiddleware:
                 pass
 
         return response
+
+
+# ---------------------------------------------------------------------------
+# Option-chain snapshot keeper
+# ---------------------------------------------------------------------------
+# After the close, /api/option-analytics/* is replayed from the last snapshot captured while the market
+# was live -- but a snapshot is only captured when somebody OPENS that view live. Open OI Distribution on
+# Tuesday, skip it on Wednesday/Thursday, and on Friday evening it replays Tuesday's chain (already
+# expired, a different spot from the closing figures on the dashboard cards). This worker requests the
+# index chains itself while the market is open so the replayed snapshot is always the last session's.
+_OPTION_INDICES = ("NIFTY", "BANKNIFTY", "SENSEX")
+_OPTION_NEAREST_EVERY_S = 300        # nearest expiry: every 5 minutes
+_OPTION_OTHER_EVERY_S = 1800         # next / monthly expiry: every 30 minutes (each needs an extra probe call)
+_worker_started = False
+
+
+def _snapshot_option_chains(middleware, include_other, now=None):
+    from django.test import RequestFactory
+    factory = RequestFactory()
+    paths = [f"/api/option-analytics/{name}/" for name in _OPTION_INDICES]
+    if include_other:
+        paths += [f"/api/option-analytics/{name}/?expiry={e}" for name in _OPTION_INDICES for e in ("next", "monthly")]
+    for path in paths:
+        try:
+            request = factory.get(path)
+            request.session = {}      # SessionMiddleware sits upstream of us and is skipped here; anonymous is fine
+            middleware(request)
+        except Exception as exc:
+            print(f"[MarketCloseFreeze] option snapshot {path} failed: {exc}")
+        time.sleep(1.5)   # stay well inside Fyers' rate limits
+
+
+def _option_snapshot_loop(middleware):
+    last_nearest = last_other = 0.0
+    while True:
+        try:
+            if is_market_hours(datetime.now()):
+                t = time.time()
+                if t - last_nearest >= _OPTION_NEAREST_EVERY_S:
+                    other = t - last_other >= _OPTION_OTHER_EVERY_S
+                    _snapshot_option_chains(middleware, other)
+                    last_nearest = time.time()
+                    if other:
+                        last_other = last_nearest
+        except Exception as exc:
+            print(f"[MarketCloseFreeze] option snapshot loop error: {exc}")
+        time.sleep(30)
+
+
+def start_option_snapshot_worker(middleware):
+    """One daemon thread per process; off under tests or with OPTION_SNAPSHOT_WORKER=0."""
+    global _worker_started
+    if _worker_started or os.environ.get("OPTION_SNAPSHOT_WORKER", "1") == "0" or "test" in sys.argv:
+        return
+    _worker_started = True
+    threading.Thread(target=_option_snapshot_loop, args=(middleware,), daemon=True, name="option-snapshot-keeper").start()

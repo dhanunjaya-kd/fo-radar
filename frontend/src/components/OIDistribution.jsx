@@ -107,6 +107,20 @@ function mergeOIRows(ceData, peData) {
   return { rows, totalCeOi, totalPeOi };
 }
 
+// last weekday strictly before `d` (holidays ignored -- only used to flag a clearly stale snapshot)
+const prevWeekday = (d) => { const x = new Date(d); do { x.setDate(x.getDate() - 1); } while (x.getDay() === 0 || x.getDay() === 6); return x; };
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function describeSnapshot(snap, expiryDate) {
+  if (!snap?.at) return null;
+  const when = new Date(snap.at);
+  if (Number.isNaN(when.getTime())) return null;
+  const today = new Date();
+  const lastSession = ymd(today) === ymd(when) || ymd(prevWeekday(today)) === ymd(when);
+  const label = when.toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+  const expired = expiryDate && expiryDate < ymd(when);
+  return { label, stale: !lastSession, expired };
+}
+
 const INDICES = ['NIFTY', 'BANKNIFTY', 'SENSEX'];
 const EXPIRIES = [['current', 'Nearest'], ['next', 'Next'], ['monthly', 'Monthly']];
 const fmtPrice = (n, d = 0) => (n == null ? '—' : Number(n).toLocaleString('en-IN', { maximumFractionDigits: d }));
@@ -169,6 +183,7 @@ export default function OIDistribution() {
   const t = useTone();
   const [selected, setSelected] = useState('NIFTY');
   const [expiry, setExpiry] = useState('current');
+  const [snap, setSnap] = useState(null);   // { frozen, at } -- set when the server replayed an after-close snapshot
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -189,6 +204,7 @@ export default function OIDistribution() {
         const qs = expiry === 'current' ? '' : `?expiry=${expiry}`;
         const res = await fetch(`${API_BASE}/api/option-analytics/${selected}/${qs}`);
         const json = await res.json().catch(() => ({}));
+        if (mounted) setSnap(res.headers.get('X-Market-Data-Frozen') === '1' ? { frozen: true, at: res.headers.get('X-Market-Data-Snapshot') } : null);
         if (!res.ok) {
           if (json.error === 'market_closed_no_snapshot') {
             throw new Error(`Market is closed and there is no saved snapshot for ${selected}${expiry === 'current' ? '' : ` (${expiry} expiry)`} from the last session. Open this view once while the market is live and it will be available after the close.`);
@@ -237,6 +253,7 @@ export default function OIDistribution() {
   const layout = rows.length > 0 ? computeOIDistributionLayout(rows, data?.maxPain, atmStrike, WIDTH, HEIGHT) : null;
   const totalOi = totalCeOi + totalPeOi;
   const insights = rows.length ? computeInsights(rows, data) : null;
+  const snapInfo = describeSnapshot(snap, data?.resolvedExpiryDate);
   const pcrInfo = pcrSentimentLabel(data?.pcr ?? null);
 
   return (
@@ -244,6 +261,13 @@ export default function OIDistribution() {
       <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
         <div>
           <h3 className="text-sm font-bold text-white">OI Distribution</h3>
+          {snapInfo && (
+            <p className={`text-[11px] mt-0.5 font-medium ${snapInfo.stale ? 'text-amber-400' : 'text-slate-400'}`}>
+              Market closed — saved snapshot from {snapInfo.label}
+              {snapInfo.stale && ' · older than the last trading session (this view was not opened live that day)'}
+              {snapInfo.expired && ' · this expiry has already passed'}
+            </p>
+          )}
           {data?.resolvedExpiryDate && <p className="text-[10px] text-slate-500 mt-0.5">Expiry {data.resolvedExpiryDate}{data.days_to_expiry != null ? ` · ${data.days_to_expiry}d` : ''} · 10 strikes either side of ATM</p>}
         </div>
         <div className="flex items-center gap-2 flex-wrap">

@@ -111,6 +111,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # must opt in via CORS_ALLOWED_ORIGINS in .env.
 CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', default=DEBUG)
 CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
+# let the frontend read when a replayed after-close snapshot was captured
+CORS_EXPOSE_HEADERS = ['X-Market-Data-Frozen', 'X-Market-Data-Snapshot']
 
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': ['rest_framework.renderers.JSONRenderer'],
