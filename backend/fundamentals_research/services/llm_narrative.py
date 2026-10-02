@@ -71,6 +71,26 @@ STRICT RULES, no exceptions:
 6. Cite the specific number when you reference it, so a reader can verify it against the data above your text."""
 
 
+# Oct 2 2026: more providers, because a single free-tier key runs out ("HTTP 429: You exceeded your current
+# quota"). groq / openrouter / custom all speak the OpenAI chat-completions protocol (one adapter, below).
+_KEY_ENV = {'gemini': 'GEMINI_API_KEY', 'anthropic': 'ANTHROPIC_API_KEY', 'groq': 'GROQ_API_KEY',
+            'openrouter': 'OPENROUTER_API_KEY', 'custom': 'LLM_API_KEY'}
+_OPENAI_COMPAT = {
+    'groq': {'url': 'https://api.groq.com/openai/v1/chat/completions', 'model_env': 'GROQ_MODEL', 'default_model': 'openai/gpt-oss-120b'},
+    'openrouter': {'url': 'https://openrouter.ai/api/v1/chat/completions', 'model_env': 'OPENROUTER_MODEL', 'default_model': 'meta-llama/llama-3.3-70b-instruct:free'},
+    'custom': {'url': None, 'model_env': 'LLM_MODEL', 'default_model': None},   # LLM_BASE_URL + LLM_MODEL from .env
+}
+_DEFAULT_ORDER = ('gemini', 'anthropic', 'groq', 'openrouter', 'custom')
+
+
+def _fallback_order(primary: str) -> List[str]:
+    """Providers to try after `primary` fails: AI_FALLBACKS (comma list) if set, else every other provider
+    whose key is present in .env. Only configured providers are ever returned."""
+    raw = (os.environ.get('AI_FALLBACKS') or '').strip()
+    names = [n.strip().lower() for n in raw.split(',') if n.strip()] if raw else list(_DEFAULT_ORDER)
+    return [n for n in names if n != primary and n in _KEY_ENV and _get_api_key(n)]
+
+
 def _get_provider() -> str:
     """
     Sep 27 2026. AI_PROVIDER env var, defaults to 'gemini' -- matching
@@ -91,7 +111,13 @@ def _get_api_key(provider: str) -> Optional[str]:
     # requests.exceptions.RequestException -- so it would crash
     # unhandled rather than degrade gracefully to 'network_error'.
     # Confirmed by directly reproducing it before writing this fix.
-    raw = os.environ.get('GEMINI_API_KEY') if provider == 'gemini' else os.environ.get('ANTHROPIC_API_KEY')
+    if provider == 'custom':
+        # any OpenAI-compatible endpoint (e.g. a local Ollama): the key is optional, the URL + model are not
+        if not (os.environ.get('LLM_BASE_URL') or '').strip() or not (os.environ.get('LLM_MODEL') or '').strip():
+            return None
+        raw = os.environ.get('LLM_API_KEY') or 'none'
+        return raw.strip() or 'none'
+    raw = os.environ.get(_KEY_ENV.get(provider, 'ANTHROPIC_API_KEY'))
     return raw.strip() if raw else raw
 
 
@@ -124,44 +150,100 @@ def _call_llm(system: str, messages: List[Dict[str, str]], max_tokens: int = 150
     """
     provider = _get_provider()
     api_key = _get_api_key(provider)
-    if not api_key:
-        key_name = 'GEMINI_API_KEY' if provider == 'gemini' else 'ANTHROPIC_API_KEY'
+    fallbacks = _fallback_order(provider)
+    if not api_key and not fallbacks:
+        key_name = _KEY_ENV.get(provider, 'ANTHROPIC_API_KEY')
         logger.info(f"{key_name} not set (AI_PROVIDER={provider}) -- narrative generation skipped, template fallback will be used.")
         return None, 'no_api_key', f'{key_name} is not set.'
 
-    def primary():
-        if provider == 'gemini':
-            return _call_gemini(system, messages, max_tokens, api_key, response_schema=response_schema)
-        return _call_anthropic(system, messages, max_tokens, api_key)
+    def call(p, key, model=None):
+        if p == 'gemini':
+            return _call_gemini(system, messages, max_tokens, key, response_schema=response_schema, model=model)
+        if p == 'anthropic':
+            return _call_anthropic(system, messages, max_tokens, key)
+        return _call_openai_compat(p, system, messages, max_tokens, key, response_schema=response_schema)
 
-    result = _with_retries(primary)
-    if result[1] == 'ok' or not _is_transient(result[1], result[2]):
-        return result
+    def attempt(p, key, model=None, delays=None):
+        """One provider, with retries for transient errors; a quota error puts it on cooldown."""
+        if _in_cooldown(p):
+            return None, 'http_error', f'HTTP 429: {p} is cooling down after a quota error'
+        res = _with_retries(lambda: call(p, key, model), delays=delays)
+        if res[1] != 'ok' and _is_quota_error(res[1], res[2]):
+            _start_cooldown(p)
+        return res
 
-    # Oct 2 2026: still failing after retries with a TRANSIENT error (e.g. Gemini's "model is
-    # currently experiencing high demand", HTTP 503). Two optional escape hatches, both only used
-    # when configured -- no model name is guessed, since model names here have been retired before:
-    #   1. GEMINI_FALLBACK_MODEL: a second Gemini model.
-    #   2. the other provider, if its API key is present in .env.
-    first_failure = result
-    if provider == 'gemini':
+    first_failure = attempt(provider, api_key) if api_key else (None, 'no_api_key', f"{_KEY_ENV.get(provider)} is not set.")
+    if first_failure[1] == 'ok':
+        return first_failure
+
+    # Still failing -- a transient outage (503 "high demand") or an exhausted quota (429). Escape hatches, only
+    # used when configured; no model name is guessed:
+    #   1. GEMINI_FALLBACK_MODEL: a second Gemini model (free-tier quotas are per model).
+    #   2. every other provider with a key in .env, in AI_FALLBACKS / default order.
+    reason, detail = first_failure[1], first_failure[2]
+    if provider == 'gemini' and api_key and (_is_transient(reason, detail) or _is_quota_error(reason, detail)):
         fb_model = (os.environ.get('GEMINI_FALLBACK_MODEL') or '').strip()
         current = (os.environ.get('GEMINI_MODEL') or _GEMINI_DEFAULT_MODEL).strip()
         if fb_model and fb_model != current:
-            alt = _with_retries(lambda: _call_gemini(system, messages, max_tokens, api_key, response_schema=response_schema, model=fb_model), delays=(2.0,))
+            alt = attempt('gemini', api_key, model=fb_model, delays=(2.0,)) if not _is_quota_error(reason, detail) else \
+                _with_retries(lambda: call('gemini', api_key, fb_model), delays=(2.0,))
             if alt[1] == 'ok':
-                logger.info(f"Gemini fallback model {fb_model} answered after {current} was unavailable.")
+                logger.info(f"Gemini fallback model {fb_model} answered after {current} failed.")
                 return alt
-    other = 'anthropic' if provider == 'gemini' else 'gemini'
-    other_key = _get_api_key(other)
-    if other_key:
-        fn = (lambda: _call_anthropic(system, messages, max_tokens, other_key)) if other == 'anthropic' else \
-             (lambda: _call_gemini(system, messages, max_tokens, other_key, response_schema=response_schema))
-        alt = _with_retries(fn, delays=(2.0,))
+    tried = [provider]
+    for other in fallbacks:
+        alt = attempt(other, _get_api_key(other), delays=(2.0,))
+        tried.append(other)
         if alt[1] == 'ok':
-            logger.info(f"Fell back to {other} after {provider} was unavailable.")
+            logger.info(f"Fell back to {other} after {provider} failed ({reason}).")
             return alt
-    return first_failure
+    if _is_quota_error(reason, detail) and not fallbacks:
+        detail = f"{detail} [no backup provider configured -- add GROQ_API_KEY, OPENROUTER_API_KEY or ANTHROPIC_API_KEY to .env]"
+    elif len(tried) > 1:
+        detail = f"{detail} [also tried: {', '.join(tried[1:])}]"
+    return first_failure[0], first_failure[1], detail
+
+
+def _call_openai_compat(provider: str, system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str, response_schema: Optional[Dict] = None) -> tuple:
+    """Chat-completions call for Groq, OpenRouter and any OpenAI-compatible server (local Ollama etc.)."""
+    cfg = _OPENAI_COMPAT[provider]
+    if provider == 'custom':
+        base = (os.environ.get('LLM_BASE_URL') or '').strip().rstrip('/')
+        url = base if base.endswith('/chat/completions') else f"{base}/chat/completions"
+    else:
+        url = cfg['url']
+    model = (os.environ.get(cfg['model_env']) or cfg['default_model'] or '').strip()
+    body = {'model': model, 'max_tokens': max_tokens, 'messages': [{'role': 'system', 'content': system}] + list(messages)}
+    if 'gpt-oss' in model:
+        body['reasoning_effort'] = 'low'     # reasoning model: keep thinking tokens from eating the output budget
+    if response_schema is not None:
+        body['response_format'] = {'type': 'json_object'}      # the prompts already ask for JSON
+    headers = {'content-type': 'application/json'}
+    if api_key and api_key != 'none':
+        headers['authorization'] = f'Bearer {api_key}'
+    name = provider.capitalize()
+    for use_format in ((True, False) if response_schema is not None else (False,)):
+        payload = dict(body)
+        if not use_format:
+            payload.pop('response_format', None)
+        try:
+            resp = requests.post(url, headers=headers, json=payload, timeout=DEFAULT_TIMEOUT)
+        except (requests.exceptions.RequestException, ValueError) as e:
+            logger.warning(f"{name} API call failed (network): {e}")
+            return None, 'network_error', str(e)[:200]
+        if resp.status_code == 400 and use_format:
+            continue    # that endpoint/model doesn't support response_format -- retry once without it
+        break
+    if resp.status_code != 200:
+        detail = resp.text[:200]
+        logger.warning(f"{name} API returned HTTP {resp.status_code}: {resp.text[:300]}")
+        return None, 'http_error', f"HTTP {resp.status_code}: {detail}"
+    try:
+        text = (resp.json().get('choices') or [{}])[0].get('message', {}).get('content')
+        return (text, 'ok', None) if text else (None, 'parse_error', f'{name} returned an empty response.')
+    except (ValueError, KeyError, IndexError, AttributeError) as e:
+        logger.warning(f"{name} API response malformed: {e}")
+        return None, 'parse_error', str(e)[:200]
 
 
 def _call_anthropic(system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str) -> tuple:
@@ -304,10 +386,35 @@ def _http_status(detail) -> Optional[int]:
     return int(m.group(1)) if m else None
 
 
+def _is_quota_error(reason: str, detail) -> bool:
+    """HTTP 429 that says the QUOTA is used up ("You exceeded your current quota", RESOURCE_EXHAUSTED,
+    insufficient_quota) -- unlike a per-second rate limit, waiting a few seconds does not help."""
+    if reason != 'http_error' or _http_status(detail) != 429:
+        return False
+    d = (detail or '').lower()
+    return 'quota' in d or 'resource_exhausted' in d or 'billing' in d
+
+
 def _is_transient(reason: str, detail) -> bool:
     if reason == 'network_error':
         return True
+    if _is_quota_error(reason, detail):
+        return False      # retrying only burns more of the same exhausted quota
     return reason == 'http_error' and _http_status(detail) in _TRANSIENT_HTTP
+
+
+# After a quota error the provider is skipped for a while instead of being hit again on every request.
+_COOLDOWN_SECONDS = 10 * 60
+_cooldown_until: Dict[str, float] = {}
+
+
+def _in_cooldown(provider: str) -> bool:
+    return time.monotonic() < _cooldown_until.get(provider, 0.0)
+
+
+def _start_cooldown(provider: str) -> None:
+    _cooldown_until[provider] = time.monotonic() + _COOLDOWN_SECONDS
+    logger.warning(f"{provider}: quota exhausted -- skipping it for {_COOLDOWN_SECONDS // 60} min and using backups if configured.")
 
 
 def _with_retries(fn, delays=None) -> tuple:
