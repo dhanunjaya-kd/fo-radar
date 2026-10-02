@@ -24,8 +24,6 @@ import CASRadar from './components/CASRadar';
 import Sidebar from './components/Sidebar';
 import MarketHeatmap from './components/MarketHeatmap';
 import SectorStrength from './components/SectorStrength';
-import Scanner from './components/Scanner';
-import ChartsPage from './components/ChartsPage';
 import ChartPatterns from './components/ChartPatterns';
 import MarqueeTicker from './components/MarqueeTicker';
 
@@ -36,7 +34,7 @@ const IconBellOff = ({ size = 16 }) => (<svg xmlns="http://www.w3.org/2000/svg" 
 const IconMaximize = ({ size = 17 }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>);
 const IconLogOut = ({ size = 16 }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>);
 
-const VALID_TABS = ['dashboard', 'scanner', 'patterns', 'research', 'charts', 'signals', 'oi', 'index', 'cas', 'market', 'heatmap', 'nextday', 'backtest', 'shadow', 'settings', 'strategy'];
+const VALID_TABS = ['dashboard', 'patterns', 'research', 'signals', 'oi', 'index', 'cas', 'market', 'heatmap', 'nextday', 'backtest', 'shadow', 'settings', 'strategy'];
 
 function AppShell() {
   const { theme } = useTheme();
@@ -48,12 +46,6 @@ function AppShell() {
   });
   const [signalCount, setSignalCount] = useState(null);
   const [alertsEnabled, setAlertsEnabled] = useState(typeof Notification !== 'undefined' && Notification.permission === 'granted');
-  // Sep 19 2026: lets Scanner's card click navigate to the full Charts
-  // tab with that symbol pre-loaded, instead of opening the small
-  // popup modal -- direct request ("open like the full page, not like
-  // the current popup").
-  const [chartsSymbol, setChartsSymbol] = useState(null);
-  const openChartsTab = (symbol) => { setChartsSymbol(symbol); setActiveTab('charts'); };
   // Oct 2 2026: Chart Patterns' "Stock page" opens the Fundamental Research tab and researches the stock
   // automatically (n makes a repeat click on the same symbol run again).
   const [researchRequest, setResearchRequest] = useState(null);
@@ -82,7 +74,6 @@ function AppShell() {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', count: null },
-    { id: 'scanner', label: 'Scanner', count: null },
     { id: 'patterns', label: 'Chart Patterns', count: null },
     { id: 'signals', label: 'Sniper Signals', count: signalCount },
     { id: 'oi', label: 'Open Interest Analytics', count: null },
@@ -93,7 +84,6 @@ function AppShell() {
     { id: 'cas', label: 'CAS Radar', count: null },
     { id: 'market', label: 'Market Overview', count: null },
     { id: 'heatmap', label: 'Market Heatmap', count: null },
-    { id: 'charts', label: 'Charts', count: null },
     { id: 'nextday', label: "Next-Day Watchlist", count: null },
     { id: 'backtest', label: 'Daily Backtest', count: null },
     { id: 'shadow', label: 'Simulation', count: null },
@@ -101,7 +91,7 @@ function AppShell() {
     { id: 'strategy', label: 'Strategy Backtest', count: null },
   ];
 
-  const primaryNavOrder = ['dashboard', 'scanner', 'patterns', 'signals', 'gamma', 'research', 'oi', 'oidist', 'index', 'cas', 'market', 'heatmap', 'charts', 'nextday', 'backtest', 'shadow', 'settings'];
+  const primaryNavOrder = ['dashboard', 'patterns', 'signals', 'gamma', 'research', 'oi', 'oidist', 'index', 'cas', 'market', 'heatmap', 'nextday', 'backtest', 'shadow', 'settings'];
   const primaryTabs = primaryNavOrder.map(id => tabs.find(t => t.id === id)).filter(Boolean);
 
   useEffect(() => {
@@ -199,9 +189,7 @@ function AppShell() {
               <SectorStrength onNavigate={setActiveTab} />
             </div>
           )}
-          {activeTab === 'scanner' && <Scanner onOpenChart={openChartsTab} />}
-          {activeTab === 'patterns' && <ChartPatterns onOpenChart={openChartsTab} onOpenStock={openResearchTab} />}
-          {activeTab === 'charts' && <ChartsPage initialSymbol={chartsSymbol} />}
+          {activeTab === 'patterns' && <ChartPatterns onOpenStock={openResearchTab} />}
           {activeTab === 'nextday' && <NextDayWatchlist />}
           {activeTab === 'backtest' && <DailyBacktestTab />}
           {activeTab === 'shadow' && <ShadowSignals />}

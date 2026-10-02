@@ -126,15 +126,9 @@ python -m unittest screener.tests.test_sniper_v3
 
 Replay on the repo's logs + Oct 1: 358 calls → 152 with the structural rules alone, → 81 with the RSI/BUY-ADX gates (those two were fitted on the same data, so treat that last step as in-sample). Oct 1 alone: 38 → 14. The intraday trigger, cost gate and relative-RVOL cannot be replayed (5m history and bid/ask are not logged); `sniper_v3_trigger_<date>.csv` and the new per-signal fields (`trigger_state`, `cost_to_risk`, `rvol_relative`, `rank_score`) collect that evidence going forward. Flip `SNIPER_TRIGGER_MODE=enforce` only once `--trigger-report` shows TRIGGERED beating NO_TRIGGER across several *days* — calls inside one day are strongly correlated.
 
-## Scanner mini charts (phase 1)
+## Chart Patterns tab
 
-Each Scanner card now draws a mini daily-candlestick chart (last 60 candles + today's live candle, plain SVG, drawn only when the card scrolls into view) with a 20-day range box and, when the card has a clear bullish/bearish lean, **Breakout / Target / Stop** tags, R:R, and a status (*Broke out* / *Near trigger* / *Watching*). Filter chips: Bullish, Bearish, Broke out, Near trigger.
-
-This is a **20-day range breakout setup** (`backend/screener/scanner_levels.py`: target = measured move of the range, stop = max(1 ATR, 35% of range height)), not chart-pattern detection. Cards without cached history are filled in as they scroll into view via `GET /api/scanner/candles/?symbols=…` (≤12 symbols per call, one call at a time, still paced by the Fyers governor), so charts work for All Stocks and outside market hours. Pattern detection lives in the separate Chart Patterns tab below.
-
-## Chart Patterns tab (phase 2)
-
-A reference-style pattern scanner: filters (family, direction, status, shape quality, formed-within, volume-confirmed), pattern cards with the fitted trendlines drawn on daily candles plus Breakout / Target / Stop / R:R, and a detail panel with a large chart and the pattern's definition.
+The Scanner and Charts tabs were removed (Oct 2 2026) — this tab plus the Fundamental Research page (price chart + fundamentals) replace them. A reference-style pattern scanner: filters (family, direction, status, shape quality, formed-within, volume-confirmed), pattern cards with the fitted trendlines drawn on daily candles plus Breakout / Target / Stop / R:R, and a detail panel with a large chart and the pattern's definition.
 
 - **Detector** (`backend/screener/chart_patterns.py`): ATR-scaled swing pivots, then double/triple top & bottom, head & shoulders (+inverse), rising/falling wedge, ascending/descending/symmetrical triangle, rectangle, ascending/descending channel, bull/bear flag & pennant, rounded top/bottom, cup & handle. Bearish shapes are detected once and the bullish ones by mirroring the price series, so the two sides are exactly symmetric. Pivots must be *confirmed*, so a pattern shows up a few bars after a human might call it (no repainting).
 - **Scan** (`pattern_scanner.py`): press *Scan now / Scan again* for a universe. It fetches ~1 year (365 days, ~250 bars) of daily candles per stock from Fyers, **one paced call per symbol, one scan at a time**, and waits while the rate-limit breaker is open. A cold Nifty 500 scan takes a few minutes; All stocks (~2,400) much longer. Results persist to `backend/runtime/chart_patterns_<universe>.json` (git-ignored) so the tab works immediately after a restart.
