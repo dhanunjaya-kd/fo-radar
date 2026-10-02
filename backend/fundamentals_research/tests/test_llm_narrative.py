@@ -20,6 +20,7 @@ class _Isolated(unittest.TestCase):
         self.addCleanup(self._sleep_patch.stop)
         ln._FRESH.clear()
         ln._LAST_GOOD.clear()
+        ln._cooldown_until.clear()
 
 
 def _mock_claude_response(text):

@@ -181,6 +181,7 @@ class TestDecisionSupportEndpoint(TestCase):
         from fundamentals_research.services import llm_narrative as ln
         ln._FRESH.clear()
         ln._LAST_GOOD.clear()
+        ln._cooldown_until.clear()
 
     def _research_reliance(self):
         with patch('fundamentals_research.services.research_engine.na.get_company_news', return_value=[]), \

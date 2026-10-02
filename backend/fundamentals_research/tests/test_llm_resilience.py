@@ -47,6 +47,7 @@ class Base(unittest.TestCase):
         self.addCleanup(p.stop)
         ln._FRESH.clear()
         ln._LAST_GOOD.clear()
+        ln._cooldown_until.clear()
 
 
 class Retries(Base):
@@ -171,3 +172,95 @@ class DecisionCaching(Base):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+QUOTA = '{"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details.","status":"RESOURCE_EXHAUSTED"}}'
+
+
+def openai_ok(text='from groq'):
+    r = MagicMock()
+    r.status_code = 200
+    r.json.return_value = {'choices': [{'message': {'content': text}}]}
+    return r
+
+
+class QuotaExhausted(Base):
+    """Oct 2 2026: Gemini free tier ran out ("HTTP 429: You exceeded your current quota"). Retrying a spent
+    quota only burns more of it; the right move is to go to a backup provider straight away."""
+
+    def test_quota_error_is_not_retried(self):
+        with patch.dict(os.environ, ENV, clear=True), patch.object(ln.requests, 'post', return_value=http(429, QUOTA)) as post:
+            text, reason, detail = ln._call_llm('sys', MSG)
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(reason, 'http_error')
+        self.assertIn('no backup provider configured', detail)      # tells the user how to fix it
+
+    def test_plain_rate_limit_429_is_still_retried(self):
+        with patch.dict(os.environ, ENV, clear=True), patch.object(ln.requests, 'post', side_effect=[http(429, '{"error":"too many requests"}'), gemini_ok('ok now')]) as post:
+            text, reason, _ = ln._call_llm('sys', MSG)
+        self.assertEqual((text, post.call_count), ('ok now', 2))
+
+    def test_falls_back_to_groq_when_quota_is_spent(self):
+        env = dict(ENV, GROQ_API_KEY='g')
+        def fake(url, **kw):
+            return http(429, QUOTA) if 'googleapis' in url else openai_ok('groq answered')
+        with patch.dict(os.environ, env, clear=True), patch.object(ln.requests, 'post', side_effect=fake) as post:
+            text, reason, _ = ln._call_llm('sys', MSG)
+        self.assertEqual((text, reason), ('groq answered', 'ok'))
+        self.assertEqual(post.call_count, 2)
+        url = post.call_args.args[0]
+        self.assertIn('api.groq.com', url)
+        self.assertEqual(post.call_args.kwargs['json']['messages'][0], {'role': 'system', 'content': 'sys'})
+        self.assertEqual(post.call_args.kwargs['headers']['authorization'], 'Bearer g')
+
+    def test_exhausted_provider_is_skipped_on_the_next_request(self):
+        env = dict(ENV, GROQ_API_KEY='g')
+        urls = []
+        def fake(url, **kw):
+            urls.append(url)
+            return http(429, QUOTA) if 'googleapis' in url else openai_ok()
+        with patch.dict(os.environ, env, clear=True), patch.object(ln.requests, 'post', side_effect=fake):
+            ln._call_llm('sys', MSG)
+            ln._call_llm('sys', MSG)
+        self.assertEqual(sum('googleapis' in u for u in urls), 1)   # second request went straight to groq
+        self.assertEqual(sum('groq' in u for u in urls), 2)
+
+    def test_gemini_fallback_model_is_tried_on_quota_error(self):
+        env = dict(ENV, GEMINI_FALLBACK_MODEL='other-model')
+        seen = []
+        def fake(url, **kw):
+            seen.append(url)
+            return http(429, QUOTA) if 'other-model' not in url else gemini_ok('second model')
+        with patch.dict(os.environ, env, clear=True), patch.object(ln.requests, 'post', side_effect=fake):
+            text, reason, _ = ln._call_llm('sys', MSG)
+        self.assertEqual(text, 'second model')
+
+    def test_only_configured_providers_are_fallbacks(self):
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'k', 'OPENROUTER_API_KEY': 'o'}, clear=True):
+            self.assertEqual(ln._fallback_order('gemini'), ['openrouter'])
+        with patch.dict(os.environ, {'GEMINI_API_KEY': 'k', 'GROQ_API_KEY': 'g', 'ANTHROPIC_API_KEY': 'a', 'AI_FALLBACKS': 'groq'}, clear=True):
+            self.assertEqual(ln._fallback_order('gemini'), ['groq'])
+
+    def test_primary_without_key_still_works_through_a_fallback(self):
+        with patch.dict(os.environ, {'AI_PROVIDER': 'gemini', 'GROQ_API_KEY': 'g'}, clear=True), patch.object(ln.requests, 'post', return_value=openai_ok('only groq')):
+            text, reason, _ = ln._call_llm('sys', MSG)
+        self.assertEqual((text, reason), ('only groq', 'ok'))
+
+
+class OpenAICompatible(Base):
+    def test_custom_endpoint_for_a_local_model(self):
+        env = {'AI_PROVIDER': 'custom', 'LLM_BASE_URL': 'http://localhost:11434/v1', 'LLM_MODEL': 'llama3.1'}
+        with patch.dict(os.environ, env, clear=True), patch.object(ln.requests, 'post', return_value=openai_ok('local')) as post:
+            text, reason, _ = ln._call_llm('sys', MSG)
+        self.assertEqual((text, reason), ('local', 'ok'))
+        self.assertEqual(post.call_args.args[0], 'http://localhost:11434/v1/chat/completions')
+        self.assertEqual(post.call_args.kwargs['json']['model'], 'llama3.1')
+        self.assertNotIn('authorization', post.call_args.kwargs['headers'])    # no key needed locally
+
+    def test_json_mode_retried_without_response_format_if_rejected(self):
+        env = {'AI_PROVIDER': 'groq', 'GROQ_API_KEY': 'g'}
+        with patch.dict(os.environ, env, clear=True), patch.object(ln.requests, 'post', side_effect=[http(400, 'bad response_format'), openai_ok('{"a":1}')]) as post:
+            text, reason, _ = ln._call_llm('sys', MSG, response_schema={'type': 'object'})
+        self.assertEqual((text, reason), ('{"a":1}', 'ok'))
+        self.assertIn('response_format', post.call_args_list[0].kwargs['json'])
+        self.assertNotIn('response_format', post.call_args_list[1].kwargs['json'])
