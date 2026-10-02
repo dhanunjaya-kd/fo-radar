@@ -192,7 +192,7 @@ function BaseRates({ p, rates, universeLabel }) {
   );
 }
 
-function DetailPanel({ p, onOpenChart, onOpenStock, baseline, rates, universeLabel }) {
+function DetailPanel({ p, onOpenStock, baseline, rates, universeLabel }) {
   if (!p) {
     return <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center text-xs text-slate-500">Select a pattern card to see its chart, levels, how it is defined and how similar breaks played out.</div>;
   }
@@ -220,10 +220,7 @@ function DetailPanel({ p, onOpenChart, onOpenStock, baseline, rates, universeLab
             <div className="text-[11px] text-slate-500 truncate">{p.company}</div>
           </div>
         </div>
-        <div className="flex gap-1.5 shrink-0">
-          <button onClick={() => onOpenChart(p.symbol)} title="Open the full interactive chart" className="text-[11px] px-2.5 py-1 rounded-lg border border-slate-600 text-slate-300 hover:border-slate-400">Chart ↗</button>
-          <button onClick={() => (onOpenStock || onOpenChart)(p.symbol)} title="Open the stock's fundamental research report" className="text-[11px] px-2.5 py-1 rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20">Stock page ↗</button>
-        </div>
+        <button onClick={() => onOpenStock && onOpenStock(p.symbol)} title="Open the stock's research page: price chart plus fundamentals" className="text-[11px] px-2.5 py-1 rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 shrink-0">Stock page ↗</button>
       </div>
 
       <div className="grid grid-cols-3 gap-1.5">
@@ -330,7 +327,7 @@ function DetailPanel({ p, onOpenChart, onOpenStock, baseline, rates, universeLab
   );
 }
 
-export default function ChartPatterns({ onOpenChart, onOpenStock }) {
+export default function ChartPatterns({ onOpenStock }) {
   const [universe, setUniverse] = useState(() => { try { return localStorage.getItem('fo-radar-pattern-universe') || 'nifty500'; } catch { return 'nifty500'; } });
   const [filters, setFilters] = useState({ family: null, direction: null, status: null, quality: null, within: null, volume: false, sort: 'composite', q: '' });
   const [data, setData] = useState(null);
@@ -604,12 +601,12 @@ export default function ChartPatterns({ onOpenChart, onOpenStock }) {
 
         {/* detail */}
         <aside className="hidden xl:block self-start sticky top-2">
-          <DetailPanel p={selected} onOpenChart={onOpenChart} onOpenStock={onOpenStock} baseline={data?.baseline} rates={data?.base_rates} universeLabel={universeLabel} />
+          <DetailPanel p={selected} onOpenStock={onOpenStock} baseline={data?.baseline} rates={data?.base_rates} universeLabel={universeLabel} />
         </aside>
       </div>
 
       {/* below xl the detail panel sits under the grid when something is selected */}
-      {selected && <div className="xl:hidden"><DetailPanel p={selected} onOpenChart={onOpenChart} onOpenStock={onOpenStock} baseline={data?.baseline} rates={data?.base_rates} universeLabel={universeLabel} /></div>}
+      {selected && <div className="xl:hidden"><DetailPanel p={selected} onOpenStock={onOpenStock} baseline={data?.baseline} rates={data?.base_rates} universeLabel={universeLabel} /></div>}
     </div>
   );
 }

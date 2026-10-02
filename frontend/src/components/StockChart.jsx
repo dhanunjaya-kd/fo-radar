@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
+import { ema, bollinger, psar } from '../utils/indicators';
+import IndicatorPane, { PANE_DEFS } from './IndicatorPane';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -68,32 +70,38 @@ function formatTickMarkTimeIST(time, tickMarkType) {
   }
 }
 
-// Sep 27 2026: standard EMA formula (k = 2/(period+1), seeded with the
-// SMA of the first `period` closes, per the universal textbook
-// definition -- not invented). Computed client-side from the same
-// candles already fetched, since EMA is a pure function of closing
-// prices and doesn't need a new backend round-trip. Returns null for
-// every point before there's enough data to seed the average --
-// never a fabricated early value, matching this project's "never
-// invent indicator values" rule everywhere else.
-function calculateEMA(candles, period) {
-  if (!candles || candles.length < period) return candles.map(() => null);
-  const result = new Array(candles.length).fill(null);
-  const k = 2 / (period + 1);
-  let sma = 0;
-  for (let i = 0; i < period; i++) sma += candles[i].close;
-  sma /= period;
-  result[period - 1] = sma;
-  let prevEma = sma;
-  for (let i = period; i < candles.length; i++) {
-    const ema = (candles[i].close - prevEma) * k + prevEma;
-    result[i] = ema;
-    prevEma = ema;
-  }
-  return result;
+// Oct 2 2026: price-chart overlays. Each builds its line(s) from the candles already on screen (see
+// utils/indicators.js -- checked against TA-Lib), so toggling one never triggers a new backend call.
+// Sep 27 2026 original rule still holds: warm-up values are null, never invented.
+const closesOf = (c) => c.map((x) => x.close);
+const OVERLAYS = {
+  ema10: { label: 'EMA10', color: '#fb923c', build: (c) => [{ color: '#fb923c', data: ema(closesOf(c), 10) }] },
+  ema20: { label: 'EMA20', color: '#facc15', build: (c) => [{ color: '#facc15', data: ema(closesOf(c), 20) }] },
+  ema50: { label: 'EMA50', color: '#38bdf8', build: (c) => [{ color: '#38bdf8', data: ema(closesOf(c), 50) }] },
+  ema200: { label: 'EMA200', color: '#c084fc', build: (c) => [{ color: '#c084fc', data: ema(closesOf(c), 200) }] },
+  bb: {
+    label: 'Bollinger 20,2', color: '#94a3b8',
+    build: (c) => { const b = bollinger(c); return [{ color: '#64748b', data: b.upper }, { color: '#94a3b8', data: b.mid, dashed: true }, { color: '#64748b', data: b.lower }]; },
+  },
+  psar: { label: 'PSAR', color: '#f472b6', build: (c) => [{ color: '#f472b6', data: psar(c), dots: true }] },
+};
+const DEFAULT_OVERLAYS = { ema10: false, ema20: true, ema50: true, ema200: true, bb: false, psar: false };   // EMA20/50/200 on by default, as before
+const PREF_KEY = 'fo-radar-chart-indicators';
+
+function loadPrefs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREF_KEY) || 'null');
+    if (raw && typeof raw === 'object') {
+      return {
+        overlays: { ...DEFAULT_OVERLAYS, ...Object.fromEntries(Object.entries(raw.overlays || {}).filter(([k]) => k in OVERLAYS)) },
+        panes: (raw.panes || []).filter((k) => k in PANE_DEFS),
+      };
+    }
+  } catch { /* unreadable or blocked storage -> defaults */ }
+  return { overlays: DEFAULT_OVERLAYS, panes: [] };
 }
 
-export default function StockChart({ symbol }) {
+export default function StockChart({ symbol, compact = false }) {
   // Sep 27 2026 fix: THE actual, confirmed root cause of the
   // persistent blank chart, found by building a real React
   // reproduction of this exact pattern and running it in a headless
@@ -115,14 +123,22 @@ export default function StockChart({ symbol }) {
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
   const volumeSeriesRef = useRef(null);
-  const emaSeriesRef = useRef({});  // {20: series, 50: series, 200: series}
+  const overlaySeriesRef = useRef({});  // { overlayKey: [lightweight-charts series, ...] } -- created on demand, removed when toggled off
+  const [chartInstance, setChartInstance] = useState(null);   // state copy of the chart, so indicator strips can sync to it
+  const [candles, setCandles] = useState([]);
+  const [hoverTime, setHoverTime] = useState(null);
 
   const [timeframe, setTimeframe] = useState('1d');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [meta, setMeta] = useState(null); // {latest_price, as_of, symbol}
   const [hoverOHLC, setHoverOHLC] = useState(null); // {open, high, low, close} at crosshair, or null when not hovering
-  const [emaVisible, setEmaVisible] = useState({ 20: true, 50: true, 200: true }); // default ON, per explicit "keep the default indicators enabled" requirement
+  const [prefs, setPrefs] = useState(loadPrefs);   // { overlays, panes } -- remembered between visits
+  const overlays = prefs.overlays;
+  const panes = prefs.panes;
+  useEffect(() => { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch { /* storage blocked */ } }, [prefs]);
+  const toggleOverlay = (key) => setPrefs((p) => ({ ...p, overlays: { ...p.overlays, [key]: !p.overlays[key] } }));
+  const togglePane = (key) => setPrefs((p) => ({ ...p, panes: p.panes.includes(key) ? p.panes.filter((k) => k !== key) : [...p.panes, key] }));
 
   // Chart instance created whenever the container DOM node actually
   // exists (see the callback-ref note above) -- NOT tied to mount
@@ -179,11 +195,11 @@ export default function StockChart({ symbol }) {
         layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#94a3b8', fontSize: 11, attributionLogo: false },
         grid: { vertLines: { color: '#1e293b' }, horzLines: { color: '#1e293b' } },
         crosshair: { mode: CrosshairMode.Normal },
-        rightPriceScale: { borderColor: '#334155' },
+        rightPriceScale: { borderColor: '#334155', minimumWidth: 72 },   // fixed width so indicator strips below line up with it exactly
         timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false, tickMarkFormatter: formatTickMarkTimeIST },
         localization: { timeFormatter: formatCrosshairTimeIST },
         width: containerEl.clientWidth,
-        height: 380,
+        height: compact ? 300 : 380,
       });
       const candleSeries = chart.addCandlestickSeries({
         upColor: '#34d399', downColor: '#f87171', borderVisible: false,
@@ -199,23 +215,13 @@ export default function StockChart({ symbol }) {
       candleSeriesRef.current = candleSeries;
       volumeSeriesRef.current = volumeSeries;
 
-      // Sep 27 2026: EMA20/50/200 overlays, default ON per explicit
-      // "keep the default indicators enabled" requirement. Distinct
-      // colors so all three are readable when overlapping. Data is set
-      // separately in loadCandles() once real candles arrive -- these
-      // series start empty, never seeded with placeholder values.
-      emaSeriesRef.current = {
-        20: chart.addLineSeries({ color: '#facc15', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, visible: emaVisible[20] }),
-        50: chart.addLineSeries({ color: '#38bdf8', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, visible: emaVisible[50] }),
-        200: chart.addLineSeries({ color: '#c084fc', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, visible: emaVisible[200] }),
-      };
-
       // Sep 27 2026: OHLC-on-hover, per explicit requirement ("clear
       // OHLC details on hover"). chart.subscribeCrosshairMove() and
       // params.seriesData -- both confirmed real, documented APIs by
       // reading this exact installed library version's own type
       // definitions before using them, not guessed.
       handleCrosshairMove = (param) => {
+        setHoverTime(param.time || null);
         if (!param.time || !param.seriesData) {
           setHoverOHLC(null);
           return;
@@ -253,6 +259,7 @@ export default function StockChart({ symbol }) {
       // before catching this. chartReady gates the data-loading
       // effect below so it simply doesn't start fetching until the
       // chart genuinely exists.
+      setChartInstance(chart);
       setChartReady(true);
     });
 
@@ -263,9 +270,14 @@ export default function StockChart({ symbol }) {
       if (chart && handleCrosshairMove) chart.unsubscribeCrosshairMove(handleCrosshairMove);
       if (chart) chart.remove();
       chartRef.current = null;
+      overlaySeriesRef.current = {};   // they died with the chart; the sync effect recreates them on the next one
+      setChartInstance(null);
       setChartReady(false);
     };
   }, [containerEl]);
+
+  // compact (multi-pane) mode is shorter
+  useEffect(() => { if (chartInstance) chartInstance.applyOptions({ height: compact ? 300 : 380 }); }, [compact, chartInstance]);
 
 
   const abortControllerRef = useRef(null);
@@ -281,13 +293,7 @@ export default function StockChart({ symbol }) {
     const volumeData = data.candles.map(c => ({ time: c.time, value: c.volume, color: c.close >= c.open ? '#34d39980' : '#f8717180' }));
     if (candleSeriesRef.current) candleSeriesRef.current.setData(candleData);
     if (volumeSeriesRef.current) volumeSeriesRef.current.setData(volumeData);
-    for (const period of [20, 50, 200]) {
-      const emaValues = calculateEMA(data.candles, period);
-      const emaData = data.candles
-        .map((c, i) => (emaValues[i] != null ? { time: c.time, value: emaValues[i] } : null))
-        .filter(Boolean);
-      if (emaSeriesRef.current[period]) emaSeriesRef.current[period].setData(emaData);
-    }
+    setCandles(data.candles);   // overlays and indicator strips compute from this
     // Sep 27 2026 fix: real, confirmed cause of chart "shaking" --
     // stale-while-revalidate calls applyChartData TWICE for the same
     // symbol/timeframe (once immediately with cached data, once again
@@ -356,7 +362,7 @@ export default function StockChart({ symbol }) {
           setMeta(null);
           if (candleSeriesRef.current) candleSeriesRef.current.setData([]);
           if (volumeSeriesRef.current) volumeSeriesRef.current.setData([]);
-          Object.values(emaSeriesRef.current).forEach(s => s && s.setData([]));
+          setCandles([]);
         }
         return;
       }
@@ -389,14 +395,32 @@ export default function StockChart({ symbol }) {
     };
   }, [symbol, timeframe, loadCandles, chartReady]);
 
-  // Toggling an EMA on/off just flips series visibility -- no
-  // re-fetch, no re-computation, matching the "without stale results
-  // or duplicate requests" requirement.
+  // Overlays: create / remove / refill lightweight-charts series to match the toggles and the candles on
+  // screen. Pure client-side -- no refetch, no duplicate requests when a toggle is clicked.
   useEffect(() => {
-    for (const period of [20, 50, 200]) {
-      if (emaSeriesRef.current[period]) emaSeriesRef.current[period].applyOptions({ visible: emaVisible[period] });
+    const chart = chartInstance;
+    if (!chart) return;
+    const toSeriesData = (values) => values.map((v, i) => (v == null ? { time: candles[i].time } : { time: candles[i].time, value: v }));
+    for (const [key, def] of Object.entries(OVERLAYS)) {
+      const existing = overlaySeriesRef.current[key];
+      if (!overlays[key]) {
+        if (existing) { existing.forEach((sr) => chart.removeSeries(sr)); delete overlaySeriesRef.current[key]; }
+        continue;
+      }
+      if (!candles.length) continue;
+      const specs = def.build(candles);
+      let list = existing;
+      if (!list) {
+        list = specs.map((sp) => chart.addLineSeries({
+          color: sp.color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          lineStyle: sp.dashed ? 2 : 0,
+          ...(sp.dots ? { lineVisible: false, pointMarkersVisible: true, pointMarkersRadius: 1.6 } : {}),
+        }));
+        overlaySeriesRef.current[key] = list;
+      }
+      specs.forEach((sp, i) => list[i].setData(toSeriesData(sp.data)));
     }
-  }, [emaVisible]);
+  }, [overlays, candles, chartInstance]);
 
   if (!symbol) return null;
 
@@ -435,14 +459,21 @@ export default function StockChart({ symbol }) {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 mb-2 px-1">
-        {[[20, '#facc15'], [50, '#38bdf8'], [200, '#c084fc']].map(([period, color]) => (
-          <button
-            key={period} onClick={() => setEmaVisible(v => ({ ...v, [period]: !v[period] }))}
-            className={`flex items-center gap-1 text-[10px] ${emaVisible[period] ? 'text-slate-300' : 'text-slate-600'}`}
-          >
-            <span className="w-2.5 h-0.5" style={{ backgroundColor: emaVisible[period] ? color : '#475569' }} />
-            EMA{period}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1 px-1">
+        <span className="text-[9px] text-slate-600 uppercase tracking-wide">Overlays</span>
+        {Object.entries(OVERLAYS).map(([key, def]) => (
+          <button key={key} onClick={() => toggleOverlay(key)} className={`flex items-center gap-1 text-[10px] ${overlays[key] ? 'text-slate-300' : 'text-slate-600 hover:text-slate-400'}`}>
+            <span className="w-2.5 h-0.5" style={{ backgroundColor: overlays[key] ? def.color : '#475569' }} />
+            {def.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2 px-1">
+        <span className="text-[9px] text-slate-600 uppercase tracking-wide">Indicators</span>
+        {Object.entries(PANE_DEFS).map(([key, def]) => (
+          <button key={key} onClick={() => togglePane(key)}
+            className={`text-[10px] px-1.5 py-0.5 rounded border ${panes.includes(key) ? 'text-emerald-300 border-emerald-500/50 bg-emerald-500/10' : 'text-slate-500 border-slate-700 hover:text-slate-300 hover:border-slate-500'}`}>
+            {def.label.split(' ')[0]}
           </button>
         ))}
       </div>
@@ -460,7 +491,11 @@ export default function StockChart({ symbol }) {
         <div className="text-xs text-rose-400 bg-rose-500/10 rounded px-3 py-2 mb-2">{error}</div>
       )}
 
-      <div ref={setContainerEl} className="w-full" style={{ minHeight: 380 }} />
+      <div ref={setContainerEl} className="w-full" style={{ minHeight: compact ? 300 : 380 }} />
+      {panes.map((id) => (
+        <IndicatorPane key={`${symbol}-${id}`} id={id} candles={candles} mainChart={chartInstance} hoverTime={hoverTime} onHoverTime={setHoverTime}
+          onClose={() => togglePane(id)} height={compact ? 100 : 120} />
+      ))}
     </div>
   );
 }

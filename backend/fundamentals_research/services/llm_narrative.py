@@ -21,8 +21,14 @@ pattern (bharatstock_client.py does the same) rather than adding the
 straightforward calls.
 """
 import os
+import re
 import json
+import time
+import random
+import hashlib
 import logging
+import threading
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 
 import requests
@@ -123,9 +129,39 @@ def _call_llm(system: str, messages: List[Dict[str, str]], max_tokens: int = 150
         logger.info(f"{key_name} not set (AI_PROVIDER={provider}) -- narrative generation skipped, template fallback will be used.")
         return None, 'no_api_key', f'{key_name} is not set.'
 
+    def primary():
+        if provider == 'gemini':
+            return _call_gemini(system, messages, max_tokens, api_key, response_schema=response_schema)
+        return _call_anthropic(system, messages, max_tokens, api_key)
+
+    result = _with_retries(primary)
+    if result[1] == 'ok' or not _is_transient(result[1], result[2]):
+        return result
+
+    # Oct 2 2026: still failing after retries with a TRANSIENT error (e.g. Gemini's "model is
+    # currently experiencing high demand", HTTP 503). Two optional escape hatches, both only used
+    # when configured -- no model name is guessed, since model names here have been retired before:
+    #   1. GEMINI_FALLBACK_MODEL: a second Gemini model.
+    #   2. the other provider, if its API key is present in .env.
+    first_failure = result
     if provider == 'gemini':
-        return _call_gemini(system, messages, max_tokens, api_key, response_schema=response_schema)
-    return _call_anthropic(system, messages, max_tokens, api_key)
+        fb_model = (os.environ.get('GEMINI_FALLBACK_MODEL') or '').strip()
+        current = (os.environ.get('GEMINI_MODEL') or _GEMINI_DEFAULT_MODEL).strip()
+        if fb_model and fb_model != current:
+            alt = _with_retries(lambda: _call_gemini(system, messages, max_tokens, api_key, response_schema=response_schema, model=fb_model), delays=(2.0,))
+            if alt[1] == 'ok':
+                logger.info(f"Gemini fallback model {fb_model} answered after {current} was unavailable.")
+                return alt
+    other = 'anthropic' if provider == 'gemini' else 'gemini'
+    other_key = _get_api_key(other)
+    if other_key:
+        fn = (lambda: _call_anthropic(system, messages, max_tokens, other_key)) if other == 'anthropic' else \
+             (lambda: _call_gemini(system, messages, max_tokens, other_key, response_schema=response_schema))
+        alt = _with_retries(fn, delays=(2.0,))
+        if alt[1] == 'ok':
+            logger.info(f"Fell back to {other} after {provider} was unavailable.")
+            return alt
+    return first_failure
 
 
 def _call_anthropic(system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str) -> tuple:
@@ -160,7 +196,7 @@ def _call_anthropic(system: str, messages: List[Dict[str, str]], max_tokens: int
         return None, 'parse_error', str(e)[:200]
 
 
-def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str, response_schema: Optional[Dict] = None) -> tuple:
+def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, api_key: str, response_schema: Optional[Dict] = None, model: Optional[str] = None) -> tuple:
     """
     Real Gemini REST call via generateContent -- an officially
     supported API method per Google's own docs (used here directly
@@ -186,7 +222,7 @@ def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, a
     this one -- 'thinkingLevel' minimal/low/medium/high is the option
     directly confirmed supported for gemini-3-flash-preview itself.
     """
-    model = (os.environ.get('GEMINI_MODEL') or _GEMINI_DEFAULT_MODEL).strip()
+    model = (model or os.environ.get('GEMINI_MODEL') or _GEMINI_DEFAULT_MODEL).strip()
     url = _GEMINI_API_URL_TEMPLATE.format(model=model)
 
     gemini_contents = [
@@ -247,6 +283,68 @@ def _call_gemini(system: str, messages: List[Dict[str, str]], max_tokens: int, a
     except (ValueError, KeyError, IndexError, AttributeError) as e:
         logger.warning(f"Gemini API response malformed: {e}")
         return None, 'parse_error', str(e)[:200]
+
+
+
+# ---------------------------------------------------------------------------
+# Oct 2 2026: resilience for transient provider errors. The AI Decision Summary showed
+# "HTTP 503: This model is currently experiencing high demand. Spikes in demand are usually
+# temporary" -- the provider itself says to try again, but the code gave up on the first
+# attempt. A transient error (HTTP 429/500/502/503/504, or a network blip) is now retried with a
+# short backoff inside a time budget; permanent errors (bad key, malformed request) are not.
+# ---------------------------------------------------------------------------
+_TRANSIENT_HTTP = {429, 500, 502, 503, 504}
+_RETRY_DELAYS = (2.0, 5.0)
+_RETRY_BUDGET_SECONDS = 45.0
+_sleep = time.sleep           # module-level so tests can stub it
+
+
+def _http_status(detail) -> Optional[int]:
+    m = re.match(r'HTTP (\d{3})', detail or '')
+    return int(m.group(1)) if m else None
+
+
+def _is_transient(reason: str, detail) -> bool:
+    if reason == 'network_error':
+        return True
+    return reason == 'http_error' and _http_status(detail) in _TRANSIENT_HTTP
+
+
+def _with_retries(fn, delays=None) -> tuple:
+    """Run fn() -> (text, reason, detail); retry only transient failures, within the time budget."""
+    delays = _RETRY_DELAYS if delays is None else delays
+    start = time.monotonic()
+    attempts = 0
+    while True:
+        attempts += 1
+        text, reason, detail = fn()
+        if reason == 'ok' or not _is_transient(reason, detail):
+            return text, reason, detail
+        if attempts > len(delays):
+            break
+        wait = delays[attempts - 1] + random.uniform(0, 0.5)
+        if time.monotonic() - start + wait > _RETRY_BUDGET_SECONDS:
+            break
+        logger.info(f"Transient AI error ({detail}) -- retrying in {wait:.1f}s (attempt {attempts + 1}).")
+        _sleep(wait)
+    return text, reason, f"{detail} [tried {attempts}x]"
+
+
+# Decision-summary caches (in memory, per backend process):
+#  * _FRESH: identical inputs (same numbers, same language) reuse the answer for 30 minutes instead
+#    of spending another LLM call -- also fewer chances to hit a provider spike.
+#  * _LAST_GOOD: the last successful summary per (symbol, language), so an outage shows the earlier
+#    summary, clearly labelled stale, instead of nothing.
+_FRESH_TTL_SECONDS = 30 * 60
+_FRESH: Dict[str, tuple] = {}            # {input_hash: (monotonic_ts, summary)}
+_LAST_GOOD: Dict[tuple, Dict[str, Any]] = {}   # {(SYMBOL, language): summary}
+_cache_lock = threading.Lock()
+
+
+def get_last_good_summary(symbol: str, language: str) -> Optional[Dict[str, Any]]:
+    with _cache_lock:
+        s = _LAST_GOOD.get((symbol.upper(), language))
+        return dict(s) if s else None
 
 
 
@@ -440,6 +538,11 @@ def generate_decision_summary(
         'fact_sheet': fact_sheet, 'confluence': confluence,
         'entry_setup': entry_setup, 'trend_classification': trend_classification,
     }
+    cache_key = hashlib.sha256((json.dumps(combined_input, sort_keys=True, default=str) + '|' + language).encode()).hexdigest()
+    with _cache_lock:
+        hit = _FRESH.get(cache_key)
+        if hit and time.monotonic() - hit[0] < _FRESH_TTL_SECONDS:
+            return dict(hit[1]), 'ok', None
     language_instruction = _ROMAN_TELUGU_INSTRUCTION if language == 'roman_telugu' else ""
 
     prompt = f"""Data for {fact_sheet['company']['name']} ({fact_sheet['company']['symbol']}):
@@ -515,4 +618,8 @@ Each evidence/condition list: 2-4 short items, each citing a specific number or 
             logger.warning(f"Decision summary contained banned term '{term}' -- discarding.")
             return None, 'banned_term', f"Response contained disallowed term '{term}'."
 
+    summary['generated_at'] = datetime.now().isoformat(timespec='seconds')
+    with _cache_lock:
+        _FRESH[cache_key] = (time.monotonic(), dict(summary))
+        _LAST_GOOD[(fact_sheet['company']['symbol'].upper(), language)] = dict(summary)
     return summary, 'ok', None

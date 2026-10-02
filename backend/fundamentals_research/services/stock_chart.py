@@ -122,6 +122,24 @@ def _fetch_fyers_history_batched(get_history_fn, fyers_symbol: str, resolution: 
     return sorted(all_candles_by_time.values(), key=lambda c: c[0])
 
 
+# Oct 2 2026: index symbols for the chart workspace's compare panes (NIFTY next to a stock). Same Fyers index
+# symbols screener/views.py's FYERS_INDEX_SYMBOLS already uses; yfinance's own index tickers for the fallback.
+# Indices carry no volume, so the volume strip is simply empty for them.
+_INDEX_FYERS = {'NIFTY': 'NSE:NIFTY50-INDEX', 'NIFTY50': 'NSE:NIFTY50-INDEX', 'BANKNIFTY': 'NSE:NIFTYBANK-INDEX',
+                'NIFTYBANK': 'NSE:NIFTYBANK-INDEX', 'SENSEX': 'BSE:SENSEX-INDEX'}
+_INDEX_YFINANCE = {'NIFTY': '^NSEI', 'NIFTY50': '^NSEI', 'BANKNIFTY': '^NSEBANK', 'NIFTYBANK': '^NSEBANK', 'SENSEX': '^BSESN'}
+
+
+def fyers_symbol_for(symbol: str) -> str:
+    s = symbol.strip().upper()
+    return _INDEX_FYERS.get(s) or f"NSE:{s}-EQ"
+
+
+def yfinance_symbol_for(symbol: str) -> str:
+    s = symbol.strip().upper()
+    return _INDEX_YFINANCE.get(s) or f"{s}.NS"
+
+
 def get_candles(symbol: str, timeframe: str = '1d') -> Dict[str, Any]:
     """
     Returns {'status': 'ok', 'candles': [...], 'as_of': ..., 'resolution_used': ...}
@@ -180,7 +198,7 @@ def _get_candles_from_fyers(symbol: str, timeframe: str) -> Dict[str, Any]:
         return {'status': 'error', 'reason': 'rate_limited', 'message': 'Fyers is currently rate-limited (account-wide) -- this recovers on its own, try again shortly.'}
 
     resolution, total_days = _TIMEFRAME_MAP[timeframe]
-    fyers_symbol = f"NSE:{symbol.upper()}-EQ"
+    fyers_symbol = fyers_symbol_for(symbol)
     is_intraday = timeframe in ('5m', '15m', '1h')
     max_days_per_request = _MAX_DAYS_PER_REQUEST['intraday' if is_intraday else 'daily']
 
@@ -243,7 +261,7 @@ def _get_candles_from_yfinance(symbol: str, timeframe: str) -> Optional[Dict[str
 
     interval, period = _YFINANCE_TIMEFRAME_MAP[timeframe]
     try:
-        ticker = yf.Ticker(f"{symbol.upper()}.NS")
+        ticker = yf.Ticker(yfinance_symbol_for(symbol))
         df = ticker.history(period=period, interval=interval)
     except Exception as e:
         logger.warning(f"yfinance candle fallback failed for {symbol}: {e}")
