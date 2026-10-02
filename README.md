@@ -126,6 +126,12 @@ python -m unittest screener.tests.test_sniper_v3
 
 Replay on the repo's logs + Oct 1: 358 calls → 152 with the structural rules alone, → 81 with the RSI/BUY-ADX gates (those two were fitted on the same data, so treat that last step as in-sample). Oct 1 alone: 38 → 14. The intraday trigger, cost gate and relative-RVOL cannot be replayed (5m history and bid/ask are not logged); `sniper_v3_trigger_<date>.csv` and the new per-signal fields (`trigger_state`, `cost_to_risk`, `rvol_relative`, `rank_score`) collect that evidence going forward. Flip `SNIPER_TRIGGER_MODE=enforce` only once `--trigger-report` shows TRIGGERED beating NO_TRIGGER across several *days* — calls inside one day are strongly correlated.
 
+## Scanner mini charts (phase 1)
+
+Each Scanner card now draws a mini daily-candlestick chart (last 60 candles + today's live candle, plain SVG, drawn only when the card scrolls into view) with a 20-day range box and, when the card has a clear bullish/bearish lean, **Breakout / Target / Stop** tags, R:R, and a status (*Broke out* / *Near trigger* / *Watching*). Filter chips: Bullish, Bearish, Broke out, Near trigger.
+
+This is a **20-day range breakout setup** (`backend/screener/scanner_levels.py`: target = measured move of the range, stop = max(1 ATR, 35% of range height)), not chart-pattern detection. Wedge/flag/channel detection and a dedicated Chart Patterns tab are phase 2. Charts need the daily-history cache, which is cold for a few minutes after a backend restart — the page keeps quietly re-polling until most cards have candles.
+
 ## Shadow Candidate Testing (A–J)
 Ten pass/reject filters run silently alongside every live signal, purely observational — none of them gate a real trade. Each is a hypothesis about a possible future improvement to the live Sniper logic (a faster trend check, a liquidity gate, re-validating an existing scoring component against fresh data, etc.), logged to its own Excel columns per signal. A candidate is only ever considered for promotion to a real, live gate once it clears an explicit evidence bar — 30+ resolved signals, 10+ real wins *and* 10+ real losses in its PASS subset, and a proven 1+ percentage point improvement in win rate over the baseline — checked automatically, never eyeballed. As of today, none have cleared that bar.
 

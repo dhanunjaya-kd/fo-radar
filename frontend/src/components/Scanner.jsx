@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import ScannerMiniChart from './ScannerMiniChart';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -77,6 +78,67 @@ function patternStyle(pattern) {
 function fmt52w(high) {
   if (high === null || high === undefined) return '—';
   return `₹${high.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+}
+
+// Oct 2 2026: what the card's mini chart is actually showing -- a 20-day
+// range breakout setup (see backend scanner_levels.py). Not a chart-pattern
+// claim; wedge/flag/channel detection is a separate, later feature.
+const STATUS_META = {
+  BROKE_OUT: { label: 'Broke out', cls: 'text-emerald-300 border-emerald-500/50 bg-emerald-500/10' },
+  NEAR: { label: 'Near trigger', cls: 'text-amber-300 border-amber-500/50 bg-amber-500/10' },
+  WATCHING: { label: 'Watching', cls: 'text-slate-400 border-slate-600 bg-slate-800/60' },
+};
+
+function SetupHeader({ setup }) {
+  if (!setup) return null;
+  const dir = setup.direction;
+  const status = STATUS_META[setup.status] || STATUS_META.WATCHING;
+  return (
+    <div className="flex items-center justify-between gap-2 mt-2">
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[11px] ${dir === 'BULLISH' ? 'bg-emerald-500/15 text-emerald-400' : dir === 'BEARISH' ? 'bg-rose-500/15 text-rose-400' : 'bg-slate-700/40 text-slate-400'}`}>
+          {dir === 'BULLISH' ? '↗' : dir === 'BEARISH' ? '↘' : '↔'}
+        </span>
+        <span className="text-[11px] font-semibold text-slate-200 truncate">
+          {setup.lookback}-day range {dir === 'BULLISH' ? 'breakout' : dir === 'BEARISH' ? 'breakdown' : '(no clear lean)'}
+        </span>
+      </div>
+      {dir !== 'NEUTRAL' && (
+        <span className={`text-[10px] px-2 py-0.5 rounded-full border shrink-0 ${status.cls}`}>{status.label}</span>
+      )}
+    </div>
+  );
+}
+
+function SetupLevels({ setup, price }) {
+  if (!setup || setup.breakout == null) return null;
+  const bear = setup.direction === 'BEARISH';
+  const pct = setup.pct_vs_trigger;
+  return (
+    <div className="mt-2">
+      <div className="grid grid-cols-3 gap-1.5 text-center">
+        <div className="rounded-lg bg-slate-800/50 border border-slate-700/60 py-1.5">
+          <div className="text-[9px] tracking-wide text-slate-500 uppercase">{bear ? 'Breakdown' : 'Breakout'}</div>
+          <div className="text-xs font-bold text-amber-400">{fmtPrice(setup.breakout)}</div>
+        </div>
+        <div className="rounded-lg bg-slate-800/50 border border-slate-700/60 py-1.5">
+          <div className="text-[9px] tracking-wide text-slate-500 uppercase">Target</div>
+          <div className="text-xs font-bold text-emerald-400">{fmtPrice(setup.target)}</div>
+        </div>
+        <div className="rounded-lg bg-slate-800/50 border border-slate-700/60 py-1.5">
+          <div className="text-[9px] tracking-wide text-slate-500 uppercase">Stop</div>
+          <div className="text-xs font-bold text-rose-400">{fmtPrice(setup.stop)}</div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-500">
+        <span>R:R <span className="text-slate-300 font-semibold">{setup.rr != null ? `1 : ${setup.rr}` : '—'}</span></span>
+        <span>
+          Close {fmtPrice(price)}
+          {pct != null && <span className={(pct >= 0) === !bear ? 'text-emerald-400' : 'text-slate-400'}> · {pct >= 0 ? '+' : ''}{pct}% vs {bear ? 'breakdown' : 'breakout'}</span>}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 // Sep 19 2026: ✓/✗/• checklist + trigger/stop/target, built entirely
@@ -158,21 +220,22 @@ function StockCard({ stock, onOpenChart, isWatchlisted, onToggleWatchlist }) {
         {positive ? '↗' : '↘'} {fmtPct(stock.change_percent)}
       </div>
 
-      {/* Sep 19 2026: whole card opens the chart now, not just this
-          area -- was click-anywhere-on-the-sparkline only, apparently
-          not discoverable/reliable enough. ChartModal already exists
-          (Watchlist.jsx/TopLiveSignals.jsx both use it against the
-          same real /api/candles/ endpoint), same trigger pattern
-          those two already use. The hover label here is now purely a
-          visual cue, not a separate click target. */}
+      {/* Oct 2 2026: mini candlestick chart (replaces the 18-point line
+          sparkline when the backend sent candles; falls back to it, then
+          to a placeholder, while the daily-history cache is still warming).
+          Whole card still opens the full chart. */}
       <div className="relative my-2">
-        <MiniSparkline values={stock.sparkline} positive={positive} />
-        {stock.sparkline && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/40 rounded-lg pointer-events-none">
-            <span className="text-[11px] font-medium text-slate-200 bg-slate-800/90 border border-slate-600 rounded-full px-3 py-1">View Chart</span>
-          </div>
+        {stock.candles ? (
+          <ScannerMiniChart candles={stock.candles} setup={stock.setup} />
+        ) : stock.sparkline ? (
+          <MiniSparkline values={stock.sparkline} positive={positive} />
+        ) : (
+          <ScannerMiniChart candles={null} setup={null} />
         )}
       </div>
+      <SetupHeader setup={stock.setup} />
+      <SetupLevels setup={stock.setup} price={stock.price} />
+      <div className="mb-2" />
 
       <div className="grid grid-cols-4 gap-2 text-center text-[10px] pt-2 border-t border-slate-800">
         <div>
@@ -230,6 +293,8 @@ export default function Scanner({ onOpenChart }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [selectedPattern, setSelectedPattern] = useState(null);
+  const [dirFilter, setDirFilter] = useState(null);       // 'BULLISH' | 'BEARISH' | null
+  const [statusFilter, setStatusFilter] = useState(null); // 'BROKE_OUT' | 'NEAR' | null
   const [searchQuery, setSearchQuery] = useState('');
   const [watchlisted, setWatchlisted] = useState(new Set());
   const dropdownRef = useRef(null);
@@ -277,6 +342,9 @@ export default function Scanner({ onOpenChart }) {
     let cancelled = false;
     let retries = 0;
     const MAX_RETRIES = 6;
+    const MAX_CHART_RETRIES = 24;  // ~4 minutes of 10s polls
+    setDirFilter(null);
+    setStatusFilter(null);
     setSelectedPattern(null);  // patterns differ per universe -- a filter picked for one shouldn't silently carry into another
     setSearchQuery('');
 
@@ -292,6 +360,15 @@ export default function Scanner({ onOpenChart }) {
           if (json.covered < json.universe_size && retries < MAX_RETRIES) {
             retries += 1;
             setTimeout(() => { if (!cancelled) load(true); }, 4000);
+          } else if (json.covered > 0 && retries < MAX_CHART_RETRIES) {
+            // Oct 2 2026: quotes can be fully covered while the daily-history cache
+            // (what the mini charts draw from) is still cold after a restart.
+            // Keep quietly re-polling until most cards have candles.
+            const withCandles = (json.stocks || []).filter(s => s.candles).length;
+            if (withCandles < json.covered * 0.85) {
+              retries += 1;
+              setTimeout(() => { if (!cancelled) load(true); }, 10000);
+            }
           }
         })
         .catch(e => {
@@ -325,9 +402,18 @@ export default function Scanner({ onOpenChart }) {
     patternCounts[p] = (patternCounts[p] || 0) + 1;
   }));
   const sortedPatterns = Object.entries(patternCounts).sort((a, b) => b[1] - a[1]);
+  const setupCounts = { BULLISH: 0, BEARISH: 0, BROKE_OUT: 0, NEAR: 0 };
+  (data?.stocks || []).forEach(s => {
+    if (s.setup?.direction === 'BULLISH') setupCounts.BULLISH += 1;
+    if (s.setup?.direction === 'BEARISH') setupCounts.BEARISH += 1;
+    if (s.setup?.breakout != null && s.setup.status === 'BROKE_OUT') setupCounts.BROKE_OUT += 1;
+    if (s.setup?.breakout != null && s.setup.status === 'NEAR') setupCounts.NEAR += 1;
+  });
   const visibleStocks = data
     ? data.stocks
         .filter(s => !selectedPattern || (s.patterns || []).includes(selectedPattern))
+        .filter(s => !dirFilter || s.setup?.direction === dirFilter)
+        .filter(s => !statusFilter || s.setup?.status === statusFilter)
         .filter(s => {
           if (!searchQuery.trim()) return true;
           const q = searchQuery.trim().toLowerCase();
@@ -400,6 +486,31 @@ export default function Scanner({ onOpenChart }) {
               </span>
             )}
           </div>
+
+          {(setupCounts.BULLISH + setupCounts.BEARISH) > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] text-slate-500">SETUP</span>
+              {[
+                ['BULLISH', 'Bullish', 'dir', 'emerald'],
+                ['BEARISH', 'Bearish', 'dir', 'rose'],
+                ['BROKE_OUT', 'Broke out', 'status', 'emerald'],
+                ['NEAR', 'Near trigger', 'status', 'amber'],
+              ].map(([key, label, kind, tone]) => {
+                const active = kind === 'dir' ? dirFilter === key : statusFilter === key;
+                const toggle = () => (kind === 'dir' ? setDirFilter(v => (v === key ? null : key)) : setStatusFilter(v => (v === key ? null : key)));
+                const activeCls = { emerald: 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300', rose: 'bg-rose-500/20 border-rose-500/60 text-rose-300', amber: 'bg-amber-500/20 border-amber-500/60 text-amber-300' }[tone];
+                return (
+                  <button key={key} onClick={toggle}
+                    className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${active ? activeCls : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:border-slate-500'}`}>
+                    {label} <span className="opacity-60">{setupCounts[key]}</span>
+                  </button>
+                );
+              })}
+              {(dirFilter || statusFilter) && (
+                <button onClick={() => { setDirFilter(null); setStatusFilter(null); }} className="text-[11px] text-slate-500 hover:text-slate-300 underline">Clear</button>
+              )}
+            </div>
+          )}
 
           {sortedPatterns.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
