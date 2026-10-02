@@ -76,7 +76,7 @@ STRICT RULES, no exceptions:
 _KEY_ENV = {'gemini': 'GEMINI_API_KEY', 'anthropic': 'ANTHROPIC_API_KEY', 'groq': 'GROQ_API_KEY',
             'openrouter': 'OPENROUTER_API_KEY', 'custom': 'LLM_API_KEY'}
 _OPENAI_COMPAT = {
-    'groq': {'url': 'https://api.groq.com/openai/v1/chat/completions', 'model_env': 'GROQ_MODEL', 'default_model': 'llama-3.3-70b-versatile'},
+    'groq': {'url': 'https://api.groq.com/openai/v1/chat/completions', 'model_env': 'GROQ_MODEL', 'default_model': 'openai/gpt-oss-120b'},
     'openrouter': {'url': 'https://openrouter.ai/api/v1/chat/completions', 'model_env': 'OPENROUTER_MODEL', 'default_model': 'meta-llama/llama-3.3-70b-instruct:free'},
     'custom': {'url': None, 'model_env': 'LLM_MODEL', 'default_model': None},   # LLM_BASE_URL + LLM_MODEL from .env
 }
@@ -214,6 +214,8 @@ def _call_openai_compat(provider: str, system: str, messages: List[Dict[str, str
         url = cfg['url']
     model = (os.environ.get(cfg['model_env']) or cfg['default_model'] or '').strip()
     body = {'model': model, 'max_tokens': max_tokens, 'messages': [{'role': 'system', 'content': system}] + list(messages)}
+    if 'gpt-oss' in model:
+        body['reasoning_effort'] = 'low'     # reasoning model: keep thinking tokens from eating the output budget
     if response_schema is not None:
         body['response_format'] = {'type': 'json_object'}      # the prompts already ask for JSON
     headers = {'content-type': 'application/json'}

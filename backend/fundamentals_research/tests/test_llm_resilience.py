@@ -264,3 +264,19 @@ class OpenAICompatible(Base):
         self.assertEqual((text, reason), ('{"a":1}', 'ok'))
         self.assertIn('response_format', post.call_args_list[0].kwargs['json'])
         self.assertNotIn('response_format', post.call_args_list[1].kwargs['json'])
+
+
+class GroqDefaults(Base):
+    def test_default_groq_model_is_a_current_one_and_reasoning_is_kept_low(self):
+        with patch.dict(os.environ, {'AI_PROVIDER': 'groq', 'GROQ_API_KEY': 'g'}, clear=True), patch.object(ln.requests, 'post', return_value=openai_ok('x')) as post:
+            ln._call_llm('sys', MSG)
+        sent = post.call_args.kwargs['json']
+        self.assertEqual(sent['model'], 'openai/gpt-oss-120b')
+        self.assertEqual(sent['reasoning_effort'], 'low')
+
+    def test_model_override_from_env_and_no_reasoning_param_for_other_models(self):
+        with patch.dict(os.environ, {'AI_PROVIDER': 'groq', 'GROQ_API_KEY': 'g', 'GROQ_MODEL': 'some/other-model'}, clear=True), patch.object(ln.requests, 'post', return_value=openai_ok('x')) as post:
+            ln._call_llm('sys', MSG)
+        sent = post.call_args.kwargs['json']
+        self.assertEqual(sent['model'], 'some/other-model')
+        self.assertNotIn('reasoning_effort', sent)
