@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatIndianCurrency, pickSeriesUnit, formatAxisTick, formatPercent, formatRatio } from '../utils/indianNumberFormat';
 import StockChart from './StockChart';
@@ -550,8 +550,10 @@ function AveragingCalculator({ inputs, onChange, onCalculate, result, error, loa
   );
 }
 
-export default function ResearchDashboard() {
-  const [query, setQuery] = useState('');
+// Oct 2 2026: `request` = { symbol, n } -- another tab (Chart Patterns' "Stock page") asks for a stock to be
+// researched on arrival. `n` is a counter so asking for the SAME symbol twice still re-runs it.
+export default function ResearchDashboard({ request }) {
+  const [query, setQuery] = useState(request?.symbol || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
@@ -618,6 +620,14 @@ export default function ResearchDashboard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (request?.symbol) {
+      setQuery(request.symbol);
+      runResearch(request.symbol, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.symbol, request?.n]);
 
   const runAveraging = async () => {
     if (!snapshot) return;
