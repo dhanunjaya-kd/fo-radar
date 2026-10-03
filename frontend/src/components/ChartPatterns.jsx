@@ -72,6 +72,15 @@ function Chip({ active, onClick, children, count }) {
   );
 }
 
+function FilterGroup({ label, children }) {
+  return (
+    <div className="shrink-0">
+      <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1">{label}</div>
+      {children}
+    </div>
+  );
+}
+
 function Levels({ p }) {
   const hasLevels = p.target != null && p.stop != null;
   return (
@@ -454,25 +463,25 @@ export default function ChartPatterns({ onOpenStock }) {
   const q = filters.quality;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-lg font-bold text-white">Chart Patterns</h2>
         <span className="text-[11px] text-slate-500">Algorithmic detection on daily closes · structure, not advice</span>
       </div>
 
       {/* universe scan card */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3 space-y-2">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="rounded-xl border border-slate-800 bg-slate-900/50 px-3 py-2 space-y-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[11px] text-slate-400 font-semibold">Universe</span>
           {UNIVERSES.map((u) => (
             <button key={u.key} onClick={() => setUniverse(u.key)} disabled={running}
-              className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 ${universe === u.key ? 'bg-slate-100/10 border-slate-300/50 text-white' : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:border-slate-500'}`}>
+              className={`text-[11px] px-2.5 py-0.5 rounded-full border transition-colors disabled:opacity-50 ${universe === u.key ? 'bg-slate-100/10 border-slate-300/50 text-white' : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:border-slate-500'}`}>
               {u.label}
             </button>
           ))}
           <div className="flex-1" />
           <button onClick={startScan} disabled={running}
-            className="text-[11px] px-3 py-1.5 rounded-lg border border-slate-500 text-slate-100 hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1.5">
+            className="text-[11px] px-3 py-1 rounded-lg border border-slate-500 text-slate-100 hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1.5">
             {running && <span className="inline-block w-2.5 h-2.5 rounded-full border border-slate-500 border-t-white animate-spin" />}
             {running ? 'Scanning…' : scanState === 'never' || !scanState ? 'Scan now' : 'Scan again'}
           </button>
@@ -496,7 +505,7 @@ export default function ChartPatterns({ onOpenStock }) {
       </div>
 
       {/* stat tiles */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-1.5">
         {[
           ['Scanned', scan.scanned ?? 0, `of ${scan.total ?? data?.universe_size ?? 0} in universe`],
           ['Patterns', data?.all_patterns ?? 0, 'all ages'],
@@ -505,71 +514,70 @@ export default function ChartPatterns({ onOpenStock }) {
           ['Bull / Bear', `${fac.direction.Bullish ?? 0} / ${fac.direction.Bearish ?? 0}`, 'resolved bias only'],
           ['Data through', scan.data_through || '—', 'newest daily candle'],
         ].map(([label, value, sub]) => (
-          <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+          <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/40 px-2.5 py-1.5 leading-tight">
             <div className="text-[9px] tracking-wide text-slate-500 uppercase">{label}</div>
-            <div className="text-base font-bold text-white">{value}</div>
+            <div className="text-sm font-bold text-white">{value}</div>
             <div className="text-[10px] text-slate-500">{sub}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)]">
-        {/* filters */}
-        <aside className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 space-y-4 self-start">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-white">Filters</span>
-            <button onClick={() => setFilters({ family: null, direction: null, status: null, quality: null, within: null, volume: false, sort: filters.sort, q: '' })} className="text-[10px] text-slate-500 hover:text-slate-300">↺ Reset</button>
+      {/* filters: one horizontal bar (was a left sidebar); every filter and hint is kept */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2.5 space-y-2">
+        <div className="flex items-end gap-x-5 gap-y-2.5 flex-wrap">
+          <div className="shrink-0 self-center text-xs font-bold text-white">Filters</div>
+          <div className="w-44 shrink-0">
+            <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1">Search</div>
+            <input value={filters.q} onChange={(e) => setF({ q: e.target.value })} placeholder="Symbol or company"
+              className="w-full px-2.5 py-1 rounded-lg bg-slate-950/60 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500" />
           </div>
-          <input value={filters.q} onChange={(e) => setF({ q: e.target.value })} placeholder="Symbol or company"
-            className="w-full px-2.5 py-1.5 rounded-lg bg-slate-950/60 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-slate-500" />
-          <div>
-            <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1.5">Pattern family</div>
+          <FilterGroup label="Pattern family">
             <div className="flex flex-wrap gap-1.5">
               {['Reversal', 'Continuation', 'Range', 'Curve & Cup'].map((f) => <Chip key={f} active={filters.family === f} onClick={() => toggle('family', f)} count={fac.family[f] ?? 0}>{f}</Chip>)}
             </div>
-            <div className="text-[10px] text-slate-600 mt-1.5">{filters.family ? FAMILY_HINT[filters.family] : 'Reversal: the trend turns. Continuation: it pauses, then resumes.'}</div>
-          </div>
-          <div>
-            <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1.5">Direction</div>
+          </FilterGroup>
+          <FilterGroup label="Direction">
             <div className="flex gap-1.5">
               {['Bullish', 'Bearish'].map((d) => <Chip key={d} active={filters.direction === d} onClick={() => toggle('direction', d)} count={fac.direction[d] ?? 0}>{d}</Chip>)}
             </div>
-          </div>
-          <div>
-            <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1.5">Timeframe</div>
+          </FilterGroup>
+          <FilterGroup label="Timeframe">
             <div className="flex gap-1.5"><Chip active onClick={() => {}}>Daily</Chip></div>
-            <div className="text-[10px] text-slate-600 mt-1">Weekly/monthly need multi-year history that isn’t fetched here.</div>
-          </div>
-          <div>
-            <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1.5">Status</div>
+          </FilterGroup>
+          <FilterGroup label="Status">
             <div className="flex flex-wrap gap-1.5">
-              {['Forming', 'Confirmed', 'Failed'].map((s) => <Chip key={s} active={filters.status === s} onClick={() => toggle('status', s)} count={fac.status[s] ?? 0}>{s}</Chip>)}
+              {['Forming', 'Confirmed', 'Failed'].map((st) => <Chip key={st} active={filters.status === st} onClick={() => toggle('status', st)} count={fac.status[st] ?? 0}>{st}</Chip>)}
             </div>
-            <div className="text-[10px] text-slate-600 mt-1.5">Confirmed = a decisive close beyond the trigger that still holds. Failed = it broke out, then slipped back (or hit the stop).</div>
-          </div>
-          <div>
-            <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1.5">Shape quality</div>
-            <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-950/50 border border-slate-800 p-1">
+          </FilterGroup>
+          <FilterGroup label="Shape quality">
+            <div className="inline-grid grid-cols-3 gap-1 rounded-lg bg-slate-950/50 border border-slate-800 p-0.5">
               {[[null, 'Any'], ['Strong', 'Strong+'], ['Textbook', 'Textbook']].map(([val, label]) => (
                 <button key={label} onClick={() => setF({ quality: val })}
-                  className={`text-[11px] py-1 rounded-md ${q === val ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{label}</button>
+                  className={`text-[11px] px-2.5 py-0.5 rounded-md ${q === val ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-slate-200'}`}>{label}</button>
               ))}
             </div>
-            <div className="text-[10px] text-slate-600 mt-1.5">How closely the drawing matches the textbook definition. Not a success rate.</div>
-          </div>
-          <div>
-            <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1.5">Completed within (candles)</div>
+          </FilterGroup>
+          <FilterGroup label="Completed within (candles)">
             <div className="flex gap-1.5">
               {[10, 30, 60].map((n) => <Chip key={n} active={filters.within === n} onClick={() => toggle('within', n)}>{n}</Chip>)}
               <Chip active={!filters.within} onClick={() => setF({ within: null })}>Any</Chip>
             </div>
-          </div>
-          <div>
-            <div className="text-[9px] tracking-wide text-slate-500 uppercase mb-1.5">Only</div>
+          </FilterGroup>
+          <FilterGroup label="Only">
             <Chip active={filters.volume} onClick={() => setF({ volume: !filters.volume })}>Volume confirmed</Chip>
-          </div>
-        </aside>
+          </FilterGroup>
+          <div className="flex-1" />
+          <button onClick={() => setFilters({ family: null, direction: null, status: null, quality: null, within: null, volume: false, sort: filters.sort, q: '' })} className="text-[10px] text-slate-500 hover:text-slate-300 self-center">↺ Reset</button>
+        </div>
+        <div className="text-[10px] leading-snug text-slate-600 flex flex-wrap gap-x-5 gap-y-0.5">
+          <span>{filters.family ? FAMILY_HINT[filters.family] : 'Reversal: the trend turns. Continuation: it pauses, then resumes.'}</span>
+          <span>Weekly/monthly need multi-year history that isn’t fetched here.</span>
+          <span>Confirmed = a decisive close beyond the trigger that still holds. Failed = it broke out, then slipped back (or hit the stop).</span>
+          <span>Shape quality: how closely the drawing matches the textbook definition. Not a success rate.</span>
+        </div>
+      </div>
 
+      <div>
         {/* results */}
         <section className="space-y-3 min-w-0">
           <div className="flex items-center justify-between flex-wrap gap-2">
