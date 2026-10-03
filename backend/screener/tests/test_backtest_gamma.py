@@ -117,6 +117,59 @@ class WhatIsNeverGuessed(unittest.TestCase):
         self.assertEqual(t[0]["exit_dt"], datetime(2026, 9, 24, 10, 45))
 
 
+class Diagnosis(unittest.TestCase):
+    """The card / terminal must say WHY there is no PDF, in plain words, from what was actually found."""
+
+    def test_unknown_status_is_surfaced_not_treated_as_open(self):
+        trades, _, info = load([row(alert_id="1", contract="C 1", status="TARGET_3_HIT", realized_r=3.5)])
+        self.assertEqual((len(trades), info["still_open"], info["excluded_other"]), (0, 0, {"unknown_status": 1}))
+        self.assertIn("TARGET_3_HIT 1", bg.explain(info))
+        self.assertIn("status is not one this report knows", bg.explain(info))
+
+    def test_status_counts_cover_every_logged_row(self):
+        rows = [row(alert_id=str(i), contract=f"C {i}", status=st, realized_r=0.0) for i, st in enumerate(["ACTIVE", "ACTIVE", "TARGET_1_HIT"])]
+        _, _, info = load(rows)
+        self.assertEqual(info["status_counts"], {"ACTIVE": 2, "TARGET_1_HIT": 1})
+        msg = bg.explain(info)
+        self.assertIn("3 Gamma triggers logged, none finished yet", msg)
+        self.assertIn("ACTIVE 2, TARGET_1_HIT 1", msg)
+
+    def test_expired_contract_is_priced_from_the_last_seen_premium(self):
+        trades, _, info = load([row(status="EXPIRED", realized_r=None, current_ltp=10.0, closed="2026-10-27 15:30:00 IST", sl_hit=None)])
+        self.assertEqual(len(trades), 1)
+        self.assertAlmostEqual(trades[0]["r_multiple"], (10.0 - 20.0) / 5.0, places=6)      # -2R: it fell through the stop unseen
+        self.assertEqual(trades[0]["exit_reason"], "Closed (expired)")
+
+    def test_expired_with_no_price_anywhere_is_left_out(self):
+        _, _, info = load([row(status="EXPIRED", realized_r=None, current_ltp=None, closed="2026-10-27 15:30:00 IST", sl_hit=None)])
+        self.assertEqual(info["excluded_other"], {"r_unrecoverable": 1})
+
+    def test_explain_when_nothing_was_found(self):
+        info = {"logged_contracts": 0, "resolved_trades": 0, "still_open": 0, "excluded_other": {}, "status_counts": {},
+                "sources": {"log_dir": "/x/signal_logs", "tracker_found": False, "daily_files": 0}}
+        msg = bg.explain(info)
+        self.assertIn("No Gamma log files found", msg)
+        self.assertIn("/x/signal_logs", msg)
+
+    def test_explain_when_files_exist_but_are_empty(self):
+        info = {"logged_contracts": 0, "resolved_trades": 0, "still_open": 0, "excluded_other": {}, "status_counts": {},
+                "sources": {"log_dir": "/x", "tracker_found": True, "daily_files": 2}}
+        self.assertIn("hold no triggers yet", bg.explain(info))
+
+    def test_explain_names_the_exclusion_reasons(self):
+        trades, _, info = load([row(alert_id="1", contract="C 1", lot_size=None), row(alert_id="2", contract="C 2", status="ACTIVE", realized_r=0.0)], lots={})
+        msg = bg.explain(info)
+        self.assertIn("1 with no lot size could be found", msg)
+
+    def test_explain_with_finished_trades_mentions_open_ones(self):
+        _, _, info = load([row(alert_id="1", contract="C 1"), row(alert_id="2", contract="C 2", status="ACTIVE", realized_r=0.0)])
+        self.assertEqual(bg.explain(info), "1 finished Gamma trades, 1 still open (not counted).")
+
+    def test_explain_reports_a_pdf_failure(self):
+        _, _, info = load([row()])
+        self.assertIn("PDF could not be written: boom", bg.explain(info, pdf_error="boom"))
+
+
 class Files(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -198,8 +251,9 @@ class Files(unittest.TestCase):
         self.assertEqual((len(trades), trades[0]["pnl"]), (1, 3500.0))
 
     def test_no_files_means_no_trades_not_an_error(self):
-        self.assertEqual(bg.load_gamma_trades(), ([], 0, {"logged_contracts": 0, "resolved_trades": 0, "still_open": 0,
-                                                          "excluded_other": {}, "r_recomputed": 0}))
+        trades, excluded, info = bg.load_gamma_trades()
+        self.assertEqual((trades, excluded, info["logged_contracts"], info["status_counts"]), ([], 0, 0, {}))
+        self.assertEqual(info["sources"], {"log_dir": self.logs, "tracker_found": False, "daily_files": 0})
 
     def test_archived_files_are_ignored(self):
         # Archives hold a DIFFERENT trade (B). If the reader picked them up, B would show as a second contract.
@@ -236,9 +290,31 @@ class Files(unittest.TestCase):
         self.assertIn("Gamma Blast Strategy", text)
         self.assertNotIn("Signal P&L Backtest", text)
 
+    def test_run_gamma_now_fills_only_the_gamma_fields_and_does_not_fake_a_full_cycle(self):
+        from screener import backtest_signal_pnl as eng, daily_backtest as db
+        old = (eng.LOG_DIR, db.LOG_DIR, dict(db._last_run))
+        eng.LOG_DIR = db.LOG_DIR = self.logs
+        try:
+            alerts = [self.finish(self.alert(i), "TARGET_2_HIT" if i % 2 else "STOPPED_OUT", 2.8 if i % 2 else -1.0,
+                                  sl_hit_at_ist="2026-09-24 10:30:00 IST", t2_hit_at_ist="2026-09-24 10:30:00 IST") for i in range(4)]
+            self.log_daily(*alerts)
+            gel.sync_alert_outcomes(alerts)
+            db._last_run.update(started_at=None, stock_pdf="keep-me", gamma_pdf=None, gamma_summary=None, gamma_message=None)
+            got = db.run_gamma_now()
+            last = db.get_last_run()
+        finally:
+            eng.LOG_DIR, db.LOG_DIR = old[0], old[1]
+            db._last_run.clear(); db._last_run.update(old[2])
+        self.assertTrue(got["pdf"] and os.path.exists(got["pdf"]))
+        self.assertEqual((last["gamma_pdf"], last["gamma_summary"]["total_trades"]), (got["pdf"], 4))
+        self.assertIn("4 finished Gamma trades", last["gamma_message"])
+        self.assertIsNone(last["started_at"])                      # a Gamma-only run must never make the tab think a full cycle ran
+        self.assertEqual(last["stock_pdf"], "keep-me")             # and must not touch the Sniper fields
+
     def test_nothing_resolved_gives_empty_values_and_no_pdf(self):
         out = bg.run_gamma_cycle("2026-10-03")
         self.assertEqual((out["pdf"], out["summary"], out["equity_curve"], out["recent_trades"]), (None, None, None, None))
+        self.assertIn("No Gamma log files found", out["message"])
 
 
 if __name__ == "__main__":
