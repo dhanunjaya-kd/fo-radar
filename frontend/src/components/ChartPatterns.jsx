@@ -227,6 +227,19 @@ function DetailPanel({ p, onOpenStock, baseline, rates, universeLabel, embedded 
   );
   const bear = p.direction === 'Bearish';
   const yrs = p.history_bars ? (p.history_bars / 250).toFixed(1) : null;
+  // Volume numbers come from p.volumes (one value per drawn candle, newest last). The 20-bar average is the 20 sessions
+  // BEFORE the latest one, which is the same basis the backend uses for "volume confirmed" (>= 1.5x within 3 bars of the break).
+  const vols = Array.isArray(p.volumes) && p.volumes.length > 2 ? p.volumes : null;
+  const fmtVol = (x) => (x == null ? '—' : Math.round(x).toLocaleString('en-IN'));
+  const mean = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+  const priorVols = vols ? vols.slice(-21, -1) : [];
+  const avgVol = mean(priorVols);
+  const lastVol = vols ? vols[vols.length - 1] : null;
+  const lastRatio = avgVol ? lastVol / avgVol : null;
+  const brokeAt = p.broke_x != null && p.broke_x >= 0 ? p.broke_x : null;
+  const breakVol = vols && brokeAt != null && brokeAt < vols.length ? Math.max(...vols.slice(brokeAt, brokeAt + 3)) : null;
+  const breakRatio = avgVol && breakVol != null ? breakVol / avgVol : null;
+  const noVol = 're-scan to load volumes';
   const legend = legendFor(p, light);
   const hasLevels = p.target != null && p.stop != null;
   const volLine = p.broke_date == null ? 'Not broken out yet' : p.volume_confirmed ? 'Broke out on above-average volume' : 'No volume expansion on the break';
@@ -247,11 +260,14 @@ function DetailPanel({ p, onOpenStock, baseline, rates, universeLabel, embedded 
 
       <div className="grid grid-cols-3 gap-1.5">
         {stat('Last close', fmtPrice(p.last_close), p.data_through)}
-        {stat('History', yrs ? `${yrs}y` : '—', `${p.history_bars || '—'} daily candles`)}
+        {stat('History', yrs ? `${yrs}y` : '—', p.history_bars ? `${p.history_bars} daily candles` : 're-scan to load history')}
         {stat('Patterns', p.stock?.patterns ?? '—', 'in this scan')}
         {stat('Confirmed', <span className="text-emerald-400">{p.stock?.confirmed ?? '—'}</span>, 'held the break')}
         {stat('Forming', p.stock?.forming ?? '—', 'not yet broken out')}
         {stat('Timeframe', 'Daily', 'only')}
+        {stat('Latest volume', fmtVol(lastVol), vols ? (lastRatio != null ? `${lastRatio.toFixed(1)}× the 20-day average` : p.data_through) : noVol)}
+        {stat('20-day avg volume', fmtVol(avgVol), vols ? `average of the ${priorVols.length} sessions before the latest` : noVol)}
+        {stat('Break volume', fmtVol(breakVol), !vols ? noVol : brokeAt == null ? 'not broken out yet' : `${breakRatio != null ? breakRatio.toFixed(1) : '—'}× the 20-day average (1.5× confirms)`)}
       </div>
 
       <div>
