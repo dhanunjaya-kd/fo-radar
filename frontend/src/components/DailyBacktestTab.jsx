@@ -139,23 +139,26 @@ function RecentTradesTable({ stockTrades, niftyTrades, bankniftyTrades, gammaTra
   );
 }
 
-function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve, downloadUrl, emptyText }) {
+function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve, downloadUrl, emptyText, action, note }) {
   const hasData = !!summary;
   const href = downloadUrl || `${API_BASE}/api/daily-backtest/download/${pdfKey}/`;
   return (
     <div className="rounded-lg bg-slate-800/50 border border-slate-700/40 p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-white">{title}</h3>
-        {pdfPath && (
-          <a
-            href={href}
-            title={`Download ${title} report (PDF)`}
-            className="w-7 h-7 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
-            download
-          >
-            <IconDownload size={13} />
-          </a>
-        )}
+        <div className="flex items-center gap-1.5">
+          {action}
+          {pdfPath && (
+            <a
+              href={href}
+              title={`Download ${title} report (PDF)`}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 transition-colors"
+              download
+            >
+              <IconDownload size={13} />
+            </a>
+          )}
+        </div>
       </div>
       {hasData && (
         <div className="mb-3 bg-slate-900/30 rounded-md p-2">
@@ -186,6 +189,7 @@ function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve, downloadUrl
           </div>
         </div>
       )}
+      {hasData && note && <p className="text-[10px] text-slate-500 mt-2">{note}</p>}
     </div>
   );
 }
@@ -195,6 +199,9 @@ export default function DailyBacktestTab() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState(null);
+  // Oct 3 2026: Gamma can be built on its own, without waiting for (or depending on) the full cycle.
+  const [gammaRun, setGammaRun] = useState(null);   // latest standalone result: {summary, equity_curve, recent_trades, message, pdf_ready}
+  const [gammaBusy, setGammaBusy] = useState(false);
 
   const fetchStatus = async () => {
     try {
@@ -207,6 +214,25 @@ export default function DailyBacktestTab() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const buildGamma = async () => {
+    setGammaBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/daily-backtest/gamma/run/`);
+      if (res.status === 404) {
+        setGammaRun({ pdf_ready: false, message: 'The backend has no Gamma endpoint (HTTP 404). Make sure urls.py and gamma_backtest_views.py were replaced, then restart the backend.' });
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setGammaRun(json && typeof json === 'object' ? json : { pdf_ready: false, message: 'The backend sent an unexpected reply for the Gamma report.' });
+      fetchStatus();   // keeps the download link and the rest of the tab in step with the backend
+    } catch (err) {
+      setGammaRun({ pdf_ready: false, message: `Could not build the Gamma report: ${err.message}. Is the backend running, and was it restarted after the update?` });
+    } finally {
+      setGammaBusy(false);
     }
   };
 
@@ -301,8 +327,42 @@ export default function DailyBacktestTab() {
   const displayStock = isRangeView ? rangeResult.stock : { summary: status?.stock_summary, equity_curve: status?.stock_equity_curve, recent_trades: status?.stock_recent_trades };
   const displayNifty = isRangeView ? rangeResult.nifty : { summary: status?.nifty_summary, equity_curve: status?.nifty_equity_curve, recent_trades: status?.nifty_recent_trades };
   const displayBanknifty = isRangeView ? rangeResult.banknifty : { summary: status?.banknifty_summary, equity_curve: status?.banknifty_equity_curve, recent_trades: status?.banknifty_recent_trades };
-  const displayGamma = isRangeView ? (rangeResult.gamma || {}) : { summary: status?.gamma_summary, equity_curve: status?.gamma_equity_curve, recent_trades: status?.gamma_recent_trades };
-  const gammaEmptyText = 'No finished Gamma trades yet -- a trade only counts once it hits a target or its stop. Open ones are not counted.';
+  // A key that is missing from the status means the backend is still running the OLD code (restart needed / file not replaced).
+  const backendHasGamma = !!status && 'gamma_pdf' in status;
+  const gammaFromStatus = backendHasGamma
+    ? { summary: status.gamma_summary, equity_curve: status.gamma_equity_curve, recent_trades: status.gamma_recent_trades, message: status.gamma_message, pdf_ready: !!status.gamma_pdf }
+    : null;
+  const gammaLatest = gammaRun || gammaFromStatus;
+  const displayGamma = isRangeView ? (rangeResult.gamma || {}) : (gammaLatest || {});
+  const gammaEmptyText = isRangeView
+    ? 'No finished Gamma trades in this date range.'
+    : gammaRun?.message
+      || (status && !backendHasGamma
+        ? 'Your backend is still running the old code, which has no Gamma step. Restart it (and make sure daily_backtest.py was replaced), then press Build Gamma PDF.'
+        : status?.gamma_message || 'Press "Build Gamma PDF" to check your Gamma trades now.');
+  const gammaButton = (
+    <button
+      onClick={buildGamma}
+      disabled={gammaBusy}
+      title="Build the Gamma report now, without waiting for the full backtest"
+      className={`text-[10px] font-medium rounded-lg px-2 h-7 border transition-colors ${gammaBusy ? 'text-slate-500 bg-slate-800 border-slate-700 cursor-wait' : 'text-cyan-300 bg-cyan-500/10 border-cyan-500/25 hover:bg-cyan-500/20'}`}
+    >
+      {gammaBusy ? 'Building…' : 'Build Gamma PDF'}
+    </button>
+  );
+  const gammaCard = (
+    <SummaryCard
+      title="Gamma Strategy"
+      pdfKey="gamma"
+      summary={displayGamma.summary}
+      pdfPath={gammaLatest?.pdf_ready ? 'ready' : null}
+      downloadUrl={`${API_BASE}/api/daily-backtest/gamma/download/`}
+      equityCurve={displayGamma.equity_curve}
+      emptyText={gammaEmptyText}
+      action={gammaButton}
+      note={gammaLatest?.message}
+    />
+  );
 
   return (
     <div className="space-y-4">
@@ -412,11 +472,14 @@ export default function DailyBacktestTab() {
           <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} gammaTrades={displayGamma.recent_trades} />
         </>
       ) : neverRun ? (
-        <div className="text-center py-12">
-          <div className="text-slate-600 mb-3 flex justify-center"><IconClock size={32} /></div>
-          <h3 className="text-base font-bold text-white mb-1">No backtest run yet</h3>
-          <p className="text-slate-400 text-sm">Wait for the next scheduled run, or hit "Run Now" above.</p>
-        </div>
+        <>
+          <div className="text-center py-12">
+            <div className="text-slate-600 mb-3 flex justify-center"><IconClock size={32} /></div>
+            <h3 className="text-base font-bold text-white mb-1">No backtest run yet</h3>
+            <p className="text-slate-400 text-sm">Wait for the next scheduled run, or hit "Run Now" above.</p>
+          </div>
+          <div className="max-w-md mx-auto">{gammaCard}</div>
+        </>
       ) : (
         <>
           <div className="flex items-center gap-3 text-[11px] text-slate-500 flex-wrap">
@@ -440,7 +503,7 @@ export default function DailyBacktestTab() {
             <SummaryCard title="Stock Signals" pdfKey="stock" summary={displayStock.summary} pdfPath={status.stock_pdf} equityCurve={displayStock.equity_curve} />
             <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={status.nifty_pdf} equityCurve={displayNifty.equity_curve} />
             <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={status.banknifty_pdf} equityCurve={displayBanknifty.equity_curve} />
-            <SummaryCard title="Gamma Strategy" pdfKey="gamma" summary={displayGamma.summary} pdfPath={status.gamma_pdf} downloadUrl={`${API_BASE}/api/daily-backtest/gamma/download/`} equityCurve={displayGamma.equity_curve} emptyText={gammaEmptyText} />
+            {gammaCard}
           </div>
           <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} gammaTrades={displayGamma.recent_trades} />
         </>

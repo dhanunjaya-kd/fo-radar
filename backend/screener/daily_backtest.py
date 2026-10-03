@@ -57,6 +57,7 @@ _last_run = {
     "nifty_pdf": None, "nifty_summary": None, "nifty_equity_curve": None, "nifty_recent_trades": None,
     "banknifty_pdf": None, "banknifty_summary": None, "banknifty_equity_curve": None, "banknifty_recent_trades": None,
     "gamma_pdf": None, "gamma_summary": None, "gamma_equity_curve": None, "gamma_recent_trades": None,  # Oct 3 2026: Gamma Blast strategy, its own report
+    "gamma_message": None,  # plain-English "what was found / why no PDF" (backtest_gamma.explain)
     "errors": [],
 }
 
@@ -282,7 +283,7 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
 
     # Oct 3 2026: Gamma Blast Options strategy -- its OWN report, same engine/format as the three above, built only
     # from Gamma's own trade log (see backtest_gamma.py). Own try/except: nothing here can stop the other reports.
-    gamma = {"pdf": None, "summary": None, "equity_curve": None, "recent_trades": None, "pdf_error": None, "info": None}
+    gamma = {"pdf": None, "summary": None, "equity_curve": None, "recent_trades": None, "pdf_error": None, "info": None, "message": None}
     try:
         from .backtest_gamma import run_gamma_cycle
         gamma = run_gamma_cycle(end_str)
@@ -305,6 +306,7 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         "nifty_pdf": index_results["NIFTY"][0], "nifty_summary": index_results["NIFTY"][1], "nifty_equity_curve": index_results["NIFTY"][2], "nifty_recent_trades": index_results["NIFTY"][3],
         "banknifty_pdf": index_results["BANKNIFTY"][0], "banknifty_summary": index_results["BANKNIFTY"][1], "banknifty_equity_curve": index_results["BANKNIFTY"][2], "banknifty_recent_trades": index_results["BANKNIFTY"][3],
         "gamma_pdf": gamma.get("pdf"), "gamma_summary": gamma.get("summary"), "gamma_equity_curve": gamma.get("equity_curve"), "gamma_recent_trades": gamma.get("recent_trades"),
+        "gamma_message": gamma.get("message"),
         "errors": errors,
     }
     with _lock:
@@ -568,6 +570,28 @@ def run_range_index_report(index_name, start_str, end_str):
         trades, metrics,
         f"signal_pnl_{index_name.lower()}_{start_str}_to_{end_str}.pdf",
     )
+
+
+def run_gamma_now():
+    """
+    Oct 3 2026: builds ONLY the Gamma report, right now, without waiting for the full cycle. The full cycle publishes
+    nothing until its last step finishes (a backfill that talks to Fyers for every unresolved row can take minutes, or
+    stall on an expired token), and the tab shows no cards at all until one full cycle has completed -- so a Gamma PDF
+    could be ready on disk and still not be reachable. Gamma only reads local xlsx files and writes one PDF, so this is
+    fast and has no Fyers dependency.
+
+    Updates the same Gamma fields the full cycle fills in (so the download link and the tab stay consistent) and nothing
+    else: started_at / the Sniper fields are left alone, so this can never make the tab look like a full cycle ran.
+    """
+    from .backtest_gamma import run_gamma_cycle
+    gamma = run_gamma_cycle(datetime.now().strftime("%Y-%m-%d"))
+    with _lock:
+        _last_run["gamma_pdf"] = gamma.get("pdf")
+        _last_run["gamma_summary"] = gamma.get("summary")
+        _last_run["gamma_equity_curve"] = gamma.get("equity_curve")
+        _last_run["gamma_recent_trades"] = gamma.get("recent_trades")
+        _last_run["gamma_message"] = gamma.get("message")
+    return gamma
 
 
 def run_daily_backtest_cycle_async(trigger="manual", backfill_days=7):

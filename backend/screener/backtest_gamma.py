@@ -55,6 +55,7 @@ _DAILY_NAME = re.compile(r"^gamma_blast_\d{4}-\d{2}-\d{2}\.xlsx$")   # skips *_p
 
 # status values the live engine treats as finished (see gamma_microstructure._update_alert_lifecycles)
 TERMINAL = {"TARGET_2_HIT", "STOPPED_OUT", "TARGET_1_HIT_TRAILED", "EXPIRED"}
+OPEN = {"ACTIVE", "TARGET_1_HIT", "TRIGGERED_PRE_EXPLOSION", ""}   # still running. Anything in NEITHER set is reported as an unknown status, never guessed
 REPORT_TITLE = "F&O Sniper -- Gamma Blast Strategy Backtest"
 INDEX_LABEL = "Gamma Blast Strategy"     # used only if the PDF engine on disk predates the report_title option
 
@@ -160,12 +161,20 @@ def _from_tracker(r):
         "option_type": r.get("Option Type"), "strike": r.get("Strike"), "expiry": r.get("Expiry"), "dte": None,
         "entry": r.get("Entry Price"), "sl": r.get("Stop Loss"), "t1": r.get("Target 1"), "t2": r.get("Target 2"),
         "lot_size": None, "status": r.get("Status") or "ACTIVE", "realized_r": r.get("Realized R"),
-        "exit_price": None, "entered": r.get("Timestamp (IST)"), "closed": r.get("Closed At (IST)"),
+        "exit_price": None, "current_ltp": r.get("Current LTP"), "entered": r.get("Timestamp (IST)"), "closed": r.get("Closed At (IST)"),
         "trigger_candle": r.get("Trigger Candle"), "trailing_sl": r.get("Trailing SL"),
         "oi_drop": None, "vol_exp": None, "price_lift": None,
         "t1_hit": r.get("T1 Hit At (IST)"), "t2_hit": r.get("T2 Hit At (IST)"), "sl_hit": r.get("SL Hit At (IST)"),
         "carry": str(r.get("Carry Forward") or "").strip().upper() == "YES",   # YES only while still open overnight; the report derives "carried overnight" itself from entry/exit dates
     }
+
+
+def log_sources():
+    """Where this report looks, and whether anything is there. Shown to the user when a report cannot be built,
+    so a wrong folder or a missing file is visible instead of just 'no PDF'."""
+    tracker = _tracker_path()
+    daily = [f for f in glob.glob(os.path.join(LOG_DIR, "*", "gamma_blast_*.xlsx")) if _DAILY_NAME.match(os.path.basename(f))]
+    return {"log_dir": LOG_DIR, "tracker_found": os.path.exists(tracker), "daily_files": len(daily)}
 
 
 def collect_rows():
@@ -228,6 +237,8 @@ def _realized_r(row, status, entry, sl, risk):
         return 0.5 * (t1 - entry) / risk + 0.5 * (t2 - entry) / risk, True
     if status == "EXPIRED":
         px = _num(row.get("exit_price"))
+        if px is None:
+            px = _num(row.get("current_ltp"))      # last premium the tracker saw before the contract expired -- real, but not the settlement
         if px is not None:
             return (px - entry) / risk, True
     return None, True
@@ -236,8 +247,10 @@ def _realized_r(row, status, entry, sl, risk):
 def _build_trade(row, lot_for_symbol):
     """-> (trade | None, reason). reason is None for a trade, else a short key for why it was left out."""
     status = str(row.get("status") or "ACTIVE").strip().upper()
-    if status not in TERMINAL:
+    if status in OPEN:
         return None, "open"
+    if status not in TERMINAL:
+        return None, "unknown_status"
     entry, sl = _num(row.get("entry")), _num(row.get("sl"))
     if entry is None or entry <= 0 or sl is None or sl <= 0 or sl >= entry:
         return None, "bad_levels"
@@ -306,6 +319,7 @@ def load_gamma_trades(rows=None):
     logged contract that did not become a trade (still-open ones included, same definition the Sniper report
     uses); info breaks that down by reason so nothing is silently lost.
     """
+    sources = log_sources() if rows is None else None
     rows = collect_rows() if rows is None else rows
 
     def lot_for_symbol(sym):
@@ -315,8 +329,10 @@ def load_gamma_trades(rows=None):
         except Exception:
             return None
 
-    trades, reasons = [], {}
+    trades, reasons, status_counts = [], {}, {}
     for row in rows:
+        st = str(row.get("status") or "ACTIVE").strip().upper()
+        status_counts[st] = status_counts.get(st, 0) + 1
         t, why = _build_trade(row, lot_for_symbol)
         if t is not None:
             trades.append(t)
@@ -327,8 +343,40 @@ def load_gamma_trades(rows=None):
         "logged_contracts": len(rows), "resolved_trades": len(trades), "still_open": reasons.get("open", 0),
         "excluded_other": {k: v for k, v in reasons.items() if k != "open"},
         "r_recomputed": sum(1 for t in trades if t["r_was_derived"]),
+        "status_counts": status_counts, "sources": sources,
     }
     return trades, len(rows) - len(trades), info
+
+
+_REASON_TEXT = {
+    "no_lot_size": "no lot size could be found", "bad_levels": "entry / stop-loss values are missing or inconsistent",
+    "bad_option_type": "option type is not CE/PE", "no_entry_time": "no entry time", "no_exit_time": "no exit time",
+    "exit_before_entry": "exit time is before entry time", "r_unrecoverable": "the result (R) is missing and cannot be worked out safely",
+    "unknown_status": "status is not one this report knows",
+}
+
+
+def explain(info, pdf_error=None):
+    """One plain-English sentence for the card / the terminal: what was found and why a PDF is or is not possible."""
+    if not info:
+        return "Gamma report not built yet."
+    if pdf_error:
+        return f"{info['resolved_trades']} finished Gamma trades found, but the PDF could not be written: {pdf_error}"
+    src = info.get("sources")
+    if src and not src["tracker_found"] and src["daily_files"] == 0:
+        return (f"No Gamma log files found. Looked in {src['log_dir']} for {TRACKER_FILENAME} and <date>/gamma_blast_<date>.xlsx. "
+                f"Gamma only writes these once it has logged a trigger.")
+    if info["logged_contracts"] == 0:
+        return "Gamma log files exist but hold no triggers yet."
+    counts = ", ".join(f"{k} {v}" for k, v in sorted(info.get("status_counts", {}).items(), key=lambda kv: -kv[1]))
+    skipped = "; ".join(f"{v} with {_REASON_TEXT.get(k, k)}" for k, v in info["excluded_other"].items())
+    if info["resolved_trades"] == 0:
+        msg = (f"{info['logged_contracts']} Gamma triggers logged, none finished yet ({counts}). A trade only counts once it hits "
+               f"its stop, Target 2, or trails out after Target 1 -- open trades are not counted.")
+        return msg + (f" Left out: {skipped}." if skipped else "")
+    msg = f"{info['resolved_trades']} finished Gamma trades"
+    msg += f", {info['still_open']} still open (not counted)" if info["still_open"] else ""
+    return msg + (f". Left out: {skipped}" if skipped else "") + "."
 
 
 # ---------------------------------------------------------------------------
@@ -349,9 +397,10 @@ def run_gamma_cycle(end_str):
     is attempted, so a PDF-library problem only costs the download link, never the numbers."""
     from .backtest_signal_pnl import compute_capital_base, compute_metrics, compute_equity_curve
     from .daily_backtest import _summarize, _serialize_equity_curve, _serialize_trades
-    out = {"pdf": None, "summary": None, "equity_curve": None, "recent_trades": None, "pdf_error": None, "info": None}
+    out = {"pdf": None, "summary": None, "equity_curve": None, "recent_trades": None, "pdf_error": None, "info": None, "message": None}
     trades, excluded, info = load_gamma_trades()
     out["info"] = info
+    out["message"] = explain(info)
     if not trades:
         return out
     capital_base = compute_capital_base(trades)               # premium buying: real peak (lot x premium) committed, like the Sniper report
@@ -365,6 +414,7 @@ def run_gamma_cycle(end_str):
         out["pdf"] = _write_pdf(trades, metrics, excluded, f"gamma_blast_{end_str}.pdf")
     except Exception as e:
         out["pdf_error"] = str(e)
+        out["message"] = explain(info, pdf_error=str(e))
     return out
 
 
@@ -413,9 +463,10 @@ if __name__ == "__main__":
         print("openpyxl not installed -- pip install openpyxl")
     else:
         all_trades, skipped, details = load_gamma_trades()
-        print(f"Gamma trade log: {details}")
+        print(explain(details))
+        print(f"(details: {details})")
         if not all_trades:
-            print("No finished Gamma trades yet -- not an error, just nothing resolved so far.")
+            pass
         else:
             m = compute_metrics(all_trades, compute_capital_base(all_trades))
             print_summary(m, skipped)
