@@ -27,6 +27,12 @@ overwrites an existing unlocked file). _run_and_rename() below calls
 it, then immediately renames the output to a distinct, stable filename
 BEFORE the next call starts -- a pure orchestration-level fix; nothing
 in the already-tested engine itself needed to change.
+
+Oct 3 2026: the Gamma Blast Options strategy is now a 4th, fully SEPARATE
+report in this same cycle (backtest_gamma.py): its own PDF, its own
+summary card, its own Telegram document -- never merged into the Sniper
+stock / NIFTY / BANKNIFTY reports. Its step has its own try/except, so a
+Gamma problem can never stop the other three, and vice versa.
 """
 import os
 import shutil
@@ -50,6 +56,7 @@ _last_run = {
     "stock_range_pdf": None,  # Aug 30 2026: same rich PDF format as stock_pdf, scoped to just this cycle's backfill window
     "nifty_pdf": None, "nifty_summary": None, "nifty_equity_curve": None, "nifty_recent_trades": None,
     "banknifty_pdf": None, "banknifty_summary": None, "banknifty_equity_curve": None, "banknifty_recent_trades": None,
+    "gamma_pdf": None, "gamma_summary": None, "gamma_equity_curve": None, "gamma_recent_trades": None,  # Oct 3 2026: Gamma Blast strategy, its own report
     "errors": [],
 }
 
@@ -273,6 +280,21 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         print(f"[DailyBacktest] index positional import failed: {e}")
         errors.append(f"index positional import: {e}")
 
+    # Oct 3 2026: Gamma Blast Options strategy -- its OWN report, same engine/format as the three above, built only
+    # from Gamma's own trade log (see backtest_gamma.py). Own try/except: nothing here can stop the other reports.
+    gamma = {"pdf": None, "summary": None, "equity_curve": None, "recent_trades": None, "pdf_error": None, "info": None}
+    try:
+        from .backtest_gamma import run_gamma_cycle
+        gamma = run_gamma_cycle(end_str)
+        if gamma.get("pdf_error"):
+            print(f"[DailyBacktest] Gamma PDF generation failed (summary still available): {gamma['pdf_error']}")
+            errors.append(f"Gamma PDF: {gamma['pdf_error']}")
+        elif not gamma.get("summary"):
+            print(f"[DailyBacktest] No finished Gamma trades yet ({gamma.get('info')}) -- skipping Gamma PDF this cycle, not an error.")
+    except Exception as e:
+        print(f"[DailyBacktest] Gamma backtest failed: {e}")
+        errors.append(f"gamma backtest: {e}")
+
     result = {
         "started_at": started_at.isoformat(),
         "finished_at": datetime.now().isoformat(),
@@ -282,6 +304,7 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
         "stock_range_pdf": stock_range_pdf,
         "nifty_pdf": index_results["NIFTY"][0], "nifty_summary": index_results["NIFTY"][1], "nifty_equity_curve": index_results["NIFTY"][2], "nifty_recent_trades": index_results["NIFTY"][3],
         "banknifty_pdf": index_results["BANKNIFTY"][0], "banknifty_summary": index_results["BANKNIFTY"][1], "banknifty_equity_curve": index_results["BANKNIFTY"][2], "banknifty_recent_trades": index_results["BANKNIFTY"][3],
+        "gamma_pdf": gamma.get("pdf"), "gamma_summary": gamma.get("summary"), "gamma_equity_curve": gamma.get("equity_curve"), "gamma_recent_trades": gamma.get("recent_trades"),
         "errors": errors,
     }
     with _lock:
@@ -336,6 +359,21 @@ def run_daily_backtest_cycle(trigger="manual", backfill_days=7):
     except Exception as e:
         print(f"[DailyBacktest] Telegram summary failed: {e}")
 
+    # Oct 3 2026: Gamma's PDF goes out as its OWN Telegram document with its own caption -- deliberately not folded
+    # into the Sniper message above, and not dependent on it (Gamma can have a PDF before any Sniper report exists).
+    if gamma.get("pdf"):
+        try:
+            gs = gamma.get("summary")
+            gamma_lines = [f"\U0001F3AF <b>F&O Radar \u2014 Gamma Strategy Backtest ({trigger})</b>",
+                           "Separate report: Gamma Blast trades only, not mixed with the Sniper reports."]
+            if gs:
+                gamma_lines.append(f"{gs['total_trades']} trades, Net {gs['net_pnl_pct']}%, Win {gs['win_rate_pct']}%")
+            from trading.telegram_bot import TelegramBot
+            TelegramBot().send_document(gamma["pdf"], caption="\n".join(gamma_lines))
+        except Exception as e:
+            print(f"[DailyBacktest] Gamma PDF Telegram send failed: {e}")
+            errors.append(f"Gamma PDF Telegram send: {e}")
+
     return result
 
 
@@ -383,6 +421,7 @@ def run_range_backtest(start_str, end_str):
         "stock": {"summary": None, "equity_curve": None, "recent_trades": None},
         "nifty": {"summary": None, "equity_curve": None, "recent_trades": None},
         "banknifty": {"summary": None, "equity_curve": None, "recent_trades": None},
+        "gamma": {"summary": None, "equity_curve": None, "recent_trades": None},   # Oct 3 2026: Gamma Blast strategy
     }
 
     try:
@@ -417,6 +456,12 @@ def run_range_backtest(start_str, end_str):
                 print(f"[DailyBacktest] range {index_name} backtest failed: {e}")
     except Exception as e:
         print(f"[DailyBacktest] range index import failed: {e}")
+
+    try:
+        from .backtest_gamma import run_gamma_range_preview
+        result["gamma"] = run_gamma_range_preview(start_date, end_date)
+    except Exception as e:
+        print(f"[DailyBacktest] range gamma backtest failed: {e}")
 
     return result
 
