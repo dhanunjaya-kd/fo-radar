@@ -68,11 +68,12 @@ function EquityCurveChart({ points, width = 280, height = 100 }) {
   );
 }
 
-function RecentTradesTable({ stockTrades, niftyTrades, bankniftyTrades, limit = 15 }) {
+function RecentTradesTable({ stockTrades, niftyTrades, bankniftyTrades, gammaTrades, limit = 15 }) {
   const tagged = [
     ...(stockTrades || []).map(t => ({ ...t, source: 'Stock' })),
     ...(niftyTrades || []).map(t => ({ ...t, source: 'NIFTY' })),
     ...(bankniftyTrades || []).map(t => ({ ...t, source: 'BANKNIFTY' })),
+    ...(gammaTrades || []).map(t => ({ ...t, source: 'Gamma' })),
   ];
   const merged = tagged.sort((a, b) => new Date(b.exit_dt) - new Date(a.exit_dt)).slice(0, limit);
   if (merged.length === 0) {
@@ -87,6 +88,7 @@ function RecentTradesTable({ stockTrades, niftyTrades, bankniftyTrades, limit = 
       Stock: 'text-indigo-300 bg-indigo-500/10 border-indigo-500/25',
       NIFTY: 'text-amber-300 bg-amber-500/10 border-amber-500/25',
       BANKNIFTY: 'text-fuchsia-300 bg-fuchsia-500/10 border-fuchsia-500/25',
+      Gamma: 'text-cyan-300 bg-cyan-500/10 border-cyan-500/25',
     };
     return styles[source] || styles.Stock;
   };
@@ -137,7 +139,7 @@ function RecentTradesTable({ stockTrades, niftyTrades, bankniftyTrades, limit = 
   );
 }
 
-function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve, downloadUrl }) {
+function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve, downloadUrl, emptyText }) {
   const hasData = !!summary;
   const href = downloadUrl || `${API_BASE}/api/daily-backtest/download/${pdfKey}/`;
   return (
@@ -161,7 +163,7 @@ function SummaryCard({ title, pdfKey, summary, pdfPath, equityCurve, downloadUrl
         </div>
       )}
       {!hasData ? (
-        <p className="text-xs text-slate-500">No trades yet -- not enough data resolved for this report.</p>
+        <p className="text-xs text-slate-500">{emptyText || 'No trades yet -- not enough data resolved for this report.'}</p>
       ) : (
         <div className="grid grid-cols-2 gap-2 text-center">
           <div className="bg-slate-900/40 rounded-md p-2">
@@ -299,6 +301,8 @@ export default function DailyBacktestTab() {
   const displayStock = isRangeView ? rangeResult.stock : { summary: status?.stock_summary, equity_curve: status?.stock_equity_curve, recent_trades: status?.stock_recent_trades };
   const displayNifty = isRangeView ? rangeResult.nifty : { summary: status?.nifty_summary, equity_curve: status?.nifty_equity_curve, recent_trades: status?.nifty_recent_trades };
   const displayBanknifty = isRangeView ? rangeResult.banknifty : { summary: status?.banknifty_summary, equity_curve: status?.banknifty_equity_curve, recent_trades: status?.banknifty_recent_trades };
+  const displayGamma = isRangeView ? (rangeResult.gamma || {}) : { summary: status?.gamma_summary, equity_curve: status?.gamma_equity_curve, recent_trades: status?.gamma_recent_trades };
+  const gammaEmptyText = 'No finished Gamma trades yet -- a trade only counts once it hits a target or its stop. Open ones are not counted.';
 
   return (
     <div className="space-y-4">
@@ -307,7 +311,7 @@ export default function DailyBacktestTab() {
         scans every dated log file with no limit. Runs automatically ~4:00 PM (after close) and ~8:00 AM
         (before open), backfilling the last 7 days to catch anything a missed run would otherwise skip.
         The date range picker below re-slices this same full history into a specific window; it doesn't
-        run a separate backtest.
+        run a separate backtest. Gamma Strategy has its own separate report and PDF, built only from Gamma's own trades.
       </TabInfoBanner>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
@@ -370,7 +374,7 @@ export default function DailyBacktestTab() {
           <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
             <IconCalendar size={11} /> Showing: {confirmedStart} to {confirmedEnd}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <SummaryCard
               title="Stock Signals"
               pdfKey="stock"
@@ -395,8 +399,17 @@ export default function DailyBacktestTab() {
               downloadUrl={`${API_BASE}/api/daily-backtest/range/report/?start=${confirmedStart}&end=${confirmedEnd}&index=BANKNIFTY`}
               equityCurve={displayBanknifty.equity_curve}
             />
+            <SummaryCard
+              title="Gamma Strategy"
+              pdfKey="gamma"
+              summary={displayGamma.summary}
+              pdfPath={displayGamma.summary ? 'range-report' : null}
+              downloadUrl={`${API_BASE}/api/daily-backtest/gamma/range-report/?start=${confirmedStart}&end=${confirmedEnd}`}
+              equityCurve={displayGamma.equity_curve}
+              emptyText={gammaEmptyText}
+            />
           </div>
-          <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} />
+          <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} gammaTrades={displayGamma.recent_trades} />
         </>
       ) : neverRun ? (
         <div className="text-center py-12">
@@ -423,12 +436,13 @@ export default function DailyBacktestTab() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <SummaryCard title="Stock Signals" pdfKey="stock" summary={displayStock.summary} pdfPath={status.stock_pdf} equityCurve={displayStock.equity_curve} />
             <SummaryCard title="NIFTY Positional" pdfKey="nifty" summary={displayNifty.summary} pdfPath={status.nifty_pdf} equityCurve={displayNifty.equity_curve} />
             <SummaryCard title="BANKNIFTY Positional" pdfKey="banknifty" summary={displayBanknifty.summary} pdfPath={status.banknifty_pdf} equityCurve={displayBanknifty.equity_curve} />
+            <SummaryCard title="Gamma Strategy" pdfKey="gamma" summary={displayGamma.summary} pdfPath={status.gamma_pdf} downloadUrl={`${API_BASE}/api/daily-backtest/gamma/download/`} equityCurve={displayGamma.equity_curve} emptyText={gammaEmptyText} />
           </div>
-          <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} />
+          <RecentTradesTable stockTrades={displayStock.recent_trades} niftyTrades={displayNifty.recent_trades} bankniftyTrades={displayBanknifty.recent_trades} gammaTrades={displayGamma.recent_trades} />
         </>
       )}
     </div>
