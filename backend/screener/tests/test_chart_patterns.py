@@ -208,6 +208,89 @@ class Output(unittest.TestCase):
                 self.assertLessEqual(cp._overlap(a_, b_), 0.6)
 
 
+class NewReversals(unittest.TestCase):
+    """Oct 3 2026: ugly double tops/bottoms, V-tops/V-bottoms, diamond tops/bottoms (picked from Bulkowski's failure rates)."""
+
+    def test_ugly_double_top_and_bottom(self):
+        s = build([(0, 60), (45, 100), (60, 88), (75, 95.5), (88, 86)], noise=0.5)     # 2nd top clearly lower than the 1st
+        r = cp.detect(*s)
+        p = best(r, "Ugly Double Top")
+        self.assertIsNotNone(p, names(r))
+        self.assertEqual((p["direction"], p["family"], p["status"]), ("Bearish", "Reversal", "Confirmed"))
+        self.assertLess(p["target"], p["trigger"])
+        self.assertGreater(p["stop"], 100)                                   # stop above the HIGHEST of the two tops
+        self.assertIsNone(best(r, "Double Top"))                             # unequal tops are not also reported as a plain double top
+        rb = best(cp.detect(*mirror(*s)), "Ugly Double Bottom")
+        self.assertIsNotNone(rb)
+        self.assertEqual(rb["direction"], "Bullish")
+        self.assertGreater(rb["target"], rb["trigger"])
+        self.assertEqual([m["label"] for m in rb["markers"]], ["Bottom", "Bottom"])
+
+    def test_equal_tops_stay_a_plain_double_top(self):
+        r = cp.detect(*build([(0, 60), (45, 100), (60, 88), (75, 100), (88, 86)], noise=0.5))
+        self.assertIsNotNone(best(r, "Double Top"), names(r))
+        self.assertIsNone(best(r, "Ugly Double Top"))
+
+    def test_v_top_and_v_bottom(self):
+        s = build([(0, 100), (40, 100), (60, 140), (72, 112), (80, 100)], noise=0.6)   # straight rally, equally fast fall
+        p = best(cp.detect(*s), "V-Top")
+        self.assertIsNotNone(p)
+        self.assertEqual((p["direction"], p["family"]), ("Bearish", "Reversal"))
+        peak = max(m["y"] for m in p["markers"])
+        self.assertAlmostEqual(p["trigger"], peak - 0.382 * (peak - 100), delta=3.0)   # 38.2% retrace of the rally
+        self.assertGreater(p["stop"], peak)
+        self.assertLess(p["target"], p["trigger"])
+        rb = best(cp.detect(*mirror(*s)), "V-Bottom")
+        self.assertIsNotNone(rb)
+        self.assertEqual(rb["direction"], "Bullish")
+        self.assertGreater(rb["target"], rb["trigger"])
+
+    def test_slow_roll_over_is_not_a_v_top(self):
+        # same rally, but price stalls at the high for ~25 bars before falling: that is a rounded/range top, not a spike
+        r = cp.detect(*build([(0, 100), (40, 100), (60, 140), (88, 139), (100, 120)], noise=0.6))
+        self.assertIsNone(best(r, "V-Top"), names(r))
+
+    def test_second_top_of_a_double_top_is_not_a_v_top(self):
+        r = cp.detect(*build([(0, 80), (35, 100), (47, 90), (59, 100), (70, 88)]))
+        self.assertIsNone(best(r, "V-Top"), names(r))
+        self.assertIsNotNone(best(r, "Double Top"))
+
+    def test_diamond_top_and_bottom(self):
+        s = build([(0, 60), (25, 100), (38, 92), (50, 106), (62, 84), (74, 104), (84, 90), (92, 100), (98, 94)], noise=0.5)
+        p = best(cp.detect(*s), "Diamond Top")
+        self.assertIsNotNone(p)
+        self.assertEqual((p["direction"], p["family"]), ("Bearish", "Reversal"))
+        self.assertEqual(len([ln for ln in p["lines"] if ln["kind"] == "upper"]), 2)   # two boundary segments per side
+        self.assertEqual(len([ln for ln in p["lines"] if ln["kind"] == "lower"]), 2)
+        self.assertLess(p["target"], p["trigger"] < p["stop"] and p["trigger"])
+        rb = best(cp.detect(*mirror(*s)), "Diamond Bottom")
+        self.assertIsNotNone(rb)
+        self.assertEqual(rb["direction"], "Bullish")
+        self.assertGreater(rb["target"], rb["trigger"])
+
+    def test_a_plain_triangle_is_not_a_diamond(self):
+        r = cp.detect(*build([(0, 60), (25, 100), (38, 90), (50, 99), (62, 92), (74, 98), (84, 94), (92, 97)], noise=0.4))
+        self.assertIsNone(best(r, "Diamond Top"), names(r))
+
+    def test_head_and_shoulders_needs_time_symmetry(self):
+        ok = best(cp.detect(*build([(0, 80), (25, 100), (35, 90), (50, 112), (62, 90), (75, 101), (88, 88)])), "Head & Shoulders")
+        self.assertIsNotNone(ok)
+        # right shoulder 5x further from the head than the left shoulder is: lopsided, no longer reported
+        lopsided = cp.detect(*build([(0, 80), (36, 100), (42, 90), (50, 112), (62, 90), (112, 101), (125, 88)]))
+        self.assertIsNone(best(lopsided, "Head & Shoulders"), names(lopsided))
+
+    def test_mirrored_trendline_patterns_swap_resistance_and_support(self):
+        # an Ascending Triangle has a FLAT CEILING (resistance) and RISING lows (support). The mirror used to hand back
+        # the kinds un-flipped, so the ceiling was drawn/legended as support. Kinds must follow the real prices.
+        s = build([(0, 110), (20, 100), (32, 106), (46, 100), (58, 103), (70, 100), (82, 101.5)], noise=0.25)
+        asc = best(cp.detect(*mirror(*s)), "Ascending Triangle")
+        self.assertIsNotNone(asc)
+        by_kind = {ln["kind"]: ln for ln in asc["lines"]}
+        self.assertLess(abs(by_kind["upper"]["y2"] - by_kind["upper"]["y1"]), 1.0)     # the flat ceiling is the "upper" line
+        self.assertGreater(by_kind["lower"]["y2"], by_kind["lower"]["y1"] + 5)         # the rising lows are the "lower" line
+        self.assertGreater(by_kind["upper"]["y1"], by_kind["lower"]["y1"])
+
+
 class RandomWalkBaseline(unittest.TestCase):
     """
     Calibration, not decoration: on pure random walks (no structure by construction) the

@@ -11,7 +11,8 @@ Structure detection, not prediction. It finds the swing pivots of a price
 series (ATR-scaled zigzag), then looks for the geometric shapes textbooks
 define on those pivots: double/triple tops and bottoms, head & shoulders,
 triangles, wedges, rectangles, channels, flags, pennants, rounded tops and
-bottoms, cup & handle. Every pattern carries the exact lines it was fitted
+bottoms, cup & handle -- and (Oct 3 2026) three more reversal families picked from
+Bulkowski's published failure rates: ugly double tops/bottoms, V-tops/V-bottoms, diamond tops/bottoms. Every pattern carries the exact lines it was fitted
 with so the UI can draw them, a shape-quality score (how cleanly the price
 fits the definition), and trigger / target / stop levels computed from the
 pattern's own geometry (measured moves).
@@ -49,6 +50,7 @@ LINE_MIN_SCORE = 70      # trendline shapes (triangles, wedges, channels, rectan
                          # 3-4 pivots per line there are many ways to fit a line, so lucky fits are common in noise
 BREAK_ATR = 0.15         # close beyond trigger by this many ATRs = decisive
 LABELS = ((88, "Textbook"), (75, "Strong"), (60, "Fair"))
+HS_MIN_TIME_SYM = 0.33   # Head & Shoulders: the shorter shoulder-to-head distance must be at least this share of the longer one
 RELAXED = (50, 58)       # (min score, line-pattern min score) when a user explicitly asks for weaker candidates
 _THRESH = contextvars.ContextVar("chart_pattern_thresholds", default=None)
 
@@ -69,12 +71,15 @@ _MIRROR = {
     "Descending Triangle": "Ascending Triangle", "Bear Flag": "Bull Flag",
     "Bear Pennant": "Bull Pennant", "Rounded Top": "Rounded Bottom",
     "Symmetrical Triangle": "Symmetrical Triangle", "Ascending Channel": "Descending Channel",
+    "Ugly Double Top": "Ugly Double Bottom", "V-Top": "V-Bottom", "Diamond Top": "Diamond Bottom",
 }
 LINE_NAMES = {"Descending Triangle", "Ascending Triangle", "Symmetrical Triangle", "Rising Wedge", "Falling Wedge",
-              "Rectangle", "Ascending Channel", "Descending Channel"}
+              "Rectangle", "Ascending Channel", "Descending Channel", "Diamond Top", "Diamond Bottom", "Ugly Double Top", "Ugly Double Bottom"}
 _FAMILY = {
     "Double Top": "Reversal", "Double Bottom": "Reversal", "Triple Top": "Reversal", "Triple Bottom": "Reversal",
     "Head & Shoulders": "Reversal", "Inverse Head & Shoulders": "Reversal",
+    "Ugly Double Top": "Reversal", "Ugly Double Bottom": "Reversal", "V-Top": "Reversal", "V-Bottom": "Reversal",
+    "Diamond Top": "Reversal", "Diamond Bottom": "Reversal",
     "Rising Wedge": "Reversal", "Falling Wedge": "Reversal",
     "Descending Triangle": "Continuation", "Ascending Triangle": "Continuation", "Symmetrical Triangle": "Continuation",
     "Bear Flag": "Continuation", "Bull Flag": "Continuation", "Bear Pennant": "Continuation", "Bull Pennant": "Continuation",
@@ -315,13 +320,19 @@ def _head_shoulders(P, h, l, c, v, a, n, vol_avg):
             continue
         if q[4]["i"] - q[0]["i"] > 160 or n - 1 - q[4]["i"] > 30 or _prior_trend(c, q[0]["i"], a) != "up":
             continue
+        # time symmetry (Bulkowski: shoulders should sit "nearly the same distance from the head"; symmetric
+        # patterns out-perform lopsided ones). A shoulder 3x further from the head than the other is not a H&S.
+        d_left, d_right = q[2]["i"] - q[0]["i"], q[4]["i"] - q[2]["i"]
+        tsym = min(d_left, d_right) / max(d_left, d_right, 1)
+        if tsym < HS_MIN_TIME_SYM:
+            continue
         m, b, _ = _fit([(n1["i"], n1["p"]), (n2["i"], n2["p"])])
         neckline = lambda j, m=m, b=b: m * j + b
         head_i = q[2]["i"]
         h_above = head - neckline(head_i)
         sym = 1 - _clamp01(abs(ls_ - rs) / (0.35 * height))
         neck_flat = 1 - _clamp01(abs(n1["p"] - n2["p"]) / (0.4 * height))
-        score = 100 * (0.4 * sym + 0.25 * neck_flat + 0.35 * _clamp01(height / (5 * a)))
+        score = 100 * (0.35 * sym + 0.2 * neck_flat + 0.3 * _clamp01(height / (5 * a)) + 0.15 * tsym)
         out.append(_mk("Head & Shoulders", "bearish", score, a, c, q[4]["i"], q[0]["i"], neckline, lambda j, rs=rs: rs + 0.25 * a,
                        lambda t, hh=h_above: t - hh,
                        [{"kind": "trigger", "x1": n1["i"], "y1": neckline(n1["i"]), "x2": n - 1, "y2": neckline(n - 1)}],
@@ -618,7 +629,178 @@ def _cup_handle(P, h, l, c, v, a, n, vol_avg):
     return out
 
 
-_BEAR_DETECTORS = (_double_top, _triple_top, _head_shoulders, _flag, _rounded_top)
+
+def _ugly_double_top(P, h, l, c, v, a, n, vol_avg):
+    """
+    Two tops where the second is clearly LOWER than the first (mirror: "ugly double bottom", the second bottom
+    higher than the first). Plain Double Top needs near-equal peaks, so this fills the gap between it and a
+    Head & Shoulders. Bulkowski (thepatternsite.com/udb.html): failure 8%, average move 34% -- same size of move as
+    all double bottoms, a slightly higher failure rate. Confirms on a close beyond the dip between the tops.
+    """
+    out = []
+    for k in range(len(P) - 2):
+        p0, p1, p2 = P[k], P[k + 1], P[k + 2]
+        if not (p0["t"] == "H" and p1["t"] == "L" and p2["t"] == "H"):
+            continue
+        h1, h2, neck = p0["p"], p2["p"], p1["p"]
+        tol = _peak_tol(a, (h1 + h2) / 2)
+        depth = h1 - neck                      # the measured move: highest top down to the dip
+        gap = h1 - h2
+        sep = p2["i"] - p0["i"]
+        if not (tol < gap <= 0.4 * depth) or depth < 5 * a or h2 - neck < 2.5 * a:
+            continue
+        # "price must have something to reverse" (Bulkowski): demand a real advance into the first top, not just 2.5 ATR
+        if not (15 <= sep <= 120) or n - 1 - p2["i"] > 30 or _prior_trend(c, p0["i"], a, 40, 4.0) != "up":
+            continue
+        if min(c[p0["i"]:p2["i"] + 1]) < neck - 0.3 * a:           # neckline must hold between the tops
+            continue
+        asym_q = 1 - _clamp01((gap - tol) / max(0.4 * depth - tol, 0.25 * a))   # closer to equal tops = cleaner
+        score = 100 * (0.40 * _clamp01(depth / (8 * a)) + 0.35 * asym_q + 0.25 * _clamp01(sep / 30))
+        if score < _line_min():          # unequal tops are everywhere in noise -- hold them to the stricter trendline floor
+            continue
+        top = h1
+        out.append(_mk("Ugly Double Top", "bearish", score, a, c, p2["i"], p0["i"], lambda j, neck=neck: neck,
+                       lambda j, top=top: top + 0.25 * a, lambda t, depth=depth: t - depth,
+                       [{"kind": "trigger", "x1": p0["i"], "y1": neck, "x2": n - 1, "y2": neck},
+                        {"kind": "resistance", "x1": p0["i"], "y1": h1, "x2": p2["i"], "y2": h2}],
+                       [{"x": p0["i"], "y": h1, "label": "Top"}, {"x": p2["i"], "y": h2, "label": "Top"}], v, vol_avg))
+    return out
+
+
+def _v_top(P, h, l, c, v, a, n, vol_avg):
+    """
+    Spike reversal: a near-straight-line rally that turns just as fast (mirror: V-bottom). Bulkowski
+    (thepatternsite.com/vBottoms.html): failure 19%, average move 40%, and he enters on a 38.2% retrace of the
+    left side, because waiting for a "neckline" that does not exist would mean missing the move. Same here:
+    trigger = 38.2% retrace of the rally; target = the full retrace back to where the rally began (this project's
+    choice -- his page gives the entry rule, not a target); stop = just above the peak. No pause at the peak is allowed -- a slow roll-over is not a V.
+    """
+    out = []
+    for k, p1 in enumerate(P):
+        if p1["t"] != "H" or (k + 1 < len(P) and P[k + 1]["t"] != "L"):
+            continue
+        e_i, peak = p1["i"], p1["p"]
+        if n - 1 - e_i > 30:
+            continue
+        lo_from = max(0, e_i - 30)
+        s_i = lo_from + min(range(e_i - lo_from), key=lambda j: l[lo_from + j], default=0)   # where the final rally began
+        leg, up_bars = peak - l[s_i], e_i - s_i
+        if leg < 7 * a or not (4 <= up_bars <= 30) or leg / up_bars < 0.5 * a:
+            continue
+        path = sum(abs(c[j] - c[j - 1]) for j in range(s_i + 1, e_i + 1))
+        eff = (c[e_i] - c[s_i]) / path if path > 0 else 0.0           # 1.0 = a perfectly straight rally
+        if eff < 0.55:
+            continue
+        # a V-top is a spike to a FRESH extreme. A sharp rally that only reaches the level of an earlier top is the
+        # second top of a double/triple top, or a shoulder -- those have their own patterns, so leave them alone.
+        prior_hi = max(h[max(0, s_i - 60):s_i], default=peak)
+        if peak < prior_hi + 1.0 * a or c[-1] > peak - 1.0 * a:       # ...and price must still be turning down from it
+            continue
+        trig_lvl = peak - 0.382 * leg
+        # no pause: the fall to the trigger has to be about as quick as the rally was
+        fall = next((j - e_i for j in range(e_i + 1, n) if c[j] <= trig_lvl), None)
+        if (fall is not None and fall > max(4, up_bars)) or (fall is None and n - 1 - e_i > max(4, up_bars)):
+            continue
+        size_q = _clamp01(leg / (10 * a))
+        straight_q = _clamp01((eff - 0.55) / 0.30)
+        speed_q = _clamp01((leg / up_bars) / (1.0 * a))
+        score = 100 * (0.35 * size_q + 0.35 * straight_q + 0.30 * speed_q)
+        out.append(_mk("V-Top", "bearish", score, a, c, e_i, s_i, lambda j, t=trig_lvl: t,
+                       lambda j, pk=peak: pk + 0.25 * a, lambda t, lg=leg: t - 0.618 * lg,
+                       [{"kind": "pole", "x1": s_i, "y1": l[s_i], "x2": e_i, "y2": peak},
+                        {"kind": "trigger", "x1": e_i, "y1": trig_lvl, "x2": n - 1, "y2": trig_lvl}],
+                       [{"x": e_i, "y": peak, "label": "Top"}], v, vol_avg))
+    return out
+
+
+def _interp(pts, x):
+    """Piece-wise linear value at bar x through [(bar, price)] sorted by bar (flat beyond the ends)."""
+    if x <= pts[0][0]:
+        return pts[0][1]
+    for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+        if x <= x1:
+            return y0 + (y1 - y0) * (x - x0) / (x1 - x0) if x1 > x0 else y1
+    return pts[-1][1]
+
+
+def _diamond_top(P, h, l, c, v, a, n, vol_avg):
+    """
+    Broadening, then converging: highs rise to a peak then fall, lows fall to a trough then rise, so the swings
+    trace a diamond (mirror: diamond bottom). Bulkowski (thepatternsite.com/diamondb.html, diamondt.html):
+    diamond bottoms fail 13% of the time with a 39% average rise on up-breaks; diamond tops fail 15% of the time with
+    a 17% average decline on down-breaks. Rare but low-failure. Trigger = the converging lower-right line; target =
+    the diamond's widest height projected from the break (the standard measured move -- this project's choice of
+    rule, not a figure taken from his page).
+    """
+    out = []
+    if len(P) < 6:
+        return out
+    seen = set()
+    for en in (len(P), len(P) - 1):
+        for st in range(max(0, en - 11), en - 5):
+            sub = P[st:en]
+            Hs = [(p["i"], p["p"]) for p in sub if p["t"] == "H"]
+            Ls = [(p["i"], p["p"]) for p in sub if p["t"] == "L"]
+            if len(Hs) < 3 or len(Ls) < 3:
+                continue
+            i0, i1 = sub[0]["i"], sub[-1]["i"]
+            span = i1 - i0
+            if not (20 <= span <= 150) or n - 1 - i1 > 30:
+                continue
+            mh = max(range(len(Hs)), key=lambda q: Hs[q][1])
+            ml = min(range(len(Ls)), key=lambda q: Ls[q][1])
+            if not (1 <= mh <= len(Hs) - 2 and 1 <= ml <= len(Ls) - 2):
+                continue
+            slack = 0.25 * a
+            if any(Hs[q + 1][1] < Hs[q][1] - slack for q in range(mh)) or any(Hs[q + 1][1] > Hs[q][1] + slack for q in range(mh, len(Hs) - 1)):
+                continue
+            if any(Ls[q + 1][1] > Ls[q][1] + slack for q in range(ml)) or any(Ls[q + 1][1] < Ls[q][1] - slack for q in range(ml, len(Ls) - 1)):
+                continue
+            W = Hs[mh][1] - Ls[ml][1]                                  # widest height
+            if W < 4 * a:
+                continue
+            centre = (Hs[mh][0] + Ls[ml][0]) / 2
+            if abs(Hs[mh][0] - Ls[ml][0]) > 0.3 * span or not (i0 + 0.25 * span <= centre <= i0 + 0.75 * span):
+                continue
+            w_start, w_end = Hs[0][1] - Ls[0][1], Hs[-1][1] - Ls[-1][1]
+            if w_start <= 0 or w_end <= 0 or w_start > 0.7 * W or w_end > 0.7 * W:
+                continue
+            if _prior_trend(c, i0, a) != "up":
+                continue
+            up_pts, lo_pts = sorted(Hs), sorted(Ls)
+            frac_out = _frac_outside(c, i0, min(n - 1, i1), lambda j: _interp(up_pts, j), lambda j: _interp(lo_pts, j), 0.3 * a)
+            if frac_out > 0.12:
+                continue
+            tl, tr = centre - i0, i1 - centre
+            balance_q = min(tl, tr) / max(tl, tr, 1)
+            cont_q = 1 - _clamp01(frac_out / 0.12)
+            size_q = _clamp01(W / (6 * a))
+            pivots_q = _clamp01((len(Hs) + len(Ls) - 5) / 3)
+            score = 100 * (0.30 * size_q + 0.25 * balance_q + 0.25 * cont_q + 0.20 * pivots_q)
+            if score < _line_min():
+                continue
+            key = (i0 // 5, i1 // 5)
+            if key in seen:
+                continue
+            seen.add(key)
+            mu_r, bu_r, _ = _fit(Hs[mh:])                              # converging right-hand boundary lines
+            ml_r, bl_r, _ = _fit(Ls[ml:])
+            upper_r = lambda j, m=mu_r, b=bu_r: m * j + b
+            lower_r = lambda j, m=ml_r, b=bl_r: m * j + b
+            lines = [{"kind": "upper", "x1": Hs[0][0], "y1": Hs[0][1], "x2": Hs[mh][0], "y2": Hs[mh][1]},
+                     {"kind": "upper", "x1": Hs[mh][0], "y1": upper_r(Hs[mh][0]), "x2": n - 1, "y2": upper_r(n - 1)},
+                     {"kind": "lower", "x1": Ls[0][0], "y1": Ls[0][1], "x2": Ls[ml][0], "y2": Ls[ml][1]},
+                     {"kind": "lower", "x1": Ls[ml][0], "y1": lower_r(Ls[ml][0]), "x2": n - 1, "y2": lower_r(n - 1)}]
+            markers = [{"x": x, "y": y, "label": str(q + 1), "side": "upper"} for q, (x, y) in enumerate(Hs)]
+            markers += [{"x": x, "y": y, "label": str(q + 1), "side": "lower"} for q, (x, y) in enumerate(Ls)]
+            out.append(_mk("Diamond Top", "bearish", score, a, c, i1, i0, lower_r,
+                           lambda j, up=upper_r, lo=lower_r: lo(j) + max(1.0 * a, up(j) - lo(j) + 0.25 * a),
+                           lambda t, w=W: t - w, lines, markers, v, vol_avg,
+                           {"touches": {"upper": len(Hs), "lower": len(Ls)}}))
+    return out
+
+
+_BEAR_DETECTORS = (_double_top, _triple_top, _head_shoulders, _ugly_double_top, _v_top, _diamond_top, _flag, _rounded_top)
 
 
 def _invert(o, h, l, c):
@@ -634,8 +816,10 @@ def _mirror_pattern(p):
     for k in ("trigger", "stop", "target"):
         if q.get(k) is not None:
             q[k] = round(-q[k], 2)
-    q["lines"] = [{**ln, "y1": -ln["y1"], "y2": -ln["y2"]} for ln in p["lines"]]
     flip = {"upper": "lower", "lower": "upper"}
+    # the highs-line of the inverted series is the real LOWS-line, so its kind flips too (otherwise every bullish
+    # trendline pattern drew its support in the resistance colour and the legend counted touches on the wrong line)
+    q["lines"] = [{**ln, "kind": flip.get(ln["kind"], ln["kind"]), "y1": -ln["y1"], "y2": -ln["y2"]} for ln in p["lines"]]
     q["markers"] = [{**m, "y": -m["y"], "label": {"Top": "Bottom"}.get(m["label"], m["label"]),
                      **({"side": flip[m["side"]]} if m.get("side") else {})} for m in p["markers"]]
     q["prior_trend"] = {"up": "down", "down": "up", "flat": "flat"}[p["prior_trend"]]
