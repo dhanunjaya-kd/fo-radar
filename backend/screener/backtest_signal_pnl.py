@@ -1825,7 +1825,7 @@ def _pos_neg_hex(value):
     return "#F3F4F6", "#374151"
 
 
-def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE, excluded_count=0, rule_resolved_metrics=None, is_index=False, index_name=None):
+def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRADE, excluded_count=0, rule_resolved_metrics=None, is_index=False, index_name=None, report_title=None):
     """
     Builds the full PDF report -- styled toward the TradeTron reference
     he shared: smooth gradient-filled equity curve, a red underwater/
@@ -1870,6 +1870,10 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
     Monthly/Daily P&L, Trade Log -- is equally real for both trade
     types and stays identical either way. Default is_index=False is
     byte-for-byte the same code path as before this change.
+
+    Oct 3 2026: report_title -- optional override for the banner text, added so the Gamma Blast strategy's own
+    report (backtest_gamma.py) does not read "Positional Backtest" (it trades intraday/swing options, not positional
+    futures). Default None keeps every existing caller's title exactly as before.
     """
     import tempfile
     from reportlab.lib.pagesizes import A4
@@ -1930,7 +1934,7 @@ def write_pdf_report(trades, metrics, capital_per_trade=DEFAULT_CAPITAL_PER_TRAD
         # own docstring), which an index positional report isn't
         # governed by at all; showing it there would misleadingly imply
         # a rule version that doesn't apply to this trade type.
-        report_title = f"F&O Sniper -- {index_name or 'Index'} Positional Backtest" if is_index else "F&O Sniper -- Signal P&L Backtest"
+        report_title = report_title or (f"F&O Sniper -- {index_name or 'Index'} Positional Backtest" if is_index else "F&O Sniper -- Signal P&L Backtest")
         rule_tag = "" if is_index else f"  |  rules {STRATEGY_RULE_VERSION}"
         header_tbl = Table(
             [[Paragraph(_esc(report_title), h1)],
