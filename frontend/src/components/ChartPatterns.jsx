@@ -40,6 +40,12 @@ const DESCRIPTIONS = {
   'Rounded Top': 'A gradual, symmetric rise and fall. A close below the rim (the lower of the two ends) completes it.',
   'Rounded Bottom': 'A gradual, symmetric fall and rise. A close above the rim (the higher of the two ends) completes it.',
   'Cup & Handle': 'A rounded bottom whose right rim stalls in a small pullback (the handle). A close above the rim completes it; the target is the cup depth.',
+  'Ugly Double Top': 'Two peaks where the second is clearly lower than the first, with a dip between them. A close below the dip completes it; the target is the dip-to-higher-peak height projected down.',
+  'Ugly Double Bottom': 'Two lows where the second is clearly higher than the first, with a bounce between them. A close above the bounce completes it; the target is the lower-low-to-bounce height projected up.',
+  'V-Top': 'A near-straight-line rally that turns down just as fast, with no pause at the peak. There is no neckline: it counts once price gives back 38.2% of the rally, and the target is the full give-back to where the rally began.',
+  'V-Bottom': 'A near-straight-line drop that turns up just as fast, with no pause at the low. There is no neckline: it counts once price recovers 38.2% of the drop, and the target is the full recovery to where the drop began.',
+  'Diamond Top': 'After a rise, swings first widen (higher highs, lower lows) and then narrow (lower highs, higher lows), tracing a diamond. A close below the rising lower-right line completes it; the target is the diamond’s widest height projected down.',
+  'Diamond Bottom': 'After a fall, swings first widen (lower lows, higher highs) and then narrow (higher lows, lower highs), tracing a diamond. A close above the falling upper-right line completes it; the target is the diamond’s widest height projected up.',
 };
 
 const fmtPrice = (p) => (p == null ? '—' : `₹${p.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`);
@@ -127,11 +133,16 @@ const STOP_RULE = {
   'Bull Pennant': 'below the pennant + 0.25 ATR', 'Bear Pennant': 'above the pennant + 0.25 ATR',
   'Rounded Top': 'above the apex + 0.25 ATR', 'Rounded Bottom': 'below the apex − 0.25 ATR',
   'Cup & Handle': 'below the handle low − 0.25 ATR',
+  'Ugly Double Top': 'above the higher top + 0.25 ATR', 'Ugly Double Bottom': 'below the lower bottom − 0.25 ATR',
+  'V-Top': 'above the peak + 0.25 ATR', 'V-Bottom': 'below the trough − 0.25 ATR',
+  'Diamond Top': 'just beyond the opposite converging line', 'Diamond Bottom': 'just beyond the opposite converging line',
 };
 const STOP_RULE_DEFAULT = 'beyond the far trendline, at least 1 ATR (and 35% of the pattern width) from the trigger';
 const TARGET_RULE = {
   'Bull Flag': 'pole height', 'Bear Flag': 'pole height', 'Bull Pennant': 'pole height', 'Bear Pennant': 'pole height',
   'Cup & Handle': 'cup depth', 'Rounded Top': 'curve height', 'Rounded Bottom': 'curve height',
+  'V-Top': 'full give-back of the rally', 'V-Bottom': 'full recovery of the drop',
+  'Diamond Top': 'diamond height', 'Diamond Bottom': 'diamond height',
 };
 
 function familyBlurb(p) {
