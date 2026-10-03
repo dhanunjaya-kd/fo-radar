@@ -26,6 +26,7 @@ from screener.views import (
     GammaStrategyView,
     GammaStrategyExcelExportView, GammaStrategyHistoryDatesView, GammaStrategyHistoryView,
 )
+from screener.gamma_backtest_views import GammaBacktestDownloadView, GammaBacktestRangeReportView
 from screener.next_day_watchlist_history import (
     NextDayWatchlistDatesView, NextDayWatchlistHistoryView, NextDayWatchlistExportView,
 )
@@ -86,6 +87,8 @@ urlpatterns = [
     path('api/daily-backtest/download/<str:report_type>/', DailyBacktestReportDownloadView.as_view(), name='daily_backtest_download'),
     path('api/daily-backtest/range/', DailyBacktestRangeView.as_view(), name='daily_backtest_range'),
     path('api/daily-backtest/range/report/', DailyBacktestRangeReportView.as_view(), name='daily_backtest_range_report'),
+    path('api/daily-backtest/gamma/download/', GammaBacktestDownloadView.as_view(), name='daily_backtest_gamma_download'),
+    path('api/daily-backtest/gamma/range-report/', GammaBacktestRangeReportView.as_view(), name='daily_backtest_gamma_range_report'),
     path('api/52-week-range/<str:symbol>/', FiftyTwoWeekRangeView.as_view(), name='fifty_two_week_range'),
     path('api/broader-indices/', BroaderIndicesView.as_view(), name='broader_indices'),
     path('api/sector-stocks/<str:sector>/', SectorStocksView.as_view(), name='sector_stocks'),
